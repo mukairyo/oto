@@ -651,7 +651,9 @@ const PAGE_RENDER = {
         row('Ctrl+Tab switches to', null, seg([['order', 'Next in sidebar'], ['recent', 'Last used tab']], st.tabCycle, (v) => setPref('tabCycle', v)))),
       section('Glance & split view',
         row('Open links in Glance', 'Glance shows a link in a floating window over the page — open it as a tab or in split view from there. You can always right-click a link → Open link in Glance.',
-          seg([['off', 'Never — normal clicks'], ['alt', 'Alt + click'], ['click', 'Every link click']], glanceMode(), (v) => { setPref('glanceMode', v); applyGlanceMode(); })),
+          seg([['off', 'Never'], ['alt', 'Alt + click'], ['external', 'Links to other sites'], ['click', 'Every link']], glanceMode(), (v) => { setPref('glanceMode', v); applyGlanceMode(); })),
+        h('p', { class: 'set-note' }, glanceMode() === 'external' ? 'Links within the same site — like another YouTube video — open normally. Only links that take you to a different site open in Glance.'
+          : glanceMode() === 'click' ? 'Every link you click opens in Glance, even ones on the same site.' : glanceMode() === 'alt' ? 'Hold Alt to see which link will open, then click it.' : 'Clicking a link just opens it.'),
         row('Split view', 'Two tabs side by side. Right-click a tab → Split with current tab, or press Ctrl+Shift+S.', h('button', { class: 'btn', onclick: () => { closeSettings(); toggleSplit(); } }, splitShowing() ? 'Close split view' : 'Split now'))),
     ];
   },

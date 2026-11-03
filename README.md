@@ -34,7 +34,7 @@ After that, new versions download in the background and install when you restart
 - **Routing**: send sites to the space they belong in — links to them open there automatically.
 - **Oto Card**: your own card in three designs — a cyberpunk **Keycard**, the **Classic** card or a holographic **Shiny** card — with name, title, artwork, colours, styles, font, grain and stats. The preview tilts and shines under your mouse. Shuffle it, save it as an image or copy it.
 - **Split view** (`Ctrl+Shift+S`): two tabs side by side — drag the divider, double-click to even it out, click either half to work in it. Right-click a tab → *Split with current tab*.
-- **Glance**: right-click any link → *Open link in Glance* to preview it in a floating window; open it as a tab or in split view from there. Settings → Tabs can also make Alt + click or every link click open Glance.
+- **Glance**: right-click any link → *Open link in Glance* to preview it in a floating window; open it as a tab or in split view from there. Settings → Tabs can also open Glance with Alt + click, for links to other sites (like Arc's Peek), or for every link.
 - **Media controls** in the sidebar for whatever is playing — play/pause, mute, picture-in-picture (`Ctrl+Shift+P`).
 - **Report a problem** (Settings → About): saves a small log of what the sidebar, top bar and mouse did, to send when something misbehaves.
 - **Zen layout** (default): back/forward, reload, the address and a ··· menu live in the sidebar; a slim top strip holds the bookmarks bar, extension buttons and Oto's own window buttons. Switch to a classic top toolbar in Settings → Appearance.

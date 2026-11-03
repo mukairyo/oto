@@ -3,6 +3,14 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 0.9.7 — 2026-11-04
+
+**New**
+- **Glance for links to other sites** (Settings → Tabs → Open links in Glance → *Links to other sites*): like Arc's Peek, clicking a link that leaves the site opens it in Glance, while links within the same site open normally.
+
+**Fixed**
+- With *Every link click*, each new YouTube video opened in a Glance window. Anyone using that setting is moved to *Links to other sites*, so videos on the same site open normally again.
+
 ## 0.9.6 — 2026-11-04
 
 **Changed**

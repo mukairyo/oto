@@ -135,7 +135,9 @@ function initSplitBar() {
 // Injected into pages. What opens Glance depends on Settings → Tabs → Glance (window.__otoGlanceMode):
 //   'off'   — nothing: clicks are normal clicks (default). Right-click a link → Open link in Glance.
 //   'alt'   — Alt + click on a real link; holding Alt outlines the link that would open.
-//   'click' — a plain click on a real link opens it in Glance.
+//   'external' — a plain click on a link to a *different* site opens it in Glance (like Arc's Peek);
+//                links within the same site (e.g. another YouTube video) open normally.
+//   'click' — a plain click on any real link opens it in Glance.
 // Only real links count — not video players, ad overlays or whole areas wrapped in a link.
 const PAGE_HELPER = `(() => {
   if (window.__otoHelper) return; window.__otoHelper = 1;
@@ -174,22 +176,26 @@ const PAGE_HELPER = `(() => {
     if (e.button !== 0 || e.ctrlKey || e.shiftKey || e.metaKey) return false;
     const m = mode();
     if (m === 'alt') return e.altKey && armed();
-    if (m === 'click') return !e.altKey;
+    if (m === 'click' || m === 'external') return !e.altKey;
     return false;
   };
+  // "site" = the last two parts of the host name (www.youtube.com and m.youtube.com are both youtube.com)
+  const site = (h) => { const p = String(h || '').toLowerCase().replace(/^www\./, '').split('.'); return p.length > 2 && p[p.length - 2].length <= 3 && p[p.length - 1].length === 2 ? p.slice(-3).join('.') : p.slice(-2).join('.'); };
+  const otherSite = (a) => { try { return site(new URL(a.href).hostname) !== site(location.hostname); } catch (_) { return false; } };
   addEventListener('mousedown', (e) => { downLink = wants(e) ? linkAt(e.target) : null; }, true);
   addEventListener('click', (e) => {
     if (!wants(e)) { downLink = null; return; }
     const a = linkAt(e.target);
     // press and release must both be on the same real link, by a real person
     if (!a || a !== downLink || (!e.isTrusted && !window.__otoTest)) { downLink = null; return; }
+    if (mode() === 'external' && !otherSite(a)) { downLink = null; return; }
     downLink = null;
     e.preventDefault(); e.stopImmediatePropagation();
     setMark(null);
     console.log('__oto_glance__' + a.href);
   }, true);
 })();`;
-const glanceMode = () => (['off', 'alt', 'click'].includes(S.settings.glanceMode) ? S.settings.glanceMode : 'off');
+const glanceMode = () => (['off', 'alt', 'external', 'click'].includes(S.settings.glanceMode) ? S.settings.glanceMode : 'off');
 // Apply a changed Glance setting to every open page right away.
 function applyGlanceMode() {
   const m = glanceMode();
@@ -363,7 +369,7 @@ function extrasBindView(tab, v) {
   });
   el.addEventListener('console-message', (e) => {
     const m = e.message || '';
-    if (m.startsWith('__oto_glance__') && glanceMode() !== 'off') openGlance(m.slice(14));
+    if (m.startsWith('__oto_glance__') && glanceMode() !== 'off') { diag('glance', `from click (${glanceMode()})`); openGlance(m.slice(14)); }
   });
   // Clicking into the other half of a split makes it the active tab.
   el.addEventListener('focus', () => {
@@ -378,7 +384,7 @@ function initExtras() {
   initSplitBar();
   const foot = document.querySelector('#sidebar .sb-foot');
   if (foot && !$('#mediaCard')) foot.before(h('div', { id: 'mediaCard', class: 'media-card', hidden: true }));
-  oto.on('glance', (url) => openGlance(url));
+  oto.on('glance', (url) => { diag('glance', 'from right-click menu'); openGlance(url); });
   oto.on('update', onUpdate);
   oto.on('page-mouse', () => { diagMouseCount++; });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && glance) { e.stopPropagation(); closeGlance(); } }, true);
