@@ -51,6 +51,9 @@ function onDownload(d) {
     dlList().unshift(rec);
     if (S.downloads.length > 150) S.downloads.length = 150;
     dlCard.dismissed = false;
+    dlBtn.recentAt = Date.now();
+    renderDlButton();
+    requestAnimationFrame(() => dlFly(d.cursor));
   }
   if (['progress', 'paused', 'started'].includes(d.state)) dlSpeed(rec, d);
   const { id, ...rest } = d;
@@ -61,9 +64,12 @@ function onDownload(d) {
     delete rec._t; delete rec._r;
     if (d.state === 'interrupted') toast(`Download failed — ${d.name}`, { icon: 'download' });
     dlCard.doneAt = Date.now();
+    dlBtn.recentAt = Date.now();
+    dlButtonDone(d.state === 'completed');
     save();
   }
   renderDlCard();
+  renderDlButton();
   if (LIB.open && LIB.page === 'downloads') renderLibrary();
 }
 function dlActive() { return dlList().filter((r) => DL_LIVE.has(r.id) && ['started', 'progress', 'paused'].includes(r.state)); }
@@ -110,6 +116,103 @@ function renderDlCard() {
     live ? h('div', { class: 'dl-bar' }, h('span', { style: `width:${r.total ? pct : 30}%` })) : null].filter(Boolean));
   if (live && !r.total) card.classList.add('indeterminate');
   if (!live) dlCard.timer = setTimeout(() => { if (!card.matches(':hover')) renderDlCard(); else dlCard.timer = setTimeout(renderDlCard, 4000); }, 15200 - (Date.now() - (r.doneAt || 0)));
+}
+
+// ================================================================ downloads button + "fly" animation
+// The button lives at the bottom of the sidebar while downloads are running or recent: a tray with an
+// arrow inside a progress ring. When a download starts, a glowing orb arcs from the cursor into it.
+const dlBtn = { recentAt: 0, doneT: 0, hideT: 0 };
+const DL_BTN_SVG = `<svg class="dlb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+  <circle class="dlb-track" cx="12" cy="12" r="10.3"/>
+  <circle class="dlb-ring" cx="12" cy="12" r="10.3" pathLength="100" transform="rotate(-90 12 12)"/>
+  <g class="dlb-arrow"><path d="M12 6.2v7.6M8.9 10.9l3.1 3.1 3.1-3.1"/></g>
+  <path class="dlb-tray" d="M7.2 14.6v1.5a1.9 1.9 0 0 0 1.9 1.9h5.8a1.9 1.9 0 0 0 1.9-1.9v-1.5"/>
+  <path class="dlb-check" pathLength="1" d="M8.2 12.3l2.6 2.6 5-5.4"/>
+</svg><span class="dlb-badge"></span>`;
+function renderDlButton() {
+  const b = $('#btnDownloads');
+  if (!b) return;
+  const active = dlActive();
+  const recent = Date.now() - (dlBtn.recentAt || 0) < 10 * 60 * 1000;
+  b.hidden = !active.length && !recent && !b.classList.contains('done');
+  b.classList.toggle('active', active.length > 0);
+  const tot = active.reduce((a, r) => a + (r.total || 0), 0);
+  const got = active.reduce((a, r) => a + (r.received || 0), 0);
+  b.classList.toggle('indet', active.length > 0 && !tot);
+  const ring = b.querySelector('.dlb-ring');
+  if (ring) ring.style.strokeDasharray = `${active.length ? (tot ? Math.max(3, (got / tot) * 100) : 26) : 0} 100`;
+  const badge = b.querySelector('.dlb-badge');
+  if (badge) { badge.textContent = active.length > 1 ? String(active.length) : ''; badge.hidden = active.length < 2; }
+  b.title = active.length ? `${active.length} download${active.length > 1 ? 's' : ''} — ${dlSub(active[0])}` : 'Downloads (Ctrl+J)';
+  clearTimeout(dlBtn.hideT);
+  if (!active.length && recent) dlBtn.hideT = setTimeout(renderDlButton, 10 * 60 * 1000 - (Date.now() - dlBtn.recentAt) + 50);
+}
+function dlButtonDone(ok) {
+  const b = $('#btnDownloads');
+  if (!b) return;
+  b.classList.remove('done', 'failed');
+  void b.offsetWidth;
+  b.classList.add(ok ? 'done' : 'failed');
+  clearTimeout(dlBtn.doneT);
+  dlBtn.doneT = setTimeout(() => { b.classList.remove('done', 'failed'); renderDlButton(); }, 2200);
+}
+function dlTarget() {
+  const b = $('#btnDownloads');
+  const sb = $('#sidebar').getBoundingClientRect();
+  if (b && !b.hidden) {
+    const r = b.getBoundingClientRect();
+    if (r.width > 0 && r.left >= sb.left - 1 && r.right <= sb.right + 1 && r.bottom <= innerHeight) return { x: r.left + r.width / 2, y: r.top + r.height / 2, el: b };
+  }
+  // Sidebar hidden / collapsed: land in the bottom corner on the sidebar's side.
+  return { x: S.settings.sidebarSide === 'right' ? innerWidth - 26 : 26, y: innerHeight - 26, el: null };
+}
+function dlRipple(x, y, cls = '') {
+  const r = h('div', { class: `dl-ripple ${cls}`, style: `left:${x}px;top:${y}px` });
+  document.body.append(r);
+  r.addEventListener('animationend', () => r.remove());
+}
+function dlFly(from) {
+  const tgt = dlTarget();
+  const catchIt = () => {
+    dlRipple(tgt.x, tgt.y);
+    if (tgt.el) { tgt.el.classList.remove('catch'); void tgt.el.offsetWidth; tgt.el.classList.add('catch'); setTimeout(() => tgt.el.classList.remove('catch'), 700); }
+  };
+  if (!animOn()) { catchIt(); return; }
+  const c = $('#content').getBoundingClientRect();
+  let sx = from && from.x >= 0 && from.y >= 0 && from.x <= innerWidth && from.y <= innerHeight ? from.x : c.left + c.width / 2;
+  let sy = from && from.x >= 0 && from.y >= 0 && from.x <= innerWidth && from.y <= innerHeight ? from.y : c.top + c.height / 2;
+  const tx = tgt.x, ty = tgt.y;
+  // A lifted arc: the control point sits above the higher end, pulled toward the target.
+  const cx = sx + (tx - sx) * 0.35, cy = Math.min(sy, ty) - Math.min(220, 60 + Math.hypot(tx - sx, ty - sy) * 0.28);
+  const N = 28, SIZE = 46;
+  const frames = (scale0, scale1, spin) => Array.from({ length: N + 1 }, (_, i) => {
+    const t = i / N, u = 1 - t;
+    const x = u * u * sx + 2 * u * t * cx + t * t * tx;
+    const y = u * u * sy + 2 * u * t * cy + t * t * ty;
+    const s = scale0 + (scale1 - scale0) * Math.pow(t, 1.3);
+    return { transform: `translate(${(x - SIZE / 2).toFixed(1)}px, ${(y - SIZE / 2).toFixed(1)}px) scale(${s.toFixed(3)}) rotate(${(spin * t).toFixed(1)}deg)`, offset: t };
+  });
+  dlRipple(sx, sy, 'start');
+  const orb = h('div', { class: 'dl-orb', html: '<span class="dl-orb-ring"></span><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5v10M7.8 11.6 12 15.8l4.2-4.2"/><path d="M7 19h10" opacity=".7"/></svg>' });
+  document.body.append(orb);
+  const spawn = orb.animate([
+    { transform: `translate(${sx - SIZE / 2}px, ${sy - SIZE / 2}px) scale(.2)`, opacity: 0 },
+    { transform: `translate(${sx - SIZE / 2}px, ${sy - SIZE / 2}px) scale(1.18)`, opacity: 1, offset: 0.6 },
+    { transform: `translate(${sx - SIZE / 2}px, ${sy - SIZE / 2}px) scale(1)`, opacity: 1 },
+  ], { duration: 260, easing: 'cubic-bezier(.3,1.4,.5,1)', fill: 'forwards' });
+  spawn.onfinish = () => {
+    const dur = 780;
+    const fly = orb.animate(frames(1, 0.34, 26), { duration: dur, easing: 'cubic-bezier(.5,0,.25,1)', fill: 'forwards' });
+    // Sparks trailing behind the orb.
+    for (let i = 1; i <= 6; i++) {
+      const sp = h('div', { class: 'dl-spark' });
+      document.body.append(sp);
+      const a = sp.animate(frames(0.55 - i * 0.05, 0.12, 0), { duration: dur, delay: i * 38, easing: 'cubic-bezier(.5,0,.25,1)', fill: 'both' });
+      sp.animate([{ opacity: 0.9 - i * 0.1 }, { opacity: 0 }], { duration: dur, delay: i * 38, fill: 'both' });
+      a.onfinish = () => sp.remove();
+    }
+    fly.onfinish = () => { orb.remove(); catchIt(); };
+  };
 }
 
 // ================================================================ routing (Arc's "Air Traffic Control", Oto-style)
@@ -551,6 +654,20 @@ function initLibrary() {
   const libBtnEl = h('button', { id: 'btnLibrary', class: 'icon-btn', title: 'Library — downloads, history, spaces… (Ctrl+Shift+O)', html: icon('library'), onclick: () => toggleLibrary() });
   const ext = $('#btnExtensions');
   if (ext && !$('#btnLibrary')) ext.before(libBtnEl);
+  if (!$('#btnDownloads')) {
+    const db = h('button', { id: 'btnDownloads', class: 'icon-btn dl-btn', hidden: true, html: DL_BTN_SVG, onclick: () => toggleLibrary('downloads') });
+    db.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const last = dlList().find((r) => r.path);
+      showMenu(e.clientX, e.clientY, [
+        { label: 'All downloads', icon: 'download', k: 'Ctrl+J', run: () => openLibrary('downloads') },
+        last && { label: 'Open Downloads folder', icon: 'folder', run: () => oto.showInFolder(last.path) },
+        '-',
+        { label: 'Hide until next download', icon: 'x', run: () => { dlBtn.recentAt = 0; renderDlButton(); } },
+      ]);
+    });
+    libBtnEl.before(db);
+  }
   oto.on('download', onDownload);
   oto.on('blocked', (_wc, n) => bumpStat('blocked', n || 1));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && LIB.open && $('#wsDialog').hidden && $('#menuLayer').hidden) { e.stopPropagation(); closeLibrary(); } }, true);

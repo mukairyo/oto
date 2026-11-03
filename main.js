@@ -451,7 +451,10 @@ function setupSession() {
     // With "ask where to save", Electron shows the Save dialog itself; we report once a path is chosen.
     let announced = false;
     let last = 0;
-    const announce = () => { if (!announced && item.getSavePath()) { announced = true; send('download', { ...base(), state: 'started' }); } };
+    // Where the mouse was when the download began — the UI's download animation starts there.
+    let cursor = null;
+    try { const p = screen.getCursorScreenPoint(); const b = win.getContentBounds(); const z = win.webContents.getZoomFactor() || 1; cursor = { x: (p.x - b.x) / z, y: (p.y - b.y) / z }; } catch {}
+    const announce = () => { if (!announced && item.getSavePath()) { announced = true; send('download', { ...base(), state: 'started', cursor }); } };
     setImmediate(announce);
     item.on('updated', (_ev, st) => {
       announce();

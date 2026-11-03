@@ -10,7 +10,7 @@ A calm, minimal browser for Windows — vertical tabs and floating pages like **
 
 - **Updates itself**: Oto checks this repo's releases, downloads new versions in the background and installs them when you restart (Settings → About → Updates).
 - **Library** (`Ctrl+Shift+O`): Downloads, History, Media, Spaces, Boosts, Routing and your Oto Card in one panel.
-- **Downloads** with a live card at the bottom of the sidebar — progress, speed, pause/cancel, open or show in folder (`Ctrl+J` for all downloads).
+- **Downloads** with a glowing orb that flies from your cursor into the downloads button (progress ring, count badge, a tick when done), and a live card at the bottom of the sidebar — progress, speed, pause/cancel, open or show in folder (`Ctrl+J` for all downloads).
 - **Routing**: send sites to the space they belong in — links to them open there automatically.
 - **Oto Card**: your own customisable member card — name, title, artwork, colours, card style, font, grain and stats. Shuffle it, save it as an image or copy it.
 - **Split view** (`Ctrl+Shift+S`): two tabs side by side — drag the divider, double-click to even it out, click either half to work in it. Right-click a tab → *Split with current tab*.
