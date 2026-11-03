@@ -1,10 +1,30 @@
-# Oto
+<p align="center"><img src="docs/logo.png" width="96" alt="Oto logo"></p>
 
-A calm, minimal browser for Windows — vertical tabs and floating pages like **Zen**, a command bar like **Dia**, and **Helium**-style privacy defaults. Built on Electron (Chromium).
+<h1 align="center">Oto</h1>
+
+<p align="center"><b>A calm, customisable web browser for Windows.</b><br>
+Vertical tabs and spaces with their own colours like Zen, a command bar like Dia, Arc-style settings and Helium-style privacy — built on Chromium.</p>
+
+<p align="center"><a href="https://github.com/mukairyo/oto/releases/latest"><b>⬇ Download Oto for Windows</b></a> · <a href="CHANGELOG.md">What's new</a></p>
+
+<p align="center"><img src="docs/newtab.png" width="860" alt="Oto's new tab page with a purple-pink gradient space"></p>
+
+## What is Oto?
+
+Oto is a browser that stays out of your way. Your tabs live in a sidebar instead of across the top, grouped into **spaces** — each with its own gradient that tints the whole window, so you always know where you are. Everything can be changed: the layout, colours, animations, how the sidebar behaves, even the app icon. Ads and trackers are blocked out of the box, and Oto **updates itself**.
+
+| | |
+|---|---|
+| <img src="docs/split-view.png" alt="Split view"> **Split view** — two tabs side by side | <img src="docs/glance.png" alt="Glance"> **Glance** — preview a link without leaving the page |
+| <img src="docs/oto-card.png" alt="Oto Card"> **Oto Card** — your own customisable card | <img src="docs/setup.png" alt="Custom setup"> **Custom setup** — make it yours in two minutes |
 
 ## Install
 
-**[Download the latest Oto for Windows](https://github.com/mukairyo/oto/releases/latest)** and run the installer — a branded installer with Oto's logo and colours. On first launch a custom setup walks you through importing bookmarks, your layout and sidebar, colours, look & feel, speed, privacy and Essentials. Windows SmartScreen may warn that the app is unrecognised (it isn't code-signed) — click **More info → Run anyway**.
+1. **[Download the latest Oto-Setup-x.y.z.exe](https://github.com/mukairyo/oto/releases/latest)** and run it.
+2. Windows SmartScreen may say the app is unrecognised (it isn't code-signed yet) — click **More info → Run anyway**.
+3. On first launch a short setup walks you through importing bookmarks, your layout, colours, speed, privacy and favourite sites.
+
+After that, new versions download in the background and install when you restart. See **[CHANGELOG.md](CHANGELOG.md)** for what each version added and fixed — the same notes appear on every [release](https://github.com/mukairyo/oto/releases).
 
 ## Features
 
@@ -95,7 +115,10 @@ npm run dist
 
 ## Releasing a new version
 
-Bump `version` in `package.json` and push to `main`. The **Build & release** GitHub Action builds the Windows installer and publishes it as release `vX.Y.Z`; everyone's Oto picks it up automatically.
+1. Add a section for the new version at the top of `CHANGELOG.md` (`## 1.2.3 — date`, then **New** / **Fixed** lists).
+2. Bump `version` in `package.json` and push to `main`.
+
+The **Build & release** GitHub Action builds the Windows installer, publishes release `v1.2.3` with that changelog section as its notes, and everyone's Oto picks it up automatically. Editing an older changelog entry updates that release's notes on the next push.
 
 ## Known limits
 

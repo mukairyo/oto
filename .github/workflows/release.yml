@@ -54,10 +54,29 @@ jobs:
           v="${{ steps.check.outputs.version }}"
           files=("dist/Oto-Setup-$v.exe" "dist/Oto-Setup-$v.exe.blockmap" "dist/latest.yml")
           ls -la "${files[@]}"
-          notes="Download **Oto-Setup-$v.exe** below and run it. After that, Oto updates itself — new versions download in the background and install when you restart."
+          bash .github/release-notes.sh "$v" > notes.md
           if gh release view "v$v" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "v$v" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
-            gh release edit "v$v" --title "Oto $v" --notes "$notes" --repo "$GITHUB_REPOSITORY"
+            gh release edit "v$v" --title "Oto $v" --notes-file notes.md --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "v$v" "${files[@]}" --title "Oto $v" --notes "$notes" --target "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY"
+            gh release create "v$v" "${files[@]}" --title "Oto $v" --notes-file notes.md --target "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY"
           fi
+
+  # Keeps every release's notes in step with CHANGELOG.md (so fixing a typo there fixes the release page).
+  notes:
+    needs: release
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync release notes from CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for tag in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName'); do
+            v="${tag#v}"
+            bash .github/release-notes.sh "$v" > notes.md
+            if grep -q . notes.md; then
+              gh release edit "$tag" --title "Oto $v" --notes-file notes.md --repo "$GITHUB_REPOSITORY" && echo "updated $tag"
+            fi
+          done
