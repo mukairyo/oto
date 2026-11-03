@@ -44,6 +44,11 @@ const ICONS = {
   tab: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 9h8"/>',
   bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
   download: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
+  folder: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2.5h6.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/>',
+  route: '<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.5"/>',
+  card: '<rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M5 11c3-2 11-2 14 0"/><path d="M8.5 15h7M8.5 18h4"/>',
+  shuffle: '<path d="M3 7h3.5c4 0 6 10 11 10H21M3 17h3.5c1.6 0 2.8-1.6 3.9-3.6M14 8.3C15 7.4 16 7 17.5 7H21"/><path d="m18 4 3 3-3 3M18 14l3 3-3 3"/>',
+  library: '<path d="M4 4v16M8.5 4v16"/><rect x="12" y="4" width="4" height="16" rx="1"/><path d="m18 5.2 2.8.8-3.8 14-2.6-.8"/>',
   split: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 4v16"/>',
   expand: '<path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/>',
   play: '<path d="M7 4.5v15l12.5-7.5z"/>',
@@ -557,6 +562,7 @@ function activate(id, { focus = true } = {}) {
   if (prev && prev.id !== id && V.get(prev.id)) V.get(prev.id).hiddenAt = Date.now();
   S.active[S.activeWs] = id;
   tab.lastActive = Date.now();
+  if (LIB.open) closeLibrary();
   const v = ensureView(tab);
   v.hiddenAt = 0;
   if (v.frozen) thawView(v);
@@ -730,6 +736,7 @@ function addHistory(u, t) {
   const h0 = S.history[0];
   if (h0 && h0.u === u) { h0.ts = Date.now(); if (t) h0.t = t; return; }
   S.history.unshift({ u, t: t || '', ts: Date.now() });
+  bumpStat('pages');
   if (S.history.length > 3000) S.history.length = 3000;
 }
 
@@ -1151,6 +1158,11 @@ const ACTIONS = [
   { name: 'Change space colours', kw: 'theme gradient color colour', icon: 'palette', run: () => openWsDialog(currentWs(), { focusColours: true }) },
   { name: 'Run welcome setup', kw: 'onboarding', icon: 'bolt', run: () => runSetup() },
   { name: 'Split view', kw: 'side by side two tabs', icon: 'split', run: () => toggleSplit() },
+  { name: 'Library', kw: 'downloads history spaces media', icon: 'library', run: () => openLibrary() },
+  { name: 'Downloads', kw: 'files', icon: 'download', run: () => openLibrary('downloads') },
+  { name: 'History', kw: 'visited pages', icon: 'clock', run: () => openLibrary('history') },
+  { name: 'My Oto Card', kw: 'card profile share', icon: 'card', run: () => openLibrary('card') },
+  { name: 'Routing — send sites to a space', kw: 'route rules air traffic', icon: 'route', run: () => openLibrary('routing') },
   { name: 'Picture in picture', kw: 'pip video pop out', icon: 'pip', run: () => pictureInPicture() },
   { name: 'Report a problem', kw: 'bug log feedback', icon: 'flag', run: () => openSettings('about') },
   { name: 'Toggle compact mode', kw: 'sidebar hide show', icon: 'sidebar', run: () => toggleCompact() },
@@ -1491,6 +1503,8 @@ function mainMenu(x, y) {
   showMenu(x, y, [
     { label: 'New tab', icon: 'plus', k: 'Ctrl+T', run: () => openCmd('new') },
     { label: 'New space', icon: 'palette', run: () => openWsDialog() },
+    { label: 'Library', icon: 'library', k: 'Ctrl+Shift+O', run: () => openLibrary() },
+    { label: 'Downloads', icon: 'download', k: 'Ctrl+J', run: () => openLibrary('downloads') },
     '-',
     t && { label: bm ? 'Remove bookmark' : 'Bookmark this page', icon: 'star', run: () => toggleBookmark() },
     t && { label: 'Copy link', icon: 'copy', k: 'Ctrl+Shift+C', run: () => copyUrl() },
@@ -1533,7 +1547,9 @@ const withView = (fn) => { const v = activeView(); if (v) wv(v, fn); };
 const CMDS = {
   newTab: () => openCmd('new'),
   focusUrl: () => openCmd('current'),
-  history: () => openCmd('new'),
+  history: () => toggleLibrary('history'),
+  downloads: () => toggleLibrary('downloads'),
+  library: () => toggleLibrary(),
   closeTab: () => { const t = activeTab(); if (t) closeTab(t.id); },
   reopen: reopenClosed,
   nextTab: () => cycle(1),
@@ -1846,7 +1862,7 @@ function wire() {
   });
   oto.on('tab:open', ({ url, background }) => {
     if (!url) return;
-    newTab(url, { background, opener: activeTab() });
+    routedOpen(url, { background, opener: activeTab() });
   });
   oto.on('search', (text) => newTab(searchUrl(text), { opener: activeTab() }));
   oto.on('blocked', (wcId, n) => {
@@ -1855,11 +1871,6 @@ function wire() {
     if (!v) { earlyBlocked.set(wcId, (earlyBlocked.get(wcId) || 0) + n); return; }
     v.blocked += n;
     if (id === S.active[S.activeWs]) setShield(v);
-  });
-  oto.on('download', (d) => {
-    if (d.state === 'started') toast(`Downloading ${d.name}…`, { icon: 'download', timeout: 2200 });
-    else if (d.state === 'completed') toast(`Downloaded ${d.name}`, { icon: 'download', timeout: 7000, action: { label: 'Show', run: () => oto.showInFolder(d.path) } });
-    else if (d.state === 'interrupted') toast(`Download failed — ${d.name}`, { icon: 'download' });
   });
   oto.on('perm:ask', (p) => { permQueue.push(p); if (permQueue.length === 1) showNextPerm(); });
   oto.on('perm:cancel', (id) => {
@@ -1888,6 +1899,7 @@ function wire() {
   applyTheme();
   wire();
   initExtras();
+  initLibrary();
   applyLayout();
   mountExtensionBar();
   applyAppIcon();
@@ -1899,6 +1911,6 @@ function wire() {
   if (t) activate(t.id, { focus: false }); else showNothing();
   render();
   updateChrome();
-  if (INFO.launchUrl) newTab(INFO.launchUrl);
+  if (INFO.launchUrl) routedOpen(INFO.launchUrl);
   if (!S.onboarded) runSetup();
 })();

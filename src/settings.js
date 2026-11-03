@@ -350,6 +350,8 @@ const COMMANDS = [
   ['zoomOut', 'Zoom out', ['Ctrl+-']],
   ['zoomReset', 'Reset zoom', ['Ctrl+0']],
   ['history', 'History', ['Ctrl+H']],
+  ['downloads', 'Downloads', ['Ctrl+J']],
+  ['library', 'Library', ['Ctrl+Shift+O']],
   ['settings', 'Settings', ['Ctrl+,']],
   ['fullscreen', 'Full screen', ['F11']],
   ['devtools', 'Developer tools', ['F12', 'Ctrl+Shift+I']],

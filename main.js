@@ -51,6 +51,7 @@ function urlFromArgv(argv) {
 }
 
 // Settings the main process needs (kept in sync by the UI).
+const dlItems = new Map(); // active downloads by id
 let prefs = { downloadsAsk: false, gpc: true, clearOnExit: false };
 
 function send(channel, ...args) {
@@ -70,7 +71,7 @@ const DEFAULT_KEYS = {
   'Ctrl+=': 'zoomIn', 'Ctrl+Shift+=': 'zoomIn', 'Ctrl+-': 'zoomOut', 'Ctrl+0': 'zoomReset',
   'F12': 'devtools', 'Ctrl+Shift+I': 'devtools', 'Ctrl+Shift+Alt+I': 'uiDevtools',
   'Ctrl+,': 'settings', 'F11': 'fullscreen', 'Ctrl+H': 'history', 'Ctrl+Shift+B': 'toggleTop',
-  'Ctrl+Shift+S': 'splitView', 'Ctrl+Shift+P': 'pip',
+  'Ctrl+Shift+S': 'splitView', 'Ctrl+Shift+P': 'pip', 'Ctrl+J': 'downloads', 'Ctrl+Shift+O': 'library',
 };
 
 function comboOf(input) {
@@ -436,20 +437,36 @@ function setupSession() {
   ses.on('will-download', (_e, item) => {
     const id = ++dlSeq;
     const name = item.getFilename() || 'download';
+    const url = item.getURL();
+    dlItems.set(id, item);
+    const base = () => ({ id, name: item.getSavePath() ? path.basename(item.getSavePath()) : name, url, path: item.getSavePath() || '', total: item.getTotalBytes(), received: item.getReceivedBytes(), startedAt: Math.round(item.getStartTime() * 1000) || Date.now() });
     if (!prefs.downloadsAsk) {
       const dir = app.getPath('downloads');
       const ext = path.extname(name);
-      const base = path.basename(name, ext);
+      const stem = path.basename(name, ext);
       let file = path.join(dir, name);
-      for (let i = 1; fs.existsSync(file); i++) file = path.join(dir, `${base} (${i})${ext}`);
+      for (let i = 1; fs.existsSync(file); i++) file = path.join(dir, `${stem} (${i})${ext}`);
       item.setSavePath(file);
-      send('download', { id, name: path.basename(file), state: 'started', path: file });
     }
-    // With "ask where to save", Electron shows the Save dialog itself.
-    item.once('done', (_ev, state) => {
+    // With "ask where to save", Electron shows the Save dialog itself; we report once a path is chosen.
+    let announced = false;
+    let last = 0;
+    const announce = () => { if (!announced && item.getSavePath()) { announced = true; send('download', { ...base(), state: 'started' }); } };
+    setImmediate(announce);
+    item.on('updated', (_ev, st) => {
+      announce();
+      const now = Date.now();
+      if (now - last < 250) return;
+      last = now;
+      send('download', { ...base(), state: st === 'interrupted' ? 'interrupted' : item.isPaused() ? 'paused' : 'progress' });
+    });
+    item.once('done', async (_ev, st) => {
+      dlItems.delete(id);
       const file = item.getSavePath();
-      if (state === 'cancelled' && !file) return;
-      send('download', { id, name: file ? path.basename(file) : name, state, path: file });
+      if (st === 'cancelled' && !file) return;
+      let iconUrl = '';
+      if (st === 'completed' && file) { try { iconUrl = (await app.getFileIcon(file, { size: 'normal' })).toDataURL(); } catch {} }
+      send('download', { ...base(), state: st, icon: iconUrl, doneAt: Date.now() });
     });
   });
 
@@ -510,6 +527,20 @@ function setupIPC(ses) {
   ipcMain.on('theme:set', (_e, t) => { nativeTheme.themeSource = ['light', 'dark'].includes(t) ? t : 'system'; });
   ipcMain.on('clipboard:write', (_e, text) => clipboard.writeText(String(text || '')));
   ipcMain.on('shell:show', (_e, p) => { if (typeof p === 'string') shell.showItemInFolder(p); });
+  ipcMain.on('clipboard:image', (_e, dataUrl) => { try { const img = nativeImage.createFromDataURL(String(dataUrl || '')); if (!img.isEmpty()) clipboard.writeImage(img); } catch {} });
+  ipcMain.on('dl:action', (_e, id, act) => {
+    const it = dlItems.get(id);
+    if (!it) return;
+    if (act === 'cancel') it.cancel();
+    else if (act === 'pause') it.pause();
+    else if (act === 'resume' && it.canResume()) it.resume();
+  });
+  ipcMain.handle('dl:open', async (_e, p) => {
+    if (!p || !fs.existsSync(p)) return 'missing';
+    const err = await shell.openPath(p);
+    return err ? 'error' : 'ok';
+  });
+  ipcMain.handle('dl:exists', (_e, paths) => (Array.isArray(paths) ? paths.map((p) => !!p && fs.existsSync(p)) : []));
   ipcMain.handle('suggest', async (_e, engine, q) => {
     const ep = SUGGEST[engine] || SUGGEST.duckduckgo;
     try {
