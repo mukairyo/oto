@@ -146,7 +146,15 @@
       <h3 id="wsDialogTitle">New space</h3>
       <div class="field-row">
         <label class="field"><span>Name</span><input id="wsNameInput" maxlength="24" spellcheck="false"></label>
-        <label class="field"><span>Icon <em>(emoji)</em></span><input id="wsEmojiInput" maxlength="4" spellcheck="false" placeholder="✦"></label>
+        <div class="field ws-icon-field"><span>Icon <em>(emoji or image)</em></span>
+          <div class="ws-icon-row">
+            <span id="wsIconPreview" class="ws-icon-preview"></span>
+            <input id="wsEmojiInput" maxlength="4" spellcheck="false" placeholder="✦">
+            <button id="wsImageBtn" class="btn sm" type="button" title="Use an image file (PNG, JPG, GIF, SVG, WebP)">Image…</button>
+            <button id="wsImageClear" class="icon-btn sm" type="button" title="Remove image" hidden></button>
+            <input id="wsImageFile" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/x-icon,.ico" hidden>
+          </div>
+        </div>
       </div>
       <div class="field"><span>Colours</span><div id="wsPicker"></div></div>
       <div class="dialog-actions">

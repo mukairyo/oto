@@ -3,6 +3,18 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 0.9.4 — 2026-11-04
+
+**New**
+- **Oto Card is now a cyberpunk keycard** — chamfered corners, lanyard slot, neon edge glow, gold chip, holo sticker with the Oto mark, scanlines over the artwork, glitchy name, data readout and a barcode made from your name. Styles: **Neon**, **Holo**, **Tinted** and **Ivory**; all the other options (artwork, colours, font, grain, stats) still work.
+- **Your own image as a space icon** — Edit space → Icon → **Image…** (PNG, JPG, GIF, SVG, WebP). It shows next to the space name, in the space switcher and in the Library.
+- **Choose the arrow next to the space name** — chevron, triangle, arrow, plus, dots, spark or none, in the text or accent colour (Settings → Sidebar → Space header).
+- **Choose what flies when a download starts** — a little file showing its type (new default), the glowing orb, or nothing — and pick the downloads button icon: tray, arrow, cloud or box (Settings → General → Downloads).
+- **Holding Alt outlines the link** that Alt + click will open in Glance.
+
+**Fixed**
+- **Alt + click only opens Glance on real links** — not on video players, ad overlays or whole areas wrapped in a link (like the YouTube player opening an ad).
+
 ## 0.9.3 — 2026-11-04
 
 **New**

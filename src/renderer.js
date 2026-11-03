@@ -73,6 +73,25 @@ const ICONS = {
 const icon = (n) =>
   `<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[n] || ''}</svg>`;
 const iconEl = (n) => h('span', { class: 'ic-slot', html: icon(n) });
+// The little arrow next to the space name — its look is a setting.
+const SPACE_ARROWS = {
+  chevron: '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  triangle: '<svg class="i" viewBox="0 0 24 24"><path d="M6.5 9h11l-5.5 6.5z" fill="currentColor"/></svg>',
+  arrow: '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
+  plus: '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>',
+  dots: '<svg class="i" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/></svg>',
+  spark: '<svg class="i" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c.6 4.6 2.4 6.4 7 7-4.6.6-6.4 2.4-7 7-.6-4.6-2.4-6.4-7-7 4.6-.6 6.4-2.4 7-7z"/></svg>',
+  none: '',
+};
+function applySpaceArrow() {
+  const el = document.querySelector('#wsTitle .ws-chev');
+  if (!el) return;
+  const k = S && S.settings.spaceArrow in SPACE_ARROWS ? S.settings.spaceArrow : 'chevron';
+  el.innerHTML = SPACE_ARROWS[k];
+  el.hidden = k === 'none';
+  el.dataset.style = k;
+  el.style.color = S && S.settings.spaceArrowColor === 'accent' ? 'var(--accent)' : '';
+}
 
 let logoSeq = 0;
 function logoSvg() {
@@ -763,16 +782,56 @@ function openWsDialog(ws = null, { focusColours = false } = {}) {
   if (ws && ws.id !== S.activeWs) switchWorkspace(ws.id);
   const preset = GRAD_PRESETS[S.workspaces.length % GRAD_PRESETS.length];
   wsEdit = ws
-    ? { id: ws.id, name: ws.name, emoji: ws.emoji || '', ...JSON.parse(JSON.stringify(themeOf(ws))) }
-    : { id: null, name: '', emoji: '', colors: [...preset], intensity: 0.75, grain: 0 };
+    ? { id: ws.id, name: ws.name, emoji: ws.emoji || '', image: ws.image || '', ...JSON.parse(JSON.stringify(themeOf(ws))) }
+    : { id: null, name: '', emoji: '', image: '', colors: [...preset], intensity: 0.75, grain: 0 };
   $('#wsDialogTitle').textContent = ws ? 'Edit space' : 'New space';
   $('#wsNameInput').value = wsEdit.name;
   $('#wsEmojiInput').value = wsEdit.emoji;
+  paintWsIconPreview();
   const preview = () => { themePreview = { colors: wsEdit.colors, intensity: wsEdit.intensity, grain: wsEdit.grain }; applyTheme(); };
   $('#wsPicker').replaceChildren(createGradientPicker(wsEdit, preview));
   preview();
   $('#wsDialog').hidden = false;
   if (!focusColours) setTimeout(() => $('#wsNameInput').focus(), 20);
+}
+// ---- space icons: a gradient dot, an emoji, or your own image file
+function paintWsIcon(el, w) {
+  el.classList.toggle('img', !!w.image);
+  el.classList.toggle('emoji', !w.image && !!w.emoji);
+  el.textContent = !w.image && w.emoji ? w.emoji : '';
+  el.style.background = w.image ? `center / cover no-repeat url("${w.image}")` : w.emoji ? '' : wsSwatch(w);
+}
+function paintWsIconPreview() {
+  if (!wsEdit) return;
+  const prev = $('#wsIconPreview');
+  paintWsIcon(prev, { ...wsEdit, emoji: $('#wsEmojiInput').value.trim(), colors: wsEdit.colors });
+  $('#wsImageClear').hidden = !wsEdit.image;
+}
+// Images are shrunk to a small square so state stays light; small animated GIFs are kept as-is.
+function readSpaceImage(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !/^image\//.test(file.type || '') && !/\.(ico|svg)$/i.test(file.name)) { reject(new Error('not an image')); return; }
+    const fr = new FileReader();
+    fr.onerror = () => reject(fr.error);
+    fr.onload = () => {
+      const url = String(fr.result);
+      if (/image\/gif/.test(file.type) && file.size < 400 * 1024) { resolve(url); return; }
+      const img = new Image();
+      img.onload = () => {
+        const S2 = 128;
+        const cv = document.createElement('canvas');
+        cv.width = cv.height = S2;
+        const x = cv.getContext('2d');
+        const sc = Math.max(S2 / img.naturalWidth || 1, S2 / img.naturalHeight || 1);
+        const w = (img.naturalWidth || S2) * sc, hgt = (img.naturalHeight || S2) * sc;
+        x.drawImage(img, (S2 - w) / 2, (S2 - hgt) / 2, w, hgt);
+        resolve(cv.toDataURL('image/png'));
+      };
+      img.onerror = () => reject(new Error('could not read image'));
+      img.src = url;
+    };
+    fr.readAsDataURL(file);
+  });
 }
 function closeWsDialog() {
   $('#wsDialog').hidden = true;
@@ -782,14 +841,15 @@ function closeWsDialog() {
 function saveWsDialog() {
   const name = $('#wsNameInput').value.trim() || 'Space';
   const emoji = $('#wsEmojiInput').value.trim();
+  const image = wsEdit.image || '';
   const theme = { colors: [...wsEdit.colors], color: wsEdit.colors[0], intensity: wsEdit.intensity, grain: wsEdit.grain };
   themePreview = null;
   $('#wsDialog').hidden = true;
   if (wsEdit.id) {
-    Object.assign(S.workspaces.find((w) => w.id === wsEdit.id), { name, emoji, ...theme });
+    Object.assign(S.workspaces.find((w) => w.id === wsEdit.id), { name, emoji, image, ...theme });
     applyTheme(); render(); save();
   } else {
-    const ws = { id: uid(), name, emoji, ...theme };
+    const ws = { id: uid(), name, emoji, image, ...theme };
     S.workspaces.push(ws);
     switchWorkspace(ws.id);
   }
@@ -829,10 +889,7 @@ function renderNow() {
   const ws = currentWs();
   $('#wsName').textContent = ws.name;
   $('#wsTitle').title = `${ws.name} — space options`;
-  const dot = $('#wsDot');
-  dot.textContent = ws.emoji || '';
-  dot.classList.toggle('emoji', !!ws.emoji);
-  dot.style.background = ws.emoji ? '' : wsSwatch(ws);
+  paintWsIcon($('#wsDot'), ws);
 
   const activeId = S.active[S.activeWs];
   const ess = essentials();
@@ -902,11 +959,11 @@ function tabRow(t, active) {
 
 function wsButton(w, i) {
   const btn = h('button', {
-    class: `ws-btn${w.id === S.activeWs ? ' active' : ''}${w.emoji ? ' emoji' : ''}`,
+    class: `ws-btn${w.id === S.activeWs ? ' active' : ''}${w.image ? ' img' : w.emoji ? ' emoji' : ''}`,
     title: `${w.name}  (Ctrl+Shift+${i + 1})`, style: `--ws-color:${w.color}`,
     onclick: () => switchWorkspace(w.id),
     oncontextmenu: (e) => { e.preventDefault(); wsMenu(w, e.clientX, e.clientY); },
-  }, h('span', { class: 'ws-dot', style: w.emoji ? '' : `background:${wsSwatch(w)}` }, w.emoji || ''));
+  }, (() => { const d = h('span', { class: 'ws-dot' }); paintWsIcon(d, w); return d; })());
   btn.addEventListener('dragover', (e) => { if (dragId) { e.preventDefault(); btn.classList.add('drop'); } });
   btn.addEventListener('dragleave', () => btn.classList.remove('drop'));
   btn.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); if (dragId) moveToWorkspace(dragId, w.id); });
@@ -1616,7 +1673,16 @@ function wire() {
   $('#btnStar').onclick = () => toggleBookmark();
   $('#btnExtensions').innerHTML = '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5a2 2 0 1 1 4 0V6h4a1 1 0 0 1 1 1v4h-1.5a2 2 0 1 0 0 4H18v4a1 1 0 0 1-1 1h-4v-1.5a2 2 0 1 0-4 0V20H5a1 1 0 0 1-1-1v-4h1.5a2 2 0 1 0 0-4H4V7a1 1 0 0 1 1-1h4z"/></svg>';
   $('#btnExtensions').onclick = () => openSettings('extensions');
-  document.querySelector('#wsTitle .ws-chev').innerHTML = icon('down');
+  applySpaceArrow();
+  $('#wsEmojiInput').addEventListener('input', paintWsIconPreview);
+  $('#wsImageBtn').onclick = () => $('#wsImageFile').click();
+  $('#wsImageClear').innerHTML = icon('x');
+  $('#wsImageClear').onclick = () => { wsEdit.image = ''; paintWsIconPreview(); };
+  $('#wsImageFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    try { wsEdit.image = await readSpaceImage(f); paintWsIconPreview(); } catch { toast('That file isn’t an image Oto can use', { timeout: 2000 }); }
+  });
 
   // auto-hiding top strip
   let topTimer;

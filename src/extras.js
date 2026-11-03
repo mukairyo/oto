@@ -132,13 +132,43 @@ function initSplitBar() {
 }
 
 // ================================================================ Glance (link preview)
+// Injected into pages: Alt + click on a *real* link opens Glance. Holding Alt outlines the link that
+// would open, so you can see it before clicking. Big clickable areas (video players, ad overlays,
+// whole cards wrapped in a link) don't count — only things that look and act like links.
 const PAGE_HELPER = `(() => {
   if (window.__otoHelper) return; window.__otoHelper = 1;
+  const st = document.createElement('style');
+  st.textContent = '[data-oto-glance]{outline:2px solid rgba(139,92,246,.95)!important;outline-offset:2px!important;border-radius:4px;cursor:zoom-in!important;box-shadow:0 0 0 5px rgba(139,92,246,.18)!important}';
+  (document.head || document.documentElement).appendChild(st);
+  const linkAt = (el) => {
+    if (!el || !el.closest) return null;
+    if (el.closest('video, audio, iframe, canvas, embed, object, input, textarea, select, [contenteditable=""], [contenteditable=true]')) return null;
+    const a = el.closest('a[href]');
+    if (!a || !/^https?:/i.test(a.href)) return null;
+    if (a.target === '_self' && a.getAttribute('href').startsWith('#')) return null;
+    const r = a.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    // a link covering a big part of the page (player overlays, ads, full-card links) isn't a link to glance
+    if (r.width * r.height > innerWidth * innerHeight * 0.18 || r.height > innerHeight * 0.45) return null;
+    const text = (a.innerText || a.getAttribute('aria-label') || a.title || '').trim();
+    const media = a.querySelector('img, svg, picture');
+    if (!text && !media) return null;
+    const cs = getComputedStyle(a);
+    if (cs.visibility === 'hidden' || +cs.opacity < 0.2 || cs.pointerEvents === 'none') return null;
+    return a;
+  };
+  let alt = false, mark = null, lastEl = null;
+  const setMark = (a) => { if (mark === a) return; if (mark) mark.removeAttribute('data-oto-glance'); mark = a; if (a) a.setAttribute('data-oto-glance', ''); };
+  addEventListener('keydown', (e) => { if (e.key === 'Alt' && !e.ctrlKey && !e.shiftKey && !e.metaKey) { alt = true; setMark(linkAt(lastEl)); } }, true);
+  addEventListener('keyup', (e) => { if (e.key === 'Alt') { alt = false; setMark(null); } }, true);
+  addEventListener('blur', () => { alt = false; setMark(null); });
+  addEventListener('mousemove', (e) => { lastEl = e.target; if (alt || e.altKey) setMark(e.altKey ? linkAt(e.target) : null); else if (mark) setMark(null); }, true);
   addEventListener('click', (e) => {
-    if (!e.altKey || e.button !== 0 || e.ctrlKey || e.shiftKey) return;
-    const a = e.target && e.target.closest && e.target.closest('a[href]');
-    if (!a || !/^https?:/i.test(a.href)) return;
+    if (!e.altKey || e.button !== 0 || e.ctrlKey || e.shiftKey || e.metaKey) return;
+    const a = linkAt(e.target);
+    if (!a) return;
     e.preventDefault(); e.stopImmediatePropagation();
+    setMark(null);
     console.log('__oto_glance__' + a.href);
   }, true);
 })();`;

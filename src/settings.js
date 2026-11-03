@@ -509,7 +509,12 @@ const PAGE_RENDER = {
         row('When Oto starts', null, seg([['continue', 'Continue where I left off'], ['fresh', 'Start fresh']], st.startup, (v) => setPref('startup', v))),
         h('p', { class: 'set-note' }, 'Start fresh moves your unpinned tabs to the Archive on launch. Pinned tabs and Essentials stay.')),
       section('Downloads',
-        row('Ask where to save each file', 'Otherwise files go straight to your Downloads folder.', sw(st.downloadsAsk, (on) => setPref('downloadsAsk', on)))),
+        row('Ask where to save each file', 'Otherwise files go straight to your Downloads folder.', sw(st.downloadsAsk, (on) => setPref('downloadsAsk', on))),
+        row('When a download starts', 'What flies from your cursor into the downloads button.', seg([['file', 'A little file'], ['orb', 'Glowing orb'], ['off', 'Nothing']], st.dlAnim || 'file', (v) => { setPref('dlAnim', v); if (v !== 'off') setTimeout(() => dlFly({ x: innerWidth / 2, y: innerHeight / 2 }, 'preview.zip'), 80); })),
+        row('Downloads button icon', null, h('div', { class: 'seg arrow-seg dlicon-seg' }, ...Object.keys(DL_ICONS).map((k) => h('button', {
+          class: (st.dlIcon || 'tray') === k ? 'on' : '', title: k[0].toUpperCase() + k.slice(1), html: DL_ICONS[k],
+          onclick: () => { setPref('dlIcon', k); renderDlButton(); renderSettings(); },
+        }))))),
     ];
   },
 
@@ -563,6 +568,13 @@ const PAGE_RENDER = {
         row('Position', null, seg([['left', 'Left'], ['right', 'Right']], st.sidebarSide, (v) => { setPref('sidebarSide', v); applyLayout(); })),
         row('When collapsed or hidden', 'Zen keeps back/forward and the address in the sidebar — they appear when it slides open. Or move them to the top bar so they’re always visible.',
           seg([['sidebar', 'Keep Zen layout'], ['top', 'Move to top bar']], st.navWhenCollapsed || 'sidebar', (v) => { setPref('navWhenCollapsed', v); applyLayout(); updateChrome(); }))),
+      section('Space header',
+        row('Arrow next to the space name', null, h('div', { class: 'seg arrow-seg' }, ...Object.keys(SPACE_ARROWS).map((k) => h('button', {
+          class: (st.spaceArrow || 'chevron') === k ? 'on' : '', title: k[0].toUpperCase() + k.slice(1),
+          html: SPACE_ARROWS[k] || 'None', onclick: () => { setPref('spaceArrow', k); applySpaceArrow(); renderSettings(); },
+        })))),
+        row('Arrow colour', null, seg([['text', 'Like the text'], ['accent', 'Accent colour']], st.spaceArrowColor || 'text', (v) => { setPref('spaceArrowColor', v); applySpaceArrow(); })),
+        row('Space icon', 'Use an emoji or your own image file — right-click a space → Edit space, or press the button.', h('button', { class: 'btn', onclick: () => { closeSettings(); openWsDialog(currentWs()); } }, 'Edit this space'))),
       section('Size',
         row('Width', 'You can also drag the sidebar’s edge.', slider(clamp(st.sidebarWidth, st.snapRail, 420), clamp(+st.snapRail || 150, 100, 240), 420, 2, (v) => `${v}px`, live('sidebarWidth'))),
         row('Icon strip width', 'How small the collapsed sidebar is.', slider(st.railWidth, 40, 96, 2, (v) => `${v}px`, live('railWidth')))),

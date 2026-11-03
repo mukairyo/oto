@@ -32,9 +32,9 @@ After that, new versions download in the background and install when you restart
 - **Library** (`Ctrl+Shift+O`): Downloads, History, Media, Spaces, Boosts, Routing and your Oto Card in one panel.
 - **Downloads** with a glowing orb that flies from your cursor into the downloads button (progress ring, count badge, a tick when done), and a live card at the bottom of the sidebar — progress, speed, pause/cancel, open or show in folder (`Ctrl+J` for all downloads).
 - **Routing**: send sites to the space they belong in — links to them open there automatically.
-- **Oto Card**: your own customisable member card — name, title, artwork, colours, card style, font, grain and stats. Shuffle it, save it as an image or copy it.
+- **Oto Card**: your own cyberpunk keycard — name, title, artwork, colours, Neon / Holo / Tinted / Ivory styles, font, grain and stats. Shuffle it, save it as an image or copy it.
 - **Split view** (`Ctrl+Shift+S`): two tabs side by side — drag the divider, double-click to even it out, click either half to work in it. Right-click a tab → *Split with current tab*.
-- **Glance**: `Alt + click` any link (or right-click → *Open link in Glance*) to preview it in a floating window; open it as a tab or in split view from there.
+- **Glance**: hold `Alt` to see which link will open, then `Alt + click` it (or right-click → *Open link in Glance*) to preview it in a floating window; open it as a tab or in split view from there.
 - **Media controls** in the sidebar for whatever is playing — play/pause, mute, picture-in-picture (`Ctrl+Shift+P`).
 - **Report a problem** (Settings → About): saves a small log of what the sidebar, top bar and mouse did, to send when something misbehaves.
 - **Zen layout** (default): back/forward, reload, the address and a ··· menu live in the sidebar; a slim top strip holds the bookmarks bar, extension buttons and Oto's own window buttons. Switch to a classic top toolbar in Settings → Appearance.
@@ -46,7 +46,7 @@ After that, new versions download in the background and install when you restart
 - **Extensions**: install from the Chrome Web Store (“Add to Chrome” just works), or add .crx (Chrome/Opera), .xpi (Firefox) and .zip files or unpacked folders. Popups, badges, context-menu items and the `chrome.tabs` API are supported.
 - **Bookmarks bar** with folders and overflow, ☆ in the address row, and import from Chrome, Edge, Brave, Opera, Opera GX, Vivaldi, Zen and Firefox — or any exported HTML file.
 - **Vertical tab sidebar** — Essentials grid (global favourites), pinned tabs, and a tab list. Drag tabs to reorder, pin, add to Essentials, or drop them on another space.
-- **Spaces** — separate sets of tabs, each with its own gradient that tints the whole window (Zen-style). Switch with the dots at the bottom or `Ctrl+Shift+1…9`.
+- **Spaces** — separate sets of tabs, each with its own gradient that tints the whole window (Zen-style), and an emoji or your own image as its icon. Switch with the dots at the bottom or `Ctrl+Shift+1…9`.
 - **Colour wheel** — right-click a space dot → *Change colours*. Click the wheel to add up to 3 colours, drag the dots, pick a preset, and set intensity and grain. The window updates live.
 - **Welcome setup** — runs on first launch; run it again from Settings → About.
 - **Command bar** (`Ctrl+T` / `Ctrl+L`) — search, open URLs, jump to open tabs, history, and actions like "Dark theme" or "New space".
