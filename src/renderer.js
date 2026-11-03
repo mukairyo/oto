@@ -184,7 +184,7 @@ function defaultState() {
   const ws = { id: uid(), name: 'Home', emoji: '', color: '#a78bfa', colors: ['#a78bfa', '#f0abfc'], intensity: 0.75, grain: 0 };
   const ess = (url, title) => ({ id: uid(), url, title, favicon: '', ws: ws.id, pinned: false, essential: true });
   return {
-    v: 5,
+    v: 6,
     settings: { ...DEFAULT_SETTINGS, unloadAfter: '1h' },
     workspaces: [ws],
     activeWs: ws.id,
@@ -221,6 +221,8 @@ function migrate(s) {
     if (s.settings.reduceMotion && s.settings.unloadAfter === '15m' && s.settings.freezeAfter === '1m') s.settings.reduceMotion = false;
     s.v = 5;
   }
+  // 0.9.6: Alt + click Glance is off by default — clicks are normal clicks (it can be turned back on in Settings).
+  if (s.v < 6) { s.settings.glanceMode = 'off'; delete s.settings.glanceAlt; s.v = 6; }
   s.tabs = Array.isArray(s.tabs) ? s.tabs.filter((t) => t && t.id && t.url) : [];
   const wsIds = new Set(s.workspaces.map((w) => w.id));
   for (const t of s.tabs) if (!wsIds.has(t.ws)) t.ws = s.workspaces[0].id;

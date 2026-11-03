@@ -650,7 +650,8 @@ const PAGE_RENDER = {
         row('Open new tabs', null, seg([['top', 'At the top'], ['next', 'Below current'], ['bottom', 'At the bottom']], st.newTabPos, (v) => setPref('newTabPos', v))),
         row('Ctrl+Tab switches to', null, seg([['order', 'Next in sidebar'], ['recent', 'Last used tab']], st.tabCycle, (v) => setPref('tabCycle', v)))),
       section('Glance & split view',
-        row('Alt + click a link to preview it', 'Opens the link in a floating Glance window over the page — open it as a tab or in split view from there.', sw(st.glanceAlt !== false, (on) => setPref('glanceAlt', on))),
+        row('Open links in Glance', 'Glance shows a link in a floating window over the page — open it as a tab or in split view from there. You can always right-click a link → Open link in Glance.',
+          seg([['off', 'Never — normal clicks'], ['alt', 'Alt + click'], ['click', 'Every link click']], glanceMode(), (v) => { setPref('glanceMode', v); applyGlanceMode(); })),
         row('Split view', 'Two tabs side by side. Right-click a tab → Split with current tab, or press Ctrl+Shift+S.', h('button', { class: 'btn', onclick: () => { closeSettings(); toggleSplit(); } }, splitShowing() ? 'Close split view' : 'Split now'))),
     ];
   },

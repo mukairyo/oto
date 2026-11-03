@@ -192,7 +192,7 @@ function runSetup() {
       h('div', { class: 'logo-big', html: logoSvg() }),
       ...title('You’re all set', 'A few shortcuts worth knowing:'),
       h('div', { class: 'setup-tips' },
-        ...[['Ctrl T', 'Search, open a site or jump to a tab'], ['Ctrl B', 'Hide or show the sidebar'], ['Alt + click', 'Preview a link with Glance'],
+        ...[['Ctrl T', 'Search, open a site or jump to a tab'], ['Ctrl B', 'Hide or show the sidebar'], ['Right-click a link', 'Open it in Glance — a floating preview'],
           ['Ctrl Shift S', 'Split view — two tabs side by side'], ['Ctrl Shift 1…9', 'Switch spaces'], ['Ctrl ,', 'All settings']]
           .map(([k, t]) => h('div', { class: 'setup-tip' }, h('kbd', {}, k), h('span', {}, t))))),
   };

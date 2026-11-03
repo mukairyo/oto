@@ -3,6 +3,12 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 0.9.6 — 2026-11-04
+
+**Changed**
+- **Alt + click no longer opens Glance** — clicking a link just opens it, like any browser. Glance is still there: right-click a link → **Open link in Glance**.
+- New setting **Settings → Tabs → Open links in Glance**: *Never — normal clicks* (default), *Alt + click*, or *Every link click* if you want every link to open in a Glance window.
+
 ## 0.9.5 — 2026-11-04
 
 **New**

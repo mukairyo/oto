@@ -132,56 +132,70 @@ function initSplitBar() {
 }
 
 // ================================================================ Glance (link preview)
-// Injected into pages: Alt + click on a *real* link opens Glance. Holding Alt outlines the link that
-// would open, so you can see it before clicking. Big clickable areas (video players, ad overlays,
-// whole cards wrapped in a link) don't count — only things that look and act like links.
+// Injected into pages. What opens Glance depends on Settings → Tabs → Glance (window.__otoGlanceMode):
+//   'off'   — nothing: clicks are normal clicks (default). Right-click a link → Open link in Glance.
+//   'alt'   — Alt + click on a real link; holding Alt outlines the link that would open.
+//   'click' — a plain click on a real link opens it in Glance.
+// Only real links count — not video players, ad overlays or whole areas wrapped in a link.
 const PAGE_HELPER = `(() => {
   if (window.__otoHelper) return; window.__otoHelper = 1;
+  const mode = () => window.__otoGlanceMode || 'off';
   const st = document.createElement('style');
   st.textContent = '[data-oto-glance]{outline:2px solid rgba(139,92,246,.95)!important;outline-offset:2px!important;border-radius:4px;cursor:zoom-in!important;box-shadow:0 0 0 5px rgba(139,92,246,.18)!important}';
   (document.head || document.documentElement).appendChild(st);
   const linkAt = (el) => {
     if (!el || !el.closest) return null;
-    if (el.closest('video, audio, iframe, canvas, embed, object, input, textarea, select, [contenteditable=""], [contenteditable=true]')) return null;
+    if (el.closest('video, audio, iframe, canvas, embed, object, input, textarea, select, button, [role=button], [contenteditable=""], [contenteditable=true]')) return null;
     const a = el.closest('a[href]');
     if (!a || !/^https?:/i.test(a.href)) return null;
-    if (a.target === '_self' && a.getAttribute('href').startsWith('#')) return null;
+    const raw = a.getAttribute('href') || '';
+    if (raw.startsWith('#') || a.hasAttribute('download')) return null;
     const r = a.getBoundingClientRect();
     if (!r.width || !r.height) return null;
-    // a link covering a big part of the page (player overlays, ads, full-card links) isn't a link to glance
     if (r.width * r.height > innerWidth * innerHeight * 0.18 || r.height > innerHeight * 0.45) return null;
     const text = (a.innerText || a.getAttribute('aria-label') || a.title || '').trim();
-    const media = a.querySelector('img, svg, picture');
-    if (!text && !media) return null;
+    if (!text && !a.querySelector('img, svg, picture')) return null;
     const cs = getComputedStyle(a);
     if (cs.visibility === 'hidden' || +cs.opacity < 0.2 || cs.pointerEvents === 'none') return null;
     return a;
   };
-  // Alt must really be held on this page: either its key press arrived here, or the mouse has been
-  // moving with Alt down for a moment. (Stops stray Glances after Alt+Tab or with sticky Alt.)
   let alt = false, mark = null, lastEl = null, altMoveSince = 0, downLink = null;
   const setMark = (a) => { if (mark === a) return; if (mark) mark.removeAttribute('data-oto-glance'); mark = a; if (a) a.setAttribute('data-oto-glance', ''); };
-  addEventListener('keydown', (e) => { if (e.key === 'Alt' && !e.ctrlKey && !e.shiftKey && !e.metaKey) { alt = true; setMark(linkAt(lastEl)); } }, true);
+  addEventListener('keydown', (e) => { if (e.key === 'Alt' && !e.ctrlKey && !e.shiftKey && !e.metaKey) { alt = true; if (mode() === 'alt') setMark(linkAt(lastEl)); } }, true);
   addEventListener('keyup', (e) => { if (e.key === 'Alt') { alt = false; setMark(null); } }, true);
   addEventListener('blur', () => { alt = false; setMark(null); });
   addEventListener('mousemove', (e) => {
     lastEl = e.target;
     if (e.altKey) { if (!altMoveSince) altMoveSince = Date.now(); } else altMoveSince = 0;
-    if (alt || e.altKey) setMark(e.altKey ? linkAt(e.target) : null); else if (mark) setMark(null);
+    if (mode() === 'alt' && (alt || e.altKey)) setMark(e.altKey ? linkAt(e.target) : null); else if (mark) setMark(null);
   }, true);
   const armed = () => alt || (altMoveSince && Date.now() - altMoveSince > 120);
-  addEventListener('mousedown', (e) => { downLink = e.altKey && e.button === 0 && armed() ? linkAt(e.target) : null; }, true);
+  const wants = (e) => {
+    if (e.button !== 0 || e.ctrlKey || e.shiftKey || e.metaKey) return false;
+    const m = mode();
+    if (m === 'alt') return e.altKey && armed();
+    if (m === 'click') return !e.altKey;
+    return false;
+  };
+  addEventListener('mousedown', (e) => { downLink = wants(e) ? linkAt(e.target) : null; }, true);
   addEventListener('click', (e) => {
-    if (!e.altKey || e.button !== 0 || e.ctrlKey || e.shiftKey || e.metaKey) return;
+    if (!wants(e)) { downLink = null; return; }
     const a = linkAt(e.target);
-    // press and release must both be on the same real link, with Alt held on this page
-    if (!a || a !== downLink || !armed() || !e.isTrusted && !window.__otoTest) { downLink = null; return; }
+    // press and release must both be on the same real link, by a real person
+    if (!a || a !== downLink || (!e.isTrusted && !window.__otoTest)) { downLink = null; return; }
     downLink = null;
     e.preventDefault(); e.stopImmediatePropagation();
     setMark(null);
     console.log('__oto_glance__' + a.href);
   }, true);
 })();`;
+const glanceMode = () => (['off', 'alt', 'click'].includes(S.settings.glanceMode) ? S.settings.glanceMode : 'off');
+// Apply a changed Glance setting to every open page right away.
+function applyGlanceMode() {
+  const m = glanceMode();
+  const set = `window.__otoGlanceMode = ${JSON.stringify(m)};`;
+  for (const v of V.values()) if (v.ready) wv(v, (w) => w.executeJavaScript(m === 'off' ? set : `${set}${PAGE_HELPER}`).catch(() => {}));
+}
 const GLANCE_HELPER = `(() => {
   if (window.__otoGlance) return; window.__otoGlance = 1;
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !e.defaultPrevented) console.log('__oto_glance_close__'); }, true);
@@ -210,7 +224,7 @@ function openGlance(url) {
   host.append(root);
   glance = { root, wv: wvEl, url, title };
   diag('glance', 'open');
-  wvEl.addEventListener('dom-ready', () => { try { wvEl.executeJavaScript(GLANCE_HELPER); wvEl.executeJavaScript(PAGE_HELPER); } catch {} });
+  wvEl.addEventListener('dom-ready', () => { try { wvEl.executeJavaScript(GLANCE_HELPER).catch(() => {}); if (glanceMode() !== 'off') wvEl.executeJavaScript(`window.__otoGlanceMode = ${JSON.stringify(glanceMode())};${PAGE_HELPER}`).catch(() => {}); } catch {} });
   wvEl.addEventListener('console-message', (e) => {
     const m = e.message || '';
     if (m === '__oto_glance_close__') closeGlance();
@@ -342,10 +356,14 @@ function updatesSection() {
 // ================================================================ hooks used by renderer.js
 function extrasBindView(tab, v) {
   const el = v.wv;
-  el.addEventListener('dom-ready', () => { if (S.settings.glanceAlt !== false) { try { el.executeJavaScript(PAGE_HELPER); } catch {} } });
+  el.addEventListener('dom-ready', () => {
+    const m = glanceMode();
+    if (m === 'off') return;
+    try { el.executeJavaScript(`window.__otoGlanceMode = ${JSON.stringify(m)};${PAGE_HELPER}`).catch(() => {}); } catch {}
+  });
   el.addEventListener('console-message', (e) => {
     const m = e.message || '';
-    if (m.startsWith('__oto_glance__') && S.settings.glanceAlt !== false) openGlance(m.slice(14));
+    if (m.startsWith('__oto_glance__') && glanceMode() !== 'off') openGlance(m.slice(14));
   });
   // Clicking into the other half of a split makes it the active tab.
   el.addEventListener('focus', () => {
