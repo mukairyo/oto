@@ -4,7 +4,7 @@ A calm, minimal browser for Windows — vertical tabs and floating pages like **
 
 ## Install
 
-Run **Oto-Setup-0.9.0.exe** — a branded installer with Oto's logo and colours. On first launch a custom setup walks you through importing bookmarks, your layout and sidebar, colours, look & feel, speed, privacy and Essentials. Windows SmartScreen may warn that the app is unrecognised (it isn't code-signed) — click **More info → Run anyway**.
+**[Download the latest Oto for Windows](https://github.com/mukairyo/oto/releases/latest)** and run the installer — a branded installer with Oto's logo and colours. On first launch a custom setup walks you through importing bookmarks, your layout and sidebar, colours, look & feel, speed, privacy and Essentials. Windows SmartScreen may warn that the app is unrecognised (it isn't code-signed) — click **More info → Run anyway**.
 
 ## Features
 
