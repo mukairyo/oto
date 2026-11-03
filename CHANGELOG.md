@@ -3,6 +3,16 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 0.9.5 — 2026-11-04
+
+**New**
+- **Choose your card design**: **Keycard** (cyberpunk), **Classic** (the original card is back) or the new **Shiny** card.
+- **Shiny card** — a holographic trading card with a Chrome, Rainbow, Colour or Gold frame, foil artwork with sparkles, rarity stars, your title on a ribbon and your stats as a list.
+- **The card preview tilts toward your mouse** with a moving glare — and on the Shiny card the rainbow foil follows the mouse.
+
+**Fixed**
+- **Glance is stricter**: Alt + click only opens it when you press *and* release on the same real link, with Alt actually held on that page. Clicks made by page scripts, stray Alt after Alt+Tab, video players and big link-wrapped areas no longer open it.
+
 ## 0.9.4 — 2026-11-04
 
 **New**

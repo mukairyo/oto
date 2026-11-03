@@ -32,7 +32,7 @@ After that, new versions download in the background and install when you restart
 - **Library** (`Ctrl+Shift+O`): Downloads, History, Media, Spaces, Boosts, Routing and your Oto Card in one panel.
 - **Downloads** with a glowing orb that flies from your cursor into the downloads button (progress ring, count badge, a tick when done), and a live card at the bottom of the sidebar — progress, speed, pause/cancel, open or show in folder (`Ctrl+J` for all downloads).
 - **Routing**: send sites to the space they belong in — links to them open there automatically.
-- **Oto Card**: your own cyberpunk keycard — name, title, artwork, colours, Neon / Holo / Tinted / Ivory styles, font, grain and stats. Shuffle it, save it as an image or copy it.
+- **Oto Card**: your own card in three designs — a cyberpunk **Keycard**, the **Classic** card or a holographic **Shiny** card — with name, title, artwork, colours, styles, font, grain and stats. The preview tilts and shines under your mouse. Shuffle it, save it as an image or copy it.
 - **Split view** (`Ctrl+Shift+S`): two tabs side by side — drag the divider, double-click to even it out, click either half to work in it. Right-click a tab → *Split with current tab*.
 - **Glance**: hold `Alt` to see which link will open, then `Alt + click` it (or right-click → *Open link in Glance*) to preview it in a floating window; open it as a tab or in split view from there.
 - **Media controls** in the sidebar for whatever is playing — play/pause, mute, picture-in-picture (`Ctrl+Shift+P`).

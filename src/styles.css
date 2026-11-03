@@ -1406,3 +1406,22 @@ body.rail:not(.rail-open) .dl-card { display: none; }
 .dlicon-seg button .dlb { width: 18px; height: 18px; }
 .dlicon-seg .dlb-track, .dlicon-seg .dlb-ring, .dlicon-seg .dlb-check, .dlicon-seg .dlb-badge { display: none; }
 .dlicon-seg .dlb-arrow, .dlicon-seg .dlb-tray { stroke-width: 1.8; }
+
+/* ================================================================== v0.9.5 card designs + tilt / shine */
+.card-preview { perspective: 900px; width: 100%; display: flex; justify-content: center; }
+.card-tilt { position: relative; width: 100%; max-width: 320px; transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .55s cubic-bezier(.2,.8,.2,1); will-change: transform; }
+.card-tilt.on { transition: transform .08s linear; }
+.card-art-svg svg { width: 100%; height: auto; display: block; }
+.card-glare { position: absolute; inset: 0; border-radius: 20px; pointer-events: none; opacity: 0; transition: opacity .35s;
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 30%), rgba(255,255,255,.55), rgba(255,255,255,.08) 38%, transparent 60%); mix-blend-mode: soft-light; }
+.card-tilt.on .card-glare { opacity: 1; }
+.design-keycard .card-glare { border-radius: 10px; clip-path: polygon(0 0, 91.25% 0, 100% 5.56%, 100% 100%, 8.75% 100%, 0 94.44%); }
+.card-foil { display: none; }
+.design-shiny .card-foil {
+  display: block; position: absolute; inset: 2%; border-radius: 14px; pointer-events: none; opacity: .16; transition: opacity .35s;
+  background: repeating-linear-gradient(115deg, #ff7ad9 0%, #7af0ff 7%, #b4ff7a 14%, #ffe27a 21%, #c58bff 28%, #ff7ad9 35%);
+  background-size: 260% 260%; background-position: var(--mx, 50%) var(--my, 50%); mix-blend-mode: color-dodge;
+}
+.design-shiny .card-tilt.on .card-foil { opacity: .34; }
+.design-shiny .card-art-svg { animation: shinyIdle 6s ease-in-out infinite; }
+@keyframes shinyIdle { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.06) saturate(1.08); } }

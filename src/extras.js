@@ -157,16 +157,26 @@ const PAGE_HELPER = `(() => {
     if (cs.visibility === 'hidden' || +cs.opacity < 0.2 || cs.pointerEvents === 'none') return null;
     return a;
   };
-  let alt = false, mark = null, lastEl = null;
+  // Alt must really be held on this page: either its key press arrived here, or the mouse has been
+  // moving with Alt down for a moment. (Stops stray Glances after Alt+Tab or with sticky Alt.)
+  let alt = false, mark = null, lastEl = null, altMoveSince = 0, downLink = null;
   const setMark = (a) => { if (mark === a) return; if (mark) mark.removeAttribute('data-oto-glance'); mark = a; if (a) a.setAttribute('data-oto-glance', ''); };
   addEventListener('keydown', (e) => { if (e.key === 'Alt' && !e.ctrlKey && !e.shiftKey && !e.metaKey) { alt = true; setMark(linkAt(lastEl)); } }, true);
   addEventListener('keyup', (e) => { if (e.key === 'Alt') { alt = false; setMark(null); } }, true);
   addEventListener('blur', () => { alt = false; setMark(null); });
-  addEventListener('mousemove', (e) => { lastEl = e.target; if (alt || e.altKey) setMark(e.altKey ? linkAt(e.target) : null); else if (mark) setMark(null); }, true);
+  addEventListener('mousemove', (e) => {
+    lastEl = e.target;
+    if (e.altKey) { if (!altMoveSince) altMoveSince = Date.now(); } else altMoveSince = 0;
+    if (alt || e.altKey) setMark(e.altKey ? linkAt(e.target) : null); else if (mark) setMark(null);
+  }, true);
+  const armed = () => alt || (altMoveSince && Date.now() - altMoveSince > 120);
+  addEventListener('mousedown', (e) => { downLink = e.altKey && e.button === 0 && armed() ? linkAt(e.target) : null; }, true);
   addEventListener('click', (e) => {
     if (!e.altKey || e.button !== 0 || e.ctrlKey || e.shiftKey || e.metaKey) return;
     const a = linkAt(e.target);
-    if (!a) return;
+    // press and release must both be on the same real link, with Alt held on this page
+    if (!a || a !== downLink || !armed() || !e.isTrusted && !window.__otoTest) { downLink = null; return; }
+    downLink = null;
     e.preventDefault(); e.stopImmediatePropagation();
     setMark(null);
     console.log('__oto_glance__' + a.href);

@@ -282,7 +282,7 @@ function cardModel() {
     name: c.name ?? (S.settings.userName || 'Oto user'),
     title: c.title ?? 'Calm Explorer',
     colors: c.colors || null, // null = match the current space
-    art: c.art || 'orbit', style: c.style || 'night', font: c.font || 'tech',
+    design: c.design || 'keycard', art: c.art || 'orbit', style: c.style || 'night', font: c.font || (c.design === 'classic' || c.design === 'shiny' ? 'sans' : 'tech'),
     grain: c.grain ?? 0.35, stats: c.stats || ['days', 'blocked', 'spaces'], showStats: c.showStats !== false,
     seed: c.seed, no: c.no,
   };
@@ -368,7 +368,139 @@ function cardArt(m, cols, W, H, id) {
 
 // The Oto Card is a cyberpunk access keycard: chamfered corners, a lanyard slot, a neon edge, a chip,
 // a holo sticker, scanlines over the artwork, a data readout and a barcode — all generated from your settings.
-function cardSvg(m = cardModel(), { scale = 1 } = {}) {
+function cardSvgClassic(m = cardModel(), { scale = 1 } = {}) {
+  const W = 320, H = 460, P = 18;
+  const id = `oc${Math.floor(Math.random() * 1e6)}`;
+  const cols = (m.colors && m.colors.length ? m.colors : themeOf(currentWs()).colors).slice(0, 3);
+  const c3 = cols.length === 1 ? [cols[0], mix(cols[0], '#ffffff', 0.35)] : cols;
+  const theme = {
+    paper: { bg: '#fbf8f1', ink: '#1d1b26', sub: '#5d5a6b', line: 'rgba(29,27,38,.18)' },
+    night: { bg: '#111019', ink: '#f6f4ff', sub: '#a8a3c2', line: 'rgba(255,255,255,.16)' },
+    tinted: { bg: mix(c3[0], '#ffffff', 0.86), ink: mix(c3[0], '#111111', 0.82), sub: mix(c3[0], '#333333', 0.55), line: 'rgba(0,0,0,.14)' },
+  }[m.style === 'holo' ? 'paper' : m.style] || {};
+  const font = (CARD_FONTS[m.font] || CARD_FONTS.sans)[1].replace(/"/g, "'");
+  const mono = CARD_FONTS.mono[1].replace(/"/g, "'");
+  const AW = W - P * 2, AH = 232;
+  const stops = c3.map((c, i) => `<stop offset="${(i / (c3.length - 1)).toFixed(2)}" stop-color="${c}"/>`).join('');
+  const nameSize = m.name.length > 16 ? 24 : m.name.length > 11 ? 29 : 34;
+  const since = new Date(S.since || Date.now()).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+  const stats = m.showStats ? m.stats.slice(0, 3).map((k, i) => {
+    const x = P + i * (AW / 3);
+    return `<text x="${x}" y="368" font-family="${font}" font-size="20" font-weight="700" fill="${theme.ink}">${esc(compact(cardStatValue(k)))}</text>
+      <text x="${x}" y="384" font-family="${mono}" font-size="8.5" letter-spacing=".8" fill="${theme.sub}">${esc(CARD_STATS[k].toUpperCase())}</text>`;
+  }).join('') : '';
+  const mark = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s / 64})" fill="none" stroke="${theme.ink}" stroke-width="5" stroke-linecap="round">
+    <path d="M44.5 15.2 A21 21 0 1 0 49.6 21.3"/><g transform="translate(32 32) scale(.84) translate(-32 -32)"><path stroke-width="5" d="M32 32 C28.5 26.5 24.5 24.5 20.8 24.5 C16.7 24.5 13.6 27.8 13.6 32 C13.6 36.2 16.7 39.5 20.8 39.5 C24.5 39.5 28.5 37.5 32 32 C35.5 26.5 39.5 24.5 43.2 24.5 C47.3 24.5 50.4 27.8 50.4 32 C50.4 36.2 47.3 39.5 43.2 39.5 C39.5 39.5 35.5 37.5 32 32 Z"/></g></g>`;
+  const grain = m.grain > 0.02 ? `<rect x="${P}" y="${P}" width="${AW}" height="${AH}" rx="14" filter="url(#${id}n)" opacity="${(m.grain * 0.9).toFixed(2)}"/>` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W * scale}" height="${H * scale}">
+  <defs>
+    <linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1">${stops}</linearGradient>
+    <clipPath id="${id}c"><rect x="${P}" y="${P}" width="${AW}" height="${AH}" rx="14"/></clipPath>
+    <filter id="${id}n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .9 -.32"/></filter>
+  </defs>
+  <rect width="${W}" height="${H}" rx="22" fill="${theme.bg}"/>
+  <g clip-path="url(#${id}c)">
+    <rect x="${P}" y="${P}" width="${AW}" height="${AH}" fill="url(#${id}g)"/>
+    <g transform="translate(${P} ${P})">${cardArt(m, c3, AW, AH, id)}</g>
+    ${grain}
+  </g>
+  <text x="${P}" y="${P + AH + 46}" font-family="${font}" font-size="${nameSize}" font-weight="700" letter-spacing="-.5" fill="${theme.ink}">${esc(m.name || ' ')}</text>
+  <text x="${P}" y="${P + AH + 66}" font-family="${mono}" font-size="11" letter-spacing="2" fill="${theme.sub}">${esc((m.title || '').toUpperCase())}</text>
+  ${stats}
+  <line x1="${P}" y1="404" x2="${W - P}" y2="404" stroke="${theme.line}"/>
+  <rect x="${P}" y="418" width="${Math.round(56 + `SINCE ${since}`.length * 6.25)}" height="24" rx="6" fill="none" stroke="${theme.ink}" stroke-opacity=".75"/>
+  <text x="${P + 9}" y="434" font-family="${mono}" font-size="10" font-weight="700" fill="${theme.ink}">OTO</text>
+  <line x1="${P + 38}" y1="418" x2="${P + 38}" y2="442" stroke="${theme.ink}" stroke-opacity=".5"/>
+  <text x="${P + 46}" y="434" font-family="${mono}" font-size="10" fill="${theme.ink}">SINCE ${esc(since.toUpperCase())}</text>
+  <text x="${W - P - 30}" y="434" text-anchor="end" font-family="${mono}" font-size="10" fill="${theme.sub}">Nº ${esc(m.no)}</text>
+  ${mark(W - P - 24, 418, 24)}
+</svg>`;
+}
+
+// A shiny holographic trading card: metallic frame, foil artwork with sparkles, a rarity row,
+// stats as "abilities" and a light sweep. In the Library preview it tilts and the foil follows the mouse.
+function cardSvgShiny(m = cardModel(), { scale = 1 } = {}) {
+  const W = 320, H = 460;
+  const id = `os${Math.floor(Math.random() * 1e6)}`;
+  const cols = (m.colors && m.colors.length ? m.colors : themeOf(currentWs()).colors).slice(0, 3);
+  const c3 = cols.length === 1 ? [cols[0], mix(cols[0], '#ffffff', 0.35)] : cols;
+  const frames = {
+    night: ['#3a3d4a', '#d9dce6', '#5b5f70', '#f4f6ff', '#2c2f3a'],
+    holo: ['#ff9de2', '#9df3ff', '#c5ff9d', '#ffd79d', '#d6a8ff'],
+    tinted: [mix(c3[0], '#000', 0.3), mix(c3[0], '#fff', 0.55), c3[0], mix(c3[c3.length - 1], '#fff', 0.6), mix(c3[c3.length - 1], '#000', 0.25)],
+    paper: ['#8a6a1f', '#f6e7a6', '#c9a24a', '#fff4c9', '#9c7a2a'],
+  };
+  const fr = frames[m.style] || frames.night;
+  const ink = '#ffffff', sub = 'rgba(255,255,255,.75)';
+  const font = (CARD_FONTS[m.font] || CARD_FONTS.sans)[1].replace(/"/g, "'");
+  const mono = CARD_FONTS.mono[1].replace(/"/g, "'");
+  const r = rng(m.seed + 13);
+  const stops = c3.map((c, i) => `<stop offset="${(i / (c3.length - 1)).toFixed(2)}" stop-color="${c}"/>`).join('');
+  const AX = 22, AY = 62, AW = W - 44, AH = 206;
+  const name = m.name || ' ';
+  const nameSize = name.length > 16 ? 17 : name.length > 11 ? 20 : 23;
+  const stars = Math.min(5, 1 + Math.floor(Math.log10(1 + cardStatValue('blocked'))) + (S.workspaces.length > 2 ? 1 : 0));
+  const since = new Date(S.since || Date.now()).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+  const star4 = (x, y, s, o) => `<path d="M${x} ${y - s}C${x + s * 0.18} ${y - s * 0.18} ${x + s * 0.18} ${y - s * 0.18} ${x + s} ${y}C${x + s * 0.18} ${y + s * 0.18} ${x + s * 0.18} ${y + s * 0.18} ${x} ${y + s}C${x - s * 0.18} ${y + s * 0.18} ${x - s * 0.18} ${y + s * 0.18} ${x - s} ${y}C${x - s * 0.18} ${y - s * 0.18} ${x - s * 0.18} ${y - s * 0.18} ${x} ${y - s}Z" fill="#fff" opacity="${o}"/>`;
+  let sparkles = '';
+  for (let i = 0; i < 9; i++) sparkles += star4(AX + r() * AW, AY + r() * AH, 3 + r() * 7, (0.5 + r() * 0.5).toFixed(2));
+  const rows = m.showStats ? m.stats.slice(0, 3).map((k, i) => {
+    const y = 318 + i * 26;
+    return `<circle cx="34" cy="${y - 4}" r="7" fill="url(#${id}f)"/><text x="48" y="${y}" font-family="${font}" font-size="12.5" font-weight="600" fill="${ink}">${esc(CARD_STATS[k])}</text>
+      <text x="${W - 30}" y="${y}" text-anchor="end" font-family="${font}" font-size="15" font-weight="800" fill="${ink}">${esc(compact(cardStatValue(k)))}</text>
+      ${i < Math.min(3, m.stats.length) - 1 ? `<line x1="28" y1="${y + 9}" x2="${W - 28}" y2="${y + 9}" stroke="rgba(255,255,255,.18)"/>` : ''}`;
+  }).join('') : `<text x="${W / 2}" y="350" text-anchor="middle" font-family="${font}" font-size="13" font-style="italic" fill="${sub}">“A calm browser for a busy web.”</text>`;
+  const markPath = 'M44.5 15.2 A21 21 0 1 0 49.6 21.3';
+  const infPath = 'M32 32 C28.5 26.5 24.5 24.5 20.8 24.5 C16.7 24.5 13.6 27.8 13.6 32 C13.6 36.2 16.7 39.5 20.8 39.5 C24.5 39.5 28.5 37.5 32 32 C35.5 26.5 39.5 24.5 43.2 24.5 C47.3 24.5 50.4 27.8 50.4 32 C50.4 36.2 47.3 39.5 43.2 39.5 C39.5 39.5 35.5 37.5 32 32 Z';
+  const grain = m.grain > 0.02 ? `<rect x="${AX}" y="${AY}" width="${AW}" height="${AH}" filter="url(#${id}n)" opacity="${(m.grain * 0.9).toFixed(2)}"/>` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W * scale}" height="${H * scale}">
+  <defs>
+    <linearGradient id="${id}fr" x1="0" y1="0" x2="1" y2="1">${fr.map((c, i) => `<stop offset="${(i / (fr.length - 1)).toFixed(2)}" stop-color="${c}"/>`).join('')}</linearGradient>
+    <linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1">${stops}</linearGradient>
+    <linearGradient id="${id}bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${mix(c3[0], '#0b0a14', 0.55)}"/><stop offset="1" stop-color="${mix(c3[c3.length - 1], '#07060d', 0.7)}"/></linearGradient>
+    <linearGradient id="${id}f" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9de2"/><stop offset=".33" stop-color="#9df3ff"/><stop offset=".66" stop-color="#c5ff9d"/><stop offset="1" stop-color="#ffd79d"/></linearGradient>
+    <linearGradient id="${id}foil" x1="0" y1="0" x2="1" y2=".6" spreadMethod="repeat" gradientTransform="scale(.35)">
+      <stop offset="0" stop-color="#ff7ad9"/><stop offset=".2" stop-color="#7af0ff"/><stop offset=".4" stop-color="#b4ff7a"/><stop offset=".6" stop-color="#ffe27a"/><stop offset=".8" stop-color="#c58bff"/><stop offset="1" stop-color="#ff7ad9"/></linearGradient>
+    <linearGradient id="${id}shine" x1="0" y1="0" x2="1" y2="1"><stop offset=".3" stop-color="#fff" stop-opacity="0"/><stop offset=".45" stop-color="#fff" stop-opacity=".55"/><stop offset=".5" stop-color="#fff" stop-opacity=".1"/><stop offset=".56" stop-color="#fff" stop-opacity=".35"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <clipPath id="${id}a"><rect x="${AX}" y="${AY}" width="${AW}" height="${AH}" rx="10"/></clipPath>
+    <clipPath id="${id}c"><rect width="${W}" height="${H}" rx="20"/></clipPath>
+    <filter id="${id}n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .9 -.32"/></filter>
+  </defs>
+  <g clip-path="url(#${id}c)">
+    <rect width="${W}" height="${H}" rx="20" fill="url(#${id}fr)"/>
+    <rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="14" fill="url(#${id}bg)"/>
+    <rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="14" fill="url(#${id}foil)" opacity=".14" style="mix-blend-mode:color-dodge"/>
+    <rect x="9.5" y="9.5" width="${W - 19}" height="${H - 19}" rx="13.5" fill="none" stroke="rgba(255,255,255,.35)"/>
+    <text x="24" y="44" font-family="${font}" font-size="${nameSize}" font-weight="800" fill="${ink}">${esc(name)}</text>
+    <g transform="translate(${W - 24} 30)">${Array.from({ length: 5 }, (_, i) => `<path transform="translate(${-i * 13 - 6} 0) scale(.55)" d="M0-10 2.9-3.1 10-3.1 4.3 1.2 6.4 8.1 0 4 -6.4 8.1 -4.3 1.2 -10-3.1 -2.9-3.1Z" fill="${4 - i < stars ? 'url(#' + id + 'f)' : 'rgba(255,255,255,.22)'}"/>`).join('')}</g>
+    <text x="${W - 24}" y="51" text-anchor="end" font-family="${mono}" font-size="7.5" letter-spacing="2" fill="${sub}">HOLO · Nº ${esc(m.no)}</text>
+    <g clip-path="url(#${id}a)">
+      <rect x="${AX}" y="${AY}" width="${AW}" height="${AH}" fill="url(#${id}g)"/>
+      <g transform="translate(${AX} ${AY})">${cardArt(m, c3, AW, AH, id)}</g>
+      ${grain}
+      <rect x="${AX}" y="${AY}" width="${AW}" height="${AH}" fill="url(#${id}foil)" opacity=".38" style="mix-blend-mode:overlay"/>
+      ${sparkles}
+    </g>
+    <rect x="${AX}" y="${AY}" width="${AW}" height="${AH}" rx="10" fill="none" stroke="url(#${id}fr)" stroke-width="3"/>
+    <rect x="${W / 2 - 78}" y="${AY + AH - 2}" width="156" height="22" rx="11" fill="url(#${id}fr)"/>
+    <text x="${W / 2}" y="${AY + AH + 13}" text-anchor="middle" font-family="${mono}" font-size="9.5" font-weight="700" letter-spacing="1.6" fill="#14121f">${esc((m.title || 'Oto user').toUpperCase().slice(0, 22))}</text>
+    ${rows}
+    <line x1="24" y1="${H - 50}" x2="${W - 24}" y2="${H - 50}" stroke="rgba(255,255,255,.2)"/>
+    <text x="24" y="${H - 30}" font-family="${mono}" font-size="8.5" letter-spacing="1.4" fill="${sub}">OTO · SINCE ${esc(since)}</text>
+    <g transform="translate(${W - 46} ${H - 44}) scale(${22 / 64})" fill="none" stroke="url(#${id}f)" stroke-width="5.5" stroke-linecap="round"><path d="${markPath}"/><g transform="translate(32 32) scale(.84) translate(-32 -32)"><path d="${infPath}"/></g></g>
+    <rect width="${W}" height="${H}" fill="url(#${id}shine)" style="mix-blend-mode:soft-light" opacity=".9"/>
+    <rect width="${W}" height="${H}" fill="url(#${id}shine)" opacity=".25"/>
+  </g>
+</svg>`;
+}
+const CARD_DESIGNS = { keycard: 'Keycard', classic: 'Classic', shiny: 'Shiny' };
+
+function cardSvg(m = cardModel(), opts = {}) {
+  if (m.design === 'classic') return cardSvgClassic(m, opts);
+  if (m.design === 'shiny') return cardSvgShiny(m, opts);
+  return cardSvgKeycard(m, opts);
+}
+function cardSvgKeycard(m = cardModel(), { scale = 1 } = {}) {
   const W = 320, H = 504, P = 18, C = 28, R = 10;
   const id = `oc${Math.floor(Math.random() * 1e6)}`;
   const cols = (m.colors && m.colors.length ? m.colors : themeOf(currentWs()).colors).slice(0, 3);
@@ -645,8 +777,21 @@ const LIB_RENDER = {
     ensureSince();
     const m = cardModel();
     const c = S.card;
-    const preview = h('div', { class: 'card-preview', html: cardSvg(m) });
-    const repaint = () => { preview.innerHTML = cardSvg(cardModel()); };
+    const art = h('div', { class: 'card-art-svg', html: cardSvg(m) });
+    const preview = h('div', { class: `card-preview design-${m.design}` }, h('div', { class: 'card-tilt' }, art, h('div', { class: 'card-foil' }), h('div', { class: 'card-glare' })));
+    // Tilt the card toward the mouse; the glare (and the foil on Shiny) follows it.
+    const tilt = preview.firstChild;
+    preview.addEventListener('pointermove', (e) => {
+      const b = tilt.getBoundingClientRect();
+      const x = clamp((e.clientX - b.left) / b.width, 0, 1), y = clamp((e.clientY - b.top) / b.height, 0, 1);
+      tilt.style.setProperty('--rx', `${((0.5 - y) * 16).toFixed(2)}deg`);
+      tilt.style.setProperty('--ry', `${((x - 0.5) * 18).toFixed(2)}deg`);
+      tilt.style.setProperty('--mx', `${(x * 100).toFixed(1)}%`);
+      tilt.style.setProperty('--my', `${(y * 100).toFixed(1)}%`);
+      tilt.classList.add('on');
+    });
+    preview.addEventListener('pointerleave', () => { tilt.classList.remove('on'); tilt.style.setProperty('--rx', '0deg'); tilt.style.setProperty('--ry', '0deg'); });
+    const repaint = () => { art.innerHTML = cardSvg(cardModel()); };
     const set = (k, v, full) => { c[k] = v; save(); if (full) renderLibrary(); else repaint(); };
     const seg = (opts, val, pick) => h('div', { class: 'seg' }, ...Object.entries(opts).map(([k, l]) => h('button', { class: k === val ? 'on' : '', onclick: () => pick(k) }, Array.isArray(l) ? l[0] : l)));
     const field = (label, control) => h('label', { class: 'card-field' }, h('span', {}, label), control);
@@ -667,6 +812,7 @@ const LIB_RENDER = {
       h('div', { class: 'card-form' },
         h('h3', {}, 'Your Oto Card'),
         h('p', { class: 'lib-intro' }, 'Make it yours, then save it or share it.'),
+        field('Design', seg(CARD_DESIGNS, m.design, (k) => { c.design = k; if (!c.fontSet) delete c.font; set('design', k, true); })),
         field('Name', nameIn),
         field('Title', titleIn),
         h('div', { class: 'card-chips' }, ...CARD_TITLES.map((t) => h('button', { class: `chip${m.title === t ? ' on' : ''}`, onclick: () => { c.title = t; save(); renderLibrary(); } }, t))),
@@ -678,8 +824,8 @@ const LIB_RENDER = {
           h('button', { class: `chip${useSpace ? ' on' : ''}`, onclick: () => set('colors', null, true) }, 'Match my space'),
           ...GRAD_PRESETS.slice(0, 9).map((p) => h('button', { class: 'gp-preset sm', style: `background:${p.length > 1 ? `linear-gradient(135deg, ${p.join(', ')})` : p[0]}`, onclick: () => set('colors', p.length > 1 ? [...p] : [p[0], mix(p[0], '#6366f1', 0.4)], true) })),
           h('span', { class: 'card-custom' }, ...colorInputs))),
-        field('Card', seg(CARD_STYLES, m.style, (k) => set('style', k, true))),
-        field('Font', seg(CARD_FONTS, m.font, (k) => set('font', k, true))),
+        field(m.design === 'shiny' ? 'Frame' : 'Style', seg(m.design === 'shiny' ? { night: 'Chrome', holo: 'Rainbow', tinted: 'Colour', paper: 'Gold' } : m.design === 'classic' ? { paper: 'Paper', night: 'Night', tinted: 'Tinted' } : CARD_STYLES, m.design === 'classic' && m.style === 'holo' ? 'paper' : m.style, (k) => set('style', k, true))),
+        field('Font', seg(CARD_FONTS, m.font, (k) => { c.fontSet = true; set('font', k, true); })),
         field('Grain', (() => { const r = h('input', { type: 'range', min: 0, max: 1, step: 0.05, value: m.grain }); r.addEventListener('input', () => set('grain', +r.value)); return r; })()),
         field('Stats', h('div', { class: 'card-stats' },
           h('button', { class: `switch${m.showStats ? ' on' : ''}`, onclick: () => set('showStats', !m.showStats, true) }),
