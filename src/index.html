@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src * data: blob: crx:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Oto</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="peek"></div>
+  <div id="peekTop"></div>
+
+  <div id="frame">
+  <aside id="sidebar">
+    <div class="sb-head drag" id="sbHead"></div>
+    <div id="sbUrlRow" class="sb-url-row nodrag"></div>
+    <div id="sbWsRow" class="sb-ws-row nodrag"></div>
+
+    <div id="essentials" class="essentials"></div>
+
+    <div class="sb-scroll" id="sbScroll">
+      <div id="tabsWrap">
+        <div id="pinned" class="tab-list" data-zone="pinned"></div>
+        <div class="divider"><span class="line"></span><button id="btnClear" class="clear-btn">Clear</button></div>
+        <button id="btnNewTab" class="new-tab"><span class="ic-slot"></span><span>New Tab</span></button>
+        <div id="tabs" class="tab-list" data-zone="tabs"></div>
+      </div>
+    </div>
+
+    <div class="sb-foot">
+      <div id="wsSwitch" class="ws-switch"></div>
+      <button id="btnExtensions" class="icon-btn" title="Extensions"></button>
+      <button id="btnSettings" class="icon-btn" title="Settings (Ctrl+,)"></button>
+    </div>
+    <div id="sbResize" class="sb-resize" title="Drag to resize"></div>
+  </aside>
+
+  <div id="column">
+  <!-- top strip: bookmarks (Zen layout) or the full toolbar (classic layout), extensions, window buttons -->
+    <header id="topstrip" class="drag">
+      <div id="tsMain" class="ts-main"></div>
+      <div id="extbar" class="extbar nodrag"></div>
+      <div id="winctl" class="winctl nodrag">
+        <button id="winMin" title="Minimise"></button>
+        <button id="winMax" title="Maximise"></button>
+        <button id="winClose" class="close" title="Close"></button>
+      </div>
+      <div id="bmRow" class="bm-row nodrag"></div>
+    </header>
+  <main id="main">
+    <section id="content">
+      <div id="progress"></div>
+      <div id="views"></div>
+
+      <div id="empty">
+        <div class="empty-inner">
+          <div class="logo-big" id="emptyLogo"></div>
+          <div id="clock" class="clock">--:--</div>
+          <div id="greet" class="greet">Hello</div>
+          <button id="emptySearch" class="empty-search">
+            <span class="ic-slot"></span><span>Search or enter address</span><kbd>Ctrl T</kbd>
+          </button>
+          <div id="emptyHints" class="empty-hints"></div>
+        </div>
+      </div>
+
+      <div id="error" hidden>
+        <div class="err-inner">
+          <div class="err-icon" id="errIcon"></div>
+          <h2 id="errTitle">This page can’t be reached</h2>
+          <p id="errMsg"></p>
+          <button id="errRetry" class="btn primary">Try again</button>
+        </div>
+      </div>
+
+      <div id="findbar" hidden>
+        <input id="findInput" placeholder="Find in page" spellcheck="false">
+        <span id="findCount"></span>
+        <button id="findPrev" class="icon-btn sm" title="Previous (Shift+Enter)"></button>
+        <button id="findNext" class="icon-btn sm" title="Next (Enter)"></button>
+        <button id="findClose" class="icon-btn sm" title="Close (Esc)"></button>
+      </div>
+
+      <div id="permBar" hidden>
+        <span id="permText"></span>
+        <div class="perm-actions">
+          <button id="permBlock" class="btn">Block</button>
+          <button id="permAllow" class="btn primary">Allow</button>
+        </div>
+      </div>
+
+      <div id="status"></div>
+    </section>
+  </main>
+  </div>
+  </div>
+
+  <!-- movable toolbar parts: placed into the sidebar or the top strip depending on the layout -->
+  <div id="parts" hidden>
+    <button id="wsTitle" class="ws-title nodrag" title="Space options">
+      <span class="ws-chev ic-slot"></span><span id="wsDot" class="ws-dot"></span><span id="wsName">Home</span>
+    </button>
+    <button id="btnMenu" class="icon-btn nodrag" title="Menu"></button>
+    <button id="btnCompact" class="icon-btn nodrag" title="Hide sidebar (Ctrl+B)"></button>
+    <button id="btnShowSidebar" class="icon-btn nodrag" title="Show sidebar (Ctrl+B)"></button>
+    <div id="navGroup" class="nav nodrag">
+      <button id="btnBack" class="icon-btn" title="Back (Alt+←)"></button>
+      <button id="btnFwd" class="icon-btn" title="Forward (Alt+→)"></button>
+      <button id="btnReload" class="icon-btn" title="Reload (Ctrl+R)"></button>
+    </div>
+    <button id="urlPill" class="url-pill nodrag" title="Search or enter address (Ctrl+L)"></button>
+    <div id="pageActions" class="top-actions nodrag">
+      <button id="btnShield" class="shield" title="Trackers & ads blocked on this page"></button>
+      <button id="btnStar" class="icon-btn" title="Bookmark this page"></button>
+      <button id="btnCopy" class="icon-btn" title="Copy link (Ctrl+Shift+C)"></button>
+    </div>
+    <div id="bmbar" class="bmbar nodrag"></div>
+    <span id="headSpacer" class="flex-spacer"></span>
+  </div>
+
+  <!-- command bar -->
+  <div id="cmdk" class="overlay" hidden>
+    <div class="cmdk-panel" role="dialog" aria-label="Command bar">
+      <div class="cmdk-input">
+        <span class="ic-slot" id="cmdIcon"></span>
+        <input id="cmdInput" spellcheck="false" autocomplete="off" placeholder="Search or enter address">
+        <kbd>Esc</kbd>
+      </div>
+      <div id="cmdList" class="cmdk-list"></div>
+      <div class="cmdk-foot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Alt</kbd>+<kbd>Enter</kbd> new tab</span></div>
+    </div>
+  </div>
+
+  <!-- settings -->
+  <div id="settings" class="overlay" hidden>
+    <div class="sheet" role="dialog" aria-label="Settings">
+      <button id="settingsClose" class="icon-btn set-close" title="Close (Esc)"></button>
+      <div id="settingsBody" class="sheet-body"></div>
+    </div>
+  </div>
+
+  <!-- space editor -->
+  <div id="wsDialog" class="overlay" hidden>
+    <div class="dialog" role="dialog">
+      <h3 id="wsDialogTitle">New space</h3>
+      <div class="field-row">
+        <label class="field"><span>Name</span><input id="wsNameInput" maxlength="24" spellcheck="false"></label>
+        <label class="field"><span>Icon <em>(emoji)</em></span><input id="wsEmojiInput" maxlength="4" spellcheck="false" placeholder="✦"></label>
+      </div>
+      <div class="field"><span>Colours</span><div id="wsPicker"></div></div>
+      <div class="dialog-actions">
+        <button id="wsCancel" class="btn">Cancel</button>
+        <button id="wsSave" class="btn primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="menuLayer" class="menu-layer" hidden><div id="menu" class="menu"></div></div>
+  <div id="toasts"></div>
+
+  <script src="gradient.js"></script>
+  <script src="setup.js"></script>
+  <script src="settings.js"></script>
+  <script src="bookmarks.js"></script>
+  <script src="extras.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
