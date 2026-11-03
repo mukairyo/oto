@@ -25,7 +25,8 @@ jobs:
         run: |
           v=$(node -p "require('./package.json').version")
           echo "version=$v" >> "$GITHUB_OUTPUT"
-          if gh release view "v$v" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          # Done only if the release exists AND has latest.yml (what Oto's updater reads).
+          if gh release view "v$v" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx latest.yml; then
             echo "v$v is already released, nothing to do."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
@@ -40,8 +41,23 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: npm ci
 
-      - name: Build installer and publish release
+      - name: Build installer
         if: steps.check.outputs.skip != 'true'
+        run: npx electron-builder --win nsis --x64 --publish never
+
+      - name: Publish release
+        if: steps.check.outputs.skip != 'true'
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --win nsis --x64 --publish always
+        run: |
+          v="${{ steps.check.outputs.version }}"
+          files=("dist/Oto-Setup-$v.exe" "dist/Oto-Setup-$v.exe.blockmap" "dist/latest.yml")
+          ls -la "${files[@]}"
+          notes="Download **Oto-Setup-$v.exe** below and run it. After that, Oto updates itself — new versions download in the background and install when you restart."
+          if gh release view "v$v" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "v$v" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "v$v" --title "Oto $v" --notes "$notes" --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "v$v" "${files[@]}" --title "Oto $v" --notes "$notes" --target "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY"
+          fi
