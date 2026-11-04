@@ -28,12 +28,16 @@ module.exports = function setupAccount(ctx) {
   // ------------------------------------------------------------ account file
   let A = readJSON('account.json', null) || {};
   const saveA = () => { try { writeJSON('account.json', A); } catch {} };
-  const signedIn = () => !!(A.userId && A.refresh);
+  // Signed in = tokens AND the data key (the key comes from your password; without it sync can't work).
+  const signedIn = () => !!(A.userId && A.refresh && A.key);
   const status = () => ({
     configured: configured(), signedIn: signedIn(), email: A.email || '', lastSync: A.lastSync || 0, lastRemote: A.lastRemote || 0,
     syncing: !!busy, error: lastError, lock: lockStatus(),
   });
   let busy = null, lastError = '';
+  // push and pull wait for each other instead of failing with "busy"
+  let chain = Promise.resolve();
+  const queue = (fn) => { const p = chain.then(fn, fn); chain = p.catch(() => {}); return p; };
   const tell = () => send('account:status', status());
 
   // ------------------------------------------------------------ HTTP
@@ -61,14 +65,21 @@ module.exports = function setupAccount(ctx) {
     saveA();
   }
   async function token() {
-    if (!signedIn()) throw Object.assign(new Error('Not signed in'), { code: 'auth' });
+    if (!(A.userId && A.refresh)) throw Object.assign(new Error('Not signed in'), { code: 'auth' });
     if (Date.now() < (A.expires || 0)) { const t = unseal(A.access); if (t) return t; }
-    const r = unseal(A.refresh);
-    if (!r) throw Object.assign(new Error('Please sign in again'), { code: 'auth' });
-    try { takeSession(await api('POST', '/auth/v1/token?grant_type=refresh_token', { body: { refresh_token: r } })); }
-    catch (e) { if (e.status === 400 || e.status === 401) { signOutLocal(); tell(); throw Object.assign(new Error('Your sign-in expired — please sign in again'), { code: 'auth' }); } throw e; }
+    // One refresh at a time: Supabase refresh tokens work once, so two at the same moment signed you out.
+    if (!refreshing) {
+      refreshing = (async () => {
+        const r = unseal(A.refresh);
+        if (!r) throw Object.assign(new Error('Please sign in again'), { code: 'auth' });
+        try { takeSession(await api('POST', '/auth/v1/token?grant_type=refresh_token', { body: { refresh_token: r } })); }
+        catch (e) { if (e.status === 400 || e.status === 401) { signOutLocal(); tell(); throw Object.assign(new Error('Your sign-in expired — please sign in again'), { code: 'auth' }); } throw e; }
+      })().finally(() => { refreshing = null; });
+    }
+    await refreshing;
     return unseal(A.access);
   }
+  let refreshing = null;
   function signOutLocal() { A = { email: A.email }; saveA(); }
 
   // ------------------------------------------------------------ encryption
@@ -139,7 +150,7 @@ module.exports = function setupAccount(ctx) {
     try {
       if (String(password || '').length < 8) return { ok: false, error: 'Use at least 8 characters for your password.' };
       const r = await api('POST', '/auth/v1/signup', { body: { email: String(email).trim(), password: String(password) } });
-      if (r && r.access_token) { takeSession(r); const out = await afterAuth(password); tell(); return out; }
+      if (r && r.access_token) { takeSession(r); let out; try { out = await afterAuth(password); } catch (e) { signOutLocal(); tell(); return { ok: false, error: e.message }; } tell(); return out; }
       A.email = String(email).trim(); saveA();
       return { ok: true, confirm: true };
     } catch (e) { return { ok: false, error: e.message }; }
@@ -151,7 +162,8 @@ module.exports = function setupAccount(ctx) {
       const r = await api('POST', '/auth/v1/token?grant_type=password', { body: { email: String(email).trim(), password: String(password) } });
       signinTries.n = 0;
       takeSession(r);
-      const out = await afterAuth(password);
+      let out;
+      try { out = await afterAuth(password); } catch (e2) { signOutLocal(); tell(); return { ok: false, error: e2.message }; }
       tell();
       return out;
     } catch (e) {
@@ -211,8 +223,8 @@ module.exports = function setupAccount(ctx) {
   // push: the UI sends its sections (settings, themes, spaces, bookmarks, card); passwords are added here.
   ipcMain.handle('account:push', async (_e, sections, summary) => {
     if (lockLocked) return { ok: false, error: 'Oto is locked' };
-    if (!signedIn() || !dataKey()) return { ok: false, error: 'Not signed in' };
-    if (busy) return { ok: false, error: 'busy' };
+    if (!signedIn() || !dataKey()) { tell(); return { ok: false, error: 'Please sign in again', code: 'auth' }; }
+    return queue(async () => {
     busy = 'push'; tell();
     try {
       const payload = { v: 1, at: Date.now(), app: OTO_VERSION, device: device(), summary, sections, passwords: (sections && sections._pw === false) ? undefined : pwExport() };
@@ -221,12 +233,13 @@ module.exports = function setupAccount(ctx) {
       A.lastSync = payload.at; A.lastRemote = payload.at; lastError = ''; saveA();
       return { ok: true, at: payload.at };
     } catch (e) { lastError = e.message; return { ok: false, error: e.message, code: e.code }; } finally { busy = null; tell(); }
+    });
   });
   // pull: returns the sections to the UI; passwords are merged straight into this PC's password store.
   ipcMain.handle('account:pull', async (_e, { passwords = true } = {}) => {
     if (lockLocked) return { ok: false, error: 'Oto is locked' };
-    if (!signedIn() || !dataKey()) return { ok: false, error: 'Not signed in' };
-    if (busy) return { ok: false, error: 'busy' };
+    if (!signedIn() || !dataKey()) { tell(); return { ok: false, error: 'Please sign in again', code: 'auth' }; }
+    return queue(async () => {
     busy = 'pull'; tell();
     try {
       const row = await getRow();
@@ -235,7 +248,8 @@ module.exports = function setupAccount(ctx) {
       const pw = passwords ? pwMerge(payload.passwords) : 0;
       A.lastRemote = payload.at || Date.parse(row.updated_at); A.lastSync = Date.now(); lastError = ''; saveA();
       return { ok: true, at: A.lastRemote, device: payload.device, sections: payload.sections || {}, passwords: pw };
-    } catch (e) { lastError = e.message === 'format' || /auth/i.test(e.message) ? 'Couldn’t read your cloud data' : e.message; return { ok: false, error: lastError, code: e.code }; } finally { busy = null; tell(); }
+    } catch (e) { lastError = e.message === 'format' ? 'Couldn’t read your cloud data' : e.message; return { ok: false, error: lastError, code: e.code }; } finally { busy = null; tell(); }
+    });
   });
   ipcMain.handle('account:peek', async () => {
     // Is there something newer in the cloud than what this PC last saw?

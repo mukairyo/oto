@@ -123,7 +123,8 @@ async function v1SyncNow() {
   const a = await v1Pull({ quiet: true });
   const b = await v1Push({ quiet: true });
   V1A.busy = false;
-  toast(a && a.ok !== false && b && b.ok ? 'Synced ✓' : `Couldn’t sync — ${(b && b.error) || (a && a.error) || 'unknown error'}`, { icon: b && b.ok ? 'check' : 'x', timeout: 2000 });
+  if ((b && b.code === 'auth') || (a && a.code === 'auth')) { V1A.st = await oto.account.status(); toast('Please sign in again to sync', { icon: 'key', timeout: 2600 }); }
+  else toast(a && a.ok !== false && b && b.ok ? 'Synced ✓' : `Couldn’t sync — ${(b && b.error) || (a && a.error) || 'unknown error'}`, { icon: b && b.ok ? 'check' : 'x', timeout: 2600 });
   v1AccRender();
 }
 let _v1SaveNoSync = () => {};

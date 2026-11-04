@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.17 — 2026-11-05
+
+*Owner test build of Oto v1 — sync fix.*
+
+**Fixed**
+- **"Couldn't sync — Not signed in".** Two things could leave Oto half signed in: signing in to Supabase worked but reading your saved data failed, or two refreshes of your sign-in happened at the same moment (Supabase only accepts each refresh once, so you got signed out). Oto now refreshes your sign-in one at a time, cleans up a failed sign-in, and if it ever needs your password again it shows the sign-in form instead of an error. Sync now and the automatic sync also wait for each other instead of failing with "busy".
+
 ## 1.0.0-owner.16 — 2026-11-05
 
 *Owner test build of Oto v1.*
