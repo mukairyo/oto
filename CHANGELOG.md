@@ -3,6 +3,25 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.6 — 2026-11-04
+
+*Owner test build of Oto v1 — Alpha 4: the held ideas, card levels and the Owner panel.*
+
+**New**
+- **Card levels** — your Oto Card now levels up: Rookie → Bronze → Silver → Gold → Holo → Mythic. XP comes from days with Oto, ads blocked, spaces, pages and badges. A progress bar shows how far to the next level, each level unlocks a title and a glowing frame (Holo shimmers, Mythic gets a moving aurora), and a flip animation plays when you level up.
+- **Badges** — 15 hidden badges (7 days with Oto, 1,000 ads blocked, first split view, went Avocado, night owl…). Press *Flip* on your card to see them on the back.
+- **OG card** — the original two-ring logo on the first indigo → sky gradient, "ORIGINAL USER", your card number and the day you started.
+- **Founder card** — black and gold with a big 力, "OWNER · Nº 0000 · ONE OF ONE", signed Ryo. Only unlocks on a PC with the owner key.
+- **Owner panel** — type `/admin` in the command bar, or Settings → About → *Owner panel* (owner key only): card XP and badge controls, test screens (welcome setup, what's new, startup animation, offline page, update card, Wrapped), switches for every v1 feature, quick info and *Check for updates*.
+- **Now Playing** — the media card shows the song's artwork, title and artist, with a moving waveform while it plays.
+- **New tab widgets** — your card level and progress, and shortcuts to the sites you visit most.
+- **Space switch animation** — the new space's colours melt in with its name big in the middle.
+- **Tab peek** — rest the mouse on a tab to see a preview, its address and how much memory it uses.
+- **Ambient glow** — while a video or music plays, a soft glow in the page's colours shines around it.
+- **Focus mode** — `/focus` (or `/focus 50`): hides everything but the page, mutes the other tabs and runs a timer. Includes **Reader view** for clean, easy-to-read articles (`/reader`).
+- **Breathing background** — the space colours gently pulse while music plays.
+- **Smarter command bar** — unit conversions (`5 km`, `70 kg`, `30 c`) and timers (`timer 10 min`).
+
 ## 1.0.0-owner.5 — 2026-11-04
 
 *Owner test build of Oto v1 — bug fixes.*
