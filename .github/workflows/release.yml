@@ -5,7 +5,8 @@ name: Build & release
 
 on:
   push:
-    branches: [main]
+    # v1 = Ryo's Oto v1 owner builds (1.0.0-owner.N pre-releases on the hidden Owner channel)
+    branches: [main, v1]
   workflow_dispatch:
 
 permissions:

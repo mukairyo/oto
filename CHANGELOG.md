@@ -3,6 +3,23 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.1 — 2026-11-04
+
+*Owner test build of Oto v1 — Alpha 1. Only shows up for the Owner update channel.*
+
+**New**
+- **Cleaner main window** — the page name sits in the middle of the top bar, a glass address box with `Ctrl L`, bigger Essentials with a coloured line under the open one and a red dot when a site has something new, *Pinned* and *Today* sections, a glowing line on the tab you're on, a moving sound wave on tabs playing audio, sleeping tabs marked *zz*, and the version number at the bottom.
+- **Warmer new tab** — the date, a thin clock in your space colours, your name in colour, a bigger search box and *Jump back in* with the last pages you visited.
+- **Site panel** — click the lock: ads & trackers blocked, Location / Camera & mic / Notifications as Ask · Allow · Block, sound on/off, zoom, *Always open in* a space, and *Clear site data*.
+- **New right-click menu** — back, forward, reload and bookmark as big buttons on top, plus Glance, split view and *Open in space…*.
+- **Command bar** — filters (All, Tabs, History, Bookmarks, Actions, Spaces) with counts, `Tab` to switch filters, matches in bold, shortcuts next to actions, instant answers to sums like `12*4.5+30`, and slash commands: `/space`, `/theme`, `/card`, `/closed`, `/shortcuts` and more.
+- **Settings** — search every setting, pages sorted into Basics · Browsing · Make it yours · Oto, settings in soft cards, and a *Saved · Undo* pill after each change.
+- **Drag a tab onto the page to split** — drop it on the left or right half. Each half gets a small header with swap and close.
+- **Oto's own error pages** — *You're offline* (tries again by itself, and you can play **Ring Run** while you wait), *This site isn't safe right now*, *This tab crashed*, and a small bar when a page doesn't exist.
+- **Small stuff** — find bar with *Match case* and yellow marks on the right edge for every match, a zoom pill in the middle, dark message pills, permission asks that come out of the address box, an *Update ready* card in the sidebar, and recently closed tabs (right-click *New Tab* or `/closed`).
+- **Hold Ctrl** for a second to see every shortcut. Let go to close it.
+- **Owner channel** — Settings → About: tap *Oto version* 7 times and enter your owner key.
+
 ## 0.9.10.1 — 2026-11-04
 
 **New**

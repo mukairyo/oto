@@ -95,7 +95,16 @@ function buildKeymap(overrides = {}) {
 }
 
 let lastKey = { combo: '', t: 0 };
+// v1: holding Ctrl on its own shows the shortcut sheet (any other key or a click cancels it).
+let ctrlDown = false;
+function ctrlHold(input) {
+  if (input.key === 'Control') {
+    if (input.type === 'keyDown' && !input.isAutoRepeat && !ctrlDown) { ctrlDown = true; send('ctrl-hold', 'down'); }
+    else if (input.type === 'keyUp') { ctrlDown = false; send('ctrl-hold', 'up'); }
+  } else if (ctrlDown && input.type === 'keyDown') { send('ctrl-hold', 'other'); }
+}
 function handleKeys(event, input) {
+  ctrlHold(input);
   if (input.type !== 'keyDown' || keysPaused) return;
   const combo = comboOf(input);
   let cmd = KEYS[combo];
@@ -199,6 +208,7 @@ app.on('web-contents-created', (_e, contents) => {
   // a reliable "mouse left" when you move from the sidebar onto a page.
   let lastMouse = 0;
   contents.on('before-mouse-event', (_ev, m) => {
+    if (m.type === 'mouseDown' && ctrlDown) send('ctrl-hold', 'other');
     if (m.type !== 'mouseMove') return;
     const now = Date.now();
     if (now - lastMouse < 120) return;
@@ -244,7 +254,18 @@ function setUpdate(st) {
   send('update', updateState);
 }
 function setupUpdates() {
-  ipcMain.handle('update:status', () => ({ ...updateState, packaged: app.isPackaged, version: OTO_VERSION, channel: updateChannel() }));
+  ipcMain.handle('update:status', () => ({ ...updateState, packaged: app.isPackaged, version: OTO_VERSION, channel: updateChannel(), owner: ownerOn }));
+  ipcMain.handle('owner:unlock', (_e, key) => {
+    if (ownerHash(key) !== OWNER_HASH) return false;
+    ownerOn = true;
+    try { writeJSON('owner.json', { h: OWNER_HASH }); } catch {}
+    return true;
+  });
+  ipcMain.handle('owner:lock', () => {
+    ownerOn = false;
+    try { fs.unlinkSync(userFile('owner.json')); } catch {}
+    return true;
+  });
   ipcMain.handle('update:check', () => checkForUpdates(true));
   ipcMain.on('update:install', () => {
     if (!updater || updateState.state !== 'ready') return;
@@ -274,7 +295,15 @@ function setupUpdates() {
 // experiments). Testers also still get every stable update — if their channel has nothing newer,
 // Oto checks the stable channel too. Oto never goes back to an older version on its own.
 const UPDATE_CHANNELS = ['stable', 'beta', 'alpha'];
-const updateChannel = () => (UPDATE_CHANNELS.includes(prefs.updateChannel) ? prefs.updateChannel : 'stable');
+// Owner channel: Ryo's own test builds (1.0.0-owner.N). Hidden until the private owner key is entered
+// (Settings → About → tap "Oto version" 7 times). Only a hash of the key is in the code.
+const OWNER_HASH = '5d3daf57d0126aea9114a57a08c97450bdcb786f6e40f7ef8b69858042d77fb0';
+const ownerHash = (key) => require('crypto').createHash('sha256').update(`oto-owner|${String(key || '').trim().toUpperCase()}`).digest('hex');
+let ownerOn = (readJSON('owner.json', {}) || {}).h === OWNER_HASH;
+const updateChannel = () => {
+  if (prefs.updateChannel === 'owner') return ownerOn ? 'owner' : 'stable';
+  return UPDATE_CHANNELS.includes(prefs.updateChannel) ? prefs.updateChannel : 'stable';
+};
 function configureChannel(ch) {
   updater.channel = ch === 'stable' ? 'latest' : ch;
   updater.allowPrerelease = ch !== 'stable';
@@ -298,7 +327,53 @@ function canNav(wc, dir) {
   } catch { return false; }
 }
 
+// v1: the page right-click menu is drawn by Oto's UI (see v1.js); main just runs the chosen action.
+let lastCtx = null;
 function showContextMenu(wc, p) {
+  if (prefs.v1Menu !== false && win && !win.isDestroyed()) {
+    let hasExt = false;
+    try { hasExt = !!(extensions && extensions.getContextMenuItems(wc, p).length); } catch {}
+    lastCtx = { wc, p };
+    send('ctx:show', {
+      wcId: wc.id, x: p.x, y: p.y, linkURL: p.linkURL || '', linkText: p.linkText || '', srcURL: p.srcURL || '',
+      mediaType: p.mediaType, isEditable: !!p.isEditable, editFlags: p.editFlags || {}, selectionText: p.selectionText || '',
+      canBack: canNav(wc, -1), canFwd: canNav(wc, 1), pageURL: wc.getURL(), hasExt,
+    });
+    return;
+  }
+  showNativeContextMenu(wc, p);
+}
+function ctxAction(act, arg) {
+  if (!lastCtx) return;
+  const { wc, p } = lastCtx;
+  if (!wc || wc.isDestroyed()) return;
+  const open = (url, background) => send('tab:open', { url, background });
+  switch (act) {
+    case 'back': return wc.navigationHistory.goBack();
+    case 'forward': return wc.navigationHistory.goForward();
+    case 'reload': return wc.reload();
+    case 'openTab': return open(p.linkURL, false);
+    case 'openBg': return open(p.linkURL, true);
+    case 'copyLink': return clipboard.writeText(p.linkURL);
+    case 'copyText': return clipboard.writeText(String(arg || ''));
+    case 'copy': return wc.copy();
+    case 'cut': return wc.cut();
+    case 'paste': return wc.paste();
+    case 'undo': return wc.undo();
+    case 'redo': return wc.redo();
+    case 'selectAll': return wc.selectAll();
+    case 'openImage': return open(p.srcURL, false);
+    case 'saveImage': return wc.downloadURL(p.srcURL);
+    case 'copyImage': return wc.copyImageAt(p.x, p.y);
+    case 'copyImageAddr': return clipboard.writeText(p.srcURL);
+    case 'copyPage': return clipboard.writeText(wc.getURL());
+    case 'source': return open(`view-source:${wc.getURL()}`, false);
+    case 'inspect': return wc.inspectElement(p.x, p.y);
+    case 'native': return showNativeContextMenu(wc, p);
+    default:
+  }
+}
+function showNativeContextMenu(wc, p) {
   const t = [];
   const open = (url, background) => send('tab:open', { url, background });
   const sep = { type: 'separator' };
@@ -632,6 +707,22 @@ function setupIPC(ses) {
     } catch { return false; }
   });
   ipcMain.handle('perm:list', () => perms);
+  ipcMain.handle('perm:set', (_e, key, val) => {
+    if (typeof key !== 'string' || !key.includes('|')) return perms;
+    if (val === null || val === undefined) delete perms[key]; else perms[key] = !!val;
+    try { writeJSON('permissions.json', perms); } catch {}
+    return perms;
+  });
+  ipcMain.handle('site:clear', async (_e, origin) => {
+    try {
+      const o = new URL(origin).origin;
+      await session.fromPartition(PARTITION).clearStorageData({ origin: o });
+      for (const k of Object.keys(perms)) if (k.startsWith(`${o}|`)) delete perms[k];
+      try { writeJSON('permissions.json', perms); } catch {}
+      return true;
+    } catch { return false; }
+  });
+  ipcMain.on('ctx:do', (_e, act, arg) => ctxAction(act, arg));
   ipcMain.handle('perm:reset', (_e, key) => {
     if (key) delete perms[key]; else perms = {};
     try { writeJSON('permissions.json', perms); } catch {}

@@ -488,7 +488,7 @@ function setPref(key, val) {
 const setLook = (key) => (val) => { S.settings[key] = val; applyCustomization(); save(); };
 function syncMainSettings() {
   const st = S.settings;
-  oto.syncSettings({ downloadsAsk: !!st.downloadsAsk, gpc: !!st.gpc, clearOnExit: !!st.clearOnExit, autoUpdate: st.autoUpdate !== false, updateChannel: st.updateChannel || 'stable', keymap: st.keymap || {} });
+  oto.syncSettings({ downloadsAsk: !!st.downloadsAsk, gpc: !!st.gpc, clearOnExit: !!st.clearOnExit, autoUpdate: st.autoUpdate !== false, updateChannel: st.updateChannel || 'stable', v1Menu: st.v1Menu !== false, keymap: st.keymap || {} });
 }
 
 const PERF_PRESETS = {

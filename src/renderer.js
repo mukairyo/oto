@@ -1984,6 +1984,7 @@ function wire() {
   initExtras();
   initLibrary();
   initPasswords();
+  if (typeof initV1 === 'function') initV1();
   applyLayout();
   mountExtensionBar();
   applyAppIcon();
