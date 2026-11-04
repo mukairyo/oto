@@ -3,6 +3,14 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.4 — 2026-11-04
+
+*Owner test build of Oto v1 — bug fixes.*
+
+**Fixed**
+- Pressing a keyboard shortcut showed "A JavaScript error occurred in the main process" (Cannot read properties of null — getOwnerBrowserWindow). Shortcuts work again everywhere: on pages, in the sidebar and in Avocado windows.
+- Links opened from other apps didn't use the Quick window — they now open in a floating Glance window.
+
 ## 1.0.0-owner.3 — 2026-11-04
 
 *Owner test build of Oto v1 — Alpha 3 (pictures 17–23). All 23 pictures are in now.*

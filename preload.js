@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 const CHANNELS = new Set([
   'cmd', 'tab:open', 'search', 'blocked', 'download', 'perm:ask', 'perm:cancel', 'window-fullscreen', 'overlay-sampled',
-  'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'glance', 'update', 'ctx:show', 'ctrl-hold',
+  'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'glance', 'update', 'ctx:show', 'ctrl-hold', 'quick:open',
 ]);
 
 contextBridge.exposeInMainWorld('oto', {

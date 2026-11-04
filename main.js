@@ -106,7 +106,13 @@ function sendVia(wc, ch, ...args) {
   if (host && !host.isDestroyed() && isAvocadoUi(host)) { host.send(ch, ...args); return; }
   send(ch, ...args);
 }
-const winOf = (e) => BrowserWindow.fromWebContents(hostOfWc(e && e.sender)) || win;
+// Finds the window a webContents (or an IPC event) belongs to. Never throws: falls back to the main window.
+function winOfWc(wc) {
+  const host = hostOfWc(wc);
+  if (!host || (host.isDestroyed && host.isDestroyed())) return win;
+  try { return BrowserWindow.fromWebContents(host) || win; } catch { return win; }
+}
+const winOf = (e) => winOfWc(e && e.sender);
 let restoringBackup = false;
 
 // v1: holding Ctrl on its own shows the shortcut sheet (any other key or a click cancels it).
@@ -117,8 +123,9 @@ function ctrlHold(input, wc) {
     else if (input.type === 'keyUp') { ctrlDown = false; sendVia(wc, 'ctrl-hold', 'up'); }
   } else if (ctrlDown && input.type === 'keyDown') { sendVia(wc, 'ctrl-hold', 'other'); }
 }
-function handleKeys(event, input) {
-  ctrlHold(input, event.sender);
+// Key events don't say which page they came from, so each listener passes its webContents in.
+function handleKeys(event, input, wc) {
+  ctrlHold(input, wc);
   if (input.type !== 'keyDown' || keysPaused) return;
   const combo = comboOf(input);
   let cmd = KEYS[combo];
@@ -131,11 +138,11 @@ function handleKeys(event, input) {
   const now = Date.now();
   if (combo === lastKey.combo && now - lastKey.t < 15) return;
   lastKey = { combo, t: now };
-  const w = winOf(event);
+  const w = winOfWc(wc);
   if (cmd === 'fullscreen') { if (w) w.setFullScreen(!w.isFullScreen()); return; }
   if (cmd === 'uiDevtools') { if (w) w.webContents.openDevTools({ mode: 'detach' }); return; }
   if (cmd === 'avocado') { createAvocadoWindow(); return; }
-  sendVia(event.sender, 'cmd', cmd);
+  sendVia(wc, 'cmd', cmd);
 }
 
 // ---------------------------------------------------------------- window
@@ -205,7 +212,7 @@ function createWindow() {
   const ui = win.webContents;
   ui.on('will-navigate', (e) => e.preventDefault());
   ui.setWindowOpenHandler(() => ({ action: 'deny' }));
-  ui.on('before-input-event', handleKeys);
+  ui.on('before-input-event', (e, input) => handleKeys(e, input, ui));
   ui.on('will-attach-webview', (e, webPreferences, params) => {
     delete webPreferences.preload;
     webPreferences.nodeIntegration = false;
@@ -222,7 +229,7 @@ function createWindow() {
 // Every page (webview) gets keyboard shortcuts, tab-style popups and a context menu.
 app.on('web-contents-created', (_e, contents) => {
   if (contents.getType() !== 'webview') return;
-  contents.on('before-input-event', handleKeys);
+  contents.on('before-input-event', (e, input) => handleKeys(e, input, contents));
   // Tell the UI when the mouse is moving over a page (throttled): on Windows the UI doesn't get
   // a reliable "mouse left" when you move from the sidebar onto a page.
   let lastMouse = 0;
@@ -284,7 +291,7 @@ function createAvocadoWindow() {
   const ui = w.webContents;
   ui.on('will-navigate', (e) => e.preventDefault());
   ui.setWindowOpenHandler(() => ({ action: 'deny' }));
-  ui.on('before-input-event', handleKeys);
+  ui.on('before-input-event', (e, input) => handleKeys(e, input, ui));
   ui.on('will-attach-webview', (e, webPreferences, params) => {
     delete webPreferences.preload;
     webPreferences.nodeIntegration = false; webPreferences.contextIsolation = true; webPreferences.sandbox = true;
@@ -1345,7 +1352,7 @@ if (!app.requestSingleInstanceLock()) {
     const appUrl = appArg(argv);
     if (appUrl) { openAppWindow(appUrl); return; }
     const url = urlFromArgv(argv);
-    send('tab:open', { url: url || null, background: false, external: !!url });
+    if (url) send('quick:open', url); else send('tab:open', { url: null, background: false });
   });
 
   app.whenReady().then(() => {
