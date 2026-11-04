@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.14 — 2026-11-04
+
+*Owner test build of Oto v1 — fix.*
+
+**Fixed**
+- With the sidebar at its smallest width, the reload button and the star next to the shield stuck out of the sidebar onto the top bar. The address box now shrinks and the buttons get a little smaller so everything fits.
+
 ## 1.0.0-owner.13 — 2026-11-04
 
 *Owner test build of Oto v1 — Spotify fix and the Oto theme.*
