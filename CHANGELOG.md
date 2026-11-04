@@ -3,6 +3,17 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.10 — 2026-11-04
+
+*Owner test build of Oto v1 — Spotify, Netflix and other streaming.*
+
+**Fixed**
+- **Spotify songs wouldn't play** (and Netflix, Disney+, Prime Video, Tidal, Deezer… showed "protected content" errors). Oto now runs on Electron for Content Security, which adds Google's Widevine — the same module Chrome uses for protected music and video. It installs itself on first start (needs internet, about a minute), then keeps itself updated. If a streaming tab was already open, Oto offers *Reload*.
+- Settings → About shows whether protected content is ready.
+
+**Changed**
+- Oto's engine moved to Electron 44 for Content Security (Chromium 152), and the daily security updates now follow those releases.
+
 ## 1.0.0-owner.9 — 2026-11-04
 
 *Owner test build of Oto v1 — Oto Accounts are switched on.*

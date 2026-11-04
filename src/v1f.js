@@ -332,11 +332,29 @@ function v1HideLock() {
 async function initV1f() {
   PAGES.splice(1, 0, ['account', 'Account & sync', 'key']);
   PAGE_RENDER.account = v1AccountPage;
+  // About: protected content (Widevine) status
+  const _about = PAGE_RENDER.about;
+  PAGE_RENDER.about = function () {
+    const out = _about.apply(this, arguments);
+    const d = V1A.drm;
+    const cdm = d && d.status && Object.values(d.status)[0];
+    const txt = !d || !d.available ? 'Not available in this build' : cdm && cdm.status === 'updated' || (cdm && cdm.version) ? `Ready · Widevine ${cdm.version || ''}` : 'Installing… (needs internet, takes a moment on first start)';
+    out.push(section('Protected content', row('Spotify, Netflix, Disney+ and other streaming', `Widevine: ${txt}`, h('button', { class: 'btn', onclick: async () => { V1A.drm = await oto.drmStatus(); renderSettings(); } }, 'Check'))));
+    return out;
+  };
+  oto.drmStatus().then((d) => { V1A.drm = d; }).catch(() => {});
   CMDS.lockNow = () => oto.lock.now();
   if (typeof COMMANDS !== 'undefined') COMMANDS.push(['lockNow', 'Lock Oto', ['Ctrl+Alt+L']]);
   ACTIONS.push({ name: 'Oto Account & sync', kw: 'login sign in account sync cloud save data', icon: 'key', run: () => openSettings('account') }, { name: 'Lock Oto', kw: 'lock pin password', icon: 'key', run: () => oto.lock.now() });
   // block every command while locked
   for (const k of Object.keys(CMDS)) { const f = CMDS[k]; CMDS[k] = function () { if (document.body.classList.contains('v1-locked')) return; return f.apply(this, arguments); }; }
+  // Widevine (protected content) finished installing after Oto opened: offer to reload a streaming tab
+  oto.on('drm:ready', () => {
+    const t = activeTab();
+    if (t && /(^|\.)(spotify|netflix|disneyplus|primevideo|amazon|max|hbomax|hulu|tidal|deezer|crunchyroll|paramountplus|peacocktv|tv\.apple|music\.apple)\./.test(hostOf(t.url) + '.')) {
+      toast('Protected content is ready — reload to play', { icon: 'reload', timeout: 8000, action: { label: 'Reload', run: () => { const v = activeView(); if (v) wv(v, (w) => w.reload()); } } });
+    }
+  });
   oto.on('lock:state', (L) => { if (V1A.st) V1A.st.lock = L; if (L.locked) v1ShowLock(L); else v1HideLock(); v1AccRender(); });
   oto.on('account:status', (st) => { const was = V1A.st && V1A.st.signedIn; V1A.st = st; if (was !== st.signedIn) v1AccRender(); });
   try { V1A.st = await oto.account.status(); } catch { V1A.st = { configured: false, lock: {} }; }

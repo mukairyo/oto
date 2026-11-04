@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 const CHANNELS = new Set([
   'cmd', 'tab:open', 'search', 'blocked', 'download', 'perm:ask', 'perm:cancel', 'window-fullscreen', 'overlay-sampled',
-  'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'glance', 'update', 'ctx:show', 'ctrl-hold', 'quick:open', 'account:status', 'lock:state',
+  'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'glance', 'update', 'ctx:show', 'ctrl-hold', 'quick:open', 'account:status', 'lock:state', 'drm:ready',
 ]);
 
 contextBridge.exposeInMainWorld('oto', {
@@ -76,6 +76,7 @@ contextBridge.exposeInMainWorld('oto', {
   pwForOrigin: (url) => ipcRenderer.invoke('pw:forOrigin', url),
   pwCheck: (url, u, p) => ipcRenderer.invoke('pw:check', url, u, p),
   pwSave: (url, u, p) => ipcRenderer.invoke('pw:save', url, u, p),
+  drmStatus: () => ipcRenderer.invoke('drm:status'),
   pwGet: (id, purpose) => ipcRenderer.invoke('pw:get', id, purpose),
   account: {
     status: () => ipcRenderer.invoke('account:status'),

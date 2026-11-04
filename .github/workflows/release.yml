@@ -43,10 +43,23 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: npm ci
 
+      # Production Widevine (VMP) signing for Netflix & co. — castlabs EVS, free account.
+      # Set the repo secrets EVS_ACCOUNT_NAME and EVS_PASSWD to turn it on (build/vmp-sign.js).
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.skip != 'true'
+        with:
+          python-version: '3.12'
+
+      - name: Install the VMP signing tool
+        if: steps.check.outputs.skip != 'true'
+        run: python -m pip install --upgrade castlabs-evs
+
       - name: Build installer
         if: steps.check.outputs.skip != 'true'
         env:
           OTO_VERSION: ${{ steps.check.outputs.version }}
+          EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
+          EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
         run: npx electron-builder --win nsis --x64 --publish never
 
       - name: Publish release

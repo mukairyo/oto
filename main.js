@@ -649,7 +649,8 @@ function disableBlocking(ses) {
 }
 
 // ---------------------------------------------------------------- permissions
-const ALWAYS = new Set(['fullscreen', 'clipboard-sanitized-write', 'window-management']);
+// mediaKeySystem = protected content (Widevine) for Spotify, Netflix, Disney+ … — Chrome allows it by default too.
+const ALWAYS = new Set(['fullscreen', 'clipboard-sanitized-write', 'window-management', 'mediaKeySystem']);
 let perms = {};
 let permSeq = 0;
 const pendingPerms = new Map();
@@ -1236,6 +1237,19 @@ function geckoTree(places) {
 // ever gets usernames; a password is decrypted when you pick it to fill, copy or reveal.
 const PW_FILE = 'passwords.json';
 let ACCOUNT = null; // Oto Accounts + PC lock (account.js)
+// Protected content (Widevine DRM) for Spotify, Netflix, Disney+, Prime Video…: Oto is built on
+// Electron for Content Security (castlabs), which installs Google's Widevine module on first start
+// and keeps it updated. We wait a moment for it, but never block Oto from opening.
+const ecs = (() => { try { return require('electron').components || null; } catch { return null; } })();
+let drmState = { available: !!ecs, ready: false, status: null };
+let drmLate = false;
+async function drmReady() {
+  if (!ecs) return;
+  const done = ecs.whenReady().then(() => { const was = drmState.ready; drmState.ready = true; if (!was && drmLate) send('drm:ready'); }).catch(() => {}).finally(() => { try { drmState.status = ecs.status(); } catch {} });
+  await Promise.race([done, new Promise((r) => setTimeout(r, 4000))]);
+  drmLate = true;
+}
+ipcMain.handle('drm:status', () => { try { drmState.status = ecs ? ecs.status() : null; } catch {} return drmState; });
 const pwOk = (purpose) => (ACCOUNT ? ACCOUNT.pwAllowed(purpose) : true);
 let PW = null;
 const pwCanEncrypt = () => { try { return safeStorage.isEncryptionAvailable(); } catch { return false; } };
@@ -1394,8 +1408,9 @@ if (!app.requestSingleInstanceLock()) {
     if (url) send('quick:open', url); else send('tab:open', { url: null, background: false });
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     ownerLoad();
+    await drmReady();
     const ses = setupSession();
     setupIPC(ses);
     setupExtensionIPC(ses);

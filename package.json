@@ -1,8 +1,8 @@
 {
   "name": "oto",
   "productName": "Oto",
-  "version": "1.0.0-owner.9",
-  "description": "Oto \u2014 a calm, minimal browser for Windows.",
+  "version": "1.0.0-owner.10",
+  "description": "Oto — a calm, minimal browser for Windows.",
   "main": "main.js",
   "author": "Ryo",
   "license": "MIT",
@@ -20,7 +20,7 @@
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
-    "electron": "45.2.2",
+    "electron": "github:castlabs/electron-releases#v44.10.1+wvcus",
     "electron-builder": "^26.18.0"
   },
   "build": {
@@ -86,7 +86,11 @@
         "repo": "oto",
         "releaseType": "release"
       }
-    ]
+    ],
+    "electronDownload": {
+      "mirror": "https://github.com/castlabs/electron-releases/releases/download/v"
+    },
+    "afterPack": "build/vmp-sign.js"
   },
-  "otoVersion": "1.0.0-owner.9"
+  "otoVersion": "1.0.0-owner.10"
 }
