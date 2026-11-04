@@ -14,8 +14,8 @@ const crypto = require('crypto');
 
 // Public project settings — safe to ship (row level security means people only reach their own row).
 // The service_role key must never be put here.
-const SUPABASE_URL = process.env.OTO_SUPABASE_URL || '';
-const SUPABASE_KEY = process.env.OTO_SUPABASE_KEY || '';
+const SUPABASE_URL = process.env.OTO_SUPABASE_URL || 'https://lshiexrntuvueizntvky.supabase.co';
+const SUPABASE_KEY = process.env.OTO_SUPABASE_KEY || 'sb_publishable__7WNQA_K0zOmZfFDaSnhNw_4Kebnwtd';
 
 module.exports = function setupAccount(ctx) {
   const { ipcMain, app, safeStorage, net, powerMonitor, readJSON, writeJSON, send, pwLoad, pwDec, pwUpsert, OTO_VERSION } = ctx;
@@ -48,6 +48,8 @@ module.exports = function setupAccount(ctx) {
     let data = null; try { data = txt ? JSON.parse(txt) : null; } catch { data = txt; }
     if (!res.ok) {
       const msg = (data && (data.msg || data.error_description || data.message || data.error)) || `Error ${res.status}`;
+      const pg = data && data.code;
+      if (pg === '42P01' || pg === 'PGRST205' || pg === '42501' || pg === 'PGRST106') throw Object.assign(new Error('The Oto server isn’t fully set up yet (sync table missing or not allowed).'), { status: res.status, code: pg });
       throw Object.assign(new Error(String(msg)), { status: res.status, code: data && (data.error_code || data.code) });
     }
     return data;

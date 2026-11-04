@@ -3,6 +3,14 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.9 — 2026-11-04
+
+*Owner test build of Oto v1 — Oto Accounts are switched on.*
+
+**New**
+- **Oto Accounts are live** — Settings → *Account & sync* → *Create account*. Your settings, themes, bookmarks, spaces, card and passwords are encrypted on your PC and saved to your account.
+- Clearer message if the Oto server isn't fully set up.
+
 ## 1.0.0-owner.8 — 2026-11-04
 
 *Owner test build of Oto v1 — Alpha 6: Oto Accounts and the PC lock.*
