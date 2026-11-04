@@ -3,6 +3,15 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.5 — 2026-11-04
+
+*Owner test build of Oto v1 — bug fixes.*
+
+**Fixed**
+- In dark mode the space colours showed as stripes / bands down the sidebar instead of one smooth gradient.
+- The `Ctrl L` hint no longer squashes the address box in a narrow sidebar (it shows when you hover).
+- Note and flame icons no longer crowd tabs in the icon-only sidebar.
+
 ## 1.0.0-owner.4 — 2026-11-04
 
 *Owner test build of Oto v1 — bug fixes.*

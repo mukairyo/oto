@@ -1,7 +1,7 @@
 {
   "name": "oto",
   "productName": "Oto",
-  "version": "1.0.0-owner.4",
+  "version": "1.0.0-owner.5",
   "description": "Oto \u2014 a calm, minimal browser for Windows.",
   "main": "main.js",
   "author": "Ryo",
@@ -87,5 +87,5 @@
       }
     ]
   },
-  "otoVersion": "1.0.0-owner.4"
+  "otoVersion": "1.0.0-owner.5"
 }
