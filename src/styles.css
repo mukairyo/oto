@@ -1430,3 +1430,42 @@ body.rail:not(.rail-open) .dl-card { display: none; }
 body.no-ws-switch #wsSwitch { display: none; }
 body.no-ws-switch .sb-foot { justify-content: flex-end; }
 body.rail.no-ws-switch:not(.rail-open) .sb-foot { justify-content: center; }
+
+/* ================================================================== v0.9.8.1 card on your phone (coming soon) */
+.card-phone { width: 100%; display: flex; align-items: center; gap: 16px; margin-top: 6px; padding: 14px; border-radius: 16px; background: color-mix(in srgb, var(--fg) 5%, transparent); box-shadow: inset 0 0 0 1px var(--card-border); }
+.cp-device { position: relative; width: 92px; height: 186px; flex: none; border-radius: 20px; padding: 6px; background: linear-gradient(160deg, #2a2a33, #0e0e14); box-shadow: 0 10px 24px rgba(0,0,0,.28), inset 0 0 0 1.5px rgba(255,255,255,.12); }
+.cp-notch { position: absolute; top: 9px; left: 50%; width: 26px; height: 6px; margin-left: -13px; border-radius: 3px; background: #050507; z-index: 2; }
+.cp-screen { width: 100%; height: 100%; border-radius: 15px; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--accent) 45%, #111), #07070b 75%); filter: saturate(.9); }
+.cp-time { font: 600 9px var(--font); color: rgba(255,255,255,.85); margin-top: 6px; }
+.cp-card { width: 58px; transform: rotate(-4deg); animation: cpFloat 3.2s ease-in-out infinite; }
+.cp-card svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 4px 8px rgba(0,0,0,.5)); }
+@keyframes cpFloat { 0%, 100% { transform: rotate(-4deg) translateY(0); } 50% { transform: rotate(-2deg) translateY(-3px); } }
+.cp-hint { font: 500 6.5px var(--font); letter-spacing: .3px; color: rgba(255,255,255,.6); }
+.cp-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cp-text b { font-size: 13.5px; }
+.cp-text small { font-size: 12px; color: var(--fg-3); line-height: 1.4; }
+.cp-soon { align-self: flex-start; padding: 3px 9px; border-radius: 99px; font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: #fff; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 50%, #22d3ee)); }
+.cp-btns { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.cp-btns .btn[disabled] { opacity: .5; cursor: not-allowed; }
+.card-phone .cp-device, .card-phone .cp-text { opacity: .92; }
+.phone-page { display: flex; align-items: center; justify-content: center; gap: 48px; padding: 26px 10px 10px; flex-wrap: wrap; }
+.pp-device { position: relative; width: 230px; height: 470px; flex: none; border-radius: 42px; padding: 12px; background: linear-gradient(160deg, #2c2c36, #0c0c12); box-shadow: 0 30px 60px -12px rgba(0,0,0,.45), inset 0 0 0 2px rgba(255,255,255,.12); }
+.pp-device .cp-notch { top: 22px; width: 64px; height: 18px; margin-left: -32px; border-radius: 10px; }
+.pp-screen { width: 100%; height: 100%; border-radius: 32px; overflow: hidden; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: radial-gradient(circle at 50% 28%, color-mix(in srgb, var(--accent) 55%, #121218), #06060a 72%); }
+.pp-status { position: absolute; top: 18px; left: 22px; right: 22px; display: flex; justify-content: space-between; font: 600 12px var(--font); color: rgba(255,255,255,.9); }
+.pp-status svg.i { width: 13px; height: 13px; }
+.pp-card { width: 150px; animation: cpFloat 3.6s ease-in-out infinite; }
+.pp-card svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 12px 20px rgba(0,0,0,.55)); }
+.pp-hint { font: 500 11px var(--font); color: rgba(255,255,255,.65); letter-spacing: .3px; }
+.pp-dock { position: absolute; bottom: 16px; left: 18px; right: 18px; height: 46px; border-radius: 18px; display: flex; align-items: center; justify-content: space-around; background: rgba(255,255,255,.1); backdrop-filter: blur(8px); color: rgba(255,255,255,.85); }
+.pp-dock svg.i { width: 18px; height: 18px; }
+.pp-text { max-width: 380px; display: flex; flex-direction: column; gap: 10px; }
+.pp-text h2 { margin: 2px 0 0; font: 700 28px/1.15 var(--font-display); letter-spacing: -.4px; }
+.pp-text p { margin: 0; color: var(--fg-2); line-height: 1.55; font-size: 14px; }
+.pp-list { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 8px; }
+.pp-list li { display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
+.pp-list li span { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); flex: none; }
+.pp-list svg.i { width: 15px; height: 15px; }
+.pp-note { color: var(--fg-3); font-size: 12px; }

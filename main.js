@@ -220,6 +220,19 @@ app.on('web-contents-created', (_e, contents) => {
   contents.on('context-menu', (_ev, params) => showContextMenu(contents, params));
 });
 
+// ---------------------------------------------------------------- version numbers
+// Oto shows versions like 0.9.8 for big updates and 0.9.8.1, 0.9.8.2 … for small ones. The updater
+// needs three-part numbers, so the patch part carries both: 0.9.801 = 0.9.8.1, 0.9.900 = 0.9.9.
+function displayVersion(v) {
+  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(v || ''));
+  if (!m) return String(v || '');
+  const p = +m[3];
+  if (p < 100) return `${m[1]}.${m[2]}.${p}`;
+  const base = Math.floor(p / 100), small = p % 100;
+  return small ? `${m[1]}.${m[2]}.${base}.${small}` : `${m[1]}.${m[2]}.${base}`;
+}
+const OTO_VERSION = (() => { try { return require('./package.json').otoVersion || displayVersion(app.getVersion()); } catch { return displayVersion(app.getVersion()); } })();
+
 // ---------------------------------------------------------------- auto-update (GitHub Releases)
 // New versions are published as releases on github.com/mukairyo/oto. Oto checks a few seconds after
 // launch and every 6 hours, downloads in the background and installs when you restart.
@@ -230,7 +243,7 @@ function setUpdate(st) {
   send('update', updateState);
 }
 function setupUpdates() {
-  ipcMain.handle('update:status', () => ({ ...updateState, packaged: app.isPackaged, version: app.getVersion() }));
+  ipcMain.handle('update:status', () => ({ ...updateState, packaged: app.isPackaged, version: OTO_VERSION }));
   ipcMain.handle('update:check', () => checkForUpdates(true));
   ipcMain.on('update:install', () => {
     if (!updater || updateState.state !== 'ready') return;
@@ -243,10 +256,10 @@ function setupUpdates() {
   updater.allowPrerelease = false;
   updater.logger = null;
   updater.on('checking-for-update', () => setUpdate({ state: 'checking' }));
-  updater.on('update-available', (i) => setUpdate({ state: 'downloading', version: i.version, percent: 0 }));
+  updater.on('update-available', (i) => setUpdate({ state: 'downloading', version: displayVersion(i.version), percent: 0 }));
   updater.on('update-not-available', () => setUpdate({ state: 'latest' }));
   updater.on('download-progress', (p) => setUpdate({ state: 'downloading', version: updateState.version, percent: Math.round(p.percent || 0) }));
-  updater.on('update-downloaded', (i) => setUpdate({ state: 'ready', version: i.version }));
+  updater.on('update-downloaded', (i) => setUpdate({ state: 'ready', version: displayVersion(i.version) }));
   updater.on('error', (err) => {
     const m = String((err && err.message) || err);
     // No releases yet / repo not created yet: not worth bothering anyone about.
@@ -499,7 +512,7 @@ const SUGGEST = {
 
 function setupIPC(ses) {
   ipcMain.handle('app:info', () => ({
-    version: app.getVersion(),
+    version: OTO_VERSION,
     electron: process.versions.electron,
     chrome: process.versions.chrome,
     platform: process.platform,

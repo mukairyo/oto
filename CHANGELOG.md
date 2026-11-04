@@ -3,6 +3,12 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 0.9.8.1 — 2026-11-04
+
+**New**
+- **Oto Phone** page in the Library, under Oto Card — a model of the phone version that's coming one day, with your Oto Card in the phone's wallet. Marked *Coming soon*.
+- **Small updates get their own numbers** — like 0.9.8.1, 0.9.8.2 — while big updates stay 0.9.9, 1.0 and so on.
+
 ## 0.9.8 — 2026-11-04
 
 **Changed**

@@ -1,7 +1,7 @@
 {
   "name": "oto",
   "productName": "Oto",
-  "version": "0.9.8",
+  "version": "0.9.801",
   "description": "Oto \u2014 a calm, minimal browser for Windows.",
   "main": "main.js",
   "author": "Ryo",
@@ -59,7 +59,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "Oto",
-      "artifactName": "Oto-Setup-${version}.exe",
+      "artifactName": "Oto-Setup-${env.OTO_VERSION}.exe",
       "include": "build/installer.nsh",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
@@ -83,5 +83,6 @@
         "releaseType": "release"
       }
     ]
-  }
+  },
+  "otoVersion": "0.9.8.1"
 }

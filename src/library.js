@@ -632,7 +632,7 @@ function shuffleCard() {
 const LIB = { open: false, page: 'downloads', q: '' };
 const LIB_PAGES = [
   ['downloads', 'Downloads', 'download'], ['history', 'History', 'clock'], ['media', 'Media', 'play'],
-  ['spaces', 'Spaces', 'palette'], ['boosts', 'Boosts', 'bolt'], ['routing', 'Routing', 'route'], ['card', 'Oto Card', 'card'],
+  ['spaces', 'Spaces', 'palette'], ['boosts', 'Boosts', 'bolt'], ['routing', 'Routing', 'route'], ['card', 'Oto Card', 'card'], ['phone', 'Oto Phone', 'phone'],
 ];
 function openLibrary(page) {
   if (page) LIB.page = page;
@@ -837,6 +837,34 @@ const LIB_RENDER = {
   },
 };
 
+// Oto on your phone — not ready yet, so the page shows what's coming.
+LIB_RENDER.phone = function phone() {
+  ensureSince();
+  const m = cardModel();
+  return [h('div', { class: 'phone-page' },
+    h('div', { class: 'pp-device' },
+      h('div', { class: 'cp-notch' }),
+      h('div', { class: 'pp-screen' },
+        h('div', { class: 'pp-status' }, h('span', {}, new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })), h('span', { html: icon('globe') })),
+        h('div', { class: 'pp-card', html: cardSvg(m) }),
+        h('div', { class: 'pp-hint' }, 'Hold near reader'),
+        h('div', { class: 'pp-dock' }, ...['globe', 'tab', 'search', 'library'].map((ic) => h('span', { html: icon(ic) }))))),
+    h('div', { class: 'pp-text' },
+      h('span', { class: 'cp-soon' }, 'Coming soon'),
+      h('h2', {}, 'Oto on your phone'),
+      h('p', {}, 'Your Oto Card in your pocket, your spaces and tabs with you, and the same calm browser on the go.'),
+      h('ul', { class: 'pp-list' }, ...[
+        ['card', 'Your Oto Card in your phone’s wallet'],
+        ['palette', 'Your spaces and colours, synced'],
+        ['tab', 'Pick up tabs where you left off'],
+        ['shield', 'The same ad and tracker blocking'],
+      ].map(([ic, t]) => h('li', {}, h('span', { html: icon(ic) }), t))),
+      h('div', { class: 'cp-btns' },
+        h('button', { class: 'btn', disabled: true }, 'Add to Wallet'),
+        h('button', { class: 'btn', disabled: true }, 'Get Oto for phone')),
+      h('small', { class: 'pp-note' }, 'Not available yet — this page will light up when it is.')))];
+};
+
 function renderLibrary(first = false) {
   const root = $('#library');
   if (!root || !LIB.open) return;
@@ -850,13 +878,13 @@ function renderLibrary(first = false) {
   }, h('span', { class: 'ln-ic', html: icon(ic) }), h('span', {}, l))),
   h('div', { class: 'lib-nav-foot' }, h('button', { class: 'icon-btn sm', title: 'Close (Esc)', html: icon('back'), onclick: closeLibrary })));
   const head = h('div', { class: 'lib-head' },
-    LIB.page === 'card' ? h('h2', {}, 'Oto Card') : h('label', { class: 'lib-search-wrap' }, h('span', { html: icon('search') }), search),
+    LIB.page === 'card' || LIB.page === 'phone' ? h('h2', {}, LIB.page === 'card' ? 'Oto Card' : 'Oto Phone') : h('label', { class: 'lib-search-wrap' }, h('span', { html: icon('search') }), search),
     h('button', { class: 'icon-btn sm lib-close', title: 'Close (Esc)', html: icon('x'), onclick: closeLibrary }));
   const content = h('div', { class: `lib-body page-${LIB.page}` }, ...(LIB_RENDER[LIB.page]() || []));
   root.replaceChildren(h('div', { class: 'lib-shell' }, nav, h('div', { class: 'lib-main' }, head, content)));
   content.scrollTop = scroll;
   if (hadFocus >= 0) { search.focus(); search.setSelectionRange(hadFocus, hadFocus); }
-  else if (first && LIB.page !== 'card') setTimeout(() => search.focus(), 30);
+  else if (first && !['card', 'phone'].includes(LIB.page)) setTimeout(() => search.focus(), 30);
 }
 
 // ================================================================ wiring

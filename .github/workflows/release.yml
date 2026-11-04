@@ -23,7 +23,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          v=$(node -p "require('./package.json').version")
+          # Shown version: otoVersion (e.g. 0.9.8.1); the updater uses "version" (e.g. 0.9.801).
+          v=$(node -p "const p=require('./package.json'); p.otoVersion || p.version")
           echo "version=$v" >> "$GITHUB_OUTPUT"
           # Done only if the release exists AND has latest.yml (what Oto's updater reads).
           if gh release view "v$v" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx latest.yml; then
@@ -43,6 +44,8 @@ jobs:
 
       - name: Build installer
         if: steps.check.outputs.skip != 'true'
+        env:
+          OTO_VERSION: ${{ steps.check.outputs.version }}
         run: npx electron-builder --win nsis --x64 --publish never
 
       - name: Publish release

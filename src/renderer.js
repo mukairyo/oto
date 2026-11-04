@@ -44,6 +44,7 @@ const ICONS = {
   tab: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 9h8"/>',
   bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
   download: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
+  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
   folder: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2.5h6.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/>',
   route: '<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.5"/>',
   card: '<rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M5 11c3-2 11-2 14 0"/><path d="M8.5 15h7M8.5 18h4"/>',

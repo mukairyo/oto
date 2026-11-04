@@ -29,7 +29,7 @@ After that, new versions download in the background and install when you restart
 ## Features
 
 - **Updates itself**: Oto checks this repo's releases, downloads new versions in the background and installs them when you restart (Settings → About → Updates).
-- **Library** (`Ctrl+Shift+O`): Downloads, History, Media, Spaces, Boosts, Routing and your Oto Card in one panel.
+- **Library** (`Ctrl+Shift+O`): Downloads, History, Media, Spaces, Boosts, Routing, your Oto Card and a first look at Oto Phone (coming soon) in one panel.
 - **Downloads** with a glowing orb that flies from your cursor into the downloads button (progress ring, count badge, a tick when done), and a live card at the bottom of the sidebar — progress, speed, pause/cancel, open or show in folder (`Ctrl+J` for all downloads).
 - **Routing**: send sites to the space they belong in — links to them open there automatically.
 - **Oto Card**: your own card in three designs — a cyberpunk **Keycard**, the **Classic** card or a holographic **Shiny** card — with name, title, artwork, colours, styles, font, grain and stats. The preview tilts and shines under your mouse. Shuffle it, save it as an image or copy it.
@@ -115,8 +115,15 @@ npm run dist
 
 ## Releasing a new version
 
-1. Add a section for the new version at the top of `CHANGELOG.md` (`## 1.2.3 — date`, then **New** / **Fixed** lists).
-2. Bump `version` in `package.json` and push to `main`.
+1. Add a section for the new version at the top of `CHANGELOG.md` (`## 0.9.8.1 — date`, then **New** / **Fixed** lists).
+2. In `package.json`, set `otoVersion` (what people see) and `version` (what the updater compares), then push to `main`:
+
+   | Update | `otoVersion` | `version` |
+   |---|---|---|
+   | big | `0.9.9` | `0.9.900` |
+   | small | `0.9.9.1`, `0.9.9.2` … | `0.9.901`, `0.9.902` … |
+
+   The updater needs three-part numbers, so the last part carries both: the big number × 100 + the small number.
 
 The **Build & release** GitHub Action builds the Windows installer, publishes release `v1.2.3` with that changelog section as its notes, and everyone's Oto picks it up automatically. Editing an older changelog entry updates that release's notes on the next push.
 
