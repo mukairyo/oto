@@ -746,6 +746,10 @@ const PAGE_RENDER = {
       }));
     });
     return [
+      section('Passwords',
+        row('Offer to save passwords', 'When you log in to a site, Oto asks whether to save the password (encrypted on this PC).', sw(st.pwOffer !== false, (on) => setPref('pwOffer', on))),
+        row('Show saved logins when you click a login box', 'Pick an account to fill it in.', sw(st.pwFill !== false, (on) => setPref('pwFill', on))),
+        row('Saved passwords', 'See, edit, import or export them in the Library.', h('button', { class: 'btn', onclick: () => { closeSettings(); openLibrary('passwords'); } }, 'Manage passwords'))),
       section('Tracking',
         row('Block ads & trackers', INFO.blocking === 'basic' ? 'Using the built-in list (full lists load when online).' : 'EasyList & EasyPrivacy, the same lists uBlock Origin uses.',
           sw(st.blockTrackers, async (on) => {
@@ -969,7 +973,6 @@ const PAGE_RENDER = {
       h('div', { class: 'about-hero' }, h('span', { class: 'icon-art', html: iconSvg(S.settings.appIcon) }),
         h('div', {}, h('h3', {}, 'Oto'), h('div', { class: 'about' }, `Version ${INFO.version || ''} · Chromium ${INFO.chrome || ''} · Electron ${INFO.electron || ''}`))),
       section(null,
-        row('Welcome setup', 'Walk through layout, colours, speed, privacy and Essentials again.', h('button', { class: 'btn', onclick: () => { closeSettings(); runSetup(); } }, 'Run setup')),
         row('Back up your setup', 'Saves settings, space colours, Boosts, Mods and shortcuts to a file.', h('div', { class: 'btn-pair' },
           h('button', { class: 'btn', onclick: exportAll }, 'Export'),
           h('button', { class: 'btn', onclick: () => importInput.click() }, 'Import'), importInput)),

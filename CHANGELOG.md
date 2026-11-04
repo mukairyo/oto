@@ -3,6 +3,18 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 0.9.9 — 2026-11-04
+
+**New**
+- **Passwords** — when you log in, Oto offers to save the password (encrypted on your PC with Windows' own protection). Next time, click the login box and pick your account to fill it in. A key button in the address row shows saved logins for the site.
+- **Passwords page** in the Library: search, show, copy, edit, add (with a strong-password generator), delete, and import from Chrome, Edge, Brave, Opera or Firefox. Settings → Privacy → Passwords.
+- **What's new** — after an update, this window shows what changed since the version you had. Open it any time from Settings → About or the command bar.
+- **Automatic Chromium updates** — Oto now checks every day for security fixes to its Chromium engine and releases them as small updates by itself.
+- **Fresh installs start with the welcome setup** — uninstall and install Oto again and it walks you through setup (your tabs and bookmarks are kept).
+
+**Changed**
+- The "Run setup" button is gone from Settings → About — the setup runs by itself after a fresh install.
+
 ## 0.9.8.1 — 2026-11-04
 
 **New**

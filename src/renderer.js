@@ -44,6 +44,9 @@ const ICONS = {
   tab: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 9h8"/>',
   bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
   download: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
+  key: '<circle cx="8" cy="15" r="4.5"/><path d="m11.3 11.7 8.2-8.2M16.5 6.5l2.5 2.5M14 9l2 2"/>',
+  eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff: '<path d="M3 3l18 18M10.6 6.1c.5-.1.9-.1 1.4-.1 6 0 9.5 6 9.5 6a17 17 0 0 1-2.9 3.6M6.6 6.6C4 8.3 2.5 12 2.5 12S6 18.5 12 18.5c1.7 0 3.2-.5 4.5-1.1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
   phone: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
   folder: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2.5h6.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/>',
   route: '<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.5"/>',
@@ -481,6 +484,7 @@ function bindView(tab, v) {
 
   el.addEventListener('did-attach', () => mapWebContents(tab, v));
   extrasBindView(tab, v);
+  pwBindView(tab, v);
   el.addEventListener('dom-ready', () => {
     v.ready = true; mapWebContents(tab, v);
     applyBoosts(tab, v);
@@ -1136,6 +1140,7 @@ function closeSlidingSidebar() {
 // ================================================================ toolbar
 function updateChrome() {
   if (typeof updateStar === 'function') updateStar();
+  if (typeof updateKeyButton === 'function') updateKeyButton();
   const t = activeTab();
   document.body.classList.toggle('no-page', !t || !V.get(t.id));
   const v = t && V.get(t.id);
@@ -1221,12 +1226,13 @@ const C = { open: false, mode: 'new', items: [], sel: 0, sugg: [], seq: 0 };
 const ACTIONS = [
   { name: 'New space', icon: 'plus', run: () => openWsDialog() },
   { name: 'Change space colours', kw: 'theme gradient color colour', icon: 'palette', run: () => openWsDialog(currentWs(), { focusColours: true }) },
-  { name: 'Run welcome setup', kw: 'onboarding', icon: 'bolt', run: () => runSetup() },
   { name: 'Split view', kw: 'side by side two tabs', icon: 'split', run: () => toggleSplit() },
   { name: 'Library', kw: 'downloads history spaces media', icon: 'library', run: () => openLibrary() },
   { name: 'Downloads', kw: 'files', icon: 'download', run: () => openLibrary('downloads') },
   { name: 'History', kw: 'visited pages', icon: 'clock', run: () => openLibrary('history') },
   { name: 'My Oto Card', kw: 'card profile share', icon: 'card', run: () => openLibrary('card') },
+  { name: 'Passwords', kw: 'logins saved password manager', icon: 'key', run: () => openLibrary('passwords') },
+  { name: 'What’s new in Oto', kw: 'changelog release notes update version', icon: 'star', run: () => showWhatsNew({ all: true }) },
   { name: 'Routing — send sites to a space', kw: 'route rules air traffic', icon: 'route', run: () => openLibrary('routing') },
   { name: 'Picture in picture', kw: 'pip video pop out', icon: 'pip', run: () => pictureInPicture() },
   { name: 'Report a problem', kw: 'bug log feedback', icon: 'flag', run: () => openSettings('about') },
@@ -1974,6 +1980,7 @@ function wire() {
   wire();
   initExtras();
   initLibrary();
+  initPasswords();
   applyLayout();
   mountExtensionBar();
   applyAppIcon();
@@ -1986,5 +1993,8 @@ function wire() {
   render();
   updateChrome();
   if (INFO.launchUrl) routedOpen(INFO.launchUrl);
+  // Freshly (re)installed? Run the welcome setup once — your tabs, bookmarks and settings are kept.
+  if (INFO.installMarker && S.installMarker !== INFO.installMarker) { S.installMarker = INFO.installMarker; S.onboarded = false; save(); }
   if (!S.onboarded) runSetup();
+  checkWhatsNew();
 })();

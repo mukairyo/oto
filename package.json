@@ -1,7 +1,7 @@
 {
   "name": "oto",
   "productName": "Oto",
-  "version": "0.9.801",
+  "version": "0.9.900",
   "description": "Oto \u2014 a calm, minimal browser for Windows.",
   "main": "main.js",
   "author": "Ryo",
@@ -36,7 +36,8 @@
       "blocklist.js",
       "src/**/*",
       "build/icon.png",
-      "package.json"
+      "package.json",
+      "CHANGELOG.md"
     ],
     "win": {
       "target": [
@@ -70,7 +71,8 @@
       "createStartMenuShortcut": true,
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
-      "menuCategory": false
+      "menuCategory": false,
+      "uninstallDisplayName": "Oto"
     },
     "portable": {
       "artifactName": "Oto-Portable-${version}.exe"
@@ -84,5 +86,5 @@
       }
     ]
   },
-  "otoVersion": "0.9.8.1"
+  "otoVersion": "0.9.9"
 }

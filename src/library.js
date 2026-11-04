@@ -631,7 +631,7 @@ function shuffleCard() {
 // ================================================================ the Library panel
 const LIB = { open: false, page: 'downloads', q: '' };
 const LIB_PAGES = [
-  ['downloads', 'Downloads', 'download'], ['history', 'History', 'clock'], ['media', 'Media', 'play'],
+  ['downloads', 'Downloads', 'download'], ['history', 'History', 'clock'], ['passwords', 'Passwords', 'key'], ['media', 'Media', 'play'],
   ['spaces', 'Spaces', 'palette'], ['boosts', 'Boosts', 'bolt'], ['routing', 'Routing', 'route'], ['card', 'Oto Card', 'card'], ['phone', 'Oto Phone', 'phone'],
 ];
 function openLibrary(page) {

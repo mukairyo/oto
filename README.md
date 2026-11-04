@@ -22,13 +22,15 @@ Oto is a browser that stays out of your way. Your tabs live in a sidebar instead
 
 1. **[Download the latest Oto-Setup-x.y.z.exe](https://github.com/mukairyo/oto/releases/latest)** and run it.
 2. Windows SmartScreen may say the app is unrecognised (it isn't code-signed yet) — click **More info → Run anyway**.
-3. On first launch a short setup walks you through importing bookmarks, your layout, colours, speed, privacy and favourite sites.
+3. On first launch — and after any fresh install — a short setup walks you through importing bookmarks, your layout, colours, speed, privacy and favourite sites.
 
 After that, new versions download in the background and install when you restart. See **[CHANGELOG.md](CHANGELOG.md)** for what each version added and fixed — the same notes appear on every [release](https://github.com/mukairyo/oto/releases).
 
 ## Features
 
-- **Updates itself**: Oto checks this repo's releases, downloads new versions in the background and installs them when you restart (Settings → About → Updates).
+- **Updates itself**: Oto checks this repo's releases, downloads new versions in the background and installs them when you restart — then shows **What's new** (Settings → About → Updates).
+- **Always-patched Chromium**: a daily job picks up Electron security releases (new Chromium fixes) and publishes them as small updates automatically.
+- **Passwords**: Oto offers to save logins (encrypted on your PC with Windows' own protection) and shows your accounts when you click a login box. Manage, import (Chrome/Edge/Firefox CSV) and export them in Library → Passwords.
 - **Library** (`Ctrl+Shift+O`): Downloads, History, Media, Spaces, Boosts, Routing, your Oto Card and a first look at Oto Phone (coming soon) in one panel.
 - **Downloads** with a glowing orb that flies from your cursor into the downloads button (progress ring, count badge, a tick when done), and a live card at the bottom of the sidebar — progress, speed, pause/cancel, open or show in folder (`Ctrl+J` for all downloads).
 - **Routing**: send sites to the space they belong in — links to them open there automatically.

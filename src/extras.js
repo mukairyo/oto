@@ -356,7 +356,8 @@ function updatesSection() {
       id: 'updBtn', class: 'btn',
       onclick: () => { if (UPD.state === 'ready') { save(); oto.updateInstall(); } else { onUpdate({ state: 'checking' }); oto.updateCheck().then(onUpdate); } },
     }, UPD.state === 'ready' ? 'Restart now' : 'Check now')),
-    row('Update automatically', 'Downloads new versions in the background and installs them the next time Oto starts.', sw(st.autoUpdate !== false, (on) => setPref('autoUpdate', on))));
+    row('Update automatically', 'Downloads new versions in the background and installs them the next time Oto starts.', sw(st.autoUpdate !== false, (on) => setPref('autoUpdate', on))),
+    row('Show what’s new after an update', h('a', { href: '#', onclick: (e) => { e.preventDefault(); closeSettings(); showWhatsNew({ all: true }); } }, 'See the release notes'), sw(st.showWhatsNew !== false, (on) => setPref('showWhatsNew', on))));
 }
 
 // ================================================================ hooks used by renderer.js
@@ -389,4 +390,68 @@ function initExtras() {
   oto.on('page-mouse', () => { diagMouseCount++; });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && glance) { e.stopPropagation(); closeGlance(); } }, true);
   diag('start', { w: innerWidth, h: innerHeight, dpr: devicePixelRatio });
+}
+
+// ================================================================ What's new
+// After Oto updates, a window shows what changed since the version you had (from CHANGELOG.md).
+const verTuple = (v) => String(v || '').split(/[^\d]+/).filter(Boolean).map(Number);
+const verCmp = (a, b) => { const x = verTuple(a), y = verTuple(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
+function parseChangelog(md) {
+  const out = [];
+  let cur = null;
+  for (const line of String(md || '').split(/\r?\n/)) {
+    const hm = /^##\s+([\d.]+)\s*(?:—|-)?\s*(.*)$/.exec(line);
+    if (hm) { cur = { version: hm[1], date: hm[2].trim(), blocks: [] }; out.push(cur); continue; }
+    if (!cur) continue;
+    if (/^##\s/.test(line)) { cur = null; continue; }
+    const gm = /^\*\*(.+?)\*\*\s*$/.exec(line.trim());
+    if (gm) { cur.blocks.push({ title: gm[1], items: [] }); continue; }
+    const im = /^\s*[-*]\s+(.*)$/.exec(line);
+    if (im) { if (!cur.blocks.length) cur.blocks.push({ title: '', items: [] }); cur.blocks[cur.blocks.length - 1].items.push(im[1]); }
+  }
+  return out;
+}
+// tiny, safe Markdown for one line: escape first, then **bold**, *italic*, `code` and [links](url)
+function mdInline(t) {
+  let s = String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*])\*([^*]+)\*/g, '$1<i>$2</i>');
+  s = s.replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" data-ext>$1</a>');
+  return s;
+}
+async function showWhatsNew({ since = null, all = false } = {}) {
+  const md = await oto.changelog().catch(() => '');
+  let list = parseChangelog(md).filter((x) => verCmp(x.version, INFO.version) <= 0);
+  if (!all && since) list = list.filter((x) => verCmp(x.version, since) > 0);
+  list = list.slice(0, all ? 8 : 6);
+  if (!list.length) { if (all) toast('No release notes found', { timeout: 1600 }); return; }
+  const close = () => { root.classList.add('leaving'); setTimeout(() => root.remove(), 180); };
+  const tagCls = (t) => (/fix/i.test(t) ? 'fixed' : /secur/i.test(t) ? 'security' : /change/i.test(t) ? 'changed' : 'new');
+  const root = h('div', { id: 'whatsnew', class: 'overlay' },
+    h('div', { class: 'wn-card', role: 'dialog' },
+      h('div', { class: 'wn-head' },
+        h('span', { class: 'wn-logo', html: logoSvg() }),
+        h('div', {}, h('h2', {}, all ? 'Release notes' : `What’s new in Oto ${INFO.version}`), h('small', {}, since && !all ? `Since ${since}` : 'Recent versions')),
+        h('button', { class: 'icon-btn sm wn-x', title: 'Close', html: icon('x'), onclick: close })),
+      h('div', { class: 'wn-body' }, ...list.map((rel, i) => h('section', { class: `wn-rel${i === 0 ? ' first' : ''}` },
+        h('div', { class: 'wn-ver' }, h('b', {}, rel.version), rel.date ? h('span', {}, rel.date) : null),
+        ...rel.blocks.map((b) => h('div', { class: 'wn-block' },
+          b.title ? h('span', { class: `wn-tag ${tagCls(b.title)}` }, b.title) : null,
+          h('ul', {}, ...b.items.map((it) => h('li', { html: mdInline(it) })))))))),
+      h('div', { class: 'wn-foot' },
+        h('button', { class: 'btn', onclick: () => { newTab('https://github.com/mukairyo/oto/blob/main/CHANGELOG.md'); close(); } }, 'All changes on GitHub'),
+        h('button', { class: 'btn primary', onclick: close }, 'Got it'))));
+  root.addEventListener('mousedown', (e) => { if (e.target === root) close(); });
+  root.addEventListener('click', (e) => { const a = e.target.closest('a[data-ext]'); if (a) { e.preventDefault(); newTab(a.getAttribute('href')); close(); } });
+  root.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  document.body.append(root);
+  setTimeout(() => root.querySelector('.btn.primary').focus(), 50);
+}
+// Called at startup: remember the version, and show what's new when it changed.
+function checkWhatsNew() {
+  const prev = S.lastSeenVersion;
+  if (prev !== INFO.version && INFO.version) {
+    S.lastSeenVersion = INFO.version;
+    save();
+    if (prev && S.onboarded && S.settings.showWhatsNew !== false && verCmp(INFO.version, prev) > 0) setTimeout(() => showWhatsNew({ since: prev }), 1200);
+  }
 }

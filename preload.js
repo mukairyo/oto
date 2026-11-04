@@ -8,6 +8,7 @@ const CHANNELS = new Set([
 
 contextBridge.exposeInMainWorld('oto', {
   info: () => ipcRenderer.invoke('app:info'),
+  changelog: () => ipcRenderer.invoke('app:changelog'),
   loadState: () => ipcRenderer.invoke('state:load'),
   saveState: (s) => ipcRenderer.send('state:save', s),
   saveStateSync: (s) => ipcRenderer.sendSync('state:save-sync', s),
@@ -50,6 +51,17 @@ contextBridge.exposeInMainWorld('oto', {
   extInstallFile: () => ipcRenderer.invoke('ext:install-file'),
   extLoadFolder: () => ipcRenderer.invoke('ext:load-folder'),
   extRemove: (id) => ipcRenderer.invoke('ext:remove', id),
+  // passwords (the UI never gets passwords in bulk — only one, when you pick it)
+  pwStatus: () => ipcRenderer.invoke('pw:status'),
+  pwList: () => ipcRenderer.invoke('pw:list'),
+  pwForOrigin: (url) => ipcRenderer.invoke('pw:forOrigin', url),
+  pwCheck: (url, u, p) => ipcRenderer.invoke('pw:check', url, u, p),
+  pwSave: (url, u, p) => ipcRenderer.invoke('pw:save', url, u, p),
+  pwGet: (id) => ipcRenderer.invoke('pw:get', id),
+  pwUpdate: (id, patch) => ipcRenderer.invoke('pw:update', id, patch),
+  pwDelete: (id) => ipcRenderer.invoke('pw:delete', id),
+  pwImport: () => ipcRenderer.invoke('pw:import'),
+  pwExport: () => ipcRenderer.invoke('pw:export'),
   // bookmarks import
   bookmarkSources: () => ipcRenderer.invoke('bm:sources'),
   importBookmarks: (id) => ipcRenderer.invoke('bm:import', id),
