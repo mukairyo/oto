@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 const CHANNELS = new Set([
   'cmd', 'tab:open', 'search', 'blocked', 'download', 'perm:ask', 'perm:cancel', 'window-fullscreen', 'overlay-sampled',
-  'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'glance', 'update', 'ctx:show', 'ctrl-hold', 'quick:open',
+  'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'glance', 'update', 'ctx:show', 'ctrl-hold', 'quick:open', 'account:status', 'lock:state',
 ]);
 
 contextBridge.exposeInMainWorld('oto', {
@@ -76,7 +76,30 @@ contextBridge.exposeInMainWorld('oto', {
   pwForOrigin: (url) => ipcRenderer.invoke('pw:forOrigin', url),
   pwCheck: (url, u, p) => ipcRenderer.invoke('pw:check', url, u, p),
   pwSave: (url, u, p) => ipcRenderer.invoke('pw:save', url, u, p),
-  pwGet: (id) => ipcRenderer.invoke('pw:get', id),
+  pwGet: (id, purpose) => ipcRenderer.invoke('pw:get', id, purpose),
+  account: {
+    status: () => ipcRenderer.invoke('account:status'),
+    signup: (e, p) => ipcRenderer.invoke('account:signup', e, p),
+    signin: (e, p) => ipcRenderer.invoke('account:signin', e, p),
+    signout: () => ipcRenderer.invoke('account:signout'),
+    forgot: (e) => ipcRenderer.invoke('account:forgot', e),
+    oldPassword: (p) => ipcRenderer.invoke('account:oldPassword', p),
+    startFresh: () => ipcRenderer.invoke('account:startFresh'),
+    changePassword: (a, b) => ipcRenderer.invoke('account:changePassword', a, b),
+    deleteCloud: () => ipcRenderer.invoke('account:deleteCloud'),
+    push: (sections, summary) => ipcRenderer.invoke('account:push', sections, summary),
+    pull: (o) => ipcRenderer.invoke('account:pull', o),
+    peek: () => ipcRenderer.invoke('account:peek'),
+  },
+  lock: {
+    status: () => ipcRenderer.invoke('lock:status'),
+    set: (s, kind, cur) => ipcRenderer.invoke('lock:set', s, kind, cur),
+    options: (cur, o) => ipcRenderer.invoke('lock:options', cur, o),
+    remove: (cur) => ipcRenderer.invoke('lock:remove', cur),
+    unlock: (s) => ipcRenderer.invoke('lock:unlock', s),
+    verify: (s) => ipcRenderer.invoke('lock:verify', s),
+    now: () => ipcRenderer.send('lock:now'),
+  },
   pwUpdate: (id, patch) => ipcRenderer.invoke('pw:update', id, patch),
   pwDelete: (id) => ipcRenderer.invoke('pw:delete', id),
   pwImport: () => ipcRenderer.invoke('pw:import'),

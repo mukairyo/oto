@@ -217,7 +217,7 @@ async function keyMenu(x, y) {
     { header: 'Saved logins' },
     ...list.map((e) => ({ label: e.username || '(no username)', icon: 'key', run: () => pwFill(t, e.id) })),
     '-',
-    ...list.slice(0, 3).map((e) => ({ label: `Copy password${list.length > 1 ? ` — ${e.username}` : ''}`, icon: 'copy', run: async () => { const c = await oto.pwGet(e.id); if (c) { oto.copy(c.password); toast('Password copied', { icon: 'copy', timeout: 1400 }); } } })),
+    ...list.slice(0, 3).map((e) => ({ label: `Copy password${list.length > 1 ? ` — ${e.username}` : ''}`, icon: 'copy', run: async () => { const c = await (typeof v1PwGet === 'function' ? v1PwGet(e.id) : oto.pwGet(e.id)); if (c) { oto.copy(c.password); toast('Password copied', { icon: 'copy', timeout: 1400 }); } } })),
     { label: 'Manage passwords…', icon: 'settings', run: () => openLibrary('passwords') },
   ]);
 }
@@ -259,7 +259,7 @@ LIB_RENDER.passwords = function passwords() {
   const tools = h('div', { class: 'lib-tools' },
     h('button', { class: 'btn primary', onclick: () => { PWS.adding = true; PWS.editing = null; renderLibrary(); } }, 'Add password'),
     h('button', { class: 'btn', onclick: async () => { const r = await oto.pwImport(); if (!r) return; if (r.error) toast(r.error, { timeout: 3000 }); else { toast(`Imported ${r.added} new, ${r.updated} updated`, { icon: 'key', timeout: 2400 }); pwRefreshCache(); pwLoadLib(); } } }, 'Import…'),
-    h('button', { class: 'btn', onclick: async () => { if (!confirm('Export saves all your passwords in a plain, unencrypted file. Anyone who opens that file can read them. Continue?')) return; if (await oto.pwExport()) toast('Passwords exported', { timeout: 1800 }); } }, 'Export…'));
+    h('button', { class: 'btn', onclick: async () => { if (!confirm('Export saves all your passwords in a plain, unencrypted file. Anyone who opens that file can read them. Continue?')) return; let r = await oto.pwExport(); if (r && r.needPin && typeof v1AskSecret === 'function') { const sec = await v1AskSecret('Type your PIN to export passwords', ((V1A.st || {}).lock || {}).kind); if (sec == null) return; const v = await oto.lock.verify(sec); if (!v.ok) { toast('Wrong PIN', { timeout: 1600 }); return; } r = await oto.pwExport(); } if (r === true) toast('Passwords exported', { timeout: 1800 }); } }, 'Export…'));
   const intro = h('p', { class: 'lib-intro' }, PWS.status && !PWS.status.encrypted
     ? '⚠ This system doesn’t offer encryption, so passwords are stored unprotected.'
     : 'Saved on this PC and encrypted with Windows’ own protection. When you click a login box, Oto shows your accounts for that site.');
@@ -276,8 +276,8 @@ LIB_RENDER.passwords = function passwords() {
       favEl({ url: e.origin, title: e.site, favicon: '' }, null, true),
       h('div', { class: 'lib-txt' }, h('b', {}, e.site), h('small', {}, e.username || '(no username)')),
       h('code', { class: 'pw-dots' }, shown || '••••••••••'),
-      libBtn(shown ? 'eyeoff' : 'eye', shown ? 'Hide' : 'Show password', async () => { if (shown) delete PWS.revealed[e.id]; else { const c = await oto.pwGet(e.id); if (c) PWS.revealed[e.id] = c.password; } renderLibrary(); }),
-      libBtn('copy', 'Copy password', async () => { const c = await oto.pwGet(e.id); if (c) { oto.copy(c.password); toast('Password copied', { icon: 'copy', timeout: 1400 }); } }),
+      libBtn(shown ? 'eyeoff' : 'eye', shown ? 'Hide' : 'Show password', async () => { if (shown) delete PWS.revealed[e.id]; else { const c = await (typeof v1PwGet === 'function' ? v1PwGet(e.id) : oto.pwGet(e.id)); if (c) PWS.revealed[e.id] = c.password; } renderLibrary(); }),
+      libBtn('copy', 'Copy password', async () => { const c = await (typeof v1PwGet === 'function' ? v1PwGet(e.id) : oto.pwGet(e.id)); if (c) { oto.copy(c.password); toast('Password copied', { icon: 'copy', timeout: 1400 }); } }),
       libBtn('edit', 'Edit', () => { PWS.editing = e.id; PWS.adding = false; renderLibrary(); }),
       libBtn('trash', 'Delete', async () => { if (!confirm(`Delete the saved password for ${e.username || e.site}?`)) return; await oto.pwDelete(e.id); pwRefreshCache(); pwLoadLib(); }));
   })));

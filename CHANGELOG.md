@@ -3,6 +3,21 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.8 — 2026-11-04
+
+*Owner test build of Oto v1 — Alpha 6: Oto Accounts and the PC lock.*
+
+**New**
+- **Oto Account** (Settings → *Account & sync*, or the account chip in the Oto Hub) — create an account or sign in, and Oto saves your **settings & themes**, **bookmarks & spaces** (pinned tabs, folders, site notes), **Oto Card, level & badges** and **saved passwords** to it. Sign in on another PC and choose *Use my cloud data* to get it all back.
+  - **Encrypted on your PC first** — everything is locked with your account password before it's uploaded; the server only stores scrambled data.
+  - **Syncs automatically** about 20 seconds after you change something, and checks for changes from your other PCs every few minutes. *Sync now* any time; choose what to sync.
+  - Your card, badges and passwords always **merge** — nothing from either PC is lost.
+  - Change password (re-encrypts your data), sign out, or delete your cloud data.
+  - New installs: *Already have an Oto account? Sign in* in the welcome setup.
+- **PC lock** (Settings → *Account & sync* → PC lock) — a PIN or password that Oto asks for when it starts, after you've been away (5 min – 1 hour), when Windows locks or sleeps, and before showing, copying or exporting a saved password. *Lock now* with `Ctrl+Alt+L`. While locked, pages are hidden and muted and saved passwords and sync are blocked. Too many wrong tries wait longer each time.
+
+**Note:** accounts switch on as soon as the Oto server is connected (next owner build).
+
 ## 1.0.0-owner.7 — 2026-11-04
 
 *Owner test build of Oto v1 — Alpha 5: the Oto Hub and Founder security.*

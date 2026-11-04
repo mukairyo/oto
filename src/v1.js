@@ -456,7 +456,7 @@ function v1Copy(text) { try { navigator.clipboard.writeText(text); } catch {} }
 
 // ================================================================ board 4 — settings
 const V1_SET_GROUPS = [
-  ['Basics', ['general', 'appearance', 'sidebar', 'newtab']],
+  ['Basics', ['general', 'account', 'appearance', 'sidebar', 'newtab']],
   ['Browsing', ['search', 'tabs', 'privacy', 'performance', 'bookmarks']],
   ['Make it yours', ['extensions', 'boosts', 'mods', 'icon']],
   ['Oto', ['archive', 'shortcuts', 'about']],
@@ -994,4 +994,5 @@ function initV1() {
   if (typeof initV1c === 'function') initV1c();
   if (typeof initV1d === 'function') initV1d();
   if (typeof initV1e === 'function') initV1e();
+  if (typeof initV1f === 'function') initV1f();
 }

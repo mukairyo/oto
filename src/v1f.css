@@ -1,0 +1,61 @@
+/* Oto v1 — Alpha 6 styles: account page, PIN prompt, lock screen. */
+
+/* ---------- account page */
+.v1-acc-hero { display: flex; align-items: center; gap: 16px; padding: 18px; border-radius: 20px; color: #ecfbff;
+  background: radial-gradient(120% 140% at 0% 0%, rgba(167, 139, 250, .28), transparent 60%), linear-gradient(160deg, #17152b, #0a0a12) padding-box, var(--v1-holo) border-box; border: 1.5px solid transparent; }
+.v1-acc-hero .ic, .v1-acc-hero .av { width: 52px; height: 52px; border-radius: 16px; flex: none; display: grid; place-items: center; background: var(--v1-holo); color: #0a0a12; font: 800 22px/1 var(--font-display); }
+.v1-acc-hero .ic svg.i { width: 26px; height: 26px; }
+.v1-acc-hero .av { border-radius: 50%; }
+.v1-acc-hero > div:nth-child(2) { flex: 1; min-width: 0; }
+.v1-acc-hero b { font: 700 16px/1.3 var(--font-display); display: block; overflow: hidden; text-overflow: ellipsis; }
+.v1-acc-hero p { margin: 3px 0 0; font-size: 13px; color: rgba(205, 228, 255, .7); }
+.v1-acc-hero .btn.primary { background: #ecfbff; color: #0a0a12; }
+.v1-acc-card { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 16px; background: var(--input); }
+.v1-acc-card p { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
+.v1-acc-card p.sm { font-size: 12px; color: var(--fg-3); }
+.v1-acc-card p.warn { color: #b45309; }
+body.dark .v1-acc-card p.warn, [data-theme="dark"] .v1-acc-card p.warn { color: #fbbf24; }
+.v1-acc-card.form { max-width: 440px; }
+.v1-acc-card .seg { align-self: flex-start; }
+.v1-in { width: 100%; height: 38px; padding: 0 12px; border-radius: 10px; font-size: 14px; }
+.v1-in.big { height: 44px; font-size: 18px; letter-spacing: .2em; text-align: center; }
+.v1-acc-btns { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.v1-acc-btns .lnk { font-size: 12.5px; color: var(--fg-3); text-decoration: underline; text-underline-offset: 3px; }
+.v1-acc-btns .lnk:hover { color: var(--fg); }
+.v1-acc-err { margin: 0; font-size: 12.5px; color: #e11d48; }
+.v1-acc-msg { margin: 0; font-size: 12.5px; color: #059669; }
+.btn.danger { color: #e11d48; }
+
+/* ---------- PIN prompt */
+.v1-pop.v1-pin { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); width: 300px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.v1-pop.v1-pin::before { display: none; }
+.v1-pin .ic { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--v1-holo); color: #0a0a12; }
+.v1-pin .ic svg.i { width: 22px; height: 22px; }
+.v1-pin b { font-size: 14px; }
+.v1-pin .v1-acc-btns { justify-content: center; }
+
+/* ---------- lock screen */
+body.v1-locked #views, body.v1-locked #settings, body.v1-locked .v1-hub, body.v1-locked #library { visibility: hidden !important; }
+.v1-lock { position: fixed; inset: 0; z-index: 2147483000; display: grid; place-items: center; background: var(--g); color: #fff; animation: v1fade .25s ease; -webkit-app-region: drag; }
+.v1-lock::before { content: ''; position: absolute; inset: 0; background: radial-gradient(80% 70% at 50% 40%, rgba(255, 255, 255, .14), transparent 70%), rgba(6, 5, 16, .42); backdrop-filter: blur(30px); }
+.v1-lock.out { animation: v1lockout .26s ease forwards; }
+@keyframes v1lockout { to { opacity: 0; transform: scale(1.02); } }
+.v1-lock .box { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; -webkit-app-region: no-drag; }
+.v1-lock .mk { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; background: rgba(255, 255, 255, .16); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .3); margin-bottom: 8px; }
+.v1-lock .mk svg { width: 36px; height: 36px; }
+.v1-lock .clk { font: 200 72px/1 var(--font-display); letter-spacing: -.02em; text-shadow: 0 4px 30px rgba(0, 0, 0, .25); }
+.v1-lock p { margin: 0 0 14px; font-size: 14px; opacity: .85; }
+.v1-lock .row { display: flex; gap: 8px; }
+.v1-lock .pin { width: 230px; height: 46px; border-radius: 99px; border: 0; padding: 0 20px; font-size: 18px; letter-spacing: .25em; text-align: center; color: #fff; background: rgba(255, 255, 255, .16); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .3); outline: none; }
+.v1-lock .pin::placeholder { color: rgba(255, 255, 255, .6); letter-spacing: .05em; }
+.v1-lock .pin:focus { background: rgba(255, 255, 255, .22); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .7); }
+.v1-lock .go { width: 46px; height: 46px; border-radius: 50%; background: #fff; color: #111; font-size: 20px; font-weight: 700; }
+.v1-lock .err { min-height: 18px; font-size: 13px; color: #fecaca; }
+.v1-lock .box.shake { animation: v1shake .35s; }
+@keyframes v1shake { 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
+
+/* ---------- Hub account chip */
+.v1-hub .acc { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border-radius: 99px; background: rgba(255, 255, 255, .07); font-size: 12.5px; color: #ecfbff; }
+.v1-hub .acc:hover { background: rgba(255, 255, 255, .12); }
+.v1-hub .acc .av { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--v1-holo); color: #0a0a12; font: 800 12px/1 var(--font-display); }
+.v1-hub .acc .av.off { background: rgba(255, 255, 255, .12); color: #ecfbff; } .v1-hub .acc .av svg.i { width: 14px; height: 14px; }

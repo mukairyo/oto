@@ -1,6 +1,6 @@
 // Oto — main process
 const {
-  app, BrowserWindow, ipcMain, session, Menu, clipboard, shell, nativeTheme, net, screen, nativeImage, webContents, dialog, safeStorage,
+  app, BrowserWindow, ipcMain, session, Menu, clipboard, shell, nativeTheme, net, screen, nativeImage, webContents, dialog, safeStorage, powerMonitor,
 } = require('electron');
 const os = require('os');
 const path = require('path');
@@ -60,7 +60,7 @@ function send(channel, ...args) {
 
 // ---------------------------------------------------------------- keyboard
 const DEFAULT_KEYS = {
-  'Shift+Escape': 'health', 'Ctrl+Shift+ ': 'overview', 'Ctrl+Shift+N': 'avocado', 'Ctrl+Shift+X': 'screenshot', 'Ctrl+Shift+H': 'hub',
+  'Shift+Escape': 'health', 'Ctrl+Shift+ ': 'overview', 'Ctrl+Shift+N': 'avocado', 'Ctrl+Shift+X': 'screenshot', 'Ctrl+Shift+H': 'hub', 'Ctrl+Alt+L': 'lockNow',
   'Ctrl+T': 'newTab', 'Ctrl+N': 'newTab', 'Ctrl+K': 'newTab',
   'Ctrl+L': 'focusUrl', 'Alt+D': 'focusUrl', 'F6': 'focusUrl',
   'Ctrl+W': 'closeTab', 'Ctrl+F4': 'closeTab', 'Ctrl+Shift+T': 'reopen',
@@ -823,7 +823,7 @@ function setupIPC(ses) {
     const r = await dialog.showSaveDialog(winOf(e), { defaultPath: path.join(app.getPath('documents'), `Oto-backup-${day}.oto`), filters: [{ name: 'Oto backup', extensions: ['oto'] }] });
     if (r.canceled || !r.filePath) return { ok: false };
     const out = { oto: 'backup', v: 1, created: Date.now(), version: OTO_VERSION, state };
-    if (pass) {
+    if (pass && pwOk() === true) {
       const crypto = require('crypto');
       const list = pwLoad().entries.map((en) => ({ origin: en.origin, username: en.username, password: pwDec(en) }));
       const salt = crypto.randomBytes(16), iv = crypto.randomBytes(12);
@@ -1235,6 +1235,8 @@ function geckoTree(places) {
 // (Electron safeStorage = DPAPI, the same thing Chrome uses). Nothing leaves the PC. The UI only
 // ever gets usernames; a password is decrypted when you pick it to fill, copy or reveal.
 const PW_FILE = 'passwords.json';
+let ACCOUNT = null; // Oto Accounts + PC lock (account.js)
+const pwOk = (purpose) => (ACCOUNT ? ACCOUNT.pwAllowed(purpose) : true);
 let PW = null;
 const pwCanEncrypt = () => { try { return safeStorage.isEncryptionAvailable(); } catch { return false; } };
 function pwLoad() {
@@ -1285,8 +1287,8 @@ function csvParse(text) {
 const csvCell = (v) => (/[",\n\r]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
 function setupPasswordIPC() {
   ipcMain.handle('pw:status', () => ({ encrypted: pwCanEncrypt(), count: pwLoad().entries.length }));
-  ipcMain.handle('pw:list', () => pwLoad().entries.map(pwPublic).sort((a, b) => a.site.localeCompare(b.site) || a.username.localeCompare(b.username)));
-  ipcMain.handle('pw:forOrigin', (_e, url) => { const o = pwOrigin(url); return o ? pwLoad().entries.filter((e) => e.origin === o).sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0)).map(pwPublic) : []; });
+  ipcMain.handle('pw:list', () => pwOk() !== true ? [] : pwLoad().entries.map(pwPublic).sort((a, b) => a.site.localeCompare(b.site) || a.username.localeCompare(b.username)));
+  ipcMain.handle('pw:forOrigin', (_e, url) => { if (pwOk() !== true) return []; const o = pwOrigin(url); return o ? pwLoad().entries.filter((e) => e.origin === o).sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0)).map(pwPublic) : []; });
   ipcMain.handle('pw:check', (_e, url, username, password) => {
     const o = pwOrigin(url);
     if (!o || !password) return 'invalid';
@@ -1295,7 +1297,7 @@ function setupPasswordIPC() {
     return pwDec(ex) === password ? 'same' : 'update';
   });
   ipcMain.handle('pw:save', (_e, url, username, password) => { const o = pwOrigin(url); return o && password ? pwUpsert(o, String(username || ''), String(password)) : 'invalid'; });
-  ipcMain.handle('pw:get', (_e, id) => { const e = pwLoad().entries.find((x) => x.id === id); if (!e) return null; e.lastUsed = Date.now(); pwSave(); return { username: e.username, password: pwDec(e), origin: e.origin }; });
+  ipcMain.handle('pw:get', (_e, id, purpose) => { const ok = pwOk(purpose); if (ok === 'pin') return { needPin: true }; if (ok !== true) return null; const e = pwLoad().entries.find((x) => x.id === id); if (!e) return null; e.lastUsed = Date.now(); pwSave(); return { username: e.username, password: pwDec(e), origin: e.origin }; });
   ipcMain.handle('pw:update', (_e, id, patch) => {
     const e = pwLoad().entries.find((x) => x.id === id);
     if (!e || !patch) return false;
@@ -1324,6 +1326,7 @@ function setupPasswordIPC() {
     return { added, updated };
   });
   ipcMain.handle('pw:export', async () => {
+    { const ok = pwOk('reveal'); if (ok === 'pin') return { needPin: true }; if (ok !== true) return false; }
     const r = await dialog.showSaveDialog(win, { title: 'Export passwords', defaultPath: path.join(app.getPath('documents'), 'Oto Passwords.csv'), filters: [{ name: 'CSV', extensions: ['csv'] }] });
     if (r.canceled || !r.filePath) return false;
     const lines = ['name,url,username,password', ...pwLoad().entries.map((e) => [pwSite(e.origin), e.origin, e.username, pwDec(e)].map(csvCell).join(','))];
@@ -1398,6 +1401,7 @@ if (!app.requestSingleInstanceLock()) {
     setupExtensionIPC(ses);
     setupBookmarkIPC();
     setupPasswordIPC();
+    ACCOUNT = require('./account.js')({ ipcMain, app, safeStorage, net, powerMonitor, readJSON, writeJSON, send, pwLoad, pwDec, pwUpsert, OTO_VERSION });
     setupWindowIPC();
     initExtensionAPI(ses);
     createWindow();

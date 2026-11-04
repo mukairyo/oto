@@ -1,7 +1,7 @@
 {
   "name": "oto",
   "productName": "Oto",
-  "version": "1.0.0-owner.7",
+  "version": "1.0.0-owner.8",
   "description": "Oto \u2014 a calm, minimal browser for Windows.",
   "main": "main.js",
   "author": "Ryo",
@@ -33,6 +33,7 @@
     },
     "files": [
       "main.js",
+      "account.js",
       "preload.js",
       "blocklist.js",
       "src/**/*",
@@ -87,5 +88,5 @@
       }
     ]
   },
-  "otoVersion": "1.0.0-owner.7"
+  "otoVersion": "1.0.0-owner.8"
 }

@@ -99,6 +99,8 @@ function runSetup() {
       if (!sources) oto.bookmarkSources().then((s) => { sources = s || []; if (STEPS[step][0] === 'import') paint(); });
       return h('div', {},
         ...title('Bring your stuff', 'Import bookmarks from the browser you use now, and make Oto the one that opens your links.'),
+        typeof V1A !== 'undefined' && V1A.st && V1A.st.configured && !V1A.st.signedIn ? line('Already have an Oto account?', 'Sign in and your settings, bookmarks, spaces, card and passwords come back.',
+          h('button', { class: 'btn primary', onclick: () => { finish(); setTimeout(() => openSettings('account'), 260); } }, 'Sign in')) : null,
         sub('Bookmarks'),
         sources == null ? h('p', { class: 'setup-note' }, 'Looking for other browsers…')
           : !sources.length ? h('p', { class: 'setup-note' }, 'No other browsers found on this PC. You can import an exported bookmarks file later in Settings → Bookmarks.')
