@@ -80,6 +80,10 @@ jobs:
             v="${tag#v}"
             bash .github/release-notes.sh "$v" > notes.md
             if grep -q . notes.md; then
-              gh release edit "$tag" --title "Oto $v" --notes-file notes.md --repo "$GITHUB_REPOSITORY" && echo "updated $tag"
+              # GitHub sometimes answers 502 for a moment — retry, and never fail the release over old notes
+              for try in 1 2 3; do
+                if gh release edit "$tag" --title "Oto $v" --notes-file notes.md --repo "$GITHUB_REPOSITORY" >/dev/null; then echo "updated $tag"; break; fi
+                echo "retrying $tag ($try)"; sleep $((try * 5))
+              done
             fi
           done
