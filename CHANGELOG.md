@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.11 — 2026-11-04
+
+*Owner test build of Oto v1 — signed for Widevine.*
+
+**Fixed**
+- Oto is now production-signed for Widevine (castlabs EVS), which Netflix, Disney+ and other strict streaming services need.
+
 ## 1.0.0-owner.10 — 2026-11-04
 
 *Owner test build of Oto v1 — Spotify, Netflix and other streaming.*
