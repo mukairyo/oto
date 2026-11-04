@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 const CHANNELS = new Set([
   'cmd', 'tab:open', 'search', 'blocked', 'download', 'perm:ask', 'perm:cancel', 'window-fullscreen', 'overlay-sampled',
-  'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'glance', 'update',
+  'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'glance', 'update', 'ctx:show', 'ctrl-hold',
 ]);
 
 contextBridge.exposeInMainWorld('oto', {
@@ -32,6 +32,21 @@ contextBridge.exposeInMainWorld('oto', {
   syncSettings: (p) => ipcRenderer.send('settings:sync', p),
   listPermissions: () => ipcRenderer.invoke('perm:list'),
   resetPermission: (key) => ipcRenderer.invoke('perm:reset', key),
+  setPermission: (key, val) => ipcRenderer.invoke('perm:set', key, val),
+  clearSite: (origin) => ipcRenderer.invoke('site:clear', origin),
+  ctxDo: (act, arg) => ipcRenderer.send('ctx:do', act, arg),
+  appMode: () => ipcRenderer.invoke('app:mode'),
+  openAvocado: () => ipcRenderer.send('avocado:open'),
+  qrSvg: (text) => ipcRenderer.invoke('qr:svg', text),
+  shotFull: (wcId) => ipcRenderer.invoke('shot:full', wcId),
+  shotSave: (dataUrl) => ipcRenderer.invoke('shot:save', dataUrl),
+  shotShow: (f) => ipcRenderer.send('shot:show', f),
+  shotOpen: (f) => ipcRenderer.send('shot:open', f),
+  openApp: (url) => ipcRenderer.send('app:open', url),
+  installApp: (url, title, icon) => ipcRenderer.invoke('app:install', url, title, icon),
+  backupSave: (state, pass) => ipcRenderer.invoke('backup:save', state, pass),
+  backupOpen: () => ipcRenderer.invoke('backup:open'),
+  backupRestore: (pass) => ipcRenderer.invoke('backup:restore', pass),
   setAppIcon: (dataUrl) => ipcRenderer.send('app:icon', dataUrl),
   makeDefaultBrowser: () => ipcRenderer.invoke('app:default-browser'),
   // window buttons
@@ -44,6 +59,8 @@ contextBridge.exposeInMainWorld('oto', {
   updateStatus: () => ipcRenderer.invoke('update:status'),
   updateCheck: () => ipcRenderer.invoke('update:check'),
   updateInstall: () => ipcRenderer.send('update:install'),
+  ownerUnlock: (key) => ipcRenderer.invoke('owner:unlock', key),
+  ownerLock: () => ipcRenderer.invoke('owner:lock'),
   // extensions
   extTabReady: (id, wcId) => ipcRenderer.send('ext:tab-ready', id, wcId),
   extActive: (wcId) => ipcRenderer.send('ext:active', wcId),

@@ -449,7 +449,7 @@ function ensureView(tab) {
   let v = V.get(tab.id);
   if (v) return v;
   const el = document.createElement('webview');
-  el.setAttribute('partition', 'persist:oto');
+  el.setAttribute('partition', typeof v1PartitionFor === 'function' ? v1PartitionFor(tab) : 'persist:oto');
   el.setAttribute('allowpopups', '');
   el.setAttribute('plugins', '');
   el.setAttribute('src', tab.url);
@@ -1984,6 +1984,7 @@ function wire() {
   initExtras();
   initLibrary();
   initPasswords();
+  if (typeof initV1 === 'function') initV1();
   applyLayout();
   mountExtensionBar();
   applyAppIcon();

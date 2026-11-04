@@ -3,6 +3,64 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.3 — 2026-11-04
+
+*Owner test build of Oto v1 — Alpha 3 (pictures 17–23). All 23 pictures are in now.*
+
+**New**
+- **Make the buttons yours** — right-click the bottom of the sidebar → *Customize buttons…*: add or remove Library, Notifications, Oto Health, Settings, Split view, Screenshot, Space overview, Theme maker, Site note, Oto Night, Avocado, Send to phone, Oto Wrapped or Extensions; drag to reorder; icons, hover labels or text; small, medium or large.
+- **Notification center** (bell at the bottom of the sidebar) — every site's notifications in one list, grouped by site, with *Do not disturb* for 1 hour, until tomorrow morning, or until you turn it off.
+- **Comfort** (Settings → Appearance) — text size for all websites, high contrast, reduce motion, bigger buttons and a warm night light after 21:00.
+- **Swipe to go back** — two fingers left or right on a touchpad goes back or forward.
+- **Theme maker** — change your space's colours live, try Glossy / Pastel / Deep / Mono, strength and grain, save themes, and share them with a short code like `OTO-…` that friends can paste.
+- **Tab folders** — right-click a tab → *Add to new folder…*; open and close folders, rename, recolour, ungroup. Closed folders show small stacked icons and a count. Drag tabs onto a folder to add them.
+- **Site notes** — a sticky note for a page or a whole site (site panel, right-click a tab, or the command bar). A yellow note icon shows in the address box and on the tab.
+- **Screenshots** (`Ctrl+Shift+X`) — drag an area, the visible part, or the whole long page; draw with pen, arrows and boxes, add text, blur private stuff; copy, or save to *Pictures › Oto Screenshots*.
+- **Oto Wrapped** — a story of how you use Oto: time on pages, top sites, your personality (Night Owl, Early Bird…), and what Oto blocked for you. Copy it as a picture. Counted only on your PC.
+- **Startup animation** — the ring draws itself when Oto opens (under a second, off with animations).
+- **Oto sounds (音)** — Soft, Typewriter or Bubbles sounds for new tab, close tab, download done and switching spaces. Off by default.
+- **Separate logins per space** — right-click a space → *Give this space its own logins*: use a different account on the same site in each space.
+
+## 1.0.0-owner.2 — 2026-11-04
+
+*Owner test build of Oto v1 — Alpha 2 (pictures 9–16).*
+
+**New**
+- **Oto Health** (`Shift+Esc`, or the heartbeat button at the bottom of the sidebar) — how much memory Oto uses, every open tab sorted by memory, about how much sleeping tabs save, and a warning with *Put to sleep* when a background tab works the CPU hard. Busy tabs get a small flame in the sidebar.
+- **Battery saver** — turns on by itself when a laptop is unplugged (or switch it on/off in Oto Health): background tabs sleep after 5 minutes, background videos pause, fewer animations, and a battery pill in the top bar.
+- **Quick window** — links you click in other apps open in a floating Glance window. Keep it as a tab or close it.
+- **Loading line** in your space colours across the top while a page loads.
+- **Clean links** — copying a link removes tracking parts like `utm_…` and `fbclid` and tells you how many it removed.
+- **No more cookie popups** — Oto presses *Reject all* for you, or hides the popup when there's only *Accept*.
+- **Dark page** — a switch in the site panel turns any bright site dark (pictures keep their colours), remembered per site.
+- **Backup & restore** (Settings → General) — save everything to one `.oto` file and restore it on a new PC. Add a backup password to include your saved passwords (encrypted).
+- **Space templates** — Gaming, School, Work and Music (right-click the space name, or the command bar).
+- **Video tools** — hover a video for 1× / 1.5× / 2×, loop, screenshot and picture-in-picture.
+- **Search inside your tabs** — the command bar finds words on the pages you have open and jumps right to them.
+- **A secret** for people who like typing slash commands. 🤫
+- **Oto Night** (Settings → Appearance) — Off, On, Follow Windows or After sunset.
+- **Space overview** (`Ctrl+Shift+Space`, or double-click the space name) — every space as a card with its tabs; search all spaces, drag tabs between spaces, or make a new one.
+- **Avocado** 🥑 (`Ctrl+Shift+N`) — Oto's private window, with its own green look. Nothing is saved, and closing it wipes cookies and site data.
+- **Oto Apps** — install a site as its own app window with its own Start-menu entry (site panel → *Install as app*).
+- **Send to phone** — a QR code of the page (site panel or right-click).
+
+## 1.0.0-owner.1 — 2026-11-04
+
+*Owner test build of Oto v1 — Alpha 1. Only shows up for the Owner update channel.*
+
+**New**
+- **Cleaner main window** — the page name sits in the middle of the top bar, a glass address box with `Ctrl L`, bigger Essentials with a coloured line under the open one and a red dot when a site has something new, *Pinned* and *Today* sections, a glowing line on the tab you're on, a moving sound wave on tabs playing audio, sleeping tabs marked *zz*, and the version number at the bottom.
+- **Warmer new tab** — the date, a thin clock in your space colours, your name in colour, a bigger search box and *Jump back in* with the last pages you visited.
+- **Site panel** — click the lock: ads & trackers blocked, Location / Camera & mic / Notifications as Ask · Allow · Block, sound on/off, zoom, *Always open in* a space, and *Clear site data*.
+- **New right-click menu** — back, forward, reload and bookmark as big buttons on top, plus Glance, split view and *Open in space…*.
+- **Command bar** — filters (All, Tabs, History, Bookmarks, Actions, Spaces) with counts, `Tab` to switch filters, matches in bold, shortcuts next to actions, instant answers to sums like `12*4.5+30`, and slash commands: `/space`, `/theme`, `/card`, `/closed`, `/shortcuts` and more.
+- **Settings** — search every setting, pages sorted into Basics · Browsing · Make it yours · Oto, settings in soft cards, and a *Saved · Undo* pill after each change.
+- **Drag a tab onto the page to split** — drop it on the left or right half. Each half gets a small header with swap and close.
+- **Oto's own error pages** — *You're offline* (tries again by itself, and you can play **Ring Run** while you wait), *This site isn't safe right now*, *This tab crashed*, and a small bar when a page doesn't exist.
+- **Small stuff** — find bar with *Match case* and yellow marks on the right edge for every match, a zoom pill in the middle, dark message pills, permission asks that come out of the address box, an *Update ready* card in the sidebar, and recently closed tabs (right-click *New Tab* or `/closed`).
+- **Hold Ctrl** for a second to see every shortcut. Let go to close it.
+- **Owner channel** — Settings → About: tap *Oto version* 7 times and enter your owner key.
+
 ## 0.9.10.1 — 2026-11-04
 
 **New**

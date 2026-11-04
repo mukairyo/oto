@@ -348,21 +348,42 @@ function onUpdate(u) {
   const b = document.getElementById('updBtn');
   if (b) { b.textContent = UPD.state === 'ready' ? 'Restart now' : 'Check now'; b.disabled = ['checking', 'downloading'].includes(UPD.state); }
 }
+// Owner channel: tap "Oto version" 7 times to show the owner-key box.
+let ownerTaps = 0, ownerTapT = 0, ownerKeyOpen = false;
+function ownerTap() {
+  const now = Date.now();
+  ownerTaps = now - ownerTapT < 900 ? ownerTaps + 1 : 1;
+  ownerTapT = now;
+  if (ownerTaps >= 7 && !ownerKeyOpen) { ownerKeyOpen = true; renderSettings(); setTimeout(() => { const i = document.getElementById('ownerKey'); if (i) i.focus(); }, 30); }
+}
+async function ownerSubmit() {
+  const i = document.getElementById('ownerKey');
+  const ok = await oto.ownerUnlock(i ? i.value : '');
+  if (!ok) { toast('That key doesn’t match', { timeout: 2200 }); return; }
+  UPD.owner = true; ownerKeyOpen = false;
+  setPref('updateChannel', 'owner');
+  toast('Owner unlocked — you’re on the Owner channel 🔑', { timeout: 3000 });
+  renderSettings();
+}
 function updatesSection() {
   const st = S.settings;
   oto.updateStatus().then(onUpdate).catch(() => {});
   return section('Updates',
-    row('Oto version', h('span', { id: 'updLine' }, updateText()), h('button', {
+    row(h('span', { onclick: ownerTap, style: 'cursor:default;user-select:none' }, 'Oto version'), h('span', { id: 'updLine' }, updateText()), h('button', {
       id: 'updBtn', class: 'btn',
       onclick: () => { if (UPD.state === 'ready') { save(); oto.updateInstall(); } else { onUpdate({ state: 'checking' }); oto.updateCheck().then(onUpdate); } },
     }, UPD.state === 'ready' ? 'Restart now' : 'Check now')),
     row('Update automatically', 'Downloads new versions in the background and installs them the next time Oto starts.', sw(st.autoUpdate !== false, (on) => setPref('autoUpdate', on))),
     row('Update channel', h('span', {}, (st.updateChannel || 'stable') === 'alpha' ? 'Alpha: the newest experiments as soon as they exist. Things can break — thanks for testing!' : (st.updateChannel || 'stable') === 'beta' ? 'Beta: new versions before everyone else. Mostly stable — tell Ryo what you find.' : 'Stable: tested versions. Join Beta or Alpha to try new things early and help test.'),
-      seg([['stable', 'Stable'], ['beta', 'Beta'], ['alpha', 'Alpha']], st.updateChannel || 'stable', (v) => {
+      seg([['stable', 'Stable'], ['beta', 'Beta'], ['alpha', 'Alpha'], ...(UPD.owner ? [['owner', 'Owner']] : [])], (st.updateChannel === 'owner' && !UPD.owner) ? 'stable' : (st.updateChannel || 'stable'), (v) => {
         if (v === 'alpha' && !confirm('Alpha versions are early experiments and can have bugs or lose settings. Join the Alpha channel?')) return;
         setPref('updateChannel', v);
-        toast(v === 'stable' ? 'Back on Stable — you’ll move over at the next stable version' : `You’re a ${v === 'alpha' ? 'Alpha' : 'Beta'} tester now 🧪`, { timeout: 2600 });
+        toast(v === 'stable' ? 'Back on Stable — you’ll move over at the next stable version' : v === 'owner' ? 'Owner channel on — you get Ryo’s v1 test builds 🔑' : `You’re a ${v === 'alpha' ? 'Alpha' : 'Beta'} tester now 🧪`, { timeout: 2600 });
       })),
+    ownerKeyOpen && !UPD.owner ? row('Owner key', 'Enter your private owner key to unlock the Owner update channel.', h('div', { style: 'display:flex;gap:6px' },
+      h('input', { id: 'ownerKey', class: 'lib-input', placeholder: 'OTO-XXXX-XXXX-XXXX-XXXX', spellcheck: 'false', style: 'width:230px;font-family:ui-monospace,Consolas,monospace', onkeydown: (e) => { if (e.key === 'Enter') ownerSubmit(); } }),
+      h('button', { class: 'btn', onclick: ownerSubmit }, 'Unlock'))) : null,
+    UPD.owner ? row('Owner', 'This PC is unlocked for the Owner channel.', h('button', { class: 'btn', onclick: () => { oto.ownerLock().then(() => { UPD.owner = false; if (S.settings.updateChannel === 'owner') setPref('updateChannel', 'stable'); renderSettings(); }); } }, 'Lock')) : null,
         row('Show what’s new after an update', h('a', { href: '#', onclick: (e) => { e.preventDefault(); closeSettings(); showWhatsNew({ all: true }); } }, 'See the release notes'), sw(st.showWhatsNew !== false, (on) => setPref('showWhatsNew', on))));
 }
 
@@ -406,7 +427,7 @@ function parseChangelog(md) {
   const out = [];
   let cur = null;
   for (const line of String(md || '').split(/\r?\n/)) {
-    const hm = /^##\s+([\d.]+)\s*(?:—|-)?\s*(.*)$/.exec(line);
+    const hm = /^##\s+(\d[\d.]*(?:-[a-z]+\.\d+)?)\s*(?:—|-)?\s*(.*)$/i.exec(line);
     if (hm) { cur = { version: hm[1], date: hm[2].trim(), blocks: [] }; out.push(cur); continue; }
     if (!cur) continue;
     if (/^##\s/.test(line)) { cur = null; continue; }
