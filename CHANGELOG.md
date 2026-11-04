@@ -3,6 +3,20 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.18 — 2026-11-05
+
+*Owner test build of Oto v1 — Oto Shield.*
+
+**New**
+- **Oto Shield menu** — click the shield next to the address. It works like uBlock Origin's menu (Oto's blocker uses uBlock Origin's filter lists):
+  - a big **power button** to turn blocking off or on for the site you're on (the page reloads),
+  - **blocked counts** for this page and since you started using Oto,
+  - **Zap** — click anything on the page to remove it until you reload,
+  - **Hide** — pick something to hide on that site for good (Undo in the message),
+  - **Block annoyances** — adds uBlock's lists for cookie banners, newsletter popups and "turn off your adblocker" walls,
+  - **My filters** — your own rules in uBlock syntax (`||ads.example.com^`, `example.com##.sponsored`, `@@` exceptions) and the list of sites where blocking is off.
+- The shield shows crossed out on sites where blocking is off.
+
 ## 1.0.0-owner.17 — 2026-11-05
 
 *Owner test build of Oto v1 — sync fix.*

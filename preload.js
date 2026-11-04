@@ -23,6 +23,13 @@ contextBridge.exposeInMainWorld('oto', {
   copyImage: (dataUrl) => ipcRenderer.send('clipboard:image', dataUrl),
   suggest: (engine, q) => ipcRenderer.invoke('suggest', engine, q),
   setBlocking: (on) => ipcRenderer.invoke('blocker:set', on),
+  shield: {
+    state: (url) => ipcRenderer.invoke('shield:state', url),
+    site: (url, allow) => ipcRenderer.invoke('shield:site', url, allow),
+    filters: (text) => ipcRenderer.invoke('shield:filters', text),
+    pick: (url, sel) => ipcRenderer.invoke('shield:pick', url, sel),
+    annoy: (on) => ipcRenderer.invoke('shield:annoy', on),
+  },
   replyPermission: (id, allow) => ipcRenderer.send('perm:reply', id, allow),
   showInFolder: (p) => ipcRenderer.send('shell:show', p),
   dlAction: (id, act) => ipcRenderer.send('dl:action', id, act),

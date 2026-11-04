@@ -609,6 +609,7 @@ function enableFallback(ses) {
     if (d.resourceType === 'mainFrame') return cb({});
     let h;
     try { h = new URL(d.url).hostname; } catch { return cb({}); }
+    if (shieldAllowed(pageHostOf(d.webContentsId))) return cb({});
     while (h) {
       if (list.has(h)) { notifyBlocked(d.webContentsId); return cb({ cancel: true }); }
       const i = h.indexOf('.');
@@ -620,18 +621,61 @@ function enableFallback(ses) {
   fallbackOn = true;
 }
 
+// ---------------------------------------------------------------- Oto Shield (uBlock-style controls)
+// The engine uses uBlock Origin's own filter lists. On top: a per-site off switch, your own filters
+// (uBlock syntax, incl. "example.com##.banner" from the element picker), and optional annoyance lists
+// (cookie banners, newsletter popups…).
+const SHIELD = {
+  allow: new Set(readJSON('shield-allow.json', [])),
+  conf: readJSON('shield.json', {}) || {},
+  custom: (() => { try { return fs.readFileSync(userFile('shield-filters.txt'), 'utf8'); } catch { return ''; } })(),
+  applied: [],
+};
+const shieldHost = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+const shieldAllowed = (host) => { if (!host) return false; let h = host; while (h) { if (SHIELD.allow.has(h)) return true; const i = h.indexOf('.'); if (i < 0) break; h = h.slice(i + 1); } return false; };
+const pageHostOf = (wcId) => { try { const wc = webContents.fromId(wcId); return wc ? shieldHost(wc.getURL()) : ''; } catch { return ''; } };
+const shieldLines = () => SHIELD.custom.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('!') && !l.startsWith('#'));
+function shieldApplyCustom() {
+  if (!blocker) return 0;
+  const lines = shieldLines();
+  const added = lines.filter((l) => !SHIELD.applied.includes(l));
+  const removed = SHIELD.applied.filter((l) => !lines.includes(l));
+  try { if (added.length || removed.length) blocker.updateFromDiff({ added, removed }); } catch (e) { console.warn('[oto] custom filters:', e && e.message); }
+  SHIELD.applied = lines;
+  return lines.length;
+}
+function shieldPatch(b) {
+  const ob = b.onBeforeRequest, oh = b.onHeadersReceived, oc = b.onInjectCosmeticFilters;
+  b.onBeforeRequest = (d, cb) => (shieldAllowed(pageHostOf(d.webContentsId)) ? cb({}) : ob(d, cb));
+  b.onHeadersReceived = (d, cb) => (shieldAllowed(pageHostOf(d.webContentsId)) ? cb({}) : oh(d, cb));
+  b.onInjectCosmeticFilters = async (ev, url, msg) => {
+    if (shieldAllowed(shieldHost(ev.sender && ev.sender.getURL ? ev.sender.getURL() : url))) return;
+    return oc(ev, url, msg);
+  };
+}
+const blockerSessions = new Set();
+let blockerP = null;
 async function enableBlocking(ses) {
+  blockerSessions.add(ses);
+  if (!blocker && blockerP) { try { await blockerP; } catch {} }
   if (blocker) { blocker.enableBlockingInSession(ses); return (blockingMode = 'full'); }
   try {
-    const { ElectronBlocker } = require('@ghostery/adblocker-electron');
-    const cache = userFile('adblock-engine.bin');
-    try { if (Date.now() - fs.statSync(cache).mtimeMs > 7 * 864e5) fs.unlinkSync(cache); } catch {}
-    const fetchFn = (url, opts) => net.fetch(url, opts);
-    blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetchFn, {
-      path: cache, read: fs.promises.readFile, write: fs.promises.writeFile,
-    });
-    blocker.on('request-blocked', (req) => notifyBlocked(req.tabId));
-    blocker.on('request-redirected', (req) => notifyBlocked(req.tabId)); // trackers swapped for harmless stubs
+    blockerP = (async () => {
+      const { ElectronBlocker } = require('@ghostery/adblocker-electron');
+      const full = !!SHIELD.conf.annoy;
+      const cache = userFile(full ? 'adblock-engine-full.bin' : 'adblock-engine.bin');
+      try { if (Date.now() - fs.statSync(cache).mtimeMs > 7 * 864e5) fs.unlinkSync(cache); } catch {}
+      const fetchFn = (url, opts) => net.fetch(url, opts);
+      const opts = { path: cache, read: fs.promises.readFile, write: fs.promises.writeFile };
+      const b = await (full ? ElectronBlocker.fromPrebuiltFull(fetchFn, opts) : ElectronBlocker.fromPrebuiltAdsAndTracking(fetchFn, opts));
+      b.on('request-blocked', (req) => notifyBlocked(req.tabId));
+      b.on('request-redirected', (req) => notifyBlocked(req.tabId)); // trackers swapped for harmless stubs
+      shieldPatch(b);
+      return b;
+    })();
+    blocker = await blockerP;
+    SHIELD.applied = [];
+    shieldApplyCustom();
     if (fallbackOn) { ses.webRequest.onBeforeRequest(null); fallbackOn = false; }
     blocker.enableBlockingInSession(ses);
     return (blockingMode = 'full');
@@ -639,7 +683,14 @@ async function enableBlocking(ses) {
     console.warn('[oto] full blocker unavailable, using built-in list:', err && err.message);
     if (!fallbackOn) enableFallback(ses);
     return (blockingMode = 'basic');
-  }
+  } finally { blockerP = null; }
+}
+// Switch lists (annoyances on/off): rebuild the engine and put it back in every session.
+async function shieldRebuild() {
+  const sess = [...blockerSessions].filter((x) => blocker && blocker.isBlockingEnabled(x));
+  for (const x of sess) { try { blocker.disableBlockingInSession(x); } catch {} }
+  blocker = null;
+  for (const x of sess) await enableBlocking(x);
 }
 
 function disableBlocking(ses) {
@@ -926,6 +977,41 @@ function setupIPC(ses) {
     return [];
   });
   ipcMain.handle('blocker:set', async (_e, on) => (on ? enableBlocking(ses) : disableBlocking(ses)));
+  // Oto Shield menu
+  ipcMain.handle('shield:state', (_e, url) => {
+    const host = shieldHost(url);
+    return { host, allowed: shieldAllowed(host), annoy: !!SHIELD.conf.annoy, mode: blockingMode, filters: shieldLines().length };
+  });
+  ipcMain.handle('shield:site', (_e, url, allow) => {
+    const host = shieldHost(url);
+    if (!host) return false;
+    if (allow) SHIELD.allow.add(host);
+    else { let h = host; while (h) { SHIELD.allow.delete(h); const i = h.indexOf('.'); if (i < 0) break; h = h.slice(i + 1); } }
+    try { writeJSON('shield-allow.json', [...SHIELD.allow]); } catch {}
+    return shieldAllowed(host);
+  });
+  ipcMain.handle('shield:filters', (_e, text) => {
+    if (typeof text === 'string') {
+      SHIELD.custom = text.slice(0, 200000);
+      try { fs.writeFileSync(userFile('shield-filters.txt'), SHIELD.custom); } catch {}
+      shieldApplyCustom();
+    }
+    return { text: SHIELD.custom, count: shieldLines().length, allow: [...SHIELD.allow] };
+  });
+  ipcMain.handle('shield:pick', (_e, url, selector) => {
+    const host = shieldHost(url);
+    const sel = String(selector || '').replace(/[\r\n]/g, '').slice(0, 500);
+    if (!host || !sel) return false;
+    const line = `${host}##${sel}`;
+    if (!shieldLines().includes(line)) { SHIELD.custom = `${SHIELD.custom.replace(/\s*$/, '')}\n${line}\n`.replace(/^\n/, ''); try { fs.writeFileSync(userFile('shield-filters.txt'), SHIELD.custom); } catch {} shieldApplyCustom(); }
+    return true;
+  });
+  ipcMain.handle('shield:annoy', async (_e, on) => {
+    SHIELD.conf.annoy = !!on;
+    try { writeJSON('shield.json', SHIELD.conf); } catch {}
+    if (blocker) await shieldRebuild();
+    return { annoy: SHIELD.conf.annoy, mode: blockingMode };
+  });
   ipcMain.on('perm:reply', (_e, id, allow) => {
     const p = pendingPerms.get(id);
     if (!p) return;
