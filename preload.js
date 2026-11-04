@@ -61,6 +61,8 @@ contextBridge.exposeInMainWorld('oto', {
   updateInstall: () => ipcRenderer.send('update:install'),
   ownerUnlock: (key) => ipcRenderer.invoke('owner:unlock', key),
   ownerLock: () => ipcRenderer.invoke('owner:lock'),
+  ownerStatus: () => ipcRenderer.invoke('owner:status'),
+  ownerProof: (msg) => ipcRenderer.invoke('owner:proof', msg),
   // extensions
   extTabReady: (id, wcId) => ipcRenderer.send('ext:tab-ready', id, wcId),
   extActive: (wcId) => ipcRenderer.send('ext:active', wcId),

@@ -61,13 +61,13 @@ function v1CheckLevel() {
 function v1LevelUp(L) {
   const el = h('div', { class: 'v1-lvlup' }, h('div', { class: 'card', style: `--lc:${L.cur.color}` }, h('div', { class: 'f front', html: `<span>${V1_LEVELS[Math.max(0, L.i - 1)].name}</span>` }), h('div', { class: 'f back', html: `<b>${L.cur.name}</b><small>LEVEL UP</small>` })),
     h('h3', {}, `You reached ${L.cur.name}!`), h('p', {}, `New title unlocked: “${L.cur.title}”. Your Oto Card got a ${L.cur.name.toLowerCase()} frame.`),
-    h('div', { class: 'btns' }, h('button', { class: 'btn', onclick: () => el.remove() }, 'Nice'), h('button', { class: 'btn primary', onclick: () => { el.remove(); openLibrary('card'); } }, 'See my card')));
+    h('div', { class: 'btns' }, h('button', { class: 'btn', onclick: () => el.remove() }, 'Nice'), h('button', { class: 'btn primary', onclick: () => { el.remove(); v1Hub('card'); } }, 'Open Oto Hub')));
   el.addEventListener('mousedown', (e) => { if (e.target === el) el.remove(); });
   document.body.append(el);
 }
 const v1Edition = () => {
   const e = (S.card || {}).edition;
-  if (e === 'founder' && !(UPD && UPD.owner)) return 'standard';
+  if (e === 'founder' && !(V1D.founder && V1D.founder.ok)) return 'standard'; // only with a signature from the owner key
   return e === 'og' || e === 'founder' ? e : 'standard';
 };
 const v1CardId = () => { let h2 = 7; for (const ch of String(S.since || 0)) h2 = (h2 * 31 + ch.charCodeAt(0)) >>> 0; return String(h2 % 10000).padStart(4, '0'); };
@@ -104,50 +104,90 @@ function v1CardFounder(m) {
   <text x="${W / 2}" y="318" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="11" letter-spacing="3" fill="url(#fdg)">OWNER · Nº 0000 · ONE OF ONE</text>
   <rect x="40" y="340" width="${W - 80}" height=".8" fill="url(#fdg)" opacity=".6"/>
   <text x="${W / 2}" y="${H - 86}" text-anchor="middle" font-family="'Segoe Script','Brush Script MT','Lucida Handwriting',cursive" font-size="40" fill="url(#fdg)">${name}</text>
-  <text x="${W / 2}" y="${H - 40}" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="9" letter-spacing="3" fill="#d4a017" fill-opacity=".8">THE ONE WHO MADE OTO</text></svg>`;
+  <text x="${W / 2}" y="${H - 46}" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="9" letter-spacing="3" fill="#d4a017" fill-opacity=".8">THE ONE WHO MADE OTO</text>
+  ${V1D.founder && V1D.founder.ok ? `<text x="${W / 2}" y="${H - 28}" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="7.5" letter-spacing="1.5" fill="#d4a017" fill-opacity=".55">✓ SIGNED · ${esc(V1D.founder.sig.slice(0, 10))}…${esc(V1D.founder.sig.slice(-6))}</text>` : ''}</svg>`;
 }
-function v1CardBack() {
-  const W = 320, H = 504;
+// The back matches the front: same shape, colours and frame as your edition and design.
+function v1BackSkin(m) {
+  const ed = v1Edition();
+  const mono = 'ui-monospace,Consolas,monospace';
+  const cols = (m.colors && m.colors.length ? m.colors : themeOf(currentWs()).colors).slice(0, 3);
+  const c3 = cols.length === 1 ? [cols[0], mix(cols[0], '#ffffff', 0.35)] : cols;
+  const stops = (arr) => arr.map((c, i) => `<stop offset="${(i / Math.max(1, arr.length - 1)).toFixed(2)}" stop-color="${c}"/>`).join('');
+  if (ed === 'founder') {
+    const W = 320, H = 504;
+    return { W, H, mono, ink: 'url(#bkG)', sub: '#d4a017', ring: '#d4a017', on: 'rgba(212,160,23,.14)',
+      defs: `<linearGradient id="bkG" x1="0" y1="0" x2="1" y2="1">${stops(['#fde68a', '#d4a017', '#fff3c4', '#b8860b'])}</linearGradient><radialGradient id="bkB" cx=".5" cy=".4" r=".8"><stop offset="0" stop-color="#1c1a14"/><stop offset="1" stop-color="#050505"/></radialGradient>`,
+      base: `<rect width="${W}" height="${H}" rx="22" fill="url(#bkB)"/><rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="16" fill="none" stroke="url(#bkG)" stroke-width="2"/><rect x="16" y="16" width="${W - 32}" height="${H - 32}" rx="12" fill="none" stroke="url(#bkG)" stroke-width=".6" stroke-opacity=".6"/>
+        <text x="${W / 2}" y="300" text-anchor="middle" font-family="'Yu Mincho','MS Mincho',serif" font-weight="700" font-size="260" fill="#d4a017" fill-opacity=".05">力</text>` };
+  }
+  if (ed === 'og') {
+    const W = 320, H = 504;
+    return { W, H, mono, ink: '#ffffff', sub: 'rgba(255,255,255,.72)', ring: '#ffffff', on: 'rgba(255,255,255,.2)',
+      defs: `<linearGradient id="bkO" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#38bdf8"/></linearGradient>`,
+      base: `<rect width="${W}" height="${H}" rx="22" fill="url(#bkO)"/><rect x="10" y="10" width="${W - 20}" height="${H - 20}" rx="16" fill="none" stroke="#fff" stroke-opacity=".45" stroke-dasharray="2 5"/>
+        <g transform="translate(${W / 2} ${H / 2})" fill="none" stroke="#fff" stroke-opacity=".07" stroke-width="10"><circle cx="-50" r="90"/><circle cx="50" r="90"/></g>` };
+  }
+  if (m.design === 'classic') {
+    const W = 320, H = 460;
+    const T = { paper: ['#fbf8f1', '#1d1b26', '#5d5a6b'], night: ['#111019', '#f6f4ff', '#a8a3c2'], tinted: [mix(c3[0], '#ffffff', 0.86), mix(c3[0], '#111111', 0.82), mix(c3[0], '#333333', 0.55)] }[m.style === 'holo' ? 'paper' : m.style] || ['#fbf8f1', '#1d1b26', '#5d5a6b'];
+    return { W, H, mono, ink: T[1], sub: T[2], ring: T[1], on: `${c3[0]}33`,
+      defs: `<linearGradient id="bkC" x1="0" y1="0" x2="1" y2="0">${stops(c3)}</linearGradient>`,
+      base: `<rect width="${W}" height="${H}" rx="22" fill="${T[0]}"/><rect x="18" y="18" width="${W - 36}" height="8" rx="4" fill="url(#bkC)"/><rect x="18" y="${H - 26}" width="${W - 36}" height="8" rx="4" fill="url(#bkC)"/>` };
+  }
+  if (m.design === 'shiny') {
+    const W = 320, H = 460;
+    const fr = { night: ['#3a3d4a', '#d9dce6', '#5b5f70', '#f4f6ff', '#2c2f3a'], holo: ['#ff9de2', '#9df3ff', '#c5ff9d', '#ffd79d', '#d6a8ff'], paper: ['#8a6a1f', '#f6e7a6', '#c9a24a', '#fff4c9', '#9c7a2a'],
+      tinted: [mix(c3[0], '#000', 0.3), mix(c3[0], '#fff', 0.55), c3[0], mix(c3[c3.length - 1], '#fff', 0.6), mix(c3[c3.length - 1], '#000', 0.25)] }[m.style] || ['#3a3d4a', '#d9dce6', '#5b5f70', '#f4f6ff', '#2c2f3a'];
+    return { W, H, mono, ink: '#ffffff', sub: 'rgba(255,255,255,.72)', ring: '#ffffff', on: 'rgba(255,255,255,.18)',
+      defs: `<linearGradient id="bkF" x1="0" y1="0" x2="1" y2="1">${stops(fr)}</linearGradient><linearGradient id="bkS" x1="0" y1="0" x2="1" y2="1">${stops(c3)}</linearGradient>`,
+      base: `<rect width="${W}" height="${H}" rx="18" fill="url(#bkF)"/><rect x="10" y="10" width="${W - 20}" height="${H - 20}" rx="12" fill="#14121c"/><rect x="10" y="10" width="${W - 20}" height="${H - 20}" rx="12" fill="url(#bkS)" opacity=".35"/>` };
+  }
+  // keycard (default)
+  const W = 320, H = 504, C = 28, R = 10;
+  const T = { night: ['#0e0d1a', '#05050a', '#ecfbff', 'rgba(205,228,255,.62)'], holo: ['#e6ecff', '#f7e3ff', '#14121f', 'rgba(20,18,31,.6)'],
+    tinted: [mix(c3[0], '#0a0a12', 0.78), mix(c3[c3.length - 1], '#050508', 0.9), '#ffffff', 'rgba(255,255,255,.66)'], paper: ['#f1eee6', '#e6e2d6', '#16141f', 'rgba(22,20,31,.58)'] }[m.style] || ['#0e0d1a', '#05050a', '#ecfbff', 'rgba(205,228,255,.62)'];
+  const shape = `M${C} 0H${W - R}Q${W} 0 ${W} ${R}V${H - C}L${W - C} ${H}H${R}Q0 ${H} 0 ${H - R}V${C}Z`; // mirrored cut corners, like turning the card over
+  return { W, H, mono, ink: T[2], sub: T[3], ring: c3[0], on: `${c3[0]}2e`,
+    defs: `<linearGradient id="bkK" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${T[0]}"/><stop offset="1" stop-color="${T[1]}"/></linearGradient><linearGradient id="bkN" x1="0" y1="0" x2="1" y2="1">${stops(c3)}</linearGradient>`,
+    base: `<path d="${shape}" fill="url(#bkK)"/><path d="${shape}" fill="none" stroke="url(#bkN)" stroke-width="2"/><rect x="${W / 2 - 34}" y="14" width="68" height="10" rx="5" fill="none" stroke="${T[3]}"/>` };
+}
+function v1CardBack(m = cardModel()) {
+  const k = v1BackSkin(m);
+  const { W, H, mono } = k;
   const got = S.v1Badges || {};
   const ids = Object.keys(V1_BADGES);
+  const top = 92, step = (H - top - 70) / 5;
   let cells = '';
-  ids.forEach((id, k) => {
-    const x = 34 + (k % 3) * 90, y = 96 + Math.floor(k / 3) * 74;
+  ids.forEach((id, n) => {
+    const cx = 62 + (n % 3) * 98, cy = top + Math.floor(n / 3) * step + 20;
     const on = !!got[id];
-    cells += `<g transform="translate(${x} ${y})"><circle cx="36" cy="22" r="22" fill="${on ? '#ffffff' : '#ffffff'}" fill-opacity="${on ? 0.16 : 0.05}" stroke="#fff" stroke-opacity="${on ? 0.5 : 0.15}"/>
-      <text x="36" y="29" text-anchor="middle" font-size="18">${on ? V1_BADGES[id][1] : '?'}</text>
-      <text x="36" y="60" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8.5" fill="#fff" fill-opacity="${on ? 0.9 : 0.35}">${on ? esc(V1_BADGES[id][0]) : 'Hidden'}</text></g>`;
+    cells += `<circle cx="${cx}" cy="${cy}" r="21" fill="${on ? k.on : 'none'}" stroke="${k.ring}" stroke-opacity="${on ? 0.75 : 0.22}" ${on ? '' : 'stroke-dasharray="3 4"'}/>
+      <text x="${cx}" y="${cy + 6.5}" text-anchor="middle" font-size="${on ? 18 : 15}" ${on ? '' : `font-family="${mono}" fill="${k.sub}"`}>${on ? V1_BADGES[id][1] : '?'}</text>
+      <text x="${cx}" y="${cy + 38}" text-anchor="middle" font-family="system-ui,'Segoe UI',sans-serif" font-size="8.5" fill="${on ? k.ink : k.sub}" fill-opacity="${on ? 0.95 : 0.6}">${on ? esc(V1_BADGES[id][0]) : 'Hidden'}</text>`;
   });
   const L = v1Level();
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="cbk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1e1b4b"/><stop offset="1" stop-color="#0f172a"/></linearGradient></defs>
-  <rect width="${W}" height="${H}" rx="22" fill="url(#cbk)"/><rect x="10" y="10" width="${W - 20}" height="${H - 20}" rx="16" fill="none" stroke="${L.cur.color}" stroke-opacity=".7"/>
-  <text x="26" y="46" font-family="ui-monospace,Consolas,monospace" font-size="11" letter-spacing="2.5" fill="#fff" fill-opacity=".8">CARD BACK · BADGES</text>
-  <text x="${W - 26}" y="46" text-anchor="end" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="${L.cur.color}">${Object.keys(got).length}/${ids.length}</text>${cells}</svg>`;
+  const ed = v1Edition();
+  const foot = ed === 'founder' && V1D.founder && V1D.founder.ok ? `✓ SIGNED ${esc(V1D.founder.sig.slice(0, 8))}…` : `Nº ${esc(m.no || v1CardId())}`;
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"><defs>${k.defs}</defs>${k.base}
+  <text x="28" y="52" font-family="${mono}" font-size="11" letter-spacing="2.5" fill="${k.ink}">BADGES</text>
+  <text x="${W - 28}" y="52" text-anchor="end" font-family="${mono}" font-size="11" fill="${k.ink}">${Object.keys(got).length}/${ids.length}</text>
+  <rect x="28" y="64" width="${W - 56}" height=".8" fill="${k.sub}" opacity=".5"/>
+  ${cells}
+  <rect x="28" y="${H - 58}" width="${W - 56}" height=".8" fill="${k.sub}" opacity=".5"/>
+  <text x="28" y="${H - 36}" font-family="${mono}" font-size="10" letter-spacing="1.5" fill="${k.ink}">${esc(L.cur.name.toUpperCase())} · ${L.xp.toLocaleString()} XP</text>
+  <text x="${W - 28}" y="${H - 36}" text-anchor="end" font-family="${mono}" font-size="9" letter-spacing="1" fill="${k.sub}">${foot}</text></svg>`;
 }
 
+// The card editor keeps a small level strip; levels, badges and cosmetics live in the Oto Hub.
 function v1CardPanel() {
   const L = v1Level();
-  const ed = v1Edition();
-  const owner = !!(UPD && UPD.owner);
-  const pick = (e) => { S.card = S.card || {}; S.card.edition = e; save(); renderLibrary(); };
-  const titles = V1_LEVELS.slice(1).map((l, k) => ({ l, open: L.i >= k + 1 }));
   return h('div', { class: 'v1-cardpanel' },
     h('div', { class: 'lv', style: `--lc:${L.cur.color}` },
-      h('div', { class: 'lvh' }, h('span', { class: 'chip' }, L.cur.name.toUpperCase()), h('b', {}, `Level ${L.i + 1} · ${L.xp.toLocaleString()} XP`), L.next ? h('small', {}, `${(L.next.xp - L.xp).toLocaleString()} XP to ${L.next.name}`) : h('small', {}, 'Top level — Mythic!')),
+      h('div', { class: 'lvh' }, h('span', { class: 'chip' }, L.cur.name.toUpperCase()), h('b', {}, `Level ${L.i + 1} · ${L.xp.toLocaleString()} XP`),
+        h('button', { class: 'btn sm hubbtn', onclick: () => v1Hub('card') }, 'Open Oto Hub →')),
       h('div', { class: 'bar' }, h('i', { style: `width:${Math.round(L.pct * 100)}%` })),
-      h('div', { class: 'steps' }, ...V1_LEVELS.map((l, k) => h('span', { class: k <= L.i ? 'on' : '', style: `--c:${l.color}` }, l.name))),
-      h('p', { class: 'how' }, 'XP comes from days with Oto, ads blocked, spaces, pages and badges.')),
-    h('div', { class: 'row2' }, h('span', { class: 'lab' }, 'Edition'),
-      h('div', { class: 'seg' }, h('button', { class: ed === 'standard' ? 'on' : '', onclick: () => pick('standard') }, 'Standard'), h('button', { class: ed === 'og' ? 'on' : '', onclick: () => pick('og') }, 'OG ★'),
-        owner ? h('button', { class: ed === 'founder' ? 'on' : '', onclick: () => pick('founder') }, 'Founder 力') : h('button', { class: 'locked', title: 'Only the owner can unlock this', disabled: true }, '🔒 Founder'))),
-    h('div', { class: 'row2' }, h('span', { class: 'lab' }, 'Level titles'), h('div', { class: 'titles' }, ...titles.map(({ l, open }) => h('button', {
-      class: `${open ? '' : 'locked'}${S.card && S.card.title === l.title ? ' on' : ''}`, disabled: !open, title: open ? 'Use this title' : `Unlocks at ${l.name}`,
-      onclick: () => { S.card.title = l.title; save(); renderLibrary(); },
-    }, open ? l.title : `🔒 ${l.name}`)))),
-    h('div', { class: 'row2' }, h('span', { class: 'lab' }, 'Badges'), h('div', { class: 'badges' }, ...Object.entries(V1_BADGES).map(([id, [label, ic]]) => {
-      const on = !!(S.v1Badges || {})[id];
-      return h('span', { class: on ? 'on' : '', title: on ? label : 'Hidden badge — keep using Oto to find it' }, on ? ic : '?');
-    }))));
+      h('p', { class: 'how' }, L.next ? `${(L.next.xp - L.xp).toLocaleString()} XP to ${L.next.name} · editions, titles, frames and badges are in the Oto Hub` : 'Mythic — the top level! Editions, titles, frames and badges are in the Oto Hub')));
 }
 
 // ================================================================ Now Playing (art + waveform)
@@ -174,7 +214,7 @@ function v1Widgets() {
   for (const it of (S.history || []).slice(0, 800)) { const hst = hostOf(it.u); if (hst) counts[hst] = (counts[hst] || 0) + 1; }
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
   box.replaceChildren(
-    h('button', { class: 'wg card', style: `--lc:${L.cur.color}`, onclick: () => openLibrary('card') }, h('span', { class: 'k' }, 'OTO CARD'), h('b', {}, `${L.cur.name} · Level ${L.i + 1}`),
+    h('button', { class: 'wg card', style: `--lc:${L.cur.color}`, onclick: () => v1Hub() }, h('span', { class: 'k' }, 'OTO CARD'), h('b', {}, `${L.cur.name} · Level ${L.i + 1}`),
       h('span', { class: 'bar' }, h('i', { style: `width:${Math.round(L.pct * 100)}%` })), h('small', {}, L.next ? `${(L.next.xp - L.xp).toLocaleString()} XP to ${L.next.name}` : 'Mythic — the top!')),
     h('div', { class: 'wg sc' }, h('span', { class: 'k' }, 'SHORTCUTS'), h('div', { class: 'ic' }, ...(top.length ? top.map(([hst]) => h('button', { title: hst, onclick: () => openUrl(`https://${hst}/`) }, favEl({ url: `https://${hst}/`, title: hst }, null, true), h('span', {}, hst.replace(/^www\./, '').split('.')[0]))) : [h('small', {}, 'Sites you visit a lot show up here.')]))),
   );
@@ -329,8 +369,11 @@ function v1StartTimer(tm) {
 }
 
 // ================================================================ the Owner panel (owner key only)
-function v1OwnerPanel() {
-  if (!(UPD && UPD.owner)) return toast('The Owner panel needs your owner key (Settings → About → tap “Oto version” 7 times)', { timeout: 3500 });
+async function v1OwnerPanel() {
+  // Ask the main process every time — changing the UI or storage can't open this.
+  let st = null;
+  try { st = await oto.ownerStatus(); } catch {}
+  if (!st || st.owner !== true) { UPD.owner = false; return toast('The Owner panel needs your owner key (Settings → About → tap “Oto version” 7 times)', { timeout: 3500 }); }
   v1ClosePop();
   const L = v1Level();
   const flags = [['v1Menu', 'New right-click menu'], ['v1Quick', 'Quick window for links from other apps'], ['v1Cookies', 'Auto-reject cookie popups'], ['v1Clean', 'Clean links on copy'],
@@ -347,7 +390,7 @@ function v1OwnerPanel() {
         tool('Show level-up', () => { v1ClosePop(); v1LevelUp(v1Level()); }),
         tool('Unlock all badges', () => { S.v1Badges = Object.fromEntries(Object.keys(V1_BADGES).map((k) => [k, Date.now()])); save(); v1OwnerPanel(); }),
         tool('Clear badges', () => { S.v1Badges = {}; save(); v1OwnerPanel(); }),
-        tool('Founder card', () => { S.card = S.card || {}; S.card.edition = 'founder'; S.card.name = S.card.name || 'Ryo'; save(); v1ClosePop(); openLibrary('card'); }, 'gold'))),
+        tool('Founder card', async () => { await v1OwnerRefresh(); if (!(V1D.founder && V1D.founder.ok)) return toast('Couldn’t sign the Founder card', { timeout: 2000 }); S.card = S.card || {}; S.card.edition = 'founder'; S.card.name = S.card.name || 'Ryo'; save(); v1ClosePop(); v1Hub('card'); }, 'gold'))),
     h('div', { class: 'osec' }, h('div', { class: 'ot' }, 'TEST SCREENS'),
       h('div', { class: 'og' },
         tool('Welcome setup', () => { v1ClosePop(); S.onboarded = false; save(); runSetup(); }),
@@ -362,7 +405,7 @@ function v1OwnerPanel() {
       h('div', { class: 'flags' }, ...flags.map(([k, label]) => h('label', {}, h('button', { class: `switch${S.settings[k] !== false ? ' on' : ''}`, role: 'switch', onclick: (e) => { S.settings[k] = S.settings[k] === false; save(); if (k === 'v1Menu') syncMainSettings(); e.currentTarget.classList.toggle('on', S.settings[k] !== false); } }), h('span', {}, label))))),
     h('div', { class: 'osec' }, h('div', { class: 'ot' }, 'INFO'),
       h('p', { class: 'mono' }, `Tabs ${S.tabs.length} · open ${V.size} · spaces ${S.workspaces.length} · history ${(S.history || []).length} · since ${new Date(S.since || Date.now()).toLocaleDateString()}`),
-      h('div', { class: 'og' }, tool('Save problem report', () => { v1ClosePop(); openSettings('about'); }), tool('Lock owner (this PC)', () => { oto.ownerLock().then(() => { UPD.owner = false; v1ClosePop(); toast('Owner locked on this PC', { timeout: 1600 }); }); }, 'danger'))));
+      h('div', { class: 'og' }, tool('Save problem report', () => { v1ClosePop(); openSettings('about'); }), tool('Lock owner (this PC)', () => { oto.ownerLock().then(() => { UPD.owner = false; V1D.founder = null; v1ClosePop(); toast('Owner locked on this PC', { timeout: 1600 }); }); }, 'danger'))));
   layer.append(panel);
 }
 
@@ -372,7 +415,7 @@ function initV1d() {
   const _svg = cardSvg;
   cardSvg = function (m = cardModel(), opts) {
     const ed = v1Edition();
-    if (V1D.back) return v1CardBack();
+    if (V1D.back) return v1CardBack(m);
     if (ed === 'og') return v1CardOG(m);
     if (ed === 'founder') return v1CardFounder(m);
     return _svg.apply(this, arguments);
@@ -384,9 +427,9 @@ function initV1d() {
       const pv = document.querySelector('.card-preview');
       if (pv) {
         const L = v1Level();
-        pv.classList.add(`v1-lvl-${L.cur.id}`, `v1-ed-${v1Edition()}`);
+        pv.classList.add(`v1-lvl-${typeof v1FrameId === 'function' ? v1FrameId() : L.cur.id}`, `v1-ed-${v1Edition()}`);
         const acts = document.querySelector('.card-actions');
-        if (acts && !acts.querySelector('.v1-flip')) acts.append(h('button', { class: 'btn v1-flip', title: 'See your badges on the back', onclick: () => { V1D.back = !V1D.back; const a = pv.querySelector('.card-tilt'); if (a) { a.classList.add('v1-flipping'); setTimeout(() => { const s = pv.querySelector('.card-art-svg'); if (s) s.innerHTML = cardSvg(cardModel()); a.classList.remove('v1-flipping'); }, 200); } } }, '↻ Flip'));
+        if (acts && !acts.querySelector('.v1-flip')) acts.append(h('button', { class: 'btn v1-flip', title: 'See your badges on the back', onclick: () => { V1D.back = !V1D.back; const a = pv.querySelector('.card-tilt'); if (a) { a.classList.add('v1-flipping'); setTimeout(() => { const s = pv.querySelector('.card-art-svg'); if (s) s.innerHTML = cardSvg(cardModel()); pv.classList.toggle('v1-back', V1D.back); a.classList.remove('v1-flipping'); }, 200); } } }, '↻ Flip'));
       }
       const form = document.querySelector('.card-form');
       if (form && !form.querySelector('.v1-cardpanel')) { const intro = form.querySelector('.lib-intro'); (intro || form.firstChild).after(v1CardPanel()); }
@@ -485,4 +528,4 @@ function initV1d() {
   }
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && V1F2.on && !v1Pop && !document.querySelector('.overlay:not([hidden])')) { /* Esc doesn't end focus by accident */ } }, true);
 }
-const V1D = { back: false };
+const V1D = { back: false, founder: null };

@@ -60,7 +60,7 @@ function send(channel, ...args) {
 
 // ---------------------------------------------------------------- keyboard
 const DEFAULT_KEYS = {
-  'Shift+Escape': 'health', 'Ctrl+Shift+ ': 'overview', 'Ctrl+Shift+N': 'avocado', 'Ctrl+Shift+X': 'screenshot',
+  'Shift+Escape': 'health', 'Ctrl+Shift+ ': 'overview', 'Ctrl+Shift+N': 'avocado', 'Ctrl+Shift+X': 'screenshot', 'Ctrl+Shift+H': 'hub',
   'Ctrl+T': 'newTab', 'Ctrl+N': 'newTab', 'Ctrl+K': 'newTab',
   'Ctrl+L': 'focusUrl', 'Alt+D': 'focusUrl', 'F6': 'focusUrl',
   'Ctrl+W': 'closeTab', 'Ctrl+F4': 'closeTab', 'Ctrl+Shift+T': 'reopen',
@@ -140,7 +140,8 @@ function handleKeys(event, input, wc) {
   lastKey = { combo, t: now };
   const w = winOfWc(wc);
   if (cmd === 'fullscreen') { if (w) w.setFullScreen(!w.isFullScreen()); return; }
-  if (cmd === 'uiDevtools') { if (w) w.webContents.openDevTools({ mode: 'detach' }); return; }
+  // The UI's own DevTools could change anything in the UI, so release builds only allow them for the owner.
+  if (cmd === 'uiDevtools') { if (w && (!app.isPackaged || ownerOn)) w.webContents.openDevTools({ mode: 'detach' }); return; }
   if (cmd === 'avocado') { createAvocadoWindow(); return; }
   sendVia(wc, 'cmd', cmd);
 }
@@ -366,17 +367,15 @@ function setUpdate(st) {
 }
 function setupUpdates() {
   ipcMain.handle('update:status', () => ({ ...updateState, packaged: app.isPackaged, version: OTO_VERSION, channel: updateChannel(), owner: ownerOn }));
-  ipcMain.handle('owner:unlock', (_e, key) => {
-    if (ownerHash(key) !== OWNER_HASH) return false;
-    ownerOn = true;
-    try { writeJSON('owner.json', { h: OWNER_HASH }); } catch {}
-    return true;
-  });
+  ipcMain.handle('owner:unlock', (_e, key) => ownerUnlock(key));
   ipcMain.handle('owner:lock', () => {
-    ownerOn = false;
+    ownerOn = false; ownerKey = null;
     try { fs.unlinkSync(userFile('owner.json')); } catch {}
     return true;
   });
+  // The UI asks the main process every time — a page or the UI itself can't just say "I'm the owner".
+  ipcMain.handle('owner:status', () => ({ owner: ownerOn }));
+  ipcMain.handle('owner:proof', (_e, msg) => ownerSign(`oto-founder|${String(msg || '').slice(0, 64)}`));
   ipcMain.handle('update:check', () => checkForUpdates(true));
   ipcMain.on('update:install', () => {
     if (!updater || updateState.state !== 'ready') return;
@@ -408,9 +407,46 @@ function setupUpdates() {
 const UPDATE_CHANNELS = ['stable', 'beta', 'alpha'];
 // Owner channel: Ryo's own test builds (1.0.0-owner.N). Hidden until the private owner key is entered
 // (Settings → About → tap "Oto version" 7 times). Only a hash of the key is in the code.
+// Security: the main process is the only judge. Being the owner needs the real key — the PC keeps it
+// encrypted with Windows (safeStorage/DPAPI, tied to this Windows account) and checks it against the hash
+// at every launch, so copying a hash or editing owner.json / the UI / browser storage unlocks nothing.
+// The Founder card carries an Ed25519 signature that only the key can make (public key below).
 const OWNER_HASH = '5d3daf57d0126aea9114a57a08c97450bdcb786f6e40f7ef8b69858042d77fb0';
-const ownerHash = (key) => require('crypto').createHash('sha256').update(`oto-owner|${String(key || '').trim().toUpperCase()}`).digest('hex');
-let ownerOn = (readJSON('owner.json', {}) || {}).h === OWNER_HASH;
+const FOUNDER_PUB = 'WmJ86hyoGeSlG3YLv6exZFvVpqepEfJk5B6HdY8k2eM';
+const normKey = (key) => String(key || '').trim().toUpperCase();
+const ownerHash = (key) => require('crypto').createHash('sha256').update(`oto-owner|${normKey(key)}`).digest('hex');
+const safeEq = (a, b) => { const A = Buffer.from(String(a)), B = Buffer.from(String(b)); return A.length === B.length && require('crypto').timingSafeEqual(A, B); };
+let ownerOn = false, ownerKey = null;
+const ownerTries = { n: 0, until: 0 };
+function ownerLoad() {
+  try {
+    const j = readJSON('owner.json', {}) || {};
+    if (!j.k || !safeStorage.isEncryptionAvailable()) return;
+    const key = safeStorage.decryptString(Buffer.from(j.k, 'base64'));
+    if (safeEq(ownerHash(key), OWNER_HASH)) { ownerOn = true; ownerKey = normKey(key); }
+  } catch {}
+}
+function ownerUnlock(key) {
+  const now = Date.now();
+  if (now < ownerTries.until) return { ok: false, wait: Math.ceil((ownerTries.until - now) / 1000) };
+  if (!safeEq(ownerHash(key), OWNER_HASH)) {
+    ownerTries.n++;
+    if (ownerTries.n >= 5) ownerTries.until = now + Math.min(3600e3, 60e3 * 2 ** (ownerTries.n - 5));
+    return false;
+  }
+  ownerTries.n = 0; ownerOn = true; ownerKey = normKey(key);
+  try { if (safeStorage.isEncryptionAvailable()) writeJSON('owner.json', { k: safeStorage.encryptString(ownerKey).toString('base64') }); } catch {}
+  return true;
+}
+function ownerSign(msg) {
+  if (!ownerOn || !ownerKey) return null;
+  try {
+    const c = require('crypto');
+    const seed = c.createHash('sha256').update(`oto-founder-seed|${ownerKey}`).digest();
+    const priv = c.createPrivateKey({ key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), seed]), format: 'der', type: 'pkcs8' });
+    return { msg, sig: c.sign(null, Buffer.from(msg), priv).toString('base64url'), pub: FOUNDER_PUB };
+  } catch { return null; }
+}
 const updateChannel = () => {
   if (prefs.updateChannel === 'owner') return ownerOn ? 'owner' : 'stable';
   return UPDATE_CHANNELS.includes(prefs.updateChannel) ? prefs.updateChannel : 'stable';
@@ -1356,6 +1392,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
+    ownerLoad();
     const ses = setupSession();
     setupIPC(ses);
     setupExtensionIPC(ses);
@@ -1368,6 +1405,7 @@ if (!app.requestSingleInstanceLock()) {
     win.webContents.once('did-finish-load', () => setupExtensions(ses));
   });
 
+  app.on('browser-window-created', (_e, bw) => bw.webContents.on('devtools-opened', () => { if (app.isPackaged && !ownerOn) bw.webContents.closeDevTools(); }));
   app.on('window-all-closed', () => app.quit());
   app.whenReady().then(() => setupUpdates());
 

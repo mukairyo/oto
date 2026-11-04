@@ -3,6 +3,27 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.7 — 2026-11-04
+
+*Owner test build of Oto v1 — Alpha 5: the Oto Hub and Founder security.*
+
+**New**
+- **Oto Hub** (`Ctrl+Shift+H`, `/hub`, or tap the card on the new tab page) — one place for your card, music, achievements, browser milestones and cosmetics:
+  - **My card**: your card (tilt it, flip it, save it), level, milestones and badges together.
+  - **Music**: what's playing now with big artwork and a live waveform, plus *Recently played* (kept only on this PC, never in Avocado).
+  - **Achievements**: every badge with the day you got it, and hints for the hidden ones.
+  - **Milestones**: days with Oto, ads blocked, pages, hours browsing, spaces and badges, each with its next goal.
+  - **Cosmetics**: editions, card designs, level frames and titles — equip what you've unlocked.
+- **The card back matches the front** — same shape, colours and frame as your edition and design (Founder back is black and gold, OG back is the indigo → sky gradient, Keycard, Classic and Shiny each have their own).
+- **Now Playing in the Oto card look** — dark glass with a holographic rounded border that slowly turns while music plays.
+
+**Security**
+- The owner key is now checked only by Oto's main process. The PC keeps the key encrypted with Windows (tied to your Windows account) and re-checks it at every start, so editing files, browser storage or the interface can't unlock owner features.
+- The Founder card is signed with the owner key (Ed25519) and only shows with a valid signature.
+- Too many wrong keys lock the key box for a while (1 minute, then longer).
+- The interface's developer tools only open on the owner's PC in release builds.
+- **After this update, enter your owner key once more** (Settings → About → tap "Oto version" 7 times) — the old saved unlock is no longer accepted.
+
 ## 1.0.0-owner.6 — 2026-11-04
 
 *Owner test build of Oto v1 — Alpha 4: the held ideas, card levels and the Owner panel.*
