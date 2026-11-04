@@ -46,7 +46,7 @@ After that, new versions download in the background and install when you restart
 - **Extensions**: install from the Chrome Web Store (“Add to Chrome” just works), or add .crx (Chrome/Opera), .xpi (Firefox) and .zip files or unpacked folders. Popups, badges, context-menu items and the `chrome.tabs` API are supported.
 - **Bookmarks bar** with folders and overflow, ☆ in the address row, and import from Chrome, Edge, Brave, Opera, Opera GX, Vivaldi, Zen and Firefox — or any exported HTML file.
 - **Vertical tab sidebar** — Essentials grid (global favourites), pinned tabs, and a tab list. Drag tabs to reorder, pin, add to Essentials, or drop them on another space.
-- **Spaces** — separate sets of tabs, each with its own gradient that tints the whole window (Zen-style), and an emoji or your own image as its icon. Switch with the dots at the bottom or `Ctrl+Shift+1…9`.
+- **Spaces** — separate sets of tabs, each with its own gradient that tints the whole window (Zen-style), and an emoji or your own image as its icon. Switch with `Ctrl+Shift+1…9`, the command bar or Library → Spaces (the dots at the bottom can be turned on in Settings → Sidebar).
 - **Colour wheel** — right-click a space dot → *Change colours*. Click the wheel to add up to 3 colours, drag the dots, pick a preset, and set intensity and grain. The window updates live.
 - **Welcome setup** — runs on first launch; run it again from Settings → About.
 - **Command bar** (`Ctrl+T` / `Ctrl+L`) — search, open URLs, jump to open tabs, history, and actions like "Dark theme" or "New space".

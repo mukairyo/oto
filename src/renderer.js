@@ -184,7 +184,7 @@ function defaultState() {
   const ws = { id: uid(), name: 'Home', emoji: '', color: '#a78bfa', colors: ['#a78bfa', '#f0abfc'], intensity: 0.75, grain: 0 };
   const ess = (url, title) => ({ id: uid(), url, title, favicon: '', ws: ws.id, pinned: false, essential: true });
   return {
-    v: 7,
+    v: 8,
     settings: { ...DEFAULT_SETTINGS, unloadAfter: '1h' },
     workspaces: [ws],
     activeWs: ws.id,
@@ -225,6 +225,8 @@ function migrate(s) {
   if (s.v < 6) { s.settings.glanceMode = 'off'; delete s.settings.glanceAlt; s.v = 6; }
   // 0.9.7: "every link" Glance made each video click open a Glance — switch it to "links to other sites".
   if (s.v < 7) { if (s.settings.glanceMode === 'click') s.settings.glanceMode = 'external'; s.v = 7; }
+  // 0.9.8: no space switcher at the bottom and no "New space" in the space menu (both can be turned back on).
+  if (s.v < 8) { s.settings.showSpaceSwitcher = false; s.settings.spaceMenuNew = false; s.v = 8; }
   s.tabs = Array.isArray(s.tabs) ? s.tabs.filter((t) => t && t.id && t.url) : [];
   const wsIds = new Set(s.workspaces.map((w) => w.id));
   for (const t of s.tabs) if (!wsIds.has(t.ws)) t.ws = s.workspaces[0].id;
@@ -906,6 +908,7 @@ function renderNow() {
   $('#tabs').replaceChildren(...tabs.filter((t) => !t.pinned).map((t) => tabRow(t, t.id === activeId)));
   $('#btnClear').classList.toggle('show', tabs.some((t) => !t.pinned));
 
+  document.body.classList.toggle('no-ws-switch', !S.settings.showSpaceSwitcher);
   $('#wsSwitch').replaceChildren(
     ...S.workspaces.map((w, i) => wsButton(w, i)),
     h('button', { class: 'ws-btn ws-add', title: 'New space', html: icon('plus'), onclick: () => openWsDialog() }),
@@ -1458,7 +1461,7 @@ function wsMenu(w, x, y) {
   showMenu(x, y, [
     { label: 'Change colours…', icon: 'palette', run: () => openWsDialog(w, { focusColours: true }) },
     { label: 'Edit space…', icon: 'edit', run: () => openWsDialog(w) },
-    { label: 'New space…', icon: 'plus', run: () => openWsDialog() },
+    S.settings.spaceMenuNew ? { label: 'New space…', icon: 'plus', run: () => openWsDialog() } : null,
     S.workspaces.length > 1 ? '-' : null,
     S.workspaces.length > 1 ? { label: 'Delete space', icon: 'trash', danger: true, run: () => deleteWorkspace(w.id) } : null,
   ]);

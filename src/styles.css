@@ -1425,3 +1425,8 @@ body.rail:not(.rail-open) .dl-card { display: none; }
 .design-shiny .card-tilt.on .card-foil { opacity: .34; }
 .design-shiny .card-art-svg { animation: shinyIdle 6s ease-in-out infinite; }
 @keyframes shinyIdle { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.06) saturate(1.08); } }
+
+/* ================================================================== v0.9.8 no space switcher */
+body.no-ws-switch #wsSwitch { display: none; }
+body.no-ws-switch .sb-foot { justify-content: flex-end; }
+body.rail.no-ws-switch:not(.rail-open) .sb-foot { justify-content: center; }

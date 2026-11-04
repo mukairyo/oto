@@ -3,6 +3,12 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 0.9.8 — 2026-11-04
+
+**Changed**
+- **Cleaner sidebar**: the space switcher (dots and +) at the bottom is gone, and the menu on the space name now only has *Change colours* and *Edit space*. Switch or create spaces with `Ctrl+Shift+1…9`, the command bar (`Ctrl+T`) or Library → Spaces.
+- Both can be turned back on in Settings → Sidebar → Space header.
+
 ## 0.9.7 — 2026-11-04
 
 **New**
