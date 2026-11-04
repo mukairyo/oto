@@ -3,6 +3,17 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.13 — 2026-11-04
+
+*Owner test build of Oto v1 — Spotify fix and the Oto theme.*
+
+**Fixed**
+- **Spotify skipped every song** ("Spotify can't play this right now"). The Widevine signature was made before the installer builder changed Oto.exe (its icon and version info), which broke the signature. Oto is now signed as the very last step, and every build checks the signature.
+
+**Changed**
+- **The near-black editorial look is now the Oto theme** (it was called RyokuTunes). The older bright theme is hidden for now.
+- The theme uses **音** (oto, "sound") instead of 力.
+
 ## 1.0.0-owner.12 — 2026-11-04
 
 *Owner test build of Oto v1 — fixes.*

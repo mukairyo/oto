@@ -62,6 +62,13 @@ jobs:
           EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
         run: npx electron-builder --win nsis --x64 --publish never
 
+      - name: Check the Widevine signature
+        if: steps.check.outputs.skip != 'true'
+        shell: bash
+        env:
+          EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
+        run: if [ -n "$EVS_ACCOUNT_NAME" ]; then python -m castlabs_evs.vmp -n verify-pkg dist/win-unpacked; else echo "no EVS account, skipped"; fi
+
       - name: Publish release
         if: steps.check.outputs.skip != 'true'
         shell: bash

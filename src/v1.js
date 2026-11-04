@@ -339,7 +339,7 @@ function v1Slash(q) {
   const arg = rest.join(' ').toLowerCase();
   const all = [
     { c: 'space', d: 'Switch to a space', icon: 'layers', sub: () => S.workspaces.filter((w) => !arg || w.name.toLowerCase().includes(arg)).map((w) => ({ t: `/space ${w.name}`, run: () => switchWorkspace(w.id) })) },
-    { c: 'theme', d: 'Change the look', icon: 'palette', sub: () => [['Oto', () => { S.settings.skin = 'oto'; applyTheme(); }], ['RyokuTunes', () => { S.settings.skin = 'ryokutunes'; applyTheme(); }], ['Dark', () => setTheme('dark')], ['Light', () => setTheme('light')], ['System', () => setTheme('system')]]
+    { c: 'theme', d: 'Change the look', icon: 'palette', sub: () => [['Dark', () => setTheme('dark')], ['Light', () => setTheme('light')], ['System', () => setTheme('system')]]
       .filter(([n]) => !arg || n.toLowerCase().includes(arg)).map(([n, run]) => ({ t: `/theme ${n}`, run: () => { run(); save(); } })) },
     { c: 'card', d: 'Your Oto Card', icon: 'card', run: () => openLibrary('card') },
     { c: 'library', d: 'Downloads, history, spaces…', icon: 'library', run: () => openLibrary() },

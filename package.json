@@ -1,7 +1,7 @@
 {
   "name": "oto",
   "productName": "Oto",
-  "version": "1.0.0-owner.12",
+  "version": "1.0.0-owner.13",
   "description": "Oto — a calm, minimal browser for Windows.",
   "main": "main.js",
   "author": "Ryo",
@@ -90,7 +90,7 @@
     "electronDownload": {
       "mirror": "https://github.com/castlabs/electron-releases/releases/download/"
     },
-    "afterPack": "build/vmp-sign.js"
+    "afterSign": "build/vmp-sign.js"
   },
-  "otoVersion": "1.0.0-owner.12"
+  "otoVersion": "1.0.0-owner.13"
 }

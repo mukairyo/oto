@@ -292,7 +292,7 @@ const isDark = () => S.settings.theme === 'dark' || (S.settings.theme === 'syste
 let themePreview = null;     // set while the colour picker is open
 let themeNow = null;
 function applyTheme() {
-  const rt = typeof skinIsRt === 'function' && skinIsRt(); // RyokuTunes theme: always dark, near-black
+  const rt = typeof skinIsRt === 'function' && skinIsRt(); // Oto theme (near-black): always dark, near-black
   const dark = rt || isDark();
   const theme = themePreview || themeOf(currentWs());
   const b = rt ? rtBackground(theme) : buildBackground(theme, dark);
@@ -1245,7 +1245,6 @@ const ACTIONS = [
   { name: 'Change app icon', kw: 'icon taskbar', icon: 'star', run: () => openSettings('icon') },
   { name: 'Move sidebar to the other side', kw: 'left right sidebar position', icon: 'sidebar', run: () => { S.settings.sidebarSide = S.settings.sidebarSide === 'right' ? 'left' : 'right'; applyLayout(); save(); } },
   { name: 'Make Oto the default browser', kw: 'default', icon: 'globe', run: () => oto.makeDefaultBrowser() },
-  { name: 'RyokuTunes theme', kw: 'ryoku tunes skin style black serif', icon: 'palette', run: () => { S.settings.skin = skinIsRt() ? 'oto' : 'ryokutunes'; applyTheme(); save(); toast(skinIsRt() ? 'RyokuTunes theme on' : 'Oto theme on', { timeout: 1400 }); } },
   { name: 'Dark theme', kw: 'night mode', icon: 'moon', run: () => setTheme('dark') },
   { name: 'Light theme', kw: 'day mode', icon: 'sun', run: () => setTheme('light') },
   { name: 'System theme', kw: 'auto', icon: 'settings', run: () => setTheme('system') },
