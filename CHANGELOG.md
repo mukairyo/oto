@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.19 — 2026-11-05
+
+*Owner test build of Oto v1 — fix.*
+
+**Fixed**
+- **New versions didn't show up on their own** — while Oto stayed open it only looked for updates every 6 hours, so you had to check in Settings. Now it looks every 15 minutes on the Owner channel (hourly on Stable) and when you come back to the window, downloads in the background and shows "Oto … is ready — Restart".
+
 ## 1.0.0-owner.18 — 2026-11-05
 
 *Owner test build of Oto v1 — Oto Shield.*

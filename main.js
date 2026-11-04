@@ -400,7 +400,12 @@ function setupUpdates() {
     setUpdate({ state: quiet ? 'none-published' : 'error', message: m.split('\n')[0].slice(0, 200) });
   });
   setTimeout(() => checkForUpdates(false), 8000);
-  setInterval(() => checkForUpdates(false), 6 * 3600 * 1000);
+  // Look again regularly while Oto stays open (every 15 min on the Owner/test channels, hourly on Stable)
+  // and when you come back to the window — before, it only looked every 6 hours, so new versions
+  // waited until you checked in Settings.
+  const due = () => Date.now() - lastUpdateCheck > (updateChannel() === 'stable' ? 60 : 15) * 60 * 1000;
+  setInterval(() => { if (due()) checkForUpdates(false); }, 5 * 60 * 1000);
+  app.on('browser-window-focus', () => { if (Date.now() - lastUpdateCheck > 5 * 60 * 1000 && due()) checkForUpdates(false); });
 }
 // Update channels: Stable (everyone), Beta (testers get new versions early), Alpha (newest
 // experiments). Testers also still get every stable update — if their channel has nothing newer,
@@ -457,10 +462,12 @@ function configureChannel(ch) {
   updater.allowPrerelease = ch !== 'stable';
   updater.allowDowngrade = false;
 }
+let lastUpdateCheck = 0;
 async function checkForUpdates(manual) {
   if (!updater) return updateState;
   if (!manual && prefs.autoUpdate === false) return updateState;
   if (['checking', 'downloading', 'ready'].includes(updateState.state)) return updateState;
+  lastUpdateCheck = Date.now();
   const ch = updateChannel();
   let found = false;
   try { configureChannel(ch); const r = await updater.checkForUpdates(); found = !!(r && r.isUpdateAvailable); } catch {}
