@@ -1698,3 +1698,15 @@ body.layout-single .sb-url-row .url-pill { min-width: 0; }
 @container sidebar (max-width: 180px) {
   #btnShield span { display: none; }
 }
+
+/* Oto theme new tab: everything centred */
+body.skin-rt .empty-inner { align-items: center; text-align: center; }
+body.skin-rt .empty-inner .rt-crumb { justify-content: center; }
+body.skin-rt .empty-inner .rt-crumb .rt-rule { flex: 0 1 90px; }
+body.skin-rt .empty-inner .empty-search { margin-left: auto; margin-right: auto; }
+body.skin-rt .empty-inner .empty-hints, body.skin-rt .empty-inner .v1-jump, body.skin-rt .empty-inner .v1-widgets { justify-content: center; margin-left: auto; margin-right: auto; }
+
+/* The bookmarks strip on the top bar used to cover the whole bar, so the window couldn't be dragged.
+   Its empty part drags the window again; bookmarks themselves stay clickable. */
+#topstrip #bmbar { -webkit-app-region: drag; }
+#topstrip #bmbar > * { -webkit-app-region: no-drag; }

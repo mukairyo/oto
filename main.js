@@ -274,6 +274,7 @@ function setupAvocadoSession() {
   if (avocadoReady) return;
   avocadoReady = true;
   const s = session.fromPartition(AVOCADO);
+  addPagePreload(s);
   s.setPermissionRequestHandler((_wc, p, cb) => cb(ALWAYS.has(p)));
   s.setPermissionCheckHandler((_wc, p) => ALWAYS.has(p));
   if (blockingMode !== 'off') enableBlocking(s).catch(() => {});
@@ -657,8 +658,18 @@ const pendingPerms = new Map();
 
 function originOf(u) { try { return new URL(u).origin; } catch { return String(u || ''); } }
 
+// Page preload (page-preload.js): fixes Google sign-in ("This browser or app may not be secure").
+function addPagePreload(ses) {
+  const file = path.join(__dirname, 'page-preload.js');
+  try {
+    if (ses.registerPreloadScript) {
+      if (!(ses.getPreloadScripts ? ses.getPreloadScripts() : []).some((p) => p.id === 'oto-page')) ses.registerPreloadScript({ type: 'frame', id: 'oto-page', filePath: file });
+    } else if (!ses.getPreloads().includes(file)) ses.setPreloads([...ses.getPreloads(), file]);
+  } catch (e) { console.warn('[oto] page preload:', e && e.message); }
+}
 function setupSession(part = PARTITION) {
   const ses = session.fromPartition(part);
+  addPagePreload(ses);
   if (part === PARTITION) perms = readJSON('permissions.json', {});
 
   ses.setPermissionRequestHandler((wc, permission, callback, details) => {

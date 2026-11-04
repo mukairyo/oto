@@ -1,7 +1,7 @@
 {
   "name": "oto",
   "productName": "Oto",
-  "version": "1.0.0-owner.14",
+  "version": "1.0.0-owner.15",
   "description": "Oto — a calm, minimal browser for Windows.",
   "main": "main.js",
   "author": "Ryo",
@@ -35,6 +35,7 @@
       "main.js",
       "account.js",
       "preload.js",
+      "page-preload.js",
       "blocklist.js",
       "src/**/*",
       "build/icon.png",
@@ -92,5 +93,5 @@
     },
     "afterSign": "build/vmp-sign.js"
   },
-  "otoVersion": "1.0.0-owner.14"
+  "otoVersion": "1.0.0-owner.15"
 }

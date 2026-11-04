@@ -3,6 +3,15 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.15 — 2026-11-05
+
+*Owner test build of Oto v1 — fixes.*
+
+**Fixed**
+- **The window couldn't be dragged.** The bookmarks strip covered the whole top bar; its empty part moves the window again (bookmarks stay clickable).
+- **Google wouldn't let you sign in** ("This browser or app may not be secure"). On Google's sign-in page Oto now looks like Chrome to Google, so signing in works.
+- **The new tab page is centred** — greeting, search box, card and shortcuts.
+
 ## 1.0.0-owner.14 — 2026-11-04
 
 *Owner test build of Oto v1 — fix.*
