@@ -116,6 +116,18 @@ npm run dist
 - `blocklist.js` — small fallback tracker list used if the full filter lists can't load
 - `build/` — app icon
 
+## Testing Oto (Beta and Alpha)
+
+Want new things early? In Oto, open **Settings → About → Updates → Update channel** and pick:
+
+| Channel | You get |
+|---|---|
+| **Stable** | tested versions — what everyone has |
+| **Beta** | new versions before everyone else; mostly stable |
+| **Alpha** | the newest experiments as soon as they exist; things can break |
+
+Testers keep getting every stable update as well. Found a bug? Use **Settings → About → Report a problem** and send the file, or open an [issue](https://github.com/mukairyo/oto/issues).
+
 ## Releasing a new version
 
 1. Add a section for the new version at the top of `CHANGELOG.md` (`## 0.9.8.1 — date`, then **New** / **Fixed** lists).
@@ -127,6 +139,8 @@ npm run dist
    | small | `0.9.9.1`, `0.9.9.2` … | `0.9.901`, `0.9.902` … |
 
    The updater needs three-part numbers, so the last part carries both: the big number × 100 + the small number.
+
+   **Tester builds:** set both `version` and `otoVersion` to the same pre-release number, e.g. `0.10.0-beta.1` or `0.10.0-alpha.3`. It's published as a GitHub pre-release, so only Beta/Alpha testers get it (alpha builds go to Alpha only). The Chromium job leaves tester builds alone.
 
 The **Build & release** GitHub Action builds the Windows installer, publishes release `v1.2.3` with that changelog section as its notes, and everyone's Oto picks it up automatically. Editing an older changelog entry updates that release's notes on the next push.
 

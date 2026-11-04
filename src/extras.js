@@ -357,7 +357,13 @@ function updatesSection() {
       onclick: () => { if (UPD.state === 'ready') { save(); oto.updateInstall(); } else { onUpdate({ state: 'checking' }); oto.updateCheck().then(onUpdate); } },
     }, UPD.state === 'ready' ? 'Restart now' : 'Check now')),
     row('Update automatically', 'Downloads new versions in the background and installs them the next time Oto starts.', sw(st.autoUpdate !== false, (on) => setPref('autoUpdate', on))),
-    row('Show what’s new after an update', h('a', { href: '#', onclick: (e) => { e.preventDefault(); closeSettings(); showWhatsNew({ all: true }); } }, 'See the release notes'), sw(st.showWhatsNew !== false, (on) => setPref('showWhatsNew', on))));
+    row('Update channel', h('span', {}, (st.updateChannel || 'stable') === 'alpha' ? 'Alpha: the newest experiments as soon as they exist. Things can break — thanks for testing!' : (st.updateChannel || 'stable') === 'beta' ? 'Beta: new versions before everyone else. Mostly stable — tell Ryo what you find.' : 'Stable: tested versions. Join Beta or Alpha to try new things early and help test.'),
+      seg([['stable', 'Stable'], ['beta', 'Beta'], ['alpha', 'Alpha']], st.updateChannel || 'stable', (v) => {
+        if (v === 'alpha' && !confirm('Alpha versions are early experiments and can have bugs or lose settings. Join the Alpha channel?')) return;
+        setPref('updateChannel', v);
+        toast(v === 'stable' ? 'Back on Stable — you’ll move over at the next stable version' : `You’re a ${v === 'alpha' ? 'Alpha' : 'Beta'} tester now 🧪`, { timeout: 2600 });
+      })),
+        row('Show what’s new after an update', h('a', { href: '#', onclick: (e) => { e.preventDefault(); closeSettings(); showWhatsNew({ all: true }); } }, 'See the release notes'), sw(st.showWhatsNew !== false, (on) => setPref('showWhatsNew', on))));
 }
 
 // ================================================================ hooks used by renderer.js

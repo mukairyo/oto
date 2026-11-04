@@ -11,6 +11,8 @@ const cmp = (a, b) => { const x = parts(a), y = parts(b); for (let i = 0; i < 3;
 const display = (v) => { const [M, m, p] = parts(v); if (p < 100) return `${M}.${m}.${p}`; const b = Math.floor(p / 100), s = p % 100; return s ? `${M}.${m}.${b}.${s}` : `${M}.${m}.${b}`; };
 
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+// A tester build (e.g. 0.10.0-beta.1) is on main right now — leave it alone; the next stable release picks up Electron fixes.
+if (String(pkg.version).includes('-')) { out('changed', 'false'); console.log('tester build on main, skipping'); process.exit(0); }
 const current = parts(pkg.devDependencies.electron).join('.');
 const major = parts(current)[0];
 const sameMajor = [].concat(npm(`"electron@^${major}" version`)).filter((v) => !String(v).includes('-')).sort(cmp).pop();

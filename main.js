@@ -52,7 +52,7 @@ function urlFromArgv(argv) {
 
 // Settings the main process needs (kept in sync by the UI).
 const dlItems = new Map(); // active downloads by id
-let prefs = { downloadsAsk: false, gpc: true, clearOnExit: false };
+let prefs = { downloadsAsk: false, gpc: true, clearOnExit: false, updateChannel: 'stable' };
 
 function send(channel, ...args) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, ...args);
@@ -226,6 +226,7 @@ app.on('web-contents-created', (_e, contents) => {
 function displayVersion(v) {
   const m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(v || ''));
   if (!m) return String(v || '');
+  if (/-/.test(String(v))) return String(v); // tester builds keep their full name, e.g. 0.10.0-beta.1
   const p = +m[3];
   if (p < 100) return `${m[1]}.${m[2]}.${p}`;
   const base = Math.floor(p / 100), small = p % 100;
@@ -243,7 +244,7 @@ function setUpdate(st) {
   send('update', updateState);
 }
 function setupUpdates() {
-  ipcMain.handle('update:status', () => ({ ...updateState, packaged: app.isPackaged, version: OTO_VERSION }));
+  ipcMain.handle('update:status', () => ({ ...updateState, packaged: app.isPackaged, version: OTO_VERSION, channel: updateChannel() }));
   ipcMain.handle('update:check', () => checkForUpdates(true));
   ipcMain.on('update:install', () => {
     if (!updater || updateState.state !== 'ready') return;
@@ -253,8 +254,8 @@ function setupUpdates() {
   try { updater = require('electron-updater').autoUpdater; } catch (err) { updateState = { state: 'error', message: err.message }; return; }
   updater.autoDownload = true;
   updater.autoInstallOnAppQuit = true;
-  updater.allowPrerelease = false;
   updater.logger = null;
+  configureChannel(updateChannel());
   updater.on('checking-for-update', () => setUpdate({ state: 'checking' }));
   updater.on('update-available', (i) => setUpdate({ state: 'downloading', version: displayVersion(i.version), percent: 0 }));
   updater.on('update-not-available', () => setUpdate({ state: 'latest' }));
@@ -269,11 +270,24 @@ function setupUpdates() {
   setTimeout(() => checkForUpdates(false), 8000);
   setInterval(() => checkForUpdates(false), 6 * 3600 * 1000);
 }
+// Update channels: Stable (everyone), Beta (testers get new versions early), Alpha (newest
+// experiments). Testers also still get every stable update — if their channel has nothing newer,
+// Oto checks the stable channel too. Oto never goes back to an older version on its own.
+const UPDATE_CHANNELS = ['stable', 'beta', 'alpha'];
+const updateChannel = () => (UPDATE_CHANNELS.includes(prefs.updateChannel) ? prefs.updateChannel : 'stable');
+function configureChannel(ch) {
+  updater.channel = ch === 'stable' ? 'latest' : ch;
+  updater.allowPrerelease = ch !== 'stable';
+  updater.allowDowngrade = false;
+}
 async function checkForUpdates(manual) {
   if (!updater) return updateState;
   if (!manual && prefs.autoUpdate === false) return updateState;
   if (['checking', 'downloading', 'ready'].includes(updateState.state)) return updateState;
-  try { await updater.checkForUpdates(); } catch {}
+  const ch = updateChannel();
+  let found = false;
+  try { configureChannel(ch); const r = await updater.checkForUpdates(); found = !!(r && r.isUpdateAvailable); } catch {}
+  if (!found && ch !== 'stable') { try { configureChannel('stable'); await updater.checkForUpdates(); } catch {} }
   return updateState;
 }
 
@@ -583,7 +597,9 @@ function setupIPC(ses) {
   ipcMain.on('settings:sync', (_e, p) => {
     if (!p || typeof p !== 'object') return;
     const { keymap, ...rest } = p;
+    const chBefore = prefs.updateChannel;
     prefs = { ...prefs, ...rest };
+    if (updater && chBefore !== undefined && chBefore !== prefs.updateChannel) setTimeout(() => checkForUpdates(true), 300);
     if (keymap && typeof keymap === 'object') buildKeymap(keymap);
   });
   ipcMain.on('keys:pause', (_e, on) => { keysPaused = !!on; });

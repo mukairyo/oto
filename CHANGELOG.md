@@ -3,6 +3,11 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 0.9.10.1 — 2026-11-04
+
+**New**
+- **Become a tester** — Settings → About → Updates → **Update channel**: *Stable* (everyone), *Beta* (new versions before everyone else) or *Alpha* (the newest experiments). Testers still get every stable update too, and Oto never goes back to an older version on its own.
+
 ## 0.9.10 — 2026-11-04
 
 **New**

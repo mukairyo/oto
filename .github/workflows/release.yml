@@ -27,7 +27,7 @@ jobs:
           v=$(node -p "const p=require('./package.json'); p.otoVersion || p.version")
           echo "version=$v" >> "$GITHUB_OUTPUT"
           # Done only if the release exists AND has latest.yml (what Oto's updater reads).
-          if gh release view "v$v" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx latest.yml; then
+          if gh release view "v$v" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null | grep -q '\.yml$'; then
             echo "v$v is already released, nothing to do."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
@@ -55,14 +55,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           v="${{ steps.check.outputs.version }}"
-          files=("dist/Oto-Setup-$v.exe" "dist/Oto-Setup-$v.exe.blockmap" "dist/latest.yml")
+          files=("dist/Oto-Setup-$v.exe" "dist/Oto-Setup-$v.exe.blockmap")
+          for f in dist/*.yml; do [ "$(basename "$f")" = builder-debug.yml ] || files+=("$f"); done
+          # tester builds (e.g. 0.10.0-beta.1) are pre-releases: only Beta/Alpha testers get them
+          pre=(); [[ "$v" == *-* ]] && pre=(--prerelease)
           ls -la "${files[@]}"
           bash .github/release-notes.sh "$v" > notes.md
           if gh release view "v$v" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "v$v" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
             gh release edit "v$v" --title "Oto $v" --notes-file notes.md --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "v$v" "${files[@]}" --title "Oto $v" --notes-file notes.md --target "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY"
+            gh release create "v$v" "${files[@]}" "${pre[@]}" --title "Oto $v" --notes-file notes.md --target "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY"
           fi
 
   # Keeps every release's notes in step with CHANGELOG.md (so fixing a typo there fixes the release page).
