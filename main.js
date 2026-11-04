@@ -211,7 +211,10 @@ function createWindow() {
     webPreferences.nodeIntegration = false;
     webPreferences.contextIsolation = true;
     webPreferences.sandbox = true;
-    params.partition = PARTITION;
+    // v1: a space can have its own logins (its own cookie jar): persist:oto-ws-<space id>
+    const sp = /^persist:oto-ws-[\w-]{1,40}$/.test(params.partition || '') ? params.partition : null;
+    if (sp) prepSpaceSession(sp);
+    params.partition = sp || PARTITION;
     if (params.src && !/^(https?|file|about|data|view-source|chrome-extension):/i.test(params.src)) e.preventDefault();
   });
 }
@@ -245,6 +248,15 @@ app.on('web-contents-created', (_e, contents) => {
   });
   contents.on('context-menu', (_ev, params) => showContextMenu(contents, params));
 });
+
+// ---------------------------------------------------------------- separate logins per space
+const spaceSessions = new Set();
+function prepSpaceSession(part) {
+  if (spaceSessions.has(part)) return;
+  spaceSessions.add(part);
+  try { setupSession(part); } catch {}
+  if (blockingMode !== 'off') enableBlocking(session.fromPartition(part)).catch(() => {});
+}
 
 // ---------------------------------------------------------------- Avocado (private windows)
 // Oto's private mode: its own window whose pages use an in-memory session. Closing the last
@@ -601,9 +613,9 @@ const pendingPerms = new Map();
 
 function originOf(u) { try { return new URL(u).origin; } catch { return String(u || ''); } }
 
-function setupSession() {
-  const ses = session.fromPartition(PARTITION);
-  perms = readJSON('permissions.json', {});
+function setupSession(part = PARTITION) {
+  const ses = session.fromPartition(part);
+  if (part === PARTITION) perms = readJSON('permissions.json', {});
 
   ses.setPermissionRequestHandler((wc, permission, callback, details) => {
     if (ALWAYS.has(permission)) return callback(true);
@@ -707,6 +719,33 @@ function setupIPC(ses) {
   ipcMain.on('state:save', (e, s) => { if (restoringBackup || isAvocadoUi(e.sender)) return; try { writeJSON('state.json', s); } catch {} });
   ipcMain.on('state:save-sync', (e, s) => { if (!restoringBackup && !isAvocadoUi(e.sender)) { try { writeJSON('state.json', s); } catch {} } e.returnValue = true; });
   ipcMain.handle('app:mode', (e) => (isAvocadoUi(e.sender) ? 'avocado' : 'main'));
+  // v1 screenshots: whole long pages (via the DevTools protocol) and saving to Pictures\Oto Screenshots
+  ipcMain.handle('shot:full', async (_e, wcId) => {
+    let wc = null; try { wc = webContents.fromId(wcId); } catch {}
+    if (!wc || wc.isDestroyed()) return '';
+    const dbg = wc.debugger;
+    let attached = false;
+    try {
+      if (!dbg.isAttached()) { dbg.attach('1.3'); attached = true; }
+      const m = await dbg.sendCommand('Page.getLayoutMetrics');
+      const cs = m.cssContentSize || m.contentSize;
+      const width = Math.ceil(cs.width), height = Math.min(Math.ceil(cs.height), 16000);
+      const r = await dbg.sendCommand('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width, height, scale: 1 } });
+      return `data:image/png;base64,${r.data}`;
+    } catch { return ''; } finally { if (attached) { try { dbg.detach(); } catch {} } }
+  });
+  ipcMain.handle('shot:save', async (_e, dataUrl) => {
+    try {
+      const dir = path.join(app.getPath('pictures'), 'Oto Screenshots');
+      fs.mkdirSync(dir, { recursive: true });
+      const d = new Date(), p2 = (n) => String(n).padStart(2, '0');
+      const f = path.join(dir, `Oto ${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}.${p2(d.getMinutes())}.${p2(d.getSeconds())}.png`);
+      fs.writeFileSync(f, nativeImage.createFromDataURL(String(dataUrl)).toPNG());
+      return f;
+    } catch { return ''; }
+  });
+  ipcMain.on('shot:show', (_e, f) => { try { if (f) shell.showItemInFolder(f); else shell.openPath(path.join(app.getPath('pictures'), 'Oto Screenshots')); } catch {} });
+  ipcMain.on('shot:open', (_e, f) => { try { if (f) shell.openPath(f); } catch {} });
   ipcMain.handle('qr:svg', async (_e, text) => { try { return await require('qrcode').toString(String(text || ''), { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#1d1b26', light: '#ffffff' } }); } catch { return ''; } });
   ipcMain.on('app:open', (_e, url) => openAppWindow(url));
   ipcMain.handle('app:install', async (_e, url, title, iconDataUrl) => {

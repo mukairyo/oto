@@ -3,6 +3,24 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.3 — 2026-11-04
+
+*Owner test build of Oto v1 — Alpha 3 (pictures 17–23). All 23 pictures are in now.*
+
+**New**
+- **Make the buttons yours** — right-click the bottom of the sidebar → *Customize buttons…*: add or remove Library, Notifications, Oto Health, Settings, Split view, Screenshot, Space overview, Theme maker, Site note, Oto Night, Avocado, Send to phone, Oto Wrapped or Extensions; drag to reorder; icons, hover labels or text; small, medium or large.
+- **Notification center** (bell at the bottom of the sidebar) — every site's notifications in one list, grouped by site, with *Do not disturb* for 1 hour, until tomorrow morning, or until you turn it off.
+- **Comfort** (Settings → Appearance) — text size for all websites, high contrast, reduce motion, bigger buttons and a warm night light after 21:00.
+- **Swipe to go back** — two fingers left or right on a touchpad goes back or forward.
+- **Theme maker** — change your space's colours live, try Glossy / Pastel / Deep / Mono, strength and grain, save themes, and share them with a short code like `OTO-…` that friends can paste.
+- **Tab folders** — right-click a tab → *Add to new folder…*; open and close folders, rename, recolour, ungroup. Closed folders show small stacked icons and a count. Drag tabs onto a folder to add them.
+- **Site notes** — a sticky note for a page or a whole site (site panel, right-click a tab, or the command bar). A yellow note icon shows in the address box and on the tab.
+- **Screenshots** (`Ctrl+Shift+X`) — drag an area, the visible part, or the whole long page; draw with pen, arrows and boxes, add text, blur private stuff; copy, or save to *Pictures › Oto Screenshots*.
+- **Oto Wrapped** — a story of how you use Oto: time on pages, top sites, your personality (Night Owl, Early Bird…), and what Oto blocked for you. Copy it as a picture. Counted only on your PC.
+- **Startup animation** — the ring draws itself when Oto opens (under a second, off with animations).
+- **Oto sounds (音)** — Soft, Typewriter or Bubbles sounds for new tab, close tab, download done and switching spaces. Off by default.
+- **Separate logins per space** — right-click a space → *Give this space its own logins*: use a different account on the same site in each space.
+
 ## 1.0.0-owner.2 — 2026-11-04
 
 *Owner test build of Oto v1 — Alpha 2 (pictures 9–16).*

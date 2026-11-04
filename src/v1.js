@@ -64,7 +64,7 @@ function v1TopTitle() {
   el.hidden = !show;
   if (!show) return;
   const host = (hostOf(t.url) || '').replace(/^www\./, '');
-  el.replaceChildren(favEl(t, null, true), h('span', { class: 't' }, t.title || prettyUrl(t.url)), host ? h('span', { class: 'hst' }, `· ${host}`) : null);
+  el.replaceChildren(...[favEl(t, null, true), h('span', { class: 't' }, t.title || prettyUrl(t.url)), host ? h('span', { class: 'hst' }, `· ${host}`) : null].filter(Boolean));
 }
 
 function v1NewTab() {
@@ -504,7 +504,7 @@ function v1GotoSetting(r) {
 function v1SavedPill(undo) {
   let pill = $('#v1Saved');
   if (!pill) { pill = h('div', { id: 'v1Saved', class: 'v1-saved' }); document.body.append(pill); }
-  pill.replaceChildren(h('span', { class: 'ic', html: icon('check') }), 'Saved', undo ? h('button', { onclick: () => { undo(); pill.classList.remove('on'); } }, 'Undo') : null);
+  pill.replaceChildren(...[h('span', { class: 'ic', html: icon('check') }), 'Saved', undo ? h('button', { onclick: () => { undo(); pill.classList.remove('on'); } }, 'Undo') : null].filter(Boolean));
   pill.classList.add('on');
   clearTimeout(V1S.undoT);
   V1S.undoT = setTimeout(() => pill.classList.remove('on'), 3200);
@@ -991,4 +991,5 @@ function initV1() {
   if (typeof v1Board7 === 'function') v1Board7();
   if (typeof v1Board8 === 'function') v1Board8();
   if (typeof initV1b === 'function') initV1b();
+  if (typeof initV1c === 'function') initV1c();
 }
