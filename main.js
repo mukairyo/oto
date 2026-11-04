@@ -60,7 +60,7 @@ function send(channel, ...args) {
 
 // ---------------------------------------------------------------- keyboard
 const DEFAULT_KEYS = {
-  'Shift+Escape': 'health', 'Ctrl+Shift+ ': 'overview', 'Ctrl+Shift+N': 'avocado', 'Ctrl+Shift+X': 'screenshot', 'Ctrl+Shift+H': 'hub', 'Ctrl+Alt+L': 'lockNow',
+  'Shift+Escape': 'health', 'Ctrl+Shift+ ': 'overview', 'Ctrl+Shift+N': 'avocado', 'Ctrl+Shift+X': 'screenshot', 'Ctrl+Shift+H': 'hub',
   'Ctrl+T': 'newTab', 'Ctrl+N': 'newTab', 'Ctrl+K': 'newTab',
   'Ctrl+L': 'focusUrl', 'Alt+D': 'focusUrl', 'F6': 'focusUrl',
   'Ctrl+W': 'closeTab', 'Ctrl+F4': 'closeTab', 'Ctrl+Shift+T': 'reopen',

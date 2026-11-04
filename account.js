@@ -248,8 +248,11 @@ module.exports = function setupAccount(ctx) {
   });
 
   // ------------------------------------------------------------ the PC lock
-  let L = readJSON('lock.json', null) || {};
-  let lockLocked = !!L.hash; // locked at every start when a lock is set
+  // The PC lock was removed (owner.16): any saved lock is cleared and Oto never locks.
+  const LOCK_REMOVED = true;
+  try { require('fs').unlinkSync(require('path').join(app.getPath('userData'), 'lock.json')); } catch {}
+  let L = {};
+  let lockLocked = false;
   let revealUntil = 0;
   const lockTries = { n: 0, until: 0 };
   const saveL = () => { try { writeJSON('lock.json', L); } catch {} };
@@ -268,6 +271,7 @@ module.exports = function setupAccount(ctx) {
   function lockNow() { if (!L.hash || lockLocked) return; lockLocked = true; send('lock:state', lockStatus()); }
   ipcMain.handle('lock:status', () => lockStatus());
   ipcMain.handle('lock:set', (_e, secret, kind, current) => {
+    if (LOCK_REMOVED) return { ok: false, error: 'The PC lock was removed.' };
     if (L.hash && lockCheck(current) !== true) return { ok: false, error: 'Your current PIN / password is wrong.' };
     const s = String(secret || '');
     if (kind === 'pin' ? !/^\d{4,12}$/.test(s) : s.length < 6) return { ok: false, error: kind === 'pin' ? 'Use 4 to 12 numbers.' : 'Use at least 6 characters.' };

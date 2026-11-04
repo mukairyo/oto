@@ -218,7 +218,6 @@ function v1AccountPage() {
       row('Sign out', 'Your data stays on this PC and in your account.', h('button', { class: 'btn', onclick: async () => { await oto.account.signout(); V1A.st = await oto.account.status(); toast('Signed out', { timeout: 1400 }); v1AccRender(); } }, 'Sign out')),
       row('Delete cloud data', 'Removes everything saved in your account. This PC keeps its own data.', h('button', { class: 'btn danger', onclick: async (e) => { const b = e.currentTarget; if (b.dataset.sure) { const r = await oto.account.deleteCloud(); toast(r.ok ? 'Cloud data deleted' : r.error, { timeout: 2000 }); V1A.st = await oto.account.status(); v1AccRender(); } else { b.dataset.sure = '1'; b.textContent = 'Click again to delete'; } } }, 'Delete…')), err));
   }
-  out.push(v1LockSection());
   return out;
 }
 
@@ -355,9 +354,7 @@ async function initV1f() {
     return out;
   };
   oto.drmStatus().then((d) => { V1A.drm = d; }).catch(() => {});
-  CMDS.lockNow = () => oto.lock.now();
-  if (typeof COMMANDS !== 'undefined') COMMANDS.push(['lockNow', 'Lock Oto', ['Ctrl+Alt+L']]);
-  ACTIONS.push({ name: 'Oto Account & sync', kw: 'login sign in account sync cloud save data', icon: 'key', run: () => openSettings('account') }, { name: 'Lock Oto', kw: 'lock pin password', icon: 'key', run: () => oto.lock.now() });
+  ACTIONS.push({ name: 'Oto Account & sync', kw: 'login sign in account sync cloud save data', icon: 'key', run: () => openSettings('account') });
   // block every command while locked
   for (const k of Object.keys(CMDS)) { const f = CMDS[k]; CMDS[k] = function () { if (document.body.classList.contains('v1-locked')) return; return f.apply(this, arguments); }; }
   // Widevine (protected content) finished installing after Oto opened: offer to reload a streaming tab
@@ -367,10 +364,9 @@ async function initV1f() {
       toast('Protected content is ready — reload to play', { icon: 'reload', timeout: 8000, action: { label: 'Reload', run: () => { const v = activeView(); if (v) wv(v, (w) => w.reload()); } } });
     }
   });
-  oto.on('lock:state', (L) => { if (V1A.st) V1A.st.lock = L; if (L.locked) v1ShowLock(L); else v1HideLock(); v1AccRender(); });
+  oto.on('lock:state', (L) => { if (V1A.st) V1A.st.lock = L; v1HideLock(); });
   oto.on('account:status', (st) => { const was = V1A.st && V1A.st.signedIn; V1A.st = st; if (was !== st.signedIn) v1AccRender(); });
   try { V1A.st = await oto.account.status(); } catch { V1A.st = { configured: false, lock: {} }; }
-  if (V1A.st.lock && V1A.st.lock.locked) v1ShowLock(V1A.st.lock);
   V1A.email = V1A.st.email || '';
   // auto sync: push ~20 s after changes, check the cloud at start and every 5 minutes
   const _save = save;

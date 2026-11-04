@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.16 — 2026-11-05
+
+*Owner test build of Oto v1.*
+
+**Removed**
+- **The PC lock / lock screen is gone.** Oto never asks for a PIN anymore — if you had set one, it's cleared — and saved passwords show without a PIN. Oto Account sign-in and sync stay.
+
 ## 1.0.0-owner.15 — 2026-11-05
 
 *Owner test build of Oto v1 — fixes.*
