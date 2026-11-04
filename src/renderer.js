@@ -292,18 +292,20 @@ const isDark = () => S.settings.theme === 'dark' || (S.settings.theme === 'syste
 let themePreview = null;     // set while the colour picker is open
 let themeNow = null;
 function applyTheme() {
-  const dark = isDark();
+  const rt = typeof skinIsRt === 'function' && skinIsRt(); // RyokuTunes theme: always dark, near-black
+  const dark = rt || isDark();
   const theme = themePreview || themeOf(currentWs());
-  const b = buildBackground(theme, dark);
+  const b = rt ? rtBackground(theme) : buildBackground(theme, dark);
   const root = document.documentElement;
   root.dataset.theme = dark ? 'dark' : 'light';
   // Sidebar + top strip text adapts to the gradient itself (white on vivid/dark colours).
   root.dataset.chrome = luminance(b.bg) < 0.36 ? 'dark' : 'light';
+  if (typeof applySkin === 'function') applySkin();
   root.style.setProperty('--bg', b.bg);
   root.style.setProperty('--bg-image', b.image);
   root.style.setProperty('--bg-size', b.size);
   root.style.setProperty('--accent', b.accent);
-  root.style.setProperty('--accent-soft', mix(dark ? '#1f1f24' : '#fdfdff', b.accent, dark ? 0.28 : 0.15));
+  root.style.setProperty('--accent-soft', rt ? 'rgba(231,223,209,.12)' : mix(dark ? '#1f1f24' : '#fdfdff', b.accent, dark ? 0.28 : 0.15));
   themeNow = { stops: b.stops, dark, grain: theme.grain || 0 };
   updateOverlay();
   if (S.settings.appIcon === 'space' && typeof applyAppIcon === 'function') applyAppIcon();
@@ -1243,6 +1245,7 @@ const ACTIONS = [
   { name: 'Change app icon', kw: 'icon taskbar', icon: 'star', run: () => openSettings('icon') },
   { name: 'Move sidebar to the other side', kw: 'left right sidebar position', icon: 'sidebar', run: () => { S.settings.sidebarSide = S.settings.sidebarSide === 'right' ? 'left' : 'right'; applyLayout(); save(); } },
   { name: 'Make Oto the default browser', kw: 'default', icon: 'globe', run: () => oto.makeDefaultBrowser() },
+  { name: 'RyokuTunes theme', kw: 'ryoku tunes skin style black serif', icon: 'palette', run: () => { S.settings.skin = skinIsRt() ? 'oto' : 'ryokutunes'; applyTheme(); save(); toast(skinIsRt() ? 'RyokuTunes theme on' : 'Oto theme on', { timeout: 1400 }); } },
   { name: 'Dark theme', kw: 'night mode', icon: 'moon', run: () => setTheme('dark') },
   { name: 'Light theme', kw: 'day mode', icon: 'sun', run: () => setTheme('light') },
   { name: 'System theme', kw: 'auto', icon: 'settings', run: () => setTheme('system') },

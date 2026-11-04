@@ -3,6 +3,11 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 0.9.10 — 2026-11-04
+
+**New**
+- **RyokuTunes theme** (Settings → Appearance → Theme) — a near-black, editorial look in the style of the RyokuTunes music app: hairline borders, a big serif "Good morning" on the new tab page, small mono labels like `01  ESSENTIALS`, 力 accents, numbered tabs with a cream highlight for the one you're on, outlined buttons and a barcode footer. Your space's colour glows faintly in the corner. Switch any time — or type "RyokuTunes" in the command bar.
+
 ## 0.9.9.1 — 2026-11-04
 
 **Security**

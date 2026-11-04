@@ -41,6 +41,7 @@ After that, new versions download in the background and install when you restart
 - **Report a problem** (Settings → About): saves a small log of what the sidebar, top bar and mouse did, to send when something misbehaves.
 - **Zen layout** (default): back/forward, reload, the address and a ··· menu live in the sidebar; a slim top strip holds the bookmarks bar, extension buttons and Oto's own window buttons. Switch to a classic top toolbar in Settings → Appearance.
 - **Dynamic sidebar** (default): a slim icon rail that grows into the full sidebar when you hover it, pushing the page over so it stays connected to the top bar. The sidebar button switches between collapsed and expanded.
+- **Themes**: the default Oto look, or **RyokuTunes** — a near-black, editorial theme with serif headings, mono labels and a cream highlight (Settings → Appearance → Theme).
 - **Zen-strength colours**: your space colours are used at full strength and the sidebar/top text switches between light and dark automatically.
 - **Drag the sidebar edge** to resize — drag it narrow and it snaps to icons, keep going and it hides; pull it back out from the screen edge. Hidden sidebars also grow in place when you touch the edge.
 - **Sidebar settings**: icon-strip width, snap points for drag-to-resize, hover open delay, how long until it goes back — or keep it open until you click the page. Collapsed or hidden sidebars keep the Zen layout (navigation shows when the sidebar slides open), or you can move navigation to the top bar.

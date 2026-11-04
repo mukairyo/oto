@@ -522,7 +522,10 @@ const PAGE_RENDER = {
     const st = S.settings;
     return [
       section('Theme',
-        row('Appearance', 'Websites follow this too, where they support it.', seg([['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], st.theme, setTheme)),
+        row('Theme', 'RyokuTunes is a near-black, editorial look with serif headings, small mono labels and a cream highlight.', h('div', { class: 'skin-picks' }, ...Object.entries(SKINS).map(([k, l]) => h('button', {
+          class: `skin-pick sk-${k}${skinOf() === k ? ' on' : ''}`, onclick: () => { setPref('skin', k); applyTheme(); renderSettings(); },
+        }, h('span', { class: 'sp-art' }, h('i'), h('i'), h('i')), h('b', {}, l))))),
+        skinIsRt() ? null : row('Appearance', 'Websites follow this too, where they support it.', seg([['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], st.theme, setTheme)),
         row('Space colours', 'Each space has its own gradient. Right-click a space dot to change it.',
           h('button', { class: 'btn', onclick: () => { closeSettings(); openWsDialog(currentWs(), { focusColours: true }); } }, 'Change colours'))),
       section('Text & size',
