@@ -88,7 +88,7 @@
       }
     ],
     "electronDownload": {
-      "mirror": "https://github.com/castlabs/electron-releases/releases/download/v"
+      "mirror": "https://github.com/castlabs/electron-releases/releases/download/"
     },
     "afterPack": "build/vmp-sign.js"
   },
