@@ -60,6 +60,7 @@ function send(channel, ...args) {
 
 // ---------------------------------------------------------------- keyboard
 const DEFAULT_KEYS = {
+  'Shift+Escape': 'health', 'Ctrl+Shift+ ': 'overview', 'Ctrl+Shift+N': 'avocado', 'Ctrl+Shift+X': 'screenshot',
   'Ctrl+T': 'newTab', 'Ctrl+N': 'newTab', 'Ctrl+K': 'newTab',
   'Ctrl+L': 'focusUrl', 'Alt+D': 'focusUrl', 'F6': 'focusUrl',
   'Ctrl+W': 'closeTab', 'Ctrl+F4': 'closeTab', 'Ctrl+Shift+T': 'reopen',
@@ -95,16 +96,29 @@ function buildKeymap(overrides = {}) {
 }
 
 let lastKey = { combo: '', t: 0 };
+// v1: Avocado (private) windows. Messages caused by a page go to the window that page lives in.
+const AVOCADO = 'avocado';
+const avocadoWins = new Set();
+const isAvocadoUi = (wc) => !!wc && [...avocadoWins].some((w) => !w.isDestroyed() && w.webContents === wc);
+function hostOfWc(wc) { try { return wc ? (wc.hostWebContents || wc) : null; } catch { return null; } }
+function sendVia(wc, ch, ...args) {
+  const host = hostOfWc(wc);
+  if (host && !host.isDestroyed() && isAvocadoUi(host)) { host.send(ch, ...args); return; }
+  send(ch, ...args);
+}
+const winOf = (e) => BrowserWindow.fromWebContents(hostOfWc(e && e.sender)) || win;
+let restoringBackup = false;
+
 // v1: holding Ctrl on its own shows the shortcut sheet (any other key or a click cancels it).
 let ctrlDown = false;
-function ctrlHold(input) {
+function ctrlHold(input, wc) {
   if (input.key === 'Control') {
-    if (input.type === 'keyDown' && !input.isAutoRepeat && !ctrlDown) { ctrlDown = true; send('ctrl-hold', 'down'); }
-    else if (input.type === 'keyUp') { ctrlDown = false; send('ctrl-hold', 'up'); }
-  } else if (ctrlDown && input.type === 'keyDown') { send('ctrl-hold', 'other'); }
+    if (input.type === 'keyDown' && !input.isAutoRepeat && !ctrlDown) { ctrlDown = true; sendVia(wc, 'ctrl-hold', 'down'); }
+    else if (input.type === 'keyUp') { ctrlDown = false; sendVia(wc, 'ctrl-hold', 'up'); }
+  } else if (ctrlDown && input.type === 'keyDown') { sendVia(wc, 'ctrl-hold', 'other'); }
 }
 function handleKeys(event, input) {
-  ctrlHold(input);
+  ctrlHold(input, event.sender);
   if (input.type !== 'keyDown' || keysPaused) return;
   const combo = comboOf(input);
   let cmd = KEYS[combo];
@@ -117,9 +131,11 @@ function handleKeys(event, input) {
   const now = Date.now();
   if (combo === lastKey.combo && now - lastKey.t < 15) return;
   lastKey = { combo, t: now };
-  if (cmd === 'fullscreen') { if (win) win.setFullScreen(!win.isFullScreen()); return; }
-  if (cmd === 'uiDevtools') { if (win) win.webContents.openDevTools({ mode: 'detach' }); return; }
-  send('cmd', cmd);
+  const w = winOf(event);
+  if (cmd === 'fullscreen') { if (w) w.setFullScreen(!w.isFullScreen()); return; }
+  if (cmd === 'uiDevtools') { if (w) w.webContents.openDevTools({ mode: 'detach' }); return; }
+  if (cmd === 'avocado') { createAvocadoWindow(); return; }
+  sendVia(event.sender, 'cmd', cmd);
 }
 
 // ---------------------------------------------------------------- window
@@ -208,12 +224,12 @@ app.on('web-contents-created', (_e, contents) => {
   // a reliable "mouse left" when you move from the sidebar onto a page.
   let lastMouse = 0;
   contents.on('before-mouse-event', (_ev, m) => {
-    if (m.type === 'mouseDown' && ctrlDown) send('ctrl-hold', 'other');
+    if (m.type === 'mouseDown' && ctrlDown) sendVia(contents, 'ctrl-hold', 'other');
     if (m.type !== 'mouseMove') return;
     const now = Date.now();
     if (now - lastMouse < 120) return;
     lastMouse = now;
-    send('page-mouse', now);
+    sendVia(contents, 'page-mouse', now);
   });
   if (extensions && win) { try { extensions.addTab(contents, win); } catch {} }
   contents.setWindowOpenHandler(({ url, disposition }) => {
@@ -224,11 +240,87 @@ app.on('web-contents-created', (_e, contents) => {
         overrideBrowserWindowOptions: { width: 560, height: 720, autoHideMenuBar: true, icon: ICON, backgroundColor: '#ffffff' },
       };
     }
-    send('tab:open', { url, background: disposition === 'background-tab' });
+    sendVia(contents, 'tab:open', { url, background: disposition === 'background-tab' });
     return { action: 'deny' };
   });
   contents.on('context-menu', (_ev, params) => showContextMenu(contents, params));
 });
+
+// ---------------------------------------------------------------- Avocado (private windows)
+// Oto's private mode: its own window whose pages use an in-memory session. Closing the last
+// Avocado window wipes that session (cookies, storage, cache). Its state is never saved.
+let avocadoReady = false;
+function setupAvocadoSession() {
+  if (avocadoReady) return;
+  avocadoReady = true;
+  const s = session.fromPartition(AVOCADO);
+  s.setPermissionRequestHandler((_wc, p, cb) => cb(ALWAYS.has(p)));
+  s.setPermissionCheckHandler((_wc, p) => ALWAYS.has(p));
+  if (blockingMode !== 'off') enableBlocking(s).catch(() => {});
+}
+function createAvocadoWindow() {
+  setupAvocadoSession();
+  const w = new BrowserWindow({
+    width: 1240, height: 800, minWidth: 720, minHeight: 480, show: false, backgroundColor: '#0e110b', title: 'Oto — Avocado', icon: ICON,
+    titleBarStyle: 'hidden',
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), sandbox: false, webviewTag: true, contextIsolation: true, nodeIntegration: false, spellcheck: false },
+  });
+  avocadoWins.add(w);
+  w.removeMenu();
+  w.loadFile(path.join(__dirname, 'src', 'index.html'), { query: { avocado: '1' } });
+  w.once('ready-to-show', () => w.show());
+  const ui = w.webContents;
+  ui.on('will-navigate', (e) => e.preventDefault());
+  ui.setWindowOpenHandler(() => ({ action: 'deny' }));
+  ui.on('before-input-event', handleKeys);
+  ui.on('will-attach-webview', (e, webPreferences, params) => {
+    delete webPreferences.preload;
+    webPreferences.nodeIntegration = false; webPreferences.contextIsolation = true; webPreferences.sandbox = true;
+    params.partition = AVOCADO;
+    if (params.src && !/^(https?|file|about|data|view-source):/i.test(params.src)) e.preventDefault();
+  });
+  w.on('closed', () => {
+    avocadoWins.delete(w);
+    if (!avocadoWins.size) { const s = session.fromPartition(AVOCADO); s.clearStorageData().catch(() => {}); s.clearCache().catch(() => {}); }
+  });
+  return w;
+}
+
+// ---------------------------------------------------------------- Oto Apps (a site in its own window)
+const appWins = new Map(); // url origin -> window
+function pngToIco(png) {
+  const head = Buffer.alloc(22);
+  head.writeUInt16LE(0, 0); head.writeUInt16LE(1, 2); head.writeUInt16LE(1, 4);
+  head.writeUInt8(0, 6); head.writeUInt8(0, 7); head.writeUInt8(0, 8); head.writeUInt8(0, 9);
+  head.writeUInt16LE(1, 10); head.writeUInt16LE(32, 12); head.writeUInt32LE(png.length, 14); head.writeUInt32LE(22, 18);
+  return Buffer.concat([head, png]);
+}
+function appIconImage(origin) {
+  try { const f = userFile(path.join('apps', `${new URL(origin).hostname}.png`)); if (fs.existsSync(f)) return nativeImage.createFromPath(f); } catch {}
+  return null;
+}
+function openAppWindow(url) {
+  let u; try { u = new URL(url); } catch { return; }
+  if (!/^https?:$/.test(u.protocol)) return;
+  const old = appWins.get(u.origin);
+  if (old && !old.isDestroyed()) { if (old.isMinimized()) old.restore(); old.focus(); return; }
+  const img = appIconImage(u.origin);
+  const w = new BrowserWindow({
+    width: 1100, height: 760, minWidth: 420, minHeight: 320, title: u.hostname, icon: img && !img.isEmpty() ? img : ICON, autoHideMenuBar: true, backgroundColor: '#ffffff',
+    webPreferences: { partition: PARTITION, sandbox: true, contextIsolation: true, nodeIntegration: false },
+  });
+  w.removeMenu();
+  if (process.platform === 'win32') { try { w.setAppDetails({ appId: `com.ryo.oto.app.${u.hostname}`, relaunchCommand: `"${process.execPath}" --oto-app=${u.origin}/`, relaunchDisplayName: u.hostname }); } catch {} }
+  appWins.set(u.origin, w);
+  w.on('closed', () => appWins.delete(u.origin));
+  const wc = w.webContents;
+  const toOto = (link) => { send('tab:open', { url: link, background: false }); if (win) { if (win.isMinimized()) win.restore(); win.focus(); } };
+  wc.setWindowOpenHandler(({ url: link }) => { try { if (new URL(link).origin === u.origin) return { action: 'allow' }; } catch {} toOto(link); return { action: 'deny' }; });
+  wc.on('will-navigate', (e, link) => { try { const o = new URL(link); if (o.origin !== u.origin && !/accounts\.|login\.|auth/.test(o.hostname)) { e.preventDefault(); toOto(link); } } catch {} });
+  wc.on('page-title-updated', (_e, t) => w.setTitle(t));
+  w.loadURL(url);
+}
+const appArg = (argv) => { const a = (argv || []).find((x) => /^--oto-app=/.test(x)); return a ? a.slice(10) : null; };
 
 // ---------------------------------------------------------------- version numbers
 // Oto shows versions like 0.9.8 for big updates and 0.9.8.1, 0.9.8.2 … for small ones. The updater
@@ -334,7 +426,7 @@ function showContextMenu(wc, p) {
     let hasExt = false;
     try { hasExt = !!(extensions && extensions.getContextMenuItems(wc, p).length); } catch {}
     lastCtx = { wc, p };
-    send('ctx:show', {
+    sendVia(wc, 'ctx:show', {
       wcId: wc.id, x: p.x, y: p.y, linkURL: p.linkURL || '', linkText: p.linkText || '', srcURL: p.srcURL || '',
       mediaType: p.mediaType, isEditable: !!p.isEditable, editFlags: p.editFlags || {}, selectionText: p.selectionText || '',
       canBack: canNav(wc, -1), canFwd: canNav(wc, 1), pageURL: wc.getURL(), hasExt,
@@ -450,7 +542,7 @@ function notifyBlocked(wcId) {
   if (blockedFlush) return;
   blockedFlush = setTimeout(() => {
     blockedFlush = null;
-    for (const [id, n] of pendingBlocked) send('blocked', id, n);
+    for (const [id, n] of pendingBlocked) { let wc = null; try { wc = webContents.fromId(id); } catch {} sendVia(wc, 'blocked', id, n); }
     pendingBlocked.clear();
   }, 250);
 }
@@ -612,8 +704,88 @@ function setupIPC(ses) {
   }));
   ipcMain.handle('state:load', () => readJSON('state.json', null));
   ipcMain.handle('app:changelog', () => { try { return fs.readFileSync(path.join(__dirname, 'CHANGELOG.md'), 'utf8'); } catch { return ''; } });
-  ipcMain.on('state:save', (_e, s) => { try { writeJSON('state.json', s); } catch {} });
-  ipcMain.on('state:save-sync', (e, s) => { try { writeJSON('state.json', s); } catch {} e.returnValue = true; });
+  ipcMain.on('state:save', (e, s) => { if (restoringBackup || isAvocadoUi(e.sender)) return; try { writeJSON('state.json', s); } catch {} });
+  ipcMain.on('state:save-sync', (e, s) => { if (!restoringBackup && !isAvocadoUi(e.sender)) { try { writeJSON('state.json', s); } catch {} } e.returnValue = true; });
+  ipcMain.handle('app:mode', (e) => (isAvocadoUi(e.sender) ? 'avocado' : 'main'));
+  ipcMain.handle('qr:svg', async (_e, text) => { try { return await require('qrcode').toString(String(text || ''), { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#1d1b26', light: '#ffffff' } }); } catch { return ''; } });
+  ipcMain.on('app:open', (_e, url) => openAppWindow(url));
+  ipcMain.handle('app:install', async (_e, url, title, iconDataUrl) => {
+    let u; try { u = new URL(url); } catch { return { ok: false }; }
+    const dir = userFile('apps');
+    try { fs.mkdirSync(dir, { recursive: true }); } catch {}
+    let icoPath = '';
+    try {
+      const img = nativeImage.createFromDataURL(String(iconDataUrl || ''));
+      if (!img.isEmpty()) {
+        const big = img.resize({ width: 256, height: 256, quality: 'best' });
+        fs.writeFileSync(path.join(dir, `${u.hostname}.png`), big.toPNG());
+        icoPath = path.join(dir, `${u.hostname}.ico`);
+        fs.writeFileSync(icoPath, pngToIco(big.toPNG()));
+      }
+    } catch {}
+    let shortcut = false;
+    if (process.platform === 'win32') {
+      try {
+        const name = String(title || u.hostname).replace(/[\\/:*?"<>|]/g, '').slice(0, 60) || u.hostname;
+        const lnk = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', `${name}.lnk`);
+        shortcut = shell.writeShortcutLink(lnk, { target: process.execPath, args: `--oto-app=${u.origin}/`, description: `${name} (Oto app)`, appUserModelId: `com.ryo.oto.app.${u.hostname}`, ...(icoPath ? { icon: icoPath, iconIndex: 0 } : {}) });
+      } catch {}
+    }
+    openAppWindow(`${u.origin}/`);
+    return { ok: true, shortcut };
+  });
+  ipcMain.on('avocado:open', () => createAvocadoWindow());
+  // Backup & restore: one .oto file with your state; passwords are added only with a backup password.
+  ipcMain.handle('backup:save', async (e, state, pass) => {
+    const day = new Date().toISOString().slice(0, 10);
+    const r = await dialog.showSaveDialog(winOf(e), { defaultPath: path.join(app.getPath('documents'), `Oto-backup-${day}.oto`), filters: [{ name: 'Oto backup', extensions: ['oto'] }] });
+    if (r.canceled || !r.filePath) return { ok: false };
+    const out = { oto: 'backup', v: 1, created: Date.now(), version: OTO_VERSION, state };
+    if (pass) {
+      const crypto = require('crypto');
+      const list = pwLoad().entries.map((en) => ({ origin: en.origin, username: en.username, password: pwDec(en) }));
+      const salt = crypto.randomBytes(16), iv = crypto.randomBytes(12);
+      const key = crypto.scryptSync(String(pass), salt, 32);
+      const c = crypto.createCipheriv('aes-256-gcm', key, iv);
+      const data = Buffer.concat([c.update(JSON.stringify(list), 'utf8'), c.final()]);
+      out.passwords = { n: list.length, salt: salt.toString('base64'), iv: iv.toString('base64'), tag: c.getAuthTag().toString('base64'), data: data.toString('base64') };
+    }
+    const txt = JSON.stringify(out);
+    fs.writeFileSync(r.filePath, txt);
+    return { ok: true, path: r.filePath, size: txt.length, passwords: out.passwords ? out.passwords.n : 0 };
+  });
+  let pendingBackup = null;
+  ipcMain.handle('backup:open', async (e) => {
+    const r = await dialog.showOpenDialog(winOf(e), { properties: ['openFile'], filters: [{ name: 'Oto backup', extensions: ['oto'] }] });
+    if (r.canceled || !r.filePaths[0]) return { ok: false };
+    try {
+      const d = JSON.parse(fs.readFileSync(r.filePaths[0], 'utf8'));
+      if (d.oto !== 'backup' || !d.state) return { ok: false, error: 'This isn’t an Oto backup file.' };
+      pendingBackup = d;
+      const st = d.state;
+      return { ok: true, created: d.created, version: d.version, spaces: (st.workspaces || []).length, tabs: (st.tabs || []).length, bookmarks: JSON.stringify(st.bookmarks || []).split('"url"').length - 1, passwords: d.passwords ? d.passwords.n : 0 };
+    } catch { return { ok: false, error: 'Couldn’t read that file.' }; }
+  });
+  ipcMain.handle('backup:restore', async (_e, pass) => {
+    const d = pendingBackup;
+    if (!d) return { ok: false };
+    let pw = 0;
+    if (d.passwords && pass) {
+      try {
+        const crypto = require('crypto');
+        const p = d.passwords;
+        const key = crypto.scryptSync(String(pass), Buffer.from(p.salt, 'base64'), 32);
+        const dc = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(p.iv, 'base64'));
+        dc.setAuthTag(Buffer.from(p.tag, 'base64'));
+        const list = JSON.parse(Buffer.concat([dc.update(Buffer.from(p.data, 'base64')), dc.final()]).toString('utf8'));
+        for (const en of list) if (en.origin && en.password) { pwUpsert(en.origin, en.username || '', en.password); pw++; }
+      } catch { return { ok: false, error: 'Wrong backup password.' }; }
+    }
+    restoringBackup = true;
+    writeJSON('state.json', d.state);
+    setTimeout(() => { app.relaunch(); app.quit(); }, 400);
+    return { ok: true, passwords: pw };
+  });
   ipcMain.on('win:overlay', (_e, o) => {
     try {
       if (win && win.setTitleBarOverlay) {
@@ -1118,9 +1290,9 @@ function setupWindowIPC() {
     fs.writeFileSync(r.filePath, String(text || ''));
     return true;
   });
-  ipcMain.on('win:min', () => win && win.minimize());
-  ipcMain.on('win:max', () => { if (!win) return; if (win.isMaximized()) win.unmaximize(); else win.maximize(); });
-  ipcMain.on('win:close', () => win && win.close());
+  ipcMain.on('win:min', (e) => { const w = winOf(e); if (w) w.minimize(); });
+  ipcMain.on('win:max', (e) => { const w = winOf(e); if (!w) return; if (w.isMaximized()) w.unmaximize(); else w.maximize(); });
+  ipcMain.on('win:close', (e) => { const w = winOf(e); if (w) w.close(); });
 }
 
 // ---------------------------------------------------------------- boot
@@ -1131,8 +1303,10 @@ if (!app.requestSingleInstanceLock()) {
     if (!win) return;
     if (win.isMinimized()) win.restore();
     win.focus();
+    const appUrl = appArg(argv);
+    if (appUrl) { openAppWindow(appUrl); return; }
     const url = urlFromArgv(argv);
-    send('tab:open', { url: url || null, background: false });
+    send('tab:open', { url: url || null, background: false, external: !!url });
   });
 
   app.whenReady().then(() => {
@@ -1144,6 +1318,7 @@ if (!app.requestSingleInstanceLock()) {
     setupWindowIPC();
     initExtensionAPI(ses);
     createWindow();
+    { const a = appArg(process.argv); if (a) setTimeout(() => openAppWindow(a), 1200); }
     win.webContents.once('did-finish-load', () => setupExtensions(ses));
   });
 

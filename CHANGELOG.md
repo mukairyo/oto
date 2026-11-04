@@ -3,6 +3,29 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.2 — 2026-11-04
+
+*Owner test build of Oto v1 — Alpha 2 (pictures 9–16).*
+
+**New**
+- **Oto Health** (`Shift+Esc`, or the heartbeat button at the bottom of the sidebar) — how much memory Oto uses, every open tab sorted by memory, about how much sleeping tabs save, and a warning with *Put to sleep* when a background tab works the CPU hard. Busy tabs get a small flame in the sidebar.
+- **Battery saver** — turns on by itself when a laptop is unplugged (or switch it on/off in Oto Health): background tabs sleep after 5 minutes, background videos pause, fewer animations, and a battery pill in the top bar.
+- **Quick window** — links you click in other apps open in a floating Glance window. Keep it as a tab or close it.
+- **Loading line** in your space colours across the top while a page loads.
+- **Clean links** — copying a link removes tracking parts like `utm_…` and `fbclid` and tells you how many it removed.
+- **No more cookie popups** — Oto presses *Reject all* for you, or hides the popup when there's only *Accept*.
+- **Dark page** — a switch in the site panel turns any bright site dark (pictures keep their colours), remembered per site.
+- **Backup & restore** (Settings → General) — save everything to one `.oto` file and restore it on a new PC. Add a backup password to include your saved passwords (encrypted).
+- **Space templates** — Gaming, School, Work and Music (right-click the space name, or the command bar).
+- **Video tools** — hover a video for 1× / 1.5× / 2×, loop, screenshot and picture-in-picture.
+- **Search inside your tabs** — the command bar finds words on the pages you have open and jumps right to them.
+- **A secret** for people who like typing slash commands. 🤫
+- **Oto Night** (Settings → Appearance) — Off, On, Follow Windows or After sunset.
+- **Space overview** (`Ctrl+Shift+Space`, or double-click the space name) — every space as a card with its tabs; search all spaces, drag tabs between spaces, or make a new one.
+- **Avocado** 🥑 (`Ctrl+Shift+N`) — Oto's private window, with its own green look. Nothing is saved, and closing it wipes cookies and site data.
+- **Oto Apps** — install a site as its own app window with its own Start-menu entry (site panel → *Install as app*).
+- **Send to phone** — a QR code of the page (site panel or right-click).
+
 ## 1.0.0-owner.1 — 2026-11-04
 
 *Owner test build of Oto v1 — Alpha 1. Only shows up for the Owner update channel.*

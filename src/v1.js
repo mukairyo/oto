@@ -990,4 +990,5 @@ function initV1() {
   if (typeof v1Board6 === 'function') v1Board6();
   if (typeof v1Board7 === 'function') v1Board7();
   if (typeof v1Board8 === 'function') v1Board8();
+  if (typeof initV1b === 'function') initV1b();
 }
