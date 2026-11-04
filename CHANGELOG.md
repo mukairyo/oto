@@ -3,6 +3,11 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 0.9.9.1 — 2026-11-04
+
+**Security**
+- Updated Oto's engine to Electron 45.2.2 (Chromium 156.0.8078.80) with the latest security fixes from Chrome. This update was made automatically.
+
 ## 0.9.9 — 2026-11-04
 
 **New**
