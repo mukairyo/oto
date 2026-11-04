@@ -1250,6 +1250,13 @@ async function drmReady() {
   drmLate = true;
 }
 ipcMain.handle('drm:status', () => { try { drmState.status = ecs ? ecs.status() : null; } catch {} return drmState; });
+// "Install now": ask the component updater to fetch Widevine right away (waits up to a minute).
+ipcMain.handle('drm:install', async () => {
+  if (!ecs) return drmState;
+  try { await Promise.race([ecs.whenReady().then(() => { drmState.ready = true; }), new Promise((r) => setTimeout(r, 60000))]); } catch (e) { drmState.error = String(e && e.message || e); }
+  try { drmState.status = ecs.status(); } catch {}
+  return drmState;
+});
 const pwOk = (purpose) => (ACCOUNT ? ACCOUNT.pwAllowed(purpose) : true);
 let PW = null;
 const pwCanEncrypt = () => { try { return safeStorage.isEncryptionAvailable(); } catch { return false; } };

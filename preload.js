@@ -77,6 +77,7 @@ contextBridge.exposeInMainWorld('oto', {
   pwCheck: (url, u, p) => ipcRenderer.invoke('pw:check', url, u, p),
   pwSave: (url, u, p) => ipcRenderer.invoke('pw:save', url, u, p),
   drmStatus: () => ipcRenderer.invoke('drm:status'),
+  drmInstall: () => ipcRenderer.invoke('drm:install'),
   pwGet: (id, purpose) => ipcRenderer.invoke('pw:get', id, purpose),
   account: {
     status: () => ipcRenderer.invoke('account:status'),

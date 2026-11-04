@@ -332,14 +332,26 @@ function v1HideLock() {
 async function initV1f() {
   PAGES.splice(1, 0, ['account', 'Account & sync', 'key']);
   PAGE_RENDER.account = v1AccountPage;
-  // About: protected content (Widevine) status
+  // About: protected content (Widevine) status, install and a real test inside the current page
   const _about = PAGE_RENDER.about;
   PAGE_RENDER.about = function () {
     const out = _about.apply(this, arguments);
     const d = V1A.drm;
     const cdm = d && d.status && Object.values(d.status)[0];
-    const txt = !d || !d.available ? 'Not available in this build' : cdm && cdm.status === 'updated' || (cdm && cdm.version) ? `Ready · Widevine ${cdm.version || ''}` : 'Installing… (needs internet, takes a moment on first start)';
-    out.push(section('Protected content', row('Spotify, Netflix, Disney+ and other streaming', `Widevine: ${txt}`, h('button', { class: 'btn', onclick: async () => { V1A.drm = await oto.drmStatus(); renderSettings(); } }, 'Check'))));
+    const ok = !!(cdm && cdm.version);
+    const txt = !d || !d.available ? 'Not available in this build' : V1A.drmBusy ? 'Installing… (up to a minute)' : ok ? `Installed · Widevine ${cdm.version}` : `Not installed yet${cdm && cdm.status ? ` (${cdm.status})` : ''}${d.error ? ` — ${d.error}` : ''}`;
+    out.push(section('Protected content',
+      row('Widevine (Spotify, Netflix, Disney+ …)', txt, h('div', { style: 'display:flex;gap:6px' },
+        !ok && d && d.available ? h('button', { class: 'btn primary', disabled: !!V1A.drmBusy, onclick: async () => { V1A.drmBusy = true; renderSettings(); V1A.drm = await oto.drmInstall(); V1A.drmBusy = false; renderSettings(); } }, 'Install now') : null,
+        h('button', { class: 'btn', onclick: async () => { V1A.drm = await oto.drmStatus(); renderSettings(); } }, 'Check'))),
+      row('Test in the current page', V1A.drmTest || 'Open Spotify (or any site), then press Test.', h('button', { class: 'btn', onclick: async () => {
+        const v = activeView();
+        if (!v) { V1A.drmTest = 'Open a page first.'; return renderSettings(); }
+        try {
+          V1A.drmTest = await v.wv.executeJavaScript(`(navigator.requestMediaKeySystemAccess ? navigator.requestMediaKeySystemAccess('com.widevine.alpha', [{ initDataTypes: ['cenc'], audioCapabilities: [{ contentType: 'audio/mp4; codecs="mp4a.40.2"' }], videoCapabilities: [{ contentType: 'video/mp4; codecs="avc1.42E01E"' }] }]).then(() => 'Works ✓ — this page can play protected content').catch((e) => 'Doesn’t work: ' + e.message) : Promise.resolve('This page isn’t secure (needs https)'))`, true);
+        } catch (e) { V1A.drmTest = `Couldn’t test: ${e.message}`; }
+        renderSettings();
+      } }, 'Test'))));
     return out;
   };
   oto.drmStatus().then((d) => { V1A.drm = d; }).catch(() => {});

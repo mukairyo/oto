@@ -61,7 +61,7 @@ function v1CheckLevel() {
 function v1LevelUp(L) {
   const el = h('div', { class: 'v1-lvlup' }, h('div', { class: 'card', style: `--lc:${L.cur.color}` }, h('div', { class: 'f front', html: `<span>${V1_LEVELS[Math.max(0, L.i - 1)].name}</span>` }), h('div', { class: 'f back', html: `<b>${L.cur.name}</b><small>LEVEL UP</small>` })),
     h('h3', {}, `You reached ${L.cur.name}!`), h('p', {}, `New title unlocked: “${L.cur.title}”. Your Oto Card got a ${L.cur.name.toLowerCase()} frame.`),
-    h('div', { class: 'btns' }, h('button', { class: 'btn', onclick: () => el.remove() }, 'Nice'), h('button', { class: 'btn primary', onclick: () => { el.remove(); v1Hub('card'); } }, 'Open Oto Hub')));
+    h('div', { class: 'btns' }, h('button', { class: 'btn', onclick: () => el.remove() }, 'Nice'), h('button', { class: 'btn primary', onclick: () => { el.remove(); openLibrary('card'); } }, 'See my card')));
   el.addEventListener('mousedown', (e) => { if (e.target === el) el.remove(); });
   document.body.append(el);
 }
@@ -179,15 +179,29 @@ function v1CardBack(m = cardModel()) {
   <text x="${W - 28}" y="${H - 36}" text-anchor="end" font-family="${mono}" font-size="9" letter-spacing="1" fill="${k.sub}">${foot}</text></svg>`;
 }
 
-// The card editor keeps a small level strip; levels, badges and cosmetics live in the Oto Hub.
 function v1CardPanel() {
   const L = v1Level();
+  const ed = v1Edition();
+  const owner = !!(V1D.founder && V1D.founder.ok);
+  const pick = (e) => { S.card = S.card || {}; S.card.edition = e; save(); renderLibrary(); };
+  const titles = V1_LEVELS.slice(1).map((l, k) => ({ l, open: L.i >= k + 1 }));
   return h('div', { class: 'v1-cardpanel' },
     h('div', { class: 'lv', style: `--lc:${L.cur.color}` },
-      h('div', { class: 'lvh' }, h('span', { class: 'chip' }, L.cur.name.toUpperCase()), h('b', {}, `Level ${L.i + 1} · ${L.xp.toLocaleString()} XP`),
-        h('button', { class: 'btn sm hubbtn', onclick: () => v1Hub('card') }, 'Open Oto Hub →')),
+      h('div', { class: 'lvh' }, h('span', { class: 'chip' }, L.cur.name.toUpperCase()), h('b', {}, `Level ${L.i + 1} · ${L.xp.toLocaleString()} XP`), L.next ? h('small', {}, `${(L.next.xp - L.xp).toLocaleString()} XP to ${L.next.name}`) : h('small', {}, 'Top level — Mythic!')),
       h('div', { class: 'bar' }, h('i', { style: `width:${Math.round(L.pct * 100)}%` })),
-      h('p', { class: 'how' }, L.next ? `${(L.next.xp - L.xp).toLocaleString()} XP to ${L.next.name} · editions, titles, frames and badges are in the Oto Hub` : 'Mythic — the top level! Editions, titles, frames and badges are in the Oto Hub')));
+      h('div', { class: 'steps' }, ...V1_LEVELS.map((l, k) => h('span', { class: k <= L.i ? 'on' : '', style: `--c:${l.color}` }, l.name))),
+      h('p', { class: 'how' }, 'XP comes from days with Oto, ads blocked, spaces, pages and badges.')),
+    h('div', { class: 'row2' }, h('span', { class: 'lab' }, 'Edition'),
+      h('div', { class: 'seg' }, h('button', { class: ed === 'standard' ? 'on' : '', onclick: () => pick('standard') }, 'Standard'), h('button', { class: ed === 'og' ? 'on' : '', onclick: () => pick('og') }, 'OG ★'),
+        owner ? h('button', { class: ed === 'founder' ? 'on' : '', onclick: () => pick('founder') }, 'Founder 力') : h('button', { class: 'locked', title: 'Only the owner can unlock this', disabled: true }, '🔒 Founder'))),
+    h('div', { class: 'row2' }, h('span', { class: 'lab' }, 'Level titles'), h('div', { class: 'titles' }, ...titles.map(({ l, open }) => h('button', {
+      class: `${open ? '' : 'locked'}${S.card && S.card.title === l.title ? ' on' : ''}`, disabled: !open, title: open ? 'Use this title' : `Unlocks at ${l.name}`,
+      onclick: () => { S.card.title = l.title; save(); renderLibrary(); },
+    }, open ? l.title : `🔒 ${l.name}`)))),
+    h('div', { class: 'row2' }, h('span', { class: 'lab' }, 'Badges'), h('div', { class: 'badges' }, ...Object.entries(V1_BADGES).map(([id, [label, ic]]) => {
+      const on = !!(S.v1Badges || {})[id];
+      return h('span', { class: on ? 'on' : '', title: on ? label : 'Hidden badge — keep using Oto to find it' }, on ? ic : '?');
+    }))));
 }
 
 // ================================================================ Now Playing (art + waveform)
@@ -214,7 +228,7 @@ function v1Widgets() {
   for (const it of (S.history || []).slice(0, 800)) { const hst = hostOf(it.u); if (hst) counts[hst] = (counts[hst] || 0) + 1; }
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
   box.replaceChildren(
-    h('button', { class: 'wg card', style: `--lc:${L.cur.color}`, onclick: () => v1Hub() }, h('span', { class: 'k' }, 'OTO CARD'), h('b', {}, `${L.cur.name} · Level ${L.i + 1}`),
+    h('button', { class: 'wg card', style: `--lc:${L.cur.color}`, onclick: () => openLibrary('card') }, h('span', { class: 'k' }, 'OTO CARD'), h('b', {}, `${L.cur.name} · Level ${L.i + 1}`),
       h('span', { class: 'bar' }, h('i', { style: `width:${Math.round(L.pct * 100)}%` })), h('small', {}, L.next ? `${(L.next.xp - L.xp).toLocaleString()} XP to ${L.next.name}` : 'Mythic — the top!')),
     h('div', { class: 'wg sc' }, h('span', { class: 'k' }, 'SHORTCUTS'), h('div', { class: 'ic' }, ...(top.length ? top.map(([hst]) => h('button', { title: hst, onclick: () => openUrl(`https://${hst}/`) }, favEl({ url: `https://${hst}/`, title: hst }, null, true), h('span', {}, hst.replace(/^www\./, '').split('.')[0]))) : [h('small', {}, 'Sites you visit a lot show up here.')]))),
   );
@@ -390,7 +404,7 @@ async function v1OwnerPanel() {
         tool('Show level-up', () => { v1ClosePop(); v1LevelUp(v1Level()); }),
         tool('Unlock all badges', () => { S.v1Badges = Object.fromEntries(Object.keys(V1_BADGES).map((k) => [k, Date.now()])); save(); v1OwnerPanel(); }),
         tool('Clear badges', () => { S.v1Badges = {}; save(); v1OwnerPanel(); }),
-        tool('Founder card', async () => { await v1OwnerRefresh(); if (!(V1D.founder && V1D.founder.ok)) return toast('Couldn’t sign the Founder card', { timeout: 2000 }); S.card = S.card || {}; S.card.edition = 'founder'; S.card.name = S.card.name || 'Ryo'; save(); v1ClosePop(); v1Hub('card'); }, 'gold'))),
+        tool('Founder card', async () => { await v1OwnerRefresh(); if (!(V1D.founder && V1D.founder.ok)) return toast('Couldn’t sign the Founder card', { timeout: 2000 }); S.card = S.card || {}; S.card.edition = 'founder'; S.card.name = S.card.name || 'Ryo'; save(); v1ClosePop(); openLibrary('card'); }, 'gold'))),
     h('div', { class: 'osec' }, h('div', { class: 'ot' }, 'TEST SCREENS'),
       h('div', { class: 'og' },
         tool('Welcome setup', () => { v1ClosePop(); S.onboarded = false; save(); runSetup(); }),
@@ -475,7 +489,6 @@ function initV1d() {
       const tx = info.querySelector('.mc-text');
       if (tx && m.title) tx.replaceChildren(h('b', {}, m.title), h('small', {}, m.artist || hostOf(tabById(media.tabId).url)));
     }
-    if (!card.querySelector('.v1-np-wave')) card.append(h('div', { class: `v1-np-wave${media && media.playing ? ' on' : ''}` }, ...Array.from({ length: 18 }, () => h('i'))));
   };
   setInterval(v1NowPlayingTick, 3000);
   // new tab widgets + level checks

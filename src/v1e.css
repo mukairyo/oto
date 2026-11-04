@@ -5,24 +5,6 @@
 @property --v1h { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 @keyframes v1spin { to { --v1h: 360deg; } }
 
-/* ---------- Now Playing: dark Oto-card glass, holographic rounded border */
-body.v1:not(.skin-rt) .media-card {
-  position: relative; margin: 4px 8px 8px; padding: 10px; border-radius: 16px; gap: 8px; color: #ecfbff;
-  background: linear-gradient(160deg, #15132a, #07070d) padding-box, var(--v1-holo) border-box;
-  border: 1.5px solid transparent; box-shadow: 0 10px 26px -12px rgba(10, 8, 30, .7);
-}
-body.v1:not(.skin-rt) .media-card.playing { animation: pop .25s var(--ease), v1spin 8s linear infinite; }
-body.v1:not(.skin-rt) .media-card::after { content: ''; position: absolute; inset: 0; border-radius: 15px; pointer-events: none; background: radial-gradient(120% 80% at 0% 0%, rgba(167, 139, 250, .16), transparent 60%); }
-body.v1:not(.skin-rt) .media-card .mc-text b { color: #fff; }
-body.v1:not(.skin-rt) .media-card .mc-text small { color: rgba(205, 228, 255, .62); }
-body.v1:not(.skin-rt) .media-card .icon-btn { color: rgba(236, 251, 255, .78); }
-body.v1:not(.skin-rt) .media-card .icon-btn:hover { background: rgba(255, 255, 255, .08); color: #fff; }
-body.v1:not(.skin-rt) .media-card .v1-np-art { width: 40px; height: 40px; border-radius: 10px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .14), 0 6px 16px -4px rgba(167, 139, 250, .55); }
-body.v1:not(.skin-rt) .media-card.playing .mc-info .fav, body.v1:not(.skin-rt) .media-card.playing .mc-info .fav-letter { box-shadow: 0 0 0 2px #a78bfa; }
-body.v1:not(.skin-rt) .media-card .v1-np-wave { opacity: .9; height: 16px; }
-body.v1:not(.skin-rt) .media-card .v1-np-wave i { background: linear-gradient(to top, #a78bfa, #22d3ee); }
-body.v1:not(.skin-rt) .media-card .v1-np-wave i:nth-child(3n) { background: linear-gradient(to top, #f472b6, #a78bfa); }
-
 /* ---------- Oto Hub */
 .v1-hub { position: fixed; inset: 0; z-index: 320; display: grid; place-items: center; background: rgba(8, 6, 20, .5); backdrop-filter: blur(8px); animation: v1fade .18s ease; }
 .v1-hub:focus { outline: none; }

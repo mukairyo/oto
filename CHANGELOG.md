@@ -3,6 +3,18 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.12 — 2026-11-04
+
+*Owner test build of Oto v1 — fixes.*
+
+**Fixed**
+- **Music stopped after one song** when its tab was in the background. In the short gap between songs Oto thought the tab was quiet and froze it to save CPU, so the next song couldn't start. A music or video tab now counts as playing for 10 minutes after its last sound, and the tab in the media card is never frozen or put to sleep.
+- The media card looks like it used to again (with the song's artwork and title).
+- The Oto Card editor has levels, editions, titles and badges back in it, like before — no "Open Oto Hub" button. The Hub is still there with `Ctrl+Shift+H` or `/hub`.
+
+**New**
+- Settings → About → *Protected content*: shows if Widevine is installed, an **Install now** button, and **Test** to check if the page you're on can play protected content.
+
 ## 1.0.0-owner.11 — 2026-11-04
 
 *Owner test build of Oto v1 — signed for Widevine.*

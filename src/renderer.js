@@ -531,8 +531,8 @@ function bindView(tab, v) {
     const r = e.result || {};
     if (isActive() && r.matches != null) $('#findCount').textContent = r.matches ? `${r.activeMatchOrdinal}/${r.matches}` : '0/0';
   });
-  el.addEventListener('media-started-playing', () => { v.audible = true; render(); });
-  el.addEventListener('media-paused', () => { v.audible = false; render(); });
+  el.addEventListener('media-started-playing', () => { v.audible = true; v.audibleAt = Date.now(); render(); });
+  el.addEventListener('media-paused', () => { v.audible = false; v.audibleAt = Date.now(); render(); });
   el.addEventListener('focus', () => { if (S.settings.stayOpen) closeSlidingSidebar(); });
   el.addEventListener('enter-html-full-screen', () => document.body.classList.add('fs'));
   el.addEventListener('leave-html-full-screen', () => document.body.classList.remove('fs'));

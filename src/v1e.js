@@ -217,5 +217,4 @@ function initV1e() {
     if ('hub'.startsWith(cmd) && !items.some((it) => it.t === '/hub')) items.unshift({ g: 'Commands', icon: 'card', t: '/hub', s: 'Oto Hub — card, music, achievements', hint: 'Run', run: () => { closeCmd(false); v1Hub(); } });
     return items;
   };
-  const myCard = ACTIONS.find((a) => a.name === 'My Oto Card'); if (myCard) myCard.run = () => v1Hub('card');
 }

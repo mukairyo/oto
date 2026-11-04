@@ -87,7 +87,7 @@ function housekeeping() {
   if (idle) {
     for (const [id, v] of V) {
       const t = tabById(id);
-      if (!t || isActiveAnywhere(id) || v.audible) continue;
+      if (!t || isActiveAnywhere(id) || mediaBusy(id, v)) continue;
       const since = v.hiddenAt || t.lastActive || now;
       if (now - since > idle) destroyView(id);
     }
@@ -121,13 +121,16 @@ function reapplyBoosts() {
 }
 
 // ================================================================ efficiency: freezing background tabs
+// A music/video tab counts as playing for 10 minutes after its last sound, so the short gap between
+// songs (or a quick pause) never gets it frozen or put to sleep — that used to stop the next song.
+const mediaBusy = (id, v) => v.audible || (v.audibleAt && Date.now() - v.audibleAt < 10 * 60 * 1000) || (typeof media !== 'undefined' && media && media.tabId === id && !media.dismissed);
 const FREEZE_AFTER = { '1m': 6e4, '5m': 3e5, '15m': 9e5 };
 function freezeTick() {
   const ttl = FREEZE_AFTER[S.settings.freezeAfter];
   if (!ttl) return;
   const now = Date.now();
   for (const [id, v] of V) {
-    if (v.frozen || !v.ready || !v.wcId || v.audible || v.loading || isActiveAnywhere(id)) continue;
+    if (v.frozen || !v.ready || !v.wcId || mediaBusy(id, v) || v.loading || isActiveAnywhere(id)) continue;
     const t = tabById(id);
     const since = v.hiddenAt || (t && t.lastActive);
     if (!since || now - since < ttl) continue;
