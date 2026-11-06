@@ -218,7 +218,7 @@ function v1AccountPage() {
       V1A.busy = true; v1AccRender();
       const r = await oto.account.resetWithCode(V1A.reset.email, code, pw);
       V1A.busy = false;
-      if (!r.ok) { V1A.err = r.error; return v1AccRender(); }
+      if (!r.ok) { if (r.changed) { V1A.reset = null; V1A.form = 'signin'; } V1A.err = r.error; return v1AccRender(); }
       V1A.reset = null;
       toast('Password changed — you’re signed in ✓', { icon: 'check', timeout: 2600 });
       await v1AfterSignIn(r);

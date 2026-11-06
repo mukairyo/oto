@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.27 — 2026-11-07
+
+*Owner test build of Oto v1 — fix.*
+
+**Fixed**
+- **Reset password with a code finishes properly** — after the new password is set, Oto signs in with it the normal way instead of using the short-lived reset session, which the sync server refused ("The Oto server isn't fully set up yet"). If anything still goes wrong after the password is changed, Oto says so and takes you back to Sign in.
+
 ## 1.0.0-owner.26 — 2026-11-07
 
 *Owner test build of Oto v1 — codes instead of email links.*

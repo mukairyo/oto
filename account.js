@@ -216,13 +216,18 @@ module.exports = function setupAccount(ctx) {
     }
     resetTries.n = 0;
     if (!r || !r.access_token) return { ok: false, error: 'Couldn’t check the code — try again.' };
+    // 1) set the new password with the short-lived reset session
     try {
       takeSession(r);
       await api('PUT', '/auth/v1/user', { token: await token(), body: { password: String(password) } });
+    } catch (e) { signOutLocal(); tell(); return { ok: false, error: /same|different/i.test(e.message) ? 'Pick a password you haven’t used for this account before.' : e.message }; }
+    // 2) sign in normally with the new password (the reset session isn't used for sync)
+    try {
+      takeSession(await api('POST', '/auth/v1/token?grant_type=password', { body: { email: String(email).trim(), password: String(password) } }));
       const out = await afterAuth(String(password));
       tell();
       return out;
-    } catch (e) { signOutLocal(); tell(); return { ok: false, error: /same|different/i.test(e.message) ? 'Pick a password you haven’t used for this account before.' : e.message }; }
+    } catch (e) { signOutLocal(); tell(); return { ok: false, changed: true, error: `Your password is changed ✓ — now sign in with the new one. (${e.message})` }; }
   });
   // New account → the email has a code (Supabase "Confirm signup" template uses {{ .Token }}).
   ipcMain.handle('account:confirmWithCode', async (_e, email, code, password) => {
