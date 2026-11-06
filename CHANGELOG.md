@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.22 — 2026-11-06
+
+*Owner test build of Oto v1 — fix.*
+
+**Fixed**
+- **The light in the startup animation is in the middle of the vortex again** — the rings were turning around the wrong point while they spun up, so they slid down-left and the light ended up off-centre.
+
 ## 1.0.0-owner.21 — 2026-11-06
 
 *Owner test build of Oto v1 — the new Oto logo.*

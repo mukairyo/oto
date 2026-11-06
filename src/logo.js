@@ -17,7 +17,7 @@ function vortexSvg({ small = false, bg = true, anim = false } = {}) {
     const circ = Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
     const dashes = small ? '' : Array.from({ length: 3 }, () => `${f(circ * (0.18 + rnd() * 0.2))} ${f(circ * (0.03 + rnd() * 0.05))}`).join(' ');
     const off = rnd() * circ;
-    rings += `<ellipse class="vr" style="--i:${i};--c:${f(circ)}" cx="${cx}" cy="${cy}" rx="${f(rx)}" ry="${f(ry)}" transform="rotate(-6 ${cx} ${cy})" stroke="rgb(${R},${G},${B})" stroke-opacity="${f(op)}" stroke-width="${f(small ? 2.2 - t * 1.2 : 1.05 - t * 0.55)}" stroke-linecap="round"${dashes ? ` stroke-dasharray="${dashes}" stroke-dashoffset="${f(off)}"` : ''}/>`;
+    rings += `<ellipse class="vr" style="--i:${i};--c:${f(circ)}" cx="${cx}" cy="${cy}" rx="${f(rx)}" ry="${f(ry)}" stroke="rgb(${R},${G},${B})" stroke-opacity="${f(op)}" stroke-width="${f(small ? 2.2 - t * 1.2 : 1.05 - t * 0.55)}" stroke-linecap="round"${dashes ? ` stroke-dasharray="${dashes}" stroke-dashoffset="${f(off)}"` : ''}/>`;
     if (!small) for (let q = 0; q < 2; q++) { const a = rnd() * Math.PI * 2; dots += `<circle class="vd" cx="${f(cx + rx * Math.cos(a))}" cy="${f(cy + ry * Math.sin(a))}" r="${f(0.25 + rnd() * 0.35)}" fill="#fff" opacity="${f(0.4 + rnd() * 0.6)}"/>`; }
   }
   if (!small) for (let q = 0; q < 26; q++) {
@@ -30,6 +30,6 @@ function vortexSvg({ small = false, bg = true, anim = false } = {}) {
     <clipPath id="vxc${n}"><rect width="64" height="64" rx="15"/></clipPath>
     <filter id="vxf${n}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation=".5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
     ${bg ? `<rect width="64" height="64" rx="15" fill="url(#vxb${n})"/>` : ''}
-    <g clip-path="url(#vxc${n})"><g class="vss">${streaks}</g><g fill="none" filter="url(#vxf${n})" class="vrs">${rings}</g>${dots}
-    <ellipse class="vcore" cx="${cx}" cy="${cy}" rx="${small ? 9 : 10}" ry="${small ? 7 : 6.5}" fill="url(#vxg${n})"/><circle class="vdot" cx="${cx}" cy="${cy}" r="${small ? 2.4 : 1.8}" fill="#fff"/></g></svg>`;
+    <g clip-path="url(#vxc${n})"><g class="vss">${streaks}</g><g transform="rotate(-6 ${cx} ${cy})"><g fill="none" filter="url(#vxf${n})" class="vrs">${rings}</g>${dots}
+    <ellipse class="vcore" cx="${cx}" cy="${cy}" rx="${small ? 9 : 10}" ry="${small ? 7 : 6.5}" fill="url(#vxg${n})"/><circle class="vdot" cx="${cx}" cy="${cy}" r="${small ? 2.4 : 1.8}" fill="#fff"/></g></g></svg>`;
 }
