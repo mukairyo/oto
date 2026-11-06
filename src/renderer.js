@@ -1242,7 +1242,6 @@ const ACTIONS = [
   { name: 'Open settings', kw: 'preferences options', icon: 'settings', run: () => openSettings() },
   { name: 'Archived tabs', kw: 'archive closed restore', icon: 'clock', run: () => openSettings('archive') },
   { name: 'Boosts — restyle this site', kw: 'css custom style boost', icon: 'bolt', run: () => openSettings('boosts') },
-  { name: 'Change app icon', kw: 'icon taskbar', icon: 'star', run: () => openSettings('icon') },
   { name: 'Move sidebar to the other side', kw: 'left right sidebar position', icon: 'sidebar', run: () => { S.settings.sidebarSide = S.settings.sidebarSide === 'right' ? 'left' : 'right'; applyLayout(); save(); } },
   { name: 'Make Oto the default browser', kw: 'default', icon: 'globe', run: () => oto.makeDefaultBrowser() },
   { name: 'Dark theme', kw: 'night mode', icon: 'moon', run: () => setTheme('dark') },

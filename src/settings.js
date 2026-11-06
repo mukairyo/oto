@@ -25,8 +25,8 @@ function iconPalette(style) {
   return { c: [cols[0], cols[Math.floor(cols.length / 2)], cols[cols.length - 1]], bg: DARK_BG, glow: true };
 }
 function iconSvg(style) {
-  // Oto theme: the Vortex is the logo (unless you picked another icon style)
-  if (style === 'vortex' || ((!style || style === 'classic') && typeof skinIsRt === 'function' && skinIsRt())) return vortexSvg();
+  // Oto theme: the Vortex is always the logo (the App icon page is gone)
+  if (style === 'vortex' || (typeof skinIsRt === 'function' && skinIsRt())) return vortexSvg();
   const { c, bg, glow } = iconPalette(style);
   return otoMarkSvg(c, bg, glow);
 }
@@ -439,7 +439,6 @@ const PAGES = [
   ['boosts', 'Boosts', 'edit'],
   ['mods', 'Mods', 'sidebar'],
   ['archive', 'Archive', 'clock'],
-  ['icon', 'App icon', 'star'],
   ['shortcuts', 'Shortcuts', 'code'],
   ['about', 'About', 'globe'],
 ];

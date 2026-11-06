@@ -56,7 +56,7 @@ function runSetup() {
   const skip = h('button', { class: 'setup-skip', onclick: finish }, 'Skip setup');
   const progress = h('div', { class: 'setup-progress' }, h('span'));
   const side = h('div', { class: 'setup-side' },
-    h('div', { class: 'setup-brand' }, h('span', { class: 'setup-mark', html: logoSvg() }), h('b', {}, 'Oto')), rail,
+    h('div', { class: 'setup-brand' }, h('span', { class: 'setup-mark', html: logoSvg() }), h('b', {}, 'Oto'), RT ? h('span', { class: 'k' }, '音') : null), rail,
     h('div', { class: 'setup-side-foot' }, 'You can change everything later in Settings'));
   const card = h('div', { class: 'setup-card' }, side,
     h('div', { class: 'setup-main' }, progress, body, h('div', { class: 'setup-foot' }, skip, h('div', { class: 'setup-nav' }, back, next))));
@@ -94,9 +94,10 @@ function runSetup() {
 
   const views = {
     welcome: () => h('div', { class: 'setup-welcome' },
-      h('div', { class: 'logo-big', html: logoSvg() }),
+      h('div', { class: 'logo-big', html: RT ? vortexSvg({ anim: true, bg: false }) : logoSvg() }),
       ...title('Welcome to Oto', 'A calm browser with vertical tabs, spaces and built-in ad blocking. Let’s make it yours — it takes about two minutes.'),
-      h('div', { class: 'setup-pills' }, ...(RT ? ['Your layout', 'Your look', 'Your speed', 'Your privacy'] : ['Your layout', 'Your colours', 'Your speed', 'Your privacy']).map((t) => h('span', {}, t)))),
+      RT ? h('div', { class: 'setup-tags' }, ...['Layout', 'Look', 'Speed', 'Privacy'].map((t, i) => h('span', {}, h('i', {}, String(i + 1).padStart(2, '0')), t)))
+        : h('div', { class: 'setup-pills' }, ...(RT ? ['Your layout', 'Your look', 'Your speed', 'Your privacy'] : ['Your layout', 'Your colours', 'Your speed', 'Your privacy']).map((t) => h('span', {}, t)))),
 
     import: () => {
       if (!sources) oto.bookmarkSources().then((s) => { sources = s || []; if (STEPS[step][0] === 'import') paint(); });
@@ -194,7 +195,7 @@ function runSetup() {
       h('p', { class: 'setup-note' }, `${picked.size} selected`)),
 
     done: () => h('div', { class: 'setup-welcome' },
-      h('div', { class: 'logo-big', html: logoSvg() }),
+      h('div', { class: 'logo-big', html: RT ? vortexSvg({ anim: true, bg: false }) : logoSvg() }),
       ...title('You’re all set', 'A few shortcuts worth knowing:'),
       h('div', { class: 'setup-tips' },
         ...[['Ctrl T', 'Search, open a site or jump to a tab'], ['Ctrl B', 'Hide or show the sidebar'], ['Right-click a link', 'Open it in Glance — a floating preview'],
@@ -205,7 +206,13 @@ function runSetup() {
   function paint() {
     const key = STEPS[step][0];
     const scroll = body.scrollTop;
-    body.replaceChildren(views[key]());
+    const view = views[key]();
+    if (RT) {
+      const n = String(step + 1).padStart(2, '0'), all = String(STEPS.length).padStart(2, '0');
+      view.prepend(h('div', { class: 'rt-crumb' }, h('span', { class: 'rt-dash' }), h('span', { class: 'rt-kanji' }, '音'),
+        h('span', {}, `SETUP / ${STEPS[step][1].toUpperCase()}`), h('span', { class: 'rt-rule' }), h('span', {}, `${n} / ${all}`)));
+    }
+    body.replaceChildren(view);
     body.className = `setup-body step-${key}`;
     body.scrollTop = scroll;
     rail.replaceChildren(...STEPS.map(([k, label], i) => h('button', {

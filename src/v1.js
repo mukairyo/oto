@@ -458,7 +458,7 @@ function v1Copy(text) { try { navigator.clipboard.writeText(text); } catch {} }
 const V1_SET_GROUPS = [
   ['Basics', ['general', 'account', 'appearance', 'sidebar', 'newtab']],
   ['Browsing', ['search', 'tabs', 'privacy', 'performance', 'bookmarks']],
-  ['Make it yours', ['extensions', 'boosts', 'mods', 'icon']],
+  ['Make it yours', ['extensions', 'boosts', 'mods']],
   ['Oto', ['archive', 'shortcuts', 'about']],
 ];
 const V1_SET_NAMES = { performance: 'Speed & memory', about: 'About & updates', extensions: 'Extensions', icon: 'App icon' };

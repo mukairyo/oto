@@ -3,6 +3,15 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.25 — 2026-11-06
+
+*Owner test build of Oto v1 — new-look setup.*
+
+**Changed**
+- **The welcome setup is redesigned in the Oto theme** — full window instead of a floating card. The steps run down the left as numbered mono labels (the current one in cream, like an open tab), each page has the "— 音 SETUP / LAYOUT —— 03 / 08" line, big serif headings, hairline boxes that turn cream when picked, and a thin cream progress line.
+- **The vortex spins up on the Welcome and "You're all set" pages.**
+- **App icon is gone from Settings** — the Oto vortex is always the icon now.
+
 ## 1.0.0-owner.24 — 2026-11-06
 
 *Owner test build of Oto v1 — setup follows the Oto theme.*
