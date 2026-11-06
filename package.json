@@ -93,5 +93,5 @@
     },
     "afterSign": "build/vmp-sign.js"
   },
-  "otoVersion": "1.0.0-owner.20"
+  "otoVersion": "1.0.0-owner.21"
 }
