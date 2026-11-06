@@ -1716,3 +1716,16 @@ body.skin-rt .empty-inner .empty-hints, body.skin-rt .empty-inner .v1-jump, body
 body.skin-rt #setup { background: radial-gradient(70% 60% at 50% 40%, #151517, #0b0b0c 75%); }
 body.skin-rt .setup-theme-row { display: none; }
 body.skin-rt .setup-welcome .logo-big svg { width: 68px; height: 68px; }
+
+/* Setup layout previews in the Oto theme: near-black window, cream lines */
+body.skin-rt .mk { --mk-bg: #0b0b0c; box-shadow: 0 0 0 1px rgba(236, 232, 225, .12); }
+body.skin-rt .setup-choice.on .mk { box-shadow: 0 0 0 1px rgba(236, 232, 225, .3); }
+body.skin-rt .mk-sb .mk-nav i, body.skin-rt .mk-top i { background: rgba(231, 223, 209, .7); }
+body.skin-rt .mk-url { background: rgba(231, 223, 209, .16); box-shadow: inset 0 0 0 1px rgba(231, 223, 209, .22); }
+body.skin-rt .mk-ess i { background: rgba(231, 223, 209, .14); box-shadow: inset 0 0 0 1px rgba(231, 223, 209, .18); }
+body.skin-rt .mk-tab { background: rgba(231, 223, 209, .12); }
+body.skin-rt .mk-tab.on { background: rgba(231, 223, 209, .82); }
+body.skin-rt .mk-top b { background: rgba(231, 223, 209, .3); }
+body.skin-rt .mk-page { background: #141416; box-shadow: 0 0 0 1px rgba(236, 232, 225, .08); }
+body.skin-rt .mk-page span { background: rgba(231, 223, 209, .12); }
+body.skin-rt .mk-page span:nth-child(1) { background: rgba(231, 223, 209, .55); }

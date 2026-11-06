@@ -33,6 +33,9 @@ function runSetup() {
   $('#settings').hidden = true;
 
   const st = S.settings;
+  // Oto theme: Zen layout only, and no gradient colours step — the theme decides the look.
+  const RT = typeof skinIsRt === 'function' && skinIsRt();
+  if (RT && st.toolbarLayout === 'top') { st.toolbarLayout = 'single'; save(); }
   const ws = currentWs();
   const model = JSON.parse(JSON.stringify(themeOf(ws)));
   const picked = new Set(essentials().map((t) => hostOf(t.url)).filter((x) => SETUP_SITES.some(([, u]) => hostOf(u) === x)));
@@ -44,7 +47,7 @@ function runSetup() {
   const STEPS = [
     ['welcome', 'Welcome'], ['import', 'Bring your stuff'], ['layout', 'Layout'], ['colours', 'Colours'],
     ['feel', 'Look & feel'], ['speed', 'Speed'], ['privacy', 'Search & privacy'], ['essentials', 'Essentials'], ['done', 'Done'],
-  ];
+  ].filter(([k]) => !(RT && k === 'colours'));
 
   const body = h('div', { class: 'setup-body' });
   const rail = h('div', { class: 'setup-steps' });
@@ -93,7 +96,7 @@ function runSetup() {
     welcome: () => h('div', { class: 'setup-welcome' },
       h('div', { class: 'logo-big', html: logoSvg() }),
       ...title('Welcome to Oto', 'A calm browser with vertical tabs, spaces and built-in ad blocking. Let’s make it yours — it takes about two minutes.'),
-      h('div', { class: 'setup-pills' }, ...['Your layout', 'Your colours', 'Your speed', 'Your privacy'].map((t) => h('span', {}, t)))),
+      h('div', { class: 'setup-pills' }, ...(RT ? ['Your layout', 'Your look', 'Your speed', 'Your privacy'] : ['Your layout', 'Your colours', 'Your speed', 'Your privacy']).map((t) => h('span', {}, t)))),
 
     import: () => {
       if (!sources) oto.bookmarkSources().then((s) => { sources = s || []; if (STEPS[step][0] === 'import') paint(); });
@@ -116,8 +119,8 @@ function runSetup() {
 
     layout: () => h('div', {},
       ...title('Choose your layout', 'Pick how Oto is arranged. The little previews show what you get.'),
-      sub('Toolbar'),
-      h('div', { class: 'setup-choices two' },
+      RT ? null : sub('Toolbar'),
+      RT ? null : h('div', { class: 'setup-choices two' },
         choice(st.toolbarLayout !== 'top', () => layoutPref('toolbarLayout', 'single'), setupMock(mockOpts({ layout: 'single', mode: 'expanded' })), 'Zen', 'Address and buttons live in the sidebar'),
         choice(st.toolbarLayout === 'top', () => layoutPref('toolbarLayout', 'top'), setupMock(mockOpts({ layout: 'top', mode: 'expanded' })), 'Classic', 'A toolbar across the top, like Chrome')),
       sub('Sidebar'),

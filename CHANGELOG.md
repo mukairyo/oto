@@ -3,6 +3,18 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.24 — 2026-11-06
+
+*Owner test build of Oto v1 — setup follows the Oto theme.*
+
+**New**
+- **Open the welcome setup again any time** — Settings → General → Welcome setup → Open setup. You can also type "Welcome setup" in the command bar (Ctrl+T).
+
+**Changed**
+- **The setup only shows what fits the Oto theme** — the Colours step (rainbow gradient wheel) is gone, and so is the Classic toolbar choice. Oto is the Zen layout: address and buttons in the sidebar, bookmarks in the top strip.
+- **The layout previews in setup look like the Oto theme** — near-black window with cream lines instead of the old white and purple drawings.
+- The Classic toolbar is also gone from Settings → Appearance. If you had it on, Oto switches to the Zen layout.
+
 ## 1.0.0-owner.23 — 2026-11-06
 
 *Owner test build of Oto v1 — startup sound.*

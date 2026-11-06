@@ -114,7 +114,8 @@ function initV1g() {
   if (btn) btn.onclick = v1ShieldMenu;
   ACTIONS.push({ name: 'Oto Shield', kw: 'ublock adblock blocker shield filters zap element picker', icon: 'shield', run: v1ShieldMenu },
     { name: 'Zap an element', kw: 'remove element zapper ublock', icon: 'shield', run: () => v1ShieldPick('zap') },
-    { name: 'My filters', kw: 'ublock custom filters rules adblock', icon: 'shield', run: v1ShieldFilters });
+    { name: 'My filters', kw: 'ublock custom filters rules adblock', icon: 'shield', run: v1ShieldFilters },
+    { name: 'Welcome setup', kw: 'setup onboarding first run start again tour', icon: 'settings', run: () => runSetup() });
   // picker results → hide on this site for good
   const _bind = bindView;
   bindView = function (tab, v) {

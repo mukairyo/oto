@@ -363,7 +363,7 @@ function setTheme(t) {
 const PARTS = {};
 // Zen layout keeps navigation in the sidebar — but when the sidebar is collapsed to icons or hidden
 // there's no room there, so (like Zen) back/forward, reload and the address move up to the top bar.
-const navInTopBar = () => S.settings.toolbarLayout === 'top'
+const navInTopBar = () => (S.settings.toolbarLayout === 'top' && !(typeof skinIsRt === 'function' && skinIsRt()))
   || (S.settings.navWhenCollapsed === 'top' && (!!S.settings.compact || !!S.settings.collapsed));
 function placeParts() {
   const single = !navInTopBar();
