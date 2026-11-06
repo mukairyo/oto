@@ -984,7 +984,7 @@ const PAGE_RENDER = {
       } catch (err) { toast(`Couldn’t import that file (${err.message})`, { timeout: 2500 }); }
     });
     return [
-      h('div', { class: 'about-hero' }, h('span', { class: 'icon-art', html: iconSvg(S.settings.appIcon) }),
+      h('div', { class: 'about-hero' }, h('span', { class: 'icon-art', html: logoSvg() }),
         h('div', {}, h('h3', {}, 'Oto'), h('div', { class: 'about' }, `Version ${INFO.version || ''} · Chromium ${INFO.chrome || ''} · Electron ${INFO.electron || ''}`))),
       section(null,
         row('Back up your setup', 'Saves settings, space colours, Boosts, Mods and shortcuts to a file.', h('div', { class: 'btn-pair' },

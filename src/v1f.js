@@ -266,7 +266,7 @@ function v1AccountPage() {
     };
     const enter = { onkeydown: (e) => { if (e.key === 'Enter') go(); } };
     out.push(section('', h('div', { class: 'v1-acc-hero' },
-      h('div', { class: 'ic', html: icon('key') }),
+      h('div', { class: 'ic', html: skinIsRt() ? logoSvg() : icon('key') }),
       h('div', {}, h('b', {}, 'Your Oto, on every PC'), h('p', {}, 'Sign in to save your settings, themes, bookmarks, spaces, Oto Card and passwords. Everything is encrypted on this PC with your password before it’s uploaded.')))),
     section(isUp ? 'Create your Oto account' : 'Sign in', h('div', { class: 'v1-acc-card form' },
       h('div', { class: 'seg' }, h('button', { class: isUp ? '' : 'on', onclick: () => { V1A.form = 'signin'; V1A.err = ''; v1AccRender(); } }, 'Sign in'), h('button', { class: isUp ? 'on' : '', onclick: () => { V1A.form = 'signup'; V1A.err = ''; v1AccRender(); } }, 'Create account')),

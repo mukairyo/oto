@@ -3,6 +3,15 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.28 — 2026-11-07
+
+*Owner test build of Oto v1 — a living logo.*
+
+**Changed**
+- **The Oto logo inside Oto is alive** — the rings keep slowly swirling (each a little slower than the one inside it), the white hole breathes and the light streaks twinkle. No tile behind it any more: its edges fade into whatever is behind. On the About page, the account card, setup, the update card and What's new. (The taskbar icon stays still.)
+- **The account card matches the Oto theme** — dark hairline panel, serif heading and the living vortex instead of the rainbow key and glowing border.
+- Turning on "Reduce motion" stops the swirl.
+
 ## 1.0.0-owner.27 — 2026-11-07
 
 *Owner test build of Oto v1 — fix.*

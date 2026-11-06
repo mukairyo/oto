@@ -99,6 +99,7 @@ function applySpaceArrow() {
 
 let logoSeq = 0;
 function logoSvg() {
+  if (S && typeof skinIsRt === 'function' && skinIsRt() && typeof vortexSvg === 'function') return vortexSvg({ bg: false, live: true });
   if (S && typeof iconSvg === 'function') return iconSvg(S.settings.appIcon);
   return logoSvgClassic();
 }
