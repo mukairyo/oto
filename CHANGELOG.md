@@ -3,6 +3,16 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.21 — 2026-11-06
+
+*Owner test build of Oto v1 — the new Oto logo.*
+
+**Changed**
+- **New Oto logo: the white-hole vortex** — cream rings drawn from maths (ellipses x = r·cos t, y = k·r·sin t, each turned a little more than the last), with light pouring out of the centre instead of falling in.
+- **New startup animation** — the rings spin up from the centre, the core flashes and light streaks burst outward, then 音 and OTO appear underneath.
+- **New app icon** — on the taskbar, Start menu, desktop shortcut and installer. A simpler version with fewer rings is used at the tiny sizes so it stays clear.
+- The logo in setup, About and the update card is the vortex too. "Vortex" is also in Settings → App icon if you switch away and want it back.
+
 ## 1.0.0-owner.20 — 2026-11-06
 
 *Owner test build of Oto v1 — the start in the new theme.*

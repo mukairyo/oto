@@ -5,6 +5,7 @@
 const DARK_BG = ['#1c1833', '#08080e'];
 const ICON_STYLES = {
   classic: { name: 'Neon', c: ['#a855f7', '#6366f1', '#22d3ee'] },
+  vortex: { name: 'Vortex', vortex: true },
   cream: { name: 'Cream', c: ['#f6f1e8', '#e7dfd1', '#cbbfae'], bg: ['#1a1a1d', '#0b0b0c'], glow: false },
   sunset: { name: 'Sunset', c: ['#fb923c', '#ec4899', '#a855f7'] },
   mint: { name: 'Mint', c: ['#34d399', '#10b981', '#22d3ee'] },
@@ -24,6 +25,8 @@ function iconPalette(style) {
   return { c: [cols[0], cols[Math.floor(cols.length / 2)], cols[cols.length - 1]], bg: DARK_BG, glow: true };
 }
 function iconSvg(style) {
+  // Oto theme: the Vortex is the logo (unless you picked another icon style)
+  if (style === 'vortex' || ((!style || style === 'classic') && typeof skinIsRt === 'function' && skinIsRt())) return vortexSvg();
   const { c, bg, glow } = iconPalette(style);
   return otoMarkSvg(c, bg, glow);
 }

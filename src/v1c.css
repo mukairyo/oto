@@ -212,3 +212,17 @@ body.rail:not(.rail-open) .v1-tn, body.rail:not(.rail-open) .v1-flame { display:
 @keyframes v1rtline { to { width: 64px; } }
 @keyframes v1rtk { to { opacity: 1; transform: none; filter: none; } }
 @keyframes v1rtw { to { opacity: 1; letter-spacing: .6em; } }
+
+/* Vortex spin-up (startup) */
+.v1-intro.rt .vx svg { width: 168px; height: 168px; display: block; overflow: visible; }
+.v1-intro.rt .st { gap: 6px; }
+.vortex-anim .vr { opacity: 0; transform-box: fill-box; transform-origin: center; animation: vxRing .7s calc(var(--i) * 45ms) cubic-bezier(.2, .8, .2, 1) forwards, vxSpin 1.6s calc(var(--i) * 45ms) linear forwards; }
+.vortex-anim .vd { opacity: 0; animation: vxFade .4s .55s ease forwards; }
+.vortex-anim .vs { opacity: 0; transform-box: fill-box; transform-origin: center; animation: vxStreak .6s calc(.45s + var(--i) * 30ms) cubic-bezier(.2, .8, .2, 1) forwards; }
+.vortex-anim .vcore { transform-box: fill-box; transform-origin: center; opacity: 0; animation: vxBurst .9s .35s cubic-bezier(.2, .9, .2, 1) forwards; }
+.vortex-anim .vdot { opacity: 0; animation: vxFade .25s .3s ease forwards; }
+@keyframes vxRing { from { opacity: 0; scale: .55; } to { opacity: 1; scale: 1; } }
+@keyframes vxSpin { from { stroke-dashoffset: calc(var(--c) * 1px); } to { stroke-dashoffset: calc(var(--c) * .55px); } }
+@keyframes vxStreak { from { opacity: 0; scale: .6; } to { opacity: 1; scale: 1; } }
+@keyframes vxBurst { 0% { opacity: 0; scale: .3; } 45% { opacity: 1; scale: 2.4; } 100% { opacity: 1; scale: 1; } }
+@keyframes vxFade { to { opacity: 1; } }
