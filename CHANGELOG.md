@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.30 — 2026-11-07
+
+*Owner test build of Oto v1 — the logo becomes a galaxy.*
+
+**Changed**
+- **The living logo is a spiral galaxy** — two glowing arms of star dust (drawn from the spiral r = a·e^(bθ)) turn slowly around the bright white-hole core, with dust between the arms and far-off stars twinkling around it. The rings stay as faint orbits and stars still drift out past the edge.
+
 ## 1.0.0-owner.29 — 2026-11-07
 
 *Owner test build of Oto v1 — stars.*

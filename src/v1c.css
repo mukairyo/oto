@@ -261,3 +261,10 @@ body.skin-rt .v1-acc-hero .btn.primary { background: var(--rt-cream); color: var
 .vortex-live .vst { opacity: 0; animation: vxStar var(--t) var(--d) cubic-bezier(.4, 0, .9, .6) infinite; }
 @keyframes vxStar { 0% { opacity: 0; translate: 0 0; scale: .4; } 15% { opacity: 1; } 70% { opacity: .9; } 100% { opacity: 0; translate: calc(var(--x) * 1px) calc(var(--y) * 1px); scale: 1.6; } }
 @media (prefers-reduced-motion: reduce) { .vortex-live .vst { animation: none; opacity: 0; } }
+/* galaxy: the arms turn slowly (trailing, like a real spiral galaxy), the old rings become faint orbits */
+.vortex-live .vgal { transform-box: view-box; transform-origin: 0 0; animation: vxGal 40s linear infinite; }
+.vortex-live .vrs { opacity: .26; }
+.vortex-live .vs { opacity: .5; }
+.vortex-live .vfs { animation: vxTwinkle 3.2s var(--d) ease-in-out infinite; }
+@keyframes vxGal { to { rotate: -360deg; } }
+@media (prefers-reduced-motion: reduce) { .vortex-live .vgal, .vortex-live .vfs { animation: none; } }

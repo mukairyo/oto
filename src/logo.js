@@ -35,12 +35,43 @@ function vortexSvg({ small = false, bg = true, anim = false, live = false } = {}
       stars += `<circle class="vst" cx="${f(x0)}" cy="${f(y0)}" r="${f(0.22 + r2() * 0.38)}" fill="#fff6e8" style="--x:${f((r1 - r0) * Math.cos(a))};--y:${f((r1 - r0) * Math.sin(a) * 0.62)};--t:${f(dur)}s;--d:${f(-r2() * dur)}s"/>`;
     }
   }
+  // live: a galaxy — two spiral arms of star dust (r = a·e^(bθ)) turning slowly in the tilted disc, plus far-off field stars
+  let galaxy = '', field = '';
+  if (live && !small) {
+    let s3 = 4242; const r3 = () => ((s3 = (s3 * 16807) % 2147483647) / 2147483647);
+    const gauss = () => { let u = 0; for (let j = 0; j < 4; j++) u += r3(); return (u - 2) / 1.15; };
+    const A = 1.5, Bp = 0.3, RM = 27, TM = Math.log(RM / A) / Bp;
+    const tone = (t) => { const w = Math.min(1, t); return `rgb(${Math.round(255 - 40 * w)},${Math.round(246 - 22 * w)},${Math.round(232 - 2 * w)})`; };
+    let haze = '';
+    for (let arm = 0; arm < 2; arm++) {
+      const off = arm * Math.PI;
+      let d = '';
+      for (let k2 = 0; k2 <= 48; k2++) { const t = (k2 / 48) * TM * 0.95 + 0.6, r = A * Math.exp(Bp * t); d += `${k2 ? 'L' : 'M'}${f(r * Math.cos(t + off))} ${f(r * Math.sin(t + off))}`; }
+      haze += `<path d="${d}" fill="none" stroke="#efe6d6" stroke-opacity=".17" stroke-width="5.5" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#fff3df" stroke-opacity=".26" stroke-width="1.8" stroke-linecap="round"/>`;
+      for (let q = 0; q < 210; q++) {
+        const t = Math.pow(r3(), 0.85) * TM, r = A * Math.exp(Bp * t) * (1 + gauss() * 0.07), w = r / RM;
+        const a = t + off + gauss() * (0.16 + 0.12 * w);
+        galaxy += `<circle cx="${f(r * Math.cos(a))}" cy="${f(r * Math.sin(a))}" r="${f((0.16 + r3() * 0.42) * (1 - 0.35 * w))}" fill="${tone(w)}" opacity="${f((0.45 + r3() * 0.55) * (1 - 0.45 * w))}"/>`;
+      }
+    }
+    for (let q = 0; q < 110; q++) { // disc dust between the arms
+      const r = Math.min(RM, -Math.log(1 - r3() * 0.98) * 7), a = r3() * Math.PI * 2, w = r / RM;
+      galaxy += `<circle cx="${f(r * Math.cos(a))}" cy="${f(r * Math.sin(a))}" r="${f(0.12 + r3() * 0.22)}" fill="${tone(w)}" opacity="${f((0.25 + r3() * 0.4) * (1 - 0.5 * w))}"/>`;
+    }
+    galaxy = `<g transform="translate(${cx} ${cy}) scale(1 ${k})"><g class="vgal"><ellipse rx="9" ry="9" fill="url(#vxg${n})" opacity=".55"/><g filter="url(#vxh${n})">${haze}</g>${galaxy}</g></g>`;
+    for (let q = 0; q < 26; q++) {
+      const x = r3() * 64, y = r3() * 64;
+      if (Math.hypot((x - cx) / 1.6, y - cy) < 13) continue;
+      field += `<circle class="vfs" cx="${f(x)}" cy="${f(y)}" r="${f(0.15 + r3() * 0.3)}" fill="#fff" opacity="${f(0.25 + r3() * 0.5)}" style="--d:${f(-r3() * 4)}s"/>`;
+    }
+  }
   return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"${anim || live ? ` class="${anim ? 'vortex-anim' : ''}${live ? ' vortex-live' : ''}"` : ''}><defs>
     <radialGradient id="vxb${n}" cx=".5" cy=".5" r=".75"><stop offset="0" stop-color="#161618"/><stop offset="1" stop-color="#0b0b0c"/></radialGradient>
     <radialGradient id="vxg${n}" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff"/><stop offset=".25" stop-color="#fff6e8" stop-opacity=".95"/><stop offset=".6" stop-color="#e7dfd1" stop-opacity=".35"/><stop offset="1" stop-color="#e7dfd1" stop-opacity="0"/></radialGradient>
     <clipPath id="vxc${n}"><rect width="64" height="64" rx="15"/></clipPath>
+    <filter id="vxh${n}" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="1.4"/></filter>
     <filter id="vxf${n}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation=".5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
     ${bg ? `<rect width="64" height="64" rx="15" fill="url(#vxb${n})"/>` : ''}
-    <g${live ? '' : ` clip-path="url(#vxc${n})"`}><g class="vss">${streaks}</g>${stars ? `<g class="vsts">${stars}</g>` : ''}<g transform="rotate(-6 ${cx} ${cy})"><g fill="none" filter="url(#vxf${n})" class="vrs">${rings}</g>${dots}
+    <g${live ? '' : ` clip-path="url(#vxc${n})"`}>${field}<g class="vss">${streaks}</g>${stars ? `<g class="vsts">${stars}</g>` : ''}<g transform="rotate(-6 ${cx} ${cy})"><g fill="none" filter="url(#vxf${n})" class="vrs">${rings}</g>${galaxy}${dots}
     <ellipse class="vcore" cx="${cx}" cy="${cy}" rx="${small ? 9 : 10}" ry="${small ? 7 : 6.5}" fill="url(#vxg${n})"/><circle class="vdot" cx="${cx}" cy="${cy}" r="${small ? 2.4 : 1.8}" fill="#fff"/></g></g></svg>`;
 }
