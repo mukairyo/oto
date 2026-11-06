@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.31 — 2026-11-07
+
+*Owner test build of Oto v1 — a new start.*
+
+**Changed**
+- **New startup animation: a galaxy forms** — star dust swirls in from far out and settles into two spiral arms, the orbits appear from the middle out, then the white hole ignites right on the boom of the startup sound. A thin shockwave and a rush of stars fly out past you, and 音 and OTO settle in underneath. About two seconds.
+
 ## 1.0.0-owner.30 — 2026-11-07
 
 *Owner test build of Oto v1 — the logo becomes a galaxy.*

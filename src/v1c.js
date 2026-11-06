@@ -609,16 +609,15 @@ function v1IntroSound() {
 function v1Intro() {
   if (AVOCADO_MODE || S.settings.v1Intro === false || S.settings.reduceMotion || S.settings.animations === 'off') return;
   if (typeof skinIsRt === 'function' && skinIsRt()) {
-    // Oto theme: near-black, the mark draws in cream, then 音 and OTO settle in between two hairlines.
-    // Oto theme: the Vortex spins up — rings appear from the middle out, the white hole flashes,
-    // light streaks shoot out, then 音 and OTO settle underneath.
-    const el = h('div', { id: 'v1Intro', class: 'v1-intro rt', html: `<div class="st"><div class="vx">${vortexSvg({ anim: true, bg: false })}</div>
+    // Oto theme: a galaxy forms — star dust swirls in from far out and settles into two spiral arms,
+    // the white hole ignites (with the boom), a shockwave and stars rush out past you, then 音 and OTO.
+    const el = h('div', { id: 'v1Intro', class: 'v1-intro rt gx', html: `<div class="st"><div class="vx"><i class="shock"></i>${vortexSvg({ bg: false, live: true })}</div>
       <div class="ln"><i></i><span class="k">音</span><i></i></div>
       <div class="w">OTO</div></div>` });
     document.body.append(el);
     v1IntroSound();
-    setTimeout(() => el.classList.add('out'), 1500);
-    setTimeout(() => el.remove(), 1900);
+    setTimeout(() => el.classList.add('out'), 1950);
+    setTimeout(() => el.remove(), 2350);
     return;
   }
   const el = h('div', { id: 'v1Intro', class: 'v1-intro', html: `<svg viewBox="0 0 64 64" width="96" height="96"><defs><linearGradient id="v1ig" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a855f7"/><stop offset=".5" stop-color="#6366f1"/><stop offset="1" stop-color="#22d3ee"/></linearGradient><filter id="v1if" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g fill="none" stroke="url(#v1ig)" stroke-linecap="round" filter="url(#v1if)"><path class="r" d="M44.5 15.2 A21 21 0 1 0 49.6 21.3" stroke-width="3.4"/><path class="i" transform="translate(32 32) scale(.84) translate(-32 -32)" d="M32 32 C28.5 26.5 24.5 24.5 20.8 24.5 C16.7 24.5 13.6 27.8 13.6 32 C13.6 36.2 16.7 39.5 20.8 39.5 C24.5 39.5 28.5 37.5 32 32 C35.5 26.5 39.5 24.5 43.2 24.5 C47.3 24.5 50.4 27.8 50.4 32 C50.4 36.2 47.3 39.5 43.2 39.5 C39.5 39.5 35.5 37.5 32 32 Z" stroke-width="4"/></g></svg>` });
