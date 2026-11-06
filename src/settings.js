@@ -5,6 +5,7 @@
 const DARK_BG = ['#1c1833', '#08080e'];
 const ICON_STYLES = {
   classic: { name: 'Neon', c: ['#a855f7', '#6366f1', '#22d3ee'] },
+  cream: { name: 'Cream', c: ['#f6f1e8', '#e7dfd1', '#cbbfae'], bg: ['#1a1a1d', '#0b0b0c'], glow: false },
   sunset: { name: 'Sunset', c: ['#fb923c', '#ec4899', '#a855f7'] },
   mint: { name: 'Mint', c: ['#34d399', '#10b981', '#22d3ee'] },
   rose: { name: 'Rose', c: ['#fb7185', '#f472b6', '#fda4af'] },
@@ -15,6 +16,8 @@ const ICON_STYLES = {
   space: { name: 'Match space', c: null },
 };
 function iconPalette(style) {
+  // The Oto theme (near-black) shows the mark in cream instead of neon.
+  if ((!style || style === 'classic') && typeof skinIsRt === 'function' && skinIsRt()) style = 'cream';
   const s = ICON_STYLES[style] || ICON_STYLES.classic;
   if (s.c) return { c: s.c, bg: s.bg || DARK_BG, glow: s.glow !== false };
   const cols = themeOf(currentWs()).colors.map((c) => accentFrom(c, true));

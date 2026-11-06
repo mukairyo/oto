@@ -3,6 +3,16 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.20 — 2026-11-06
+
+*Owner test build of Oto v1 — the start in the new theme.*
+
+**Changed**
+- **New startup animation in the Oto theme** — near-black, the Oto ring and ∞ draw in cream, then 音 appears between two thin lines with OTO underneath.
+- **The welcome setup matches the theme** — plain near-black background instead of the purple glow, and no Light/Dark choice (the Oto theme is always dark).
+- **The Oto logo is cream** in the new theme (was neon purple) — in setup, the update card and the window icon. You can still pick another icon style in Settings.
+- The window opens near-black, so there's no light flash when Oto starts.
+
 ## 1.0.0-owner.19 — 2026-11-05
 
 *Owner test build of Oto v1 — fix.*

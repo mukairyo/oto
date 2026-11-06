@@ -156,8 +156,8 @@ function visibleOnSomeDisplay(b) {
 function createWindow() {
   const ws = readJSON('window.json', { width: 1320, height: 840 });
   if (!visibleOnSomeDisplay(ws)) { delete ws.x; delete ws.y; }
-  const dark = nativeTheme.shouldUseDarkColors;
-  const bg = dark ? '#141417' : '#f2f1f6';
+  // The Oto theme is always near-black, so the window opens near-black too (no light flash at start).
+  const bg = '#0b0b0c';
 
   win = new BrowserWindow({
     x: ws.x, y: ws.y, width: ws.width || 1320, height: ws.height || 840,

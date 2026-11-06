@@ -1710,3 +1710,9 @@ body.skin-rt .empty-inner .empty-hints, body.skin-rt .empty-inner .v1-jump, body
    Its empty part drags the window again; bookmarks themselves stay clickable. */
 #topstrip #bmbar { -webkit-app-region: drag; }
 #topstrip #bmbar > * { -webkit-app-region: no-drag; }
+
+/* Oto theme: the welcome setup sits on plain near-black (no purple glow); light/dark choice is hidden
+   because the Oto theme is always dark. */
+body.skin-rt #setup { background: radial-gradient(70% 60% at 50% 40%, #151517, #0b0b0c 75%); }
+body.skin-rt .setup-theme-row { display: none; }
+body.skin-rt .setup-welcome .logo-big svg { width: 68px; height: 68px; }
