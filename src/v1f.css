@@ -59,3 +59,5 @@ body.v1-locked #views, body.v1-locked #settings, body.v1-locked .v1-hub, body.v1
 .v1-hub .acc:hover { background: rgba(255, 255, 255, .12); }
 .v1-hub .acc .av { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--v1-holo); color: #0a0a12; font: 800 12px/1 var(--font-display); }
 .v1-hub .acc .av.off { background: rgba(255, 255, 255, .12); color: #ecfbff; } .v1-hub .acc .av svg.i { width: 14px; height: 14px; }
+.v1-in.v1-code { height: 46px; font: 500 20px/1 var(--rt-mono, Consolas, monospace); letter-spacing: .35em; text-align: center; }
+.v1-in.v1-code::placeholder { font: 400 14px var(--font); letter-spacing: 0; }

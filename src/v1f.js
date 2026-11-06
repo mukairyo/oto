@@ -154,6 +154,16 @@ async function v1AfterSignIn(r) {
   await v1Push(); toast('Signed in — this PC’s data is now saved to your account ✓', { icon: 'check', timeout: 3000 });
   v1AccRender();
 }
+async function v1SendResetCode() {
+  const email = (V1A.reset && V1A.reset.email) || V1A.email;
+  V1A.err = ''; V1A.msg = ''; V1A.busy = true; v1AccRender();
+  const r = await oto.account.forgot(email);
+  V1A.busy = false;
+  if (!r.ok) { V1A.err = /rate|seconds|limit/i.test(r.error || '') ? 'Too many emails — wait a minute and try again.' : r.error; return v1AccRender(); }
+  V1A.reset = { email, sentAt: Date.now() };
+  V1A.msg = 'Code sent — check your inbox (and spam).';
+  v1AccRender();
+}
 function v1AccountPage() {
   const st = V1A.st || {};
   const out = [];
@@ -177,6 +187,69 @@ function v1AccountPage() {
       h('div', { class: 'v1-acc-btns' },
         h('button', { class: 'btn primary', onclick: async () => { V1A.ask = null; const r = await v1Pull({ all: true }); if (r && r.ok) { S.onboarded = true; _v1SaveNoSync(); await v1Push(); toast('Your Oto is back ✓', { icon: 'check', timeout: 2400 }); setTimeout(() => location.reload(), 600); } else { V1A.err = (r && r.error) || 'Couldn’t load'; v1AccRender(); } } }, 'Use my cloud data'),
         h('button', { class: 'btn', onclick: async () => { V1A.ask = null; await v1Pull({ all: false }); S.v1SyncMeta = {}; await v1Push(); toast('This PC’s data is saved to your account ✓', { icon: 'check', timeout: 2400 }); v1AccRender(); } }, 'Keep this PC’s data')), err)));
+  } else if (!st.signedIn && V1A.confirm) {
+    // New account: type the code from the email to confirm it, right here in Oto.
+    let code = '';
+    const go = async () => {
+      V1A.err = ''; V1A.msg = ''; V1A.busy = true; v1AccRender();
+      const r = await oto.account.confirmWithCode(V1A.confirm.email, code, V1A.confirm.pw);
+      V1A.busy = false;
+      if (!r.ok) { V1A.err = r.error; return v1AccRender(); }
+      V1A.confirm = null;
+      if (r.signIn) { V1A.form = 'signin'; V1A.msg = 'Email confirmed ✓ — sign in now.'; return v1AccRender(); }
+      await v1AfterSignIn(r);
+    };
+    const codeIn = v1Field('text', 'Code from the email', '', (v) => { code = v; }, { onkeydown: (e) => { if (e.key === 'Enter') go(); }, inputmode: 'numeric', maxlength: '10', class: 'text v1-in v1-code', autocomplete: 'one-time-code' });
+    out.push(section('Confirm your email', h('div', { class: 'v1-acc-card form' },
+      h('p', {}, 'We emailed a code to ', h('b', {}, V1A.confirm.email), '. Type it below to finish creating your Oto account.'),
+      codeIn,
+      h('div', { class: 'v1-acc-btns' },
+        h('button', { class: 'btn primary', disabled: V1A.busy, onclick: go }, V1A.busy ? 'Please wait…' : 'Confirm'),
+        h('button', { class: 'lnk', onclick: async () => { const r = await oto.account.resendConfirm(V1A.confirm.email); V1A.msg = r.ok ? 'New code sent.' : ''; V1A.err = r.ok ? '' : (/rate|seconds|limit/i.test(r.error || '') ? 'Too many emails — wait a minute and try again.' : r.error); v1AccRender(); } }, 'Send a new code'),
+        h('button', { class: 'lnk', onclick: () => { V1A.confirm = null; V1A.err = ''; V1A.msg = ''; v1AccRender(); } }, 'Back')),
+      err, msg)));
+    setTimeout(() => codeIn.focus(), 30);
+  } else if (!st.signedIn && V1A.reset) {
+    // Forgot password: type the code from the email and a new password, right here in Oto.
+    let code = '', pw = '', pw2 = '';
+    const go = async () => {
+      V1A.err = ''; V1A.msg = '';
+      if (pw !== pw2) { V1A.err = 'The passwords don’t match.'; return v1AccRender(); }
+      V1A.busy = true; v1AccRender();
+      const r = await oto.account.resetWithCode(V1A.reset.email, code, pw);
+      V1A.busy = false;
+      if (!r.ok) { V1A.err = r.error; return v1AccRender(); }
+      V1A.reset = null;
+      toast('Password changed — you’re signed in ✓', { icon: 'check', timeout: 2600 });
+      await v1AfterSignIn(r);
+    };
+    const enter = { onkeydown: (e) => { if (e.key === 'Enter') go(); } };
+    const wait = Math.max(0, 60 - Math.round((Date.now() - V1A.reset.sentAt) / 1000));
+    const codeIn = v1Field('text', 'Code from the email', '', (v) => { code = v; }, { ...enter, inputmode: 'numeric', maxlength: '10', class: 'text v1-in v1-code', autocomplete: 'one-time-code' });
+    out.push(section('Reset your password', h('div', { class: 'v1-acc-card form' },
+      h('p', {}, `We emailed a code to `, h('b', {}, V1A.reset.email), `. Type it below with a new password. The code works for about an hour.`),
+      codeIn,
+      v1Field('password', 'New password (8+ characters)', '', (v) => { pw = v; }, enter),
+      v1Field('password', 'Type the new password again', '', (v) => { pw2 = v; }, enter),
+      h('p', { class: 'sm warn' }, '⚠ Your synced data was encrypted with your old password. After the reset, Oto asks for the old password to keep that data — or you can start fresh with what’s on this PC.'),
+      h('div', { class: 'v1-acc-btns' },
+        h('button', { class: 'btn primary', disabled: V1A.busy, onclick: go }, V1A.busy ? 'Please wait…' : 'Reset password'),
+        h('button', { class: 'lnk', disabled: wait > 0, onclick: () => v1SendResetCode() }, wait > 0 ? `Send a new code (${wait} s)` : 'Send a new code'),
+        h('button', { class: 'lnk', onclick: () => { V1A.reset = null; V1A.err = ''; V1A.msg = ''; v1AccRender(); } }, 'Back to sign in')),
+      err, msg)));
+    setTimeout(() => codeIn.focus(), 30);
+    if (wait > 0) {
+      clearTimeout(V1A.resetTick);
+      const tick = () => {
+        if (!V1A.reset) return;
+        const b = [...document.querySelectorAll('#settings .lnk')].find((x) => /new code/.test(x.textContent));
+        const w = Math.max(0, 60 - Math.round((Date.now() - V1A.reset.sentAt) / 1000));
+        if (!b) return;
+        b.textContent = w > 0 ? `Send a new code (${w} s)` : 'Send a new code'; b.disabled = w > 0;
+        if (w > 0) V1A.resetTick = setTimeout(tick, 1000);
+      };
+      V1A.resetTick = setTimeout(tick, 1000);
+    }
   } else if (!st.signedIn) {
     const isUp = V1A.form === 'signup';
     let pw = '', pw2 = '';
@@ -188,7 +261,7 @@ function v1AccountPage() {
       const r = isUp ? await oto.account.signup(V1A.email, pw) : await oto.account.signin(V1A.email, pw);
       V1A.busy = false;
       if (!r.ok) { V1A.err = r.error; return v1AccRender(); }
-      if (r.confirm) { V1A.form = 'signin'; V1A.msg = `We sent a confirmation link to ${V1A.email}. Open it, then sign in here.`; return v1AccRender(); }
+      if (r.confirm) { V1A.confirm = { email: V1A.email, pw, sentAt: Date.now() }; V1A.msg = 'Code sent — check your inbox (and spam).'; return v1AccRender(); }
       await v1AfterSignIn(r);
     };
     const enter = { onkeydown: (e) => { if (e.key === 'Enter') go(); } };
@@ -202,7 +275,7 @@ function v1AccountPage() {
       isUp ? v1Field('password', 'Type the password again', '', (v) => { pw2 = v; }, enter) : null,
       isUp ? h('p', { class: 'sm warn' }, '⚠ Remember this password. It also unlocks your encrypted data — if you reset it by email, the data saved before can’t be read.') : null,
       h('div', { class: 'v1-acc-btns' }, h('button', { class: 'btn primary', disabled: V1A.busy, onclick: go }, V1A.busy ? 'Please wait…' : isUp ? 'Create account' : 'Sign in'),
-        !isUp ? h('button', { class: 'lnk', onclick: async () => { if (!/^\S+@\S+\.\S+$/.test(V1A.email)) { V1A.err = 'Type your email first.'; return v1AccRender(); } const r = await oto.account.forgot(V1A.email); V1A.msg = r.ok ? 'If that email has an account, a reset link is on its way.' : ''; V1A.err = r.ok ? '' : r.error; v1AccRender(); } }, 'Forgot password?') : null),
+        !isUp ? h('button', { class: 'lnk', onclick: () => { if (!/^\S+@\S+\.\S+$/.test(V1A.email)) { V1A.err = 'Type your email first, then click Forgot password.'; return v1AccRender(); } v1SendResetCode(); } }, 'Forgot password?') : null),
       err, msg)));
   } else {
     const on = v1SyncOn();

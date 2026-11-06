@@ -200,6 +200,49 @@ module.exports = function setupAccount(ctx) {
   ipcMain.handle('account:forgot', async (_e, email) => {
     try { await api('POST', '/auth/v1/recover', { body: { email: String(email).trim() } }); return { ok: true }; } catch (e) { return { ok: false, error: e.message }; }
   });
+  // Forgot password → the email has a code (Supabase "Reset password" template uses {{ .Token }}).
+  // Check the code, set the new password and sign in — no web page needed.
+  const resetTries = { n: 0, until: 0 };
+  ipcMain.handle('account:resetWithCode', async (_e, email, code, password) => {
+    if (Date.now() < resetTries.until) return { ok: false, error: `Too many tries — wait ${Math.ceil((resetTries.until - Date.now()) / 1000)} s.` };
+    const c = String(code || '').replace(/\s+/g, '');
+    if (!/^\d{6,10}$/.test(c)) return { ok: false, error: 'Type the code from the email (numbers only).' };
+    if (String(password || '').length < 8) return { ok: false, error: 'Use at least 8 characters for your new password.' };
+    let r;
+    try { r = await api('POST', '/auth/v1/verify', { body: { type: 'recovery', email: String(email).trim(), token: c } }); }
+    catch (e) {
+      resetTries.n++; if (resetTries.n >= 5) resetTries.until = Date.now() + 30000 * 2 ** (resetTries.n - 5);
+      return { ok: false, error: /expired|invalid|otp|token/i.test(e.message) ? 'That code is wrong or has expired. Check the newest email, or send a new code.' : e.message };
+    }
+    resetTries.n = 0;
+    if (!r || !r.access_token) return { ok: false, error: 'Couldn’t check the code — try again.' };
+    try {
+      takeSession(r);
+      await api('PUT', '/auth/v1/user', { token: await token(), body: { password: String(password) } });
+      const out = await afterAuth(String(password));
+      tell();
+      return out;
+    } catch (e) { signOutLocal(); tell(); return { ok: false, error: /same|different/i.test(e.message) ? 'Pick a password you haven’t used for this account before.' : e.message }; }
+  });
+  // New account → the email has a code (Supabase "Confirm signup" template uses {{ .Token }}).
+  ipcMain.handle('account:confirmWithCode', async (_e, email, code, password) => {
+    if (Date.now() < resetTries.until) return { ok: false, error: `Too many tries — wait ${Math.ceil((resetTries.until - Date.now()) / 1000)} s.` };
+    const c = String(code || '').replace(/\s+/g, '');
+    if (!/^\d{6,10}$/.test(c)) return { ok: false, error: 'Type the code from the email (numbers only).' };
+    let r;
+    try { r = await api('POST', '/auth/v1/verify', { body: { type: 'signup', email: String(email).trim(), token: c } }); }
+    catch (e) {
+      resetTries.n++; if (resetTries.n >= 5) resetTries.until = Date.now() + 30000 * 2 ** (resetTries.n - 5);
+      return { ok: false, error: /expired|invalid|otp|token/i.test(e.message) ? 'That code is wrong or has expired. Check the newest email, or send a new code.' : e.message };
+    }
+    resetTries.n = 0;
+    if (!r || !r.access_token) return { ok: true, signIn: true };
+    try { takeSession(r); const out = await afterAuth(String(password)); tell(); return out; }
+    catch (e) { signOutLocal(); tell(); return { ok: false, error: e.message }; }
+  });
+  ipcMain.handle('account:resendConfirm', async (_e, email) => {
+    try { await api('POST', '/auth/v1/resend', { body: { type: 'signup', email: String(email).trim() } }); return { ok: true }; } catch (e) { return { ok: false, error: e.message }; }
+  });
   ipcMain.handle('account:changePassword', async (_e, current, next) => {
     try {
       if (String(next || '').length < 8) return { ok: false, error: 'Use at least 8 characters.' };

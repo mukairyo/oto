@@ -3,6 +3,15 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.26 — 2026-11-07
+
+*Owner test build of Oto v1 — codes instead of email links.*
+
+**Changed**
+- **Forgot password now uses a code** — Oto emails a code; you type it in Settings → Account & sync together with your new password and you're signed in. No more link to a web page.
+- **New accounts are confirmed with a code too** — after "Create account", type the code from the email right in Oto.
+- "Send a new code" (once a minute) and "Back" on both screens. Wrong codes are slowed down after a few tries.
+
 ## 1.0.0-owner.25 — 2026-11-06
 
 *Owner test build of Oto v1 — new-look setup.*
