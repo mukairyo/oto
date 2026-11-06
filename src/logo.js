@@ -75,3 +75,39 @@ function vortexSvg({ small = false, bg = true, anim = false, live = false } = {}
     <g${live ? '' : ` clip-path="url(#vxc${n})"`}>${field}<g class="vss">${streaks}</g>${stars ? `<g class="vsts">${stars}</g>` : ''}<g transform="rotate(-6 ${cx} ${cy})"><g fill="none" filter="url(#vxf${n})" class="vrs">${rings}</g>${galaxy}${dots}
     <ellipse class="vcore" cx="${cx}" cy="${cy}" rx="${small ? 9 : 10}" ry="${small ? 7 : 6.5}" fill="url(#vxg${n})"/><circle class="vdot" cx="${cx}" cy="${cy}" r="${small ? 2.4 : 1.8}" fill="#fff"/></g></g></svg>`;
 }
+
+// Startup "stars passing by": a 3D warp field drawn on a canvas. Stars fly out of the white hole toward you
+// and stretch into streaks as they pass. Pure function of time, so it looks the same on every PC.
+//   z(t) = z0 − S(t),  S = A·τ·(1 − e^−(t−T0)/τ) + B·(t − T0)   (a burst on the boom, then a calm drift)
+function vortexWarp(canvas, { T0 = 0.7, A = 3.4, tau = 0.3, B = 0.22, fadeIn = 0.1, outAt = 1.45, outLen = 0.45, n = 140 } = {}) {
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const stars = Array.from({ length: n }, () => {
+    let x, y; do { x = rnd() * 2 - 1; y = rnd() * 2 - 1; } while (Math.hypot(x, y) < 0.06 || Math.hypot(x, y) > 1);
+    return { x, y, z0: rnd(), w: 0.6 + rnd() * 0.8, warm: rnd() };
+  });
+  const S = (t) => (t <= T0 ? 0 : A * tau * (1 - Math.exp(-(t - T0) / tau)) + B * (t - T0));
+  return function draw(t, cx, cy) {
+    const dpr = window.devicePixelRatio || 1, W = canvas.clientWidth, H = canvas.clientHeight;
+    if (canvas.width !== Math.round(W * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const env = Math.max(0, Math.min(1, (t - T0 + 0.02) / fadeIn)) * Math.max(0, Math.min(1, 1 - (t - outAt) / outLen));
+    if (env <= 0) return;
+    const f = Math.max(W, H) * 0.42, s1 = S(t), s0 = S(t - 0.045);
+    ctx.lineCap = 'round';
+    for (const p of stars) {
+      const z1 = 0.03 + ((((p.z0 - s1) % 1) + 1) % 1) * 0.97, z0 = 0.03 + ((((p.z0 - s0) % 1) + 1) % 1) * 0.97;
+      if (z0 < z1) continue; // just wrapped back to the far end
+      const x1 = cx + (p.x / z1) * f, y1 = cy + (p.y / z1) * f * 0.8, x0 = cx + (p.x / z0) * f, y0 = cy + (p.y / z0) * f * 0.8;
+      if (x0 < -50 || x0 > W + 50 || y0 < -50 || y0 > H + 50) continue;
+      const near = 1 - z1, d = Math.hypot(x1 - cx, y1 - cy);
+      const a = 0.8 * env * Math.min(1, near * 1.5) * Math.min(1, d / 150);
+      if (a <= 0.01) continue;
+      ctx.strokeStyle = `rgba(255,${Math.round(240 + p.warm * 10)},${Math.round(222 + p.warm * 18)},${a.toFixed(3)})`;
+      ctx.lineWidth = p.w * (0.35 + near * 1.8);
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    }
+  };
+}

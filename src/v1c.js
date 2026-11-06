@@ -616,6 +616,17 @@ function v1Intro() {
       <div class="w">OTO</div></div>` });
     document.body.append(el);
     v1IntroSound();
+    // stars passing by: warp streaks out of the white hole, starting on the boom
+    const cv = h('canvas', { class: 'warp' });
+    el.prepend(cv);
+    const warp = vortexWarp(cv), t0 = performance.now();
+    const frame = () => {
+      if (!el.isConnected) return;
+      const sv = el.querySelector('.vx svg'), r = sv ? sv.getBoundingClientRect() : null;
+      warp((performance.now() - t0) / 1000, r ? r.left + r.width / 2 : innerWidth / 2, r ? r.top + r.height * 0.484 : innerHeight / 2);
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
     setTimeout(() => el.classList.add('out'), 1950);
     setTimeout(() => el.remove(), 2350);
     return;

@@ -284,7 +284,7 @@ body.skin-rt .v1-acc-hero .btn.primary { background: var(--rt-cream); color: var
 @keyframes vxIgnite { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: .95; } }
 /* light streaks and a rush of stars flying out past you */
 .v1-intro.gx .vortex-live .vs { animation: vxStreak .6s calc(.7s + var(--i) * 25ms) cubic-bezier(.2, .8, .2, 1) both; }
-.v1-intro.gx .vortex-live .vst { animation: vxStar calc(var(--t) * .42) calc(.62s - var(--d) * .12) cubic-bezier(.3, 0, .9, .5) infinite both; }
+.v1-intro.gx .vortex-live .vst { display: none; } /* no passing stars in the startup */
 .v1-intro.gx .vortex-live .vd, .v1-intro.gx .vortex-live .vfs { animation: vxFade .6s .6s ease both; }
 /* shockwave */
 .v1-intro.gx .shock { position: absolute; left: 50%; top: 50%; width: 20px; height: 9px; border-radius: 50%; transform: translate(-50%, -50%) rotate(-6deg); box-shadow: 0 0 0 1px rgba(255, 246, 232, .85), 0 0 18px 2px rgba(255, 240, 215, .25); opacity: 0; animation: vxShock .95s .72s cubic-bezier(.1, .7, .3, 1) both; pointer-events: none; }
@@ -293,3 +293,5 @@ body.skin-rt .v1-acc-hero .btn.primary { background: var(--rt-cream); color: var
 .v1-intro.gx .ln i { animation-delay: .75s; }
 .v1-intro.gx .ln .k { animation-delay: .85s; }
 .v1-intro.gx .w { animation-delay: 1s; }
+.v1-intro.gx .warp { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+.v1-intro.gx .st { position: relative; z-index: 0; }

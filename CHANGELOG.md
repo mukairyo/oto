@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.32 — 2026-11-07
+
+*Owner test build of Oto v1 — warp.*
+
+**Changed**
+- **Stars rush past you in the startup** — on the boom, stars fly out of the white hole toward you and stretch into streaks as they pass the edges of the screen (a real 3D star field: near stars are brighter and thicker), then slow down and fade just before Oto opens. Replaces the little dots from owner.31.
+
 ## 1.0.0-owner.31 — 2026-11-07
 
 *Owner test build of Oto v1 — a new start.*
