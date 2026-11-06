@@ -597,6 +597,15 @@ function v1Board22() {
 }
 
 // ================================================================ 23 · startup animation, sounds, logins per space
+// Startup sound: a deep rumble that swells while the rings spin up, a boom when the light bursts out (0.75 s).
+function v1IntroSound() {
+  if (S.settings.v1IntroSound === false) return;
+  try {
+    const a = new Audio('sounds/start.mp3');
+    a.volume = Math.max(0, Math.min(1, S.settings.v1IntroSoundVol ?? 0.6));
+    a.play().catch(() => {});
+  } catch {}
+}
 function v1Intro() {
   if (AVOCADO_MODE || S.settings.v1Intro === false || S.settings.reduceMotion || S.settings.animations === 'off') return;
   if (typeof skinIsRt === 'function' && skinIsRt()) {
@@ -607,6 +616,7 @@ function v1Intro() {
       <div class="ln"><i></i><span class="k">音</span><i></i></div>
       <div class="w">OTO</div></div>` });
     document.body.append(el);
+    v1IntroSound();
     setTimeout(() => el.classList.add('out'), 1500);
     setTimeout(() => el.remove(), 1900);
     return;
@@ -648,7 +658,11 @@ function v1SoundSection() {
     row('Sound pack', 'Little sounds for new tab, close tab, download done and switching spaces. Off by default.',
       seg([['off', 'Off'], ['soft', 'Soft'], ['type', 'Typewriter'], ['bubbles', 'Bubbles']], cur, (v) => { S.settings.v1Sounds = v; save(); setTimeout(() => v1Sound('done'), 50); })),
     cur !== 'off' ? row('Volume', null, h('div', { style: 'display:flex;gap:8px;align-items:center' }, slider(S.settings.v1SoundVol ?? 0.5, 0, 1, 0.05, (v) => `${Math.round(v * 100)}%`, (v) => { S.settings.v1SoundVol = v; }), h('button', { class: 'btn', onclick: () => v1Sound('done') }, 'Play'))) : null,
-    row('Startup animation', 'The ring draws itself when Oto opens (under a second).', h('button', { class: `switch${S.settings.v1Intro !== false ? ' on' : ''}`, role: 'switch', onclick: () => { setPref('v1Intro', S.settings.v1Intro === false); renderSettings(); } })));
+    row('Startup animation', 'The Oto vortex spins up when Oto opens (under two seconds).', h('button', { class: `switch${S.settings.v1Intro !== false ? ' on' : ''}`, role: 'switch', onclick: () => { setPref('v1Intro', S.settings.v1Intro === false); renderSettings(); } })),
+    S.settings.v1Intro !== false ? row('Startup sound', 'A deep rumble and boom with the startup animation.', h('div', { style: 'display:flex;gap:8px;align-items:center' },
+      S.settings.v1IntroSound !== false ? slider(S.settings.v1IntroSoundVol ?? 0.6, 0.05, 1, 0.05, (v) => `${Math.round(v * 100)}%`, (v) => { S.settings.v1IntroSoundVol = v; }) : null,
+      S.settings.v1IntroSound !== false ? h('button', { class: 'btn', onclick: () => { save(); v1IntroSound(); } }, 'Play') : null,
+      h('button', { class: `switch${S.settings.v1IntroSound !== false ? ' on' : ''}`, role: 'switch', onclick: () => { setPref('v1IntroSound', S.settings.v1IntroSound === false); renderSettings(); } }))) : null);
 }
 // Separate logins per space: the space's tabs use their own cookie jar.
 function v1PartitionFor(tab) {

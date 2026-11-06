@@ -3,6 +3,14 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.23 — 2026-11-06
+
+*Owner test build of Oto v1 — startup sound.*
+
+**New**
+- **Startup sound** — a deep, pulsing rumble swells while the vortex spins up, then a heavy boom with a bright crackle when the light bursts out, fading with a faint shimmer. Made for Oto (3 seconds).
+- Turn it off, change the volume or play it in **Settings → Appearance → Oto sounds**, next to Startup animation.
+
 ## 1.0.0-owner.22 — 2026-11-06
 
 *Owner test build of Oto v1 — fix.*
