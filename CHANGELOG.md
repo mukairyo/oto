@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.29 — 2026-11-07
+
+*Owner test build of Oto v1 — stars.*
+
+**Changed**
+- **Stars drift past the living logo** — tiny stars are pushed out of the white hole and stream outward past the rings, fading as they leave.
+
 ## 1.0.0-owner.28 — 2026-11-07
 
 *Owner test build of Oto v1 — a living logo.*

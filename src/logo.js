@@ -25,12 +25,22 @@ function vortexSvg({ small = false, bg = true, anim = false, live = false } = {}
     const a = rnd() * Math.PI * 2, r1 = 25 + rnd() * 6, r2 = r1 + 3 + rnd() * 9, [R, G, B] = col(0.7 + rnd() * 0.3);
     streaks += `<path class="vs" style="--i:${q % 9}" d="M${f(cx + r1 * Math.cos(a))} ${f(cy + r1 * Math.sin(a) * 0.8)} L${f(cx + r2 * Math.cos(a))} ${f(cy + r2 * Math.sin(a) * 0.8)}" stroke="rgb(${R},${G},${B})" stroke-opacity="${f(0.25 + rnd() * 0.4)}" stroke-width=".55" stroke-linecap="round"/>`;
   }
+  // live: stars pushed out of the white hole, drifting past (own seed so the logo itself never changes)
+  let stars = '';
+  if (live && !small) {
+    let s2 = 97; const r2 = () => ((s2 = (s2 * 16807) % 2147483647) / 2147483647);
+    for (let q = 0; q < 22; q++) {
+      const a = r2() * Math.PI * 2, r0 = 3 + r2() * 4, r1 = 34 + r2() * 10, dur = 2.4 + r2() * 2.6;
+      const x0 = cx + r0 * Math.cos(a), y0 = cy + r0 * Math.sin(a) * 0.62;
+      stars += `<circle class="vst" cx="${f(x0)}" cy="${f(y0)}" r="${f(0.22 + r2() * 0.38)}" fill="#fff6e8" style="--x:${f((r1 - r0) * Math.cos(a))};--y:${f((r1 - r0) * Math.sin(a) * 0.62)};--t:${f(dur)}s;--d:${f(-r2() * dur)}s"/>`;
+    }
+  }
   return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"${anim || live ? ` class="${anim ? 'vortex-anim' : ''}${live ? ' vortex-live' : ''}"` : ''}><defs>
     <radialGradient id="vxb${n}" cx=".5" cy=".5" r=".75"><stop offset="0" stop-color="#161618"/><stop offset="1" stop-color="#0b0b0c"/></radialGradient>
     <radialGradient id="vxg${n}" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff"/><stop offset=".25" stop-color="#fff6e8" stop-opacity=".95"/><stop offset=".6" stop-color="#e7dfd1" stop-opacity=".35"/><stop offset="1" stop-color="#e7dfd1" stop-opacity="0"/></radialGradient>
     <clipPath id="vxc${n}"><rect width="64" height="64" rx="15"/></clipPath>
     <filter id="vxf${n}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation=".5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
     ${bg ? `<rect width="64" height="64" rx="15" fill="url(#vxb${n})"/>` : ''}
-    <g${live ? '' : ` clip-path="url(#vxc${n})"`}><g class="vss">${streaks}</g><g transform="rotate(-6 ${cx} ${cy})"><g fill="none" filter="url(#vxf${n})" class="vrs">${rings}</g>${dots}
+    <g${live ? '' : ` clip-path="url(#vxc${n})"`}><g class="vss">${streaks}</g>${stars ? `<g class="vsts">${stars}</g>` : ''}<g transform="rotate(-6 ${cx} ${cy})"><g fill="none" filter="url(#vxf${n})" class="vrs">${rings}</g>${dots}
     <ellipse class="vcore" cx="${cx}" cy="${cy}" rx="${small ? 9 : 10}" ry="${small ? 7 : 6.5}" fill="url(#vxg${n})"/><circle class="vdot" cx="${cx}" cy="${cy}" r="${small ? 2.4 : 1.8}" fill="#fff"/></g></g></svg>`;
 }
