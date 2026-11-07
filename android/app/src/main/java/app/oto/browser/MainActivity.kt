@@ -605,16 +605,19 @@ class MainActivity : AppCompatActivity() {
             c.setRequestProperty("Accept", "application/vnd.github+json")
             c.connectTimeout = 8000; c.readTimeout = 8000
             val arr = JSONArray(c.inputStream.bufferedReader().readText())
-            var best: JSONObject? = null; var bestV = BuildConfig.VERSION_NAME
+            // the APK sits on the Oto release as Oto-Android-<version>-arm64.apk
+            var apk: JSONObject? = null; var bestV = BuildConfig.VERSION_NAME
+            val re = Regex("^Oto-Android-([0-9.]+)-arm64\\.apk$")
             for (i in 0 until arr.length()) {
-                val r = arr.getJSONObject(i); val tag = r.optString("tag_name")
-                if (!tag.startsWith("android-v")) continue
-                val v = tag.removePrefix("android-v")
-                if (newer(v, bestV)) { best = r; bestV = v }
+                val a = arr.getJSONObject(i).optJSONArray("assets") ?: continue
+                for (j in 0 until a.length()) {
+                    val f = a.getJSONObject(j); val v = re.find(f.optString("name"))?.groupValues?.get(1) ?: continue
+                    if (newer(v, bestV)) { apk = f; bestV = v }
+                }
             }
-            val apk = best?.optJSONArray("assets")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) }.firstOrNull { it.optString("name").endsWith(".apk") } }
+            val best = apk; val ver = bestV
             runOnUiThread {
-                if (best != null && apk != null) showUpdate(bestV, apk.getString("browser_download_url"))
+                if (best != null) showUpdate(ver, best.getString("browser_download_url"))
                 else if (manual) toast("Oto for Android is up to date (v${BuildConfig.VERSION_NAME})")
             }
         } catch (e: Exception) { if (manual) runOnUiThread { toast("Couldn’t check for updates") } }

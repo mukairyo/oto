@@ -1,7 +1,6 @@
 # Oto for Android — builds an arm64 APK on every push to the "android" branch. The version is in android/VERSION;
-# a new release (android-v<VERSION>) is published only when that number changes. Marked pre-release on purpose:
-# it never becomes the repo's "latest" release,
-# so Oto for Windows keeps updating exactly as before (it only looks at its own tags).
+# the APK (Oto-Android-<VERSION>-arm64.apk) is added to the current Oto for Windows release when that number
+# changes, and only when it's signed with the Oto key (so phones can always update over it).
 name: Android build
 
 on:
@@ -46,8 +45,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           V=$(tr -d ' \n\r' < android/VERSION)
-          echo "v=$V" >> "$GITHUB_OUTPUT"
-          if gh release view "android-v$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "android-v$V is already released: build only"; echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+          W=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          echo "v=$V" >> "$GITHUB_OUTPUT"; echo "w=$W" >> "$GITHUB_OUTPUT"
+          if gh release view "$W" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qx "Oto-Android-$V-arm64.apk"; then
+            echo "Oto-Android-$V is already on $W: build only"; echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build APK
         working-directory: android
@@ -65,23 +67,17 @@ jobs:
           path: android/app/build/outputs/apk/release/*.apk
           retention-days: 3
 
-      - name: Publish pre-release
-        if: github.ref == 'refs/heads/android' && steps.ver.outputs.skip != 'true'
+      - name: Put the APK on the Oto release
+        if: github.ref == 'refs/heads/android' && steps.ver.outputs.skip != 'true' && env.OTO_KS_FILE != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           V=${{ steps.ver.outputs.v }}
-          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
-          cp "$APK" "Oto-Android-$V-arm64.apk"
-          gh release create "android-v$V" "Oto-Android-$V-arm64.apk" --prerelease --target "$GITHUB_SHA" \
-            --title "Oto for Android $V" \
-            --notes "Oto for Android $V (GeckoView $GECKO): the Oto theme, Oto Shield, tabs, and Oto account to link your phone with Oto for Windows (My phone). Download the APK on your phone and open it to install."
-          # also put the APK on the current Oto for Windows release, so both are in one place
-          W=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
-          case "$W" in v*) gh release upload "$W" "Oto-Android-$V-arm64.apk" --clobber --repo "$GITHUB_REPOSITORY" && echo "added to $W";; esac
+          cp "$(ls android/app/build/outputs/apk/release/*.apk | head -1)" "Oto-Android-$V-arm64.apk"
+          gh release upload "${{ steps.ver.outputs.w }}" "Oto-Android-$V-arm64.apk" --clobber --repo "$GITHUB_REPOSITORY"
 
-      # A commit message with [replace-apk] rebuilds the same version and swaps the APK on its release
-      # (and on the Oto for Windows release). Only with the real Oto key, so a temporary key never replaces it.
+      # A commit message with [replace-apk] rebuilds the same version and swaps the APK on the Oto release.
+      # Only with the real Oto key, so a temporary key never replaces it.
       - name: Replace the APK on the release
         if: github.ref == 'refs/heads/android' && steps.ver.outputs.skip == 'true' && contains(github.event.head_commit.message, '[replace-apk]') && env.OTO_KS_FILE != ''
         env:
@@ -89,6 +85,5 @@ jobs:
         run: |
           V=${{ steps.ver.outputs.v }}
           cp "$(ls android/app/build/outputs/apk/release/*.apk | head -1)" "Oto-Android-$V-arm64.apk"
-          gh release upload "android-v$V" "Oto-Android-$V-arm64.apk" --clobber --repo "$GITHUB_REPOSITORY"
-          W=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
-          case "$W" in v*) gh release upload "$W" "Oto-Android-$V-arm64.apk" --clobber --repo "$GITHUB_REPOSITORY" && echo "replaced on $W";; esac
+          gh release upload "${{ steps.ver.outputs.w }}" "Oto-Android-$V-arm64.apk" --clobber --repo "$GITHUB_REPOSITORY"
+          echo "replaced on ${{ steps.ver.outputs.w }}"
