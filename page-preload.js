@@ -123,11 +123,11 @@ function otoFarble(seed) {
         swap(HC, 'toDataURL', (orig) => function toDataURL() { let c = null; try { c = copyNoisy(this); } catch (e) {} return orig.apply(c || this, arguments); });
         swap(HC, 'toBlob', (orig) => function toBlob() { let c = null; try { c = copyNoisy(this); } catch (e) {} return orig.apply(c || this, arguments); });
       }
-      // WebGL: a common graphics-card name, and tiny changes to read-back pixels
+      // WebGL: tiny changes to read-back pixels. The graphics-card name stays real: a made-up one is exactly what
+      // "are you human?" checks (Cloudflare, used by ChatGPT and many others) look for, and they lock you out.
       for (const G of [w.WebGLRenderingContext, w.WebGL2RenderingContext]) {
         if (!G) continue;
         const P = G.prototype;
-        swap(P, 'getParameter', (orig) => function getParameter(p) { if (p === 0x9245) return 'Google Inc. (Oto)'; if (p === 0x9246) return 'ANGLE (Oto, Generic GPU, D3D11)'; return orig.apply(this, arguments); });
         swap(P, 'readPixels', (orig) => function readPixels() { const r = orig.apply(this, arguments); try { const d = arguments[6]; if (d && d.BYTES_PER_ELEMENT === 1) noisePixels(d); } catch (e) {} return r; });
       }
       // Audio
@@ -142,12 +142,8 @@ function otoFarble(seed) {
       }
       const AN = w.AnalyserNode && w.AnalyserNode.prototype;
       if (AN) swap(AN, 'getFloatFrequencyData', (orig) => function getFloatFrequencyData(a) { orig.apply(this, arguments); try { for (let i = 0; i < a.length; i += 7) a[i] += ((mix(i) & 255) / 255 - 0.5) * 0.001; } catch (e) {} });
-      // Hardware hints: common values instead of this PC's exact ones
-      const N = w.Navigator && w.Navigator.prototype;
-      if (N) {
-        getter(N, 'hardwareConcurrency', () => function hardwareConcurrency() { return 8; });
-        getter(N, 'deviceMemory', () => function deviceMemory() { return 8; });
-      }
+      // Hardware hints (CPU cores, memory) are left alone: background workers can't be changed the same way, and a
+      // page that sees two different answers is treated as a bot.
       // Frames made by script (about:blank) get the same protection when the page reaches into them
       const IF = w.HTMLIFrameElement && w.HTMLIFrameElement.prototype;
       if (IF) {

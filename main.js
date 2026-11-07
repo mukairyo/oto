@@ -954,7 +954,12 @@ function setupIPC(ses) {
     // Fingerprint protection: a number that's the same for one site during one session, different everywhere else.
     try {
       const top = shieldHost(e.sender.getURL());
-      if (top && SHIELD.conf.fp !== false && SH.mode() !== 'off' && !shieldAllowed(top)) {
+      // ...except inside the "are you human?" boxes themselves (Cloudflare, hCaptcha, reCAPTCHA): changed readings there
+      // look like a bot and the box never lets you through.
+      const fh = (() => { try { return new URL(String(frameOrigin)).hostname; } catch { return ''; } })();
+      const humanCheck = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net|arkoselabs\.com|funcaptcha\.com)$/.test(fh)
+        || (/(^|\.)google\.com$/.test(fh) && fh !== top);
+      if (top && !humanCheck && SHIELD.conf.fp !== false && SH.mode() !== 'off' && !shieldAllowed(top)) {
         r.fp = require('crypto').createHash('sha256').update(`${FP_SESSION}|${regDomain(top)}`).digest().readUInt32LE(0) || 1;
       }
     } catch {}

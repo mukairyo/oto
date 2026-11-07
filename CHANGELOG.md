@@ -3,6 +3,12 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.2.3 — 2026-11-07
+
+**Fixed**
+- ChatGPT and other sites behind an "are you human?" check (Cloudflare, hCaptcha, reCAPTCHA) kept you out. Two parts of fingerprint protection looked like a bot to them: a made-up graphics-card name, and a CPU core count that was changed on the page but not in the page's background workers. Both now show the real values, like Brave does at its standard level. Canvas, WebGL and audio noise still protect you.
+- Fingerprint protection is now switched off inside the "are you human?" boxes themselves, so the check can finish.
+
 ## 1.2.2 — 2026-11-07
 
 *Behind the scenes: Oto's main code is split into smaller parts. Nothing changes for you.*
