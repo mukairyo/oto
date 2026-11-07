@@ -199,21 +199,27 @@ function v1TemplateMenu(x, y) {
 
 function v1BackupSection() {
   const status = h('small', { class: 'v1-bkst' }, 'Spaces, tabs, Essentials, bookmarks, settings, themes, Oto Card, boosts and history.');
-  const pass = h('input', { class: 'lib-input', type: 'password', placeholder: 'Backup password (optional, for passwords)', style: 'width:250px' });
+  const pass = h('input', { class: 'lib-input', type: 'password', placeholder: 'Backup password (encrypts the file)', style: 'width:250px' });
   return section('Backup & restore',
     row('Back up Oto', status, h('div', { style: 'display:flex;gap:6px;align-items:center' }, pass, h('button', { class: 'btn primary', onclick: async () => {
       const r = await oto.backupSave(persistable(), pass.value || null);
-      if (r && r.ok) { status.textContent = `Saved ${r.path.split(/[\\/]/).pop()} (${v1Mb(r.size / 1048576)})${r.passwords ? ` with ${r.passwords} passwords` : ''}`; toast('Backup saved', { icon: 'check', timeout: 1800 }); }
+      if (r && r.ok) { status.textContent = `Saved ${r.path.split(/[\\/]/).pop()} (${v1Mb(r.size / 1048576)})${r.encrypted ? ` · encrypted${r.passwords ? `, with ${r.passwords} passwords` : ''}` : ' · not encrypted'}`; toast('Backup saved', { icon: 'check', timeout: 1800 }); }
     } }, 'Save backup'))),
     row('Restore from a backup', 'Replaces your spaces, tabs and settings with the ones in the file, then restarts Oto.', h('button', { class: 'btn', onclick: v1RestoreFlow }, 'Restore…')));
 }
 async function v1RestoreFlow() {
-  const info = await oto.backupOpen();
+  let info = await oto.backupOpen();
   if (!info || !info.ok) { if (info && info.error) toast(info.error, { timeout: 2600 }); return; }
+  let pass = null;
+  if (info.locked) { // encrypted backup: unlock it first to see what's inside
+    pass = await v1AskText('Backup password', 'This backup is encrypted. Type the password you chose when you made it.', true);
+    if (pass == null) return;
+    info = await oto.backupUnlock(pass);
+    if (!info || !info.ok) { toast((info && info.error) || 'Couldn’t open the backup', { timeout: 2600 }); return; }
+  }
   const when = info.created ? new Date(info.created).toLocaleString() : 'unknown date';
   if (!confirm(`Restore this backup from ${when}?\n\n${info.spaces} spaces · ${info.tabs} tabs · ${info.bookmarks} bookmarks${info.passwords ? ` · ${info.passwords} passwords` : ''}\n\nYour current spaces, tabs and settings will be replaced and Oto restarts.`)) return;
-  let pass = null;
-  if (info.passwords) {
+  if (info.passwords && pass == null) {
     pass = await v1AskText('Backup password', 'Type the password you chose when you made this backup to bring back your saved passwords. Leave it empty to skip them.', true);
   }
   const r = await oto.backupRestore(pass);

@@ -71,39 +71,57 @@ module.exports = function createExtensions(ctx) {
     }
     // Extensions installed from files / folders.
     for (const dir of readJSON(MANUAL_EXT_FILE, [])) {
-      try { await extApi(ses).loadExtension(dir, { allowFileAccess: true }); } catch (err) { console.warn('[oto] could not load', dir, err && err.message); }
+      // File access (reading file:// pages) stays off for extensions added from files or folders.
+      try { await extApi(ses).loadExtension(dir, { allowFileAccess: false }); } catch (err) { console.warn('[oto] could not load', dir, err && err.message); }
     }
     send('ext:changed');
   }
 
   // Unpack .crx (Chrome / Opera), .xpi (Firefox) or .zip into a folder Oto owns.
+  // Archives are checked before anything is written: size limits (no "zip bombs"), and every file must land
+  // inside the new folder (no "../" tricks, absolute paths or links that point elsewhere).
   function unpackExtension(file) {
-    const AdmZip = require('adm-zip');
-    let buf = fs.readFileSync(file);
-    if (buf.slice(0, 4).toString('latin1') === 'Cr24') {
-      const version = buf.readUInt32LE(4);
-      const start = version === 3 ? 12 + buf.readUInt32LE(8) : 16 + buf.readUInt32LE(8) + buf.readUInt32LE(12);
-      buf = buf.slice(start);
-    }
-    const zip = new AdmZip(buf);
-    const manifestEntry = zip.getEntry('manifest.json');
-    if (!manifestEntry) throw new Error('This file has no manifest.json — it isn’t a browser extension.');
-    const manifest = JSON.parse(zip.readAsText(manifestEntry).replace(/^\uFEFF/, ''));
+    const { readArchive, extractTo } = require('./safe-unzip.js');
+    const { plan, manifest } = readArchive(file);
     const safe = String(manifest.name || 'extension').replace(/__MSG_.*__/, 'extension').replace(/[^a-z0-9-_]+/gi, '-').slice(0, 40);
     const dir = path.join(userFile('Extensions-files'), `${safe}-${Date.now().toString(36)}`);
-    fs.mkdirSync(dir, { recursive: true });
-    zip.extractAllTo(dir, true);
-    // Firefox-only manifest keys Chromium doesn't understand.
-    const mf = path.join(dir, 'manifest.json');
-    const m = JSON.parse(fs.readFileSync(mf, 'utf8').replace(/^\uFEFF/, ''));
-    delete m.browser_specific_settings; delete m.applications;
-    if (m.background && m.background.scripts && m.manifest_version === 3 && !m.background.service_worker) {
-      // Firefox MV3 uses background scripts; Chromium needs a service worker that imports them.
-      fs.writeFileSync(path.join(dir, '__oto_bg.js'), m.background.scripts.map((x) => `importScripts(${JSON.stringify(x)});`).join('\n'));
-      m.background = { service_worker: '__oto_bg.js' };
-    }
-    fs.writeFileSync(mf, JSON.stringify(m, null, 2));
+    try {
+      extractTo(plan, dir);
+      // Firefox-only manifest keys Chromium doesn't understand.
+      const mf = path.join(dir, 'manifest.json');
+      const m = JSON.parse(fs.readFileSync(mf, 'utf8').replace(/^﻿/, ''));
+      delete m.browser_specific_settings; delete m.applications;
+      if (m.background && m.background.scripts && m.manifest_version === 3 && !m.background.service_worker) {
+        // Firefox MV3 uses background scripts; Chromium needs a service worker that imports them.
+        fs.writeFileSync(path.join(dir, '__oto_bg.js'), m.background.scripts.map((x) => `importScripts(${JSON.stringify(x)});`).join('\n'));
+        m.background = { service_worker: '__oto_bg.js' };
+      }
+      fs.writeFileSync(mf, JSON.stringify(m, null, 2));
+    } catch (err) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch {} throw err; }
     return dir;
+  }
+  // What an extension asks for, in words, shown before it's added from a file or folder.
+  function permissionText(dir) {
+    let m = {};
+    try { m = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8').replace(/^﻿/, '')); } catch {}
+    const hosts = [...(m.host_permissions || []), ...(m.permissions || []).filter((p) => /[:/*]/.test(p)), ...((m.content_scripts || []).flatMap((c) => c.matches || []))];
+    const all = hosts.some((h) => /^(<all_urls>|\*:\/\/\*\/\*|https?:\/\/\*\/\*)$/.test(h));
+    const api = (m.permissions || []).filter((p) => !/[:/*]/.test(p));
+    const lines = [];
+    lines.push(all ? '• Read and change everything on every website you visit' : hosts.length ? `• Read and change data on: ${[...new Set(hosts)].slice(0, 6).join(', ')}${hosts.length > 6 ? ' …' : ''}` : '• No website access requested');
+    const words = { tabs: 'see your open tabs', history: 'read and change your history', cookies: 'read and change cookies', webRequest: 'see what pages load', downloads: 'manage downloads', clipboardRead: 'read your clipboard', nativeMessaging: 'talk to programs on your PC', debugger: 'control pages with the debugger', management: 'manage other extensions', proxy: 'change your proxy settings', privacy: 'change privacy settings', bookmarks: 'read and change bookmarks' };
+    const risky = api.filter((p) => words[p]).map((p) => words[p]);
+    if (risky.length) lines.push(`• Also: ${risky.join(', ')}`);
+    return { name: String(m.name || 'This extension').replace(/__MSG_.*__/, 'This extension'), version: m.version || '', text: lines.join('\n') };
+  }
+  async function confirmAdd(dir, source) {
+    const p = permissionText(dir);
+    const r = await dialog.showMessageBox(ctx.win, {
+      type: 'warning', buttons: ['Cancel', 'Add extension'], defaultId: 0, cancelId: 0, noLink: true, title: 'Add extension',
+      message: `Add “${p.name}”${p.version ? ` ${p.version}` : ''} from ${source}?`,
+      detail: `It isn’t from the Chrome Web Store, so nobody has reviewed it. Only add it if you trust where it came from.\n\nIt asks to:\n${p.text}`,
+    });
+    return r.response === 1;
   }
 
   function setupExtensionIPC(ses) {
@@ -141,18 +159,22 @@ module.exports = function createExtensions(ctx) {
         properties: ['openFile'],
       });
       if (r.canceled || !r.filePaths[0]) return { ok: false };
+      let dir = null;
       try {
-        const dir = unpackExtension(r.filePaths[0]);
-        const ext = await extApi(ses).loadExtension(dir, { allowFileAccess: true });
+        dir = unpackExtension(r.filePaths[0]);
+        if (!(await confirmAdd(dir, 'a file'))) { fs.rmSync(dir, { recursive: true, force: true }); return { ok: false }; }
+        const ext = await extApi(ses).loadExtension(dir, { allowFileAccess: false });
         writeJSON(MANUAL_EXT_FILE, [...readJSON(MANUAL_EXT_FILE, []), dir]);
         return { ok: true, name: ext.name };
-      } catch (err) { return { ok: false, error: err.message }; }
+      } catch (err) { if (dir) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch {} } return { ok: false, error: err.message }; }
     });
     ipcMain.handle('ext:load-folder', async () => {
       const r = await dialog.showOpenDialog(ctx.win, { title: 'Load an unpacked extension folder', properties: ['openDirectory'] });
       if (r.canceled || !r.filePaths[0]) return { ok: false };
       try {
-        const ext = await extApi(ses).loadExtension(r.filePaths[0], { allowFileAccess: true });
+        if (!fs.existsSync(path.join(r.filePaths[0], 'manifest.json'))) return { ok: false, error: 'That folder has no manifest.json — it isn’t an extension.' };
+        if (!(await confirmAdd(r.filePaths[0], 'a folder'))) return { ok: false };
+        const ext = await extApi(ses).loadExtension(r.filePaths[0], { allowFileAccess: false });
         writeJSON(MANUAL_EXT_FILE, [...new Set([...readJSON(MANUAL_EXT_FILE, []), r.filePaths[0]])]);
         return { ok: true, name: ext.name };
       } catch (err) { return { ok: false, error: err.message }; }

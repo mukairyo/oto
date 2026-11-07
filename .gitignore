@@ -1,2 +1,45 @@
-node_modules/
+# dependencies and build output
+node_modules
 dist/
+out/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# secrets — never commit these (signing keys live only in GitHub secrets)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+keystore.properties
+*signing-key*
+*.secret
+secrets/
+credentials*.json
+
+# logs, reports and local test data
+*.log
+npm-debug.log*
+logs/
+reports/
+*.tmp
+userdata*/
+diag-*.json
+
+# exported data that must never be committed by accident
+*.oto
+*Passwords*.csv
+*passwords*.csv
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp

@@ -3,6 +3,45 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.3.0 — 2026-11-07
+
+*Security release: fixes from the independent 1.2.2 code review (59 items). Nothing to do — it updates itself.*
+
+**Passwords**
+- Saved passwords are **only ever stored encrypted**. Before, if Windows couldn't encrypt (rare), Oto kept a readable copy; now it refuses to save and tells you. Old readable copies are encrypted the moment you open Oto.
+- Oto only offers to save logins on secure (https) pages, not plain http (http://localhost still works for developers).
+- **Deleting a password now syncs**: it stays deleted on your other devices instead of coming back with the next sync.
+- Exporting passwords to CSV now asks in a Windows dialog that explains the file is unencrypted and how to handle it.
+- The helpers that watch login forms and show your saved accounts are now built inside Oto's protected core. The window can only ask for them by name, so no code can be slipped into a page through it.
+
+**Oto itself**
+- One gatekeeper now guards every channel between Oto's window and its core: only Oto's own window gets answers. Web pages, frames, extension pages and app windows are refused before anything runs.
+- Sign-in tokens and the sync key are never stored readable. If Windows can't encrypt, you stay signed in until Oto closes, and nothing readable is left on disk.
+- Websites can't send you to local files or browser-internal pages (`file:`, `view-source:` …). Only you can open those, by typing them.
+- Oto-app windows only stay in the window for the app's own site and real sign-in pages (Google, Microsoft, Apple, GitHub …). Every other link opens in Oto.
+- Screen sharing: the picker is tied to the page that asked. If that page navigates away or closes, the picker closes and nothing is shared. Pressing Cancel now gives the site a clear "no". Before, Electron threw an error there, so the site kept waiting and the picker could stay open.
+- Leftovers of the old PC lock (removed in owner.16) are gone: its hidden settings, lock screen and code. Oto doesn't lock itself, so use Windows sign-in for that.
+
+**Extensions**
+- Extension files (.crx / .xpi / .zip) are checked before unpacking. Oto refuses files that try to write outside their folder, contain links, or unpack to more than 500 MB / 10,000 files.
+- Before adding an extension from a file or folder, Oto shows what it asks for ("read and change everything on every website", "see your open tabs" …). These extensions no longer get access to local files.
+
+**Spaces and Oto Shield**
+- **Spaces with their own logins weren't blocking ads and trackers at all** (since 1.0). The blocker can only register its page helpers once, so its setup stopped halfway in every session after the first. Spaces and private windows now block like the main window does (tested: tracker blocked in the main window, a Space and a private window).
+- Turning Oto Shield on or off now applies to every Space and private window at once (before, only the main session changed, and turning it back on failed with an error).
+- With Shield off, dangerous-site warnings now keep working in every Space and when Oto starts.
+- "Block cookies" for a site, "Clear site data", "Clear browsing data" and "Clear when Oto closes" now work in every Space's separate logins, not just the main one.
+
+**Backups**
+- A backup made with a backup password is now **fully encrypted** (history, tabs, bookmarks, settings and passwords). A backup without a password asks first, because anyone could read it. Old backups still restore.
+
+**Under the hood**
+- Automated tests (`npm test`: passwords, sync deletions, the gatekeeper, extension files, account secrets) and security checks (`npm run lint`) run on every change and before every release. A failure stops the release.
+- Every release now comes with `SHA256SUMS.txt` and a signed GitHub build attestation, so you can check your download really came from this repository (see SECURITY.md).
+- GitHub Actions are pinned to exact versions, Dependabot watches for vulnerable packages, and `.gitignore` keeps keys and exports out of the repository.
+- The Chrome Web Store helper bundled an old unzip library with known security problems; every part of Oto now uses the fixed version (`npm audit`: 0 vulnerabilities in what Oto ships).
+- New **SECURITY.md** (how to report a problem privately, what Oto protects and what it doesn't yet) and **PRIVACY.md** (exactly what leaves your PC: no telemetry, no analytics).
+
 ## 1.2.3 — 2026-11-07
 
 **Fixed**

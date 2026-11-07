@@ -1,108 +1,8 @@
 'use strict';
 /* Oto — password manager: offer to save logins, fill them when you pick an account, manage them in the Library */
 
-// Injected into pages: notices a login being sent (form submit, Enter in a password box, clicking a
-// submit button) and reports the username + password to Oto, which then offers to save them.
-// Also remembers the username typed on step one of two-step logins (like Google's).
-// Runs in a separate, hidden JavaScript world (page scripts can't see it or fake its messages:
-// every message carries a secret made fresh for each page).
-const PW_CAPTURE = (nonce) => `(() => {
-  if (window.__otoPw) return; window.__otoPw = 1;
-  const textish = (x) => x && x.tagName === 'INPUT' && /^(text|email|tel|)$/i.test(x.getAttribute('type') || '');
-  const userish = (x) => textish(x) && /user|mail|login|identifier|account|phone|name/i.test((x.name || '') + ' ' + (x.id || '') + ' ' + (x.autocomplete || '') + ' ' + (x.placeholder || ''));
-  try { window.__otoLastUser = sessionStorage.getItem('__otoLastUser') || ''; } catch (_) {}
-  const grab = (root) => {
-    const pws = [...(root.querySelectorAll ? root : document).querySelectorAll('input[type=password]')].filter((x) => x.value);
-    if (!pws.length) return null;
-    const p = pws.length > 1 ? (pws.find((x) => x.autocomplete === 'new-password') || pws[pws.length - 1]) : pws[0];
-    const inputs = [...(p.form || document).querySelectorAll('input')];
-    let u = '';
-    for (let i = inputs.indexOf(p) - 1; i >= 0; i--) { const x = inputs[i]; if (textish(x) && x.value && x.offsetParent !== null) { u = x.value; break; } }
-    return { u: u || window.__otoLastUser || '', p: p.value, isNew: p.autocomplete === 'new-password' || pws.length > 1 };
-  };
-  let last = '';
-  const send = (root) => {
-    const c = grab(root || document);
-    if (!c || !c.p) return;
-    const k = c.u + '\\n' + c.p;
-    if (k === last) return;
-    last = k;
-    console.debug('__oto_pw__${nonce}' + JSON.stringify(c));
-  };
-  document.addEventListener('submit', (e) => send(e.target), true);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.type === 'password') send(e.target.form || document); }, true);
-  document.addEventListener('click', (e) => {
-    const b = e.target && e.target.closest && e.target.closest('button, input[type=submit], [role=button]');
-    if (!b) return;
-    const f = b.form || b.closest('form') || document;
-    if (f.querySelector('input[type=password]')) setTimeout(() => send(f), 0);
-  }, true);
-  document.addEventListener('change', (e) => {
-    const x = e.target;
-    if (userish(x) && x.value) { window.__otoLastUser = x.value; try { sessionStorage.setItem('__otoLastUser', x.value); } catch (_) {} }
-  }, true);
-})();`;
-
-// Injected into pages that have saved logins: when you click a username or password box, a small
-// list of your saved accounts appears under it. Picking one asks Oto to fill it — the password only
-// enters the page at that moment.
-// Also in the hidden world: only a real click (not a script) on one of these buttons asks Oto to fill.
-const PW_CHOOSER = (nonce, list) => `(() => {
-  const LOGINS = ${JSON.stringify(list)};
-  if (window.__otoFill) { window.__otoFill(LOGINS); return; }
-  let current = LOGINS;
-  window.__otoFill = (l) => { current = l; };
-  const logins = () => current;
-  const insecure = location.protocol === 'http:' && !/^(localhost|127\\.0\\.0\\.1|\\[::1\\])$/.test(location.hostname);
-  const textish = (x) => x && x.tagName === 'INPUT' && /^(text|email|tel|)$/i.test(x.getAttribute('type') || '');
-  const isPass = (x) => x && x.tagName === 'INPUT' && x.type === 'password' && x.autocomplete !== 'new-password';
-  const hasPass = (x) => !!(x.form ? x.form.querySelector('input[type=password]') : document.querySelector('input[type=password]'));
-  const userish = (x) => textish(x) && (x.autocomplete === 'username' || /user|mail|login|identifier|account|phone/i.test((x.name || '') + ' ' + (x.id || '') + ' ' + (x.autocomplete || '') + ' ' + (x.placeholder || '')));
-  let host = null, field = null;
-  const hide = () => { if (host) { host.remove(); host = null; field = null; } };
-  const show = (el) => {
-    if (host && field === el) return;
-    hide();
-    const list = logins();
-    if (!list.length) return;
-    field = el;
-    host = document.createElement('div');
-    host.style.cssText = 'position:fixed;z-index:2147483647;inset:auto;';
-    const sh = host.attachShadow({ mode: 'closed' });
-    const r = el.getBoundingClientRect();
-    const box = document.createElement('div');
-    box.style.cssText = 'position:fixed;left:' + Math.max(4, r.left) + 'px;top:' + (r.bottom + 4) + 'px;min-width:' + Math.max(220, r.width) + 'px;max-width:360px;background:#1b1a22;color:#f4f2fb;border-radius:12px;padding:6px;box-shadow:0 12px 32px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.08);font:13px "Segoe UI",system-ui,sans-serif;';
-    const head = document.createElement('div');
-    head.textContent = insecure ? 'Oto · saved logins · ⚠ this page isn’t secure' : 'Oto · saved logins';
-    head.style.cssText = 'font-size:11px;opacity:.6;padding:4px 8px 6px;';
-    box.appendChild(head);
-    for (const l of list.slice(0, 6)) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.style.cssText = 'display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:inherit;font:inherit;text-align:left;padding:8px;border-radius:8px;cursor:pointer;';
-      b.onmouseenter = () => { b.style.background = 'rgba(255,255,255,.1)'; };
-      b.onmouseleave = () => { b.style.background = 'none'; };
-      const key = document.createElement('span');
-      key.textContent = '🔑';
-      const t = document.createElement('span');
-      t.textContent = l.u || '(no username)';
-      t.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-      b.append(key, t);
-      b.addEventListener('mousedown', (e) => e.preventDefault());
-      b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (!e.isTrusted) return; hide(); console.debug('__oto_pwfill__${nonce}:' + l.id); });
-      box.appendChild(b);
-    }
-    sh.appendChild(box);
-    document.documentElement.appendChild(host);
-  };
-  document.addEventListener('focusin', (e) => { const t = e.target; if (isPass(t) || (userish(t) && hasPass(t)) || (userish(t) && window.__otoLoginPage)) show(t); else if (!host || !host.contains(t)) hide(); }, true);
-  document.addEventListener('mousedown', (e) => { if (host && e.target !== host && e.target !== field) hide(); }, true);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); else if (host && e.key.length === 1) hide(); }, true);
-  addEventListener('scroll', hide, true);
-  addEventListener('resize', hide);
-  const a = document.activeElement;
-  if (a && (isPass(a) || (userish(a) && hasPass(a)))) show(a);
-})();`;
+// The page helpers (notice a login being sent, show saved accounts under a login box) are built and injected
+// by Oto's main process (main/pw-page.js). This window can only ask for them by name — it can't send code.
 
 // ---- per-page wiring
 const pwPending = new Map(); // tab id -> { u, p, at, origin }
@@ -116,18 +16,15 @@ async function pwRefreshCache() {
 const originOf = (u) => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.origin : null; } catch { return null; } };
 const pwNever = () => (S.settings.pwNever = S.settings.pwNever || []);
 
-const pwNonce = () => [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
 async function pwInject(tab, v) {
   const url = wv(v, (w) => w.getURL(), tab.url);
   if (!originOf(url)) return;
   if (!v.wcId) mapWebContents(tab, v);
   if (!v.wcId) return;
-  v.pwNonce = pwNonce();
-  if (S.settings.pwOffer !== false && !pwNever().includes(originOf(url))) oto.pwInject(v.wcId, PW_CAPTURE(v.pwNonce)).catch(() => {});
-  if (S.settings.pwFill === false) return;
-  const list = await oto.pwForOrigin(url).catch(() => []);
-  if (!list.length) return;
-  oto.pwInject(v.wcId, PW_CHOOSER(v.pwNonce, list.map((e) => ({ id: e.id, u: e.username })))).catch(() => {});
+  v.pwNonce = null;
+  const capture = S.settings.pwOffer !== false && !pwNever().includes(originOf(url));
+  const r = await oto.pwArm(v.wcId, { capture, fill: S.settings.pwFill !== false }).catch(() => null);
+  v.pwNonce = r && r.nonce ? r.nonce : null;
 }
 // The password goes from Oto's main process straight into the page's login box (in the hidden world),
 // only if the page is still on the site the login belongs to. It never passes through this window.
@@ -188,8 +85,9 @@ function showPwBar(tab, c, isUpdate) {
     h('button', {
       class: 'btn primary',
       onclick: async () => {
-        await oto.pwSave(c.origin, c.u, c.p);
+        const res = await oto.pwSave(c.origin, c.u, c.p);
         close();
+        if (res === 'noenc') return toast('Not saved: Windows can’t encrypt passwords right now, and Oto never stores them unencrypted', { timeout: 4000 });
         toast(isUpdate ? 'Password updated' : 'Password saved', { icon: 'key', timeout: 1600 });
         pwRefreshCache();
         if (LIB.open && LIB.page === 'passwords') renderLibrary();
@@ -257,7 +155,8 @@ LIB_RENDER.passwords = function passwords() {
   const tools = h('div', { class: 'lib-tools' },
     h('button', { class: 'btn primary', onclick: () => { PWS.adding = true; PWS.editing = null; renderLibrary(); } }, 'Add password'),
     h('button', { class: 'btn', onclick: async () => { const r = await oto.pwImport(); if (!r) return; if (r.error) toast(r.error, { timeout: 3000 }); else { toast(`Imported ${r.added} new, ${r.updated} updated`, { icon: 'key', timeout: 2400 }); pwRefreshCache(); pwLoadLib(); } } }, 'Import…'),
-    h('button', { class: 'btn', onclick: async () => { if (!confirm('Export saves all your passwords in a plain, unencrypted file. Anyone who opens that file can read them. Continue?')) return; let r = await oto.pwExport(); if (r && r.needPin && typeof v1AskSecret === 'function') { const sec = await v1AskSecret('Type your PIN to export passwords', ((V1A.st || {}).lock || {}).kind); if (sec == null) return; const v = await oto.lock.verify(sec); if (!v.ok) { toast('Wrong PIN', { timeout: 1600 }); return; } r = await oto.pwExport(); } if (r === true) toast('Passwords exported', { timeout: 1800 }); } }, 'Export…'));
+    // Oto itself asks before exporting (a Windows dialog that explains the risk), so nothing can export silently.
+    h('button', { class: 'btn', onclick: async () => { const r = await oto.pwExport(); if (r === true) toast('Passwords exported — delete the file once you’ve imported it', { timeout: 3200 }); } }, 'Export…'));
   const intro = h('p', { class: 'lib-intro' }, PWS.status && !PWS.status.encrypted
     ? '⚠ This system doesn’t offer encryption, so passwords are stored unprotected.'
     : 'Saved on this PC and encrypted with Windows’ own protection. When you click a login box, Oto shows your accounts for that site.');

@@ -217,7 +217,7 @@ function v1ThemeMaker() {
     const code = v1ThemeCode(th);
     const codeIn = h('input', { class: 'lib-input', placeholder: 'Paste a code like OTO-…', spellcheck: 'false' });
     panel.replaceChildren(...[
-      h('div', { class: 'hd', html: `${icon('palette')}<b>Theme maker</b><small>${ws.name} · changes show live</small>` }),
+      h('div', { class: 'hd', html: `${icon('palette')}<b>Theme maker</b><small>${escHtml(ws.name)} · changes show live</small>` }),
       h('div', { class: 'ttl' }, 'COLOURS'),
       h('div', { class: 'cols' }, h('span', { class: 'bar', style: `background:linear-gradient(90deg, ${th.colors.join(', ')})` }),
         ...th.colors.map((c, i) => { const inp = h('input', { type: 'color', value: c }); inp.addEventListener('input', () => { th.colors[i] = inp.value; v1ApplyWsTheme(th); panel.querySelector('.bar').style.background = `linear-gradient(90deg, ${th.colors.join(', ')})`; panel.querySelector('.cv').textContent = v1ThemeCode(th); });
@@ -320,7 +320,7 @@ function v1NotePanel() {
   ta.addEventListener('input', () => { saved.textContent = '…'; clearTimeout(saveT); saveT = setTimeout(store, 500); });
   const scopes = h('div', { class: 'sc' }, ...[['page', 'This page'], ['site', 'Whole site']].map(([k, l]) => h('button', { class: k === scope ? 'on' : '', onclick: () => { scope = k; scopes.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.textContent === l)); store(); } }, l)));
   const layer = v1Layer(() => { store(); v1ClosePop(); }); v1Pop = layer;
-  const panel = h('div', { class: 'v1-note' }, h('div', { class: 'nh', html: `${icon('note')}<b>Note on ${host}</b><small>only you see this</small>` }), ta,
+  const panel = h('div', { class: 'v1-note' }, h('div', { class: 'nh', html: `${icon('note')}<b>Note on ${escHtml(host)}</b><small>only you see this</small>` }), ta,
     h('div', { class: 'nf' }, scopes, saved, h('button', { class: 'del', title: 'Delete note', html: icon('trash'), onclick: () => { ta.value = ''; store(); v1ClosePop(); } })));
   layer.append(panel);
   const r = $('#urlPill').getBoundingClientRect();

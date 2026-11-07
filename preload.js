@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 const CHANNELS = new Set([
   'cmd', 'tab:open', 'search', 'blocked', 'download', 'perm:ask', 'perm:cancel', 'screen:pick', 'screen:cancel', 'danger', 'window-fullscreen', 'overlay-sampled',
-  'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'glance', 'update', 'ctx:show', 'ctrl-hold', 'quick:open', 'account:status', 'lock:state', 'drm:ready',
+  'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'glance', 'update', 'ctx:show', 'ctrl-hold', 'quick:open', 'account:status', 'drm:ready',
 ]);
 
 contextBridge.exposeInMainWorld('oto', {
@@ -50,7 +50,7 @@ contextBridge.exposeInMainWorld('oto', {
   resetPermission: (key) => ipcRenderer.invoke('perm:reset', key),
   setPermission: (key, val) => ipcRenderer.invoke('perm:set', key, val),
   replyScreen: (id, sourceId, audio) => ipcRenderer.send('screen:reply', id, sourceId || null, !!audio),
-  pwInject: (wcId, code) => ipcRenderer.invoke('pw:inject', wcId, code),
+  pwArm: (wcId, opts) => ipcRenderer.invoke('pw:arm', wcId, opts),
   pwFillInto: (wcId, id) => ipcRenderer.invoke('pw:fillInto', wcId, id),
   clearSite: (origin) => ipcRenderer.invoke('site:clear', origin),
   ctxDo: (act, arg) => ipcRenderer.send('ctx:do', act, arg),
@@ -67,6 +67,7 @@ contextBridge.exposeInMainWorld('oto', {
   openApp: (url) => ipcRenderer.send('app:open', url),
   installApp: (url, title, icon) => ipcRenderer.invoke('app:install', url, title, icon),
   backupSave: (state, pass) => ipcRenderer.invoke('backup:save', state, pass),
+  backupUnlock: (pass) => ipcRenderer.invoke('backup:unlock', pass),
   backupOpen: () => ipcRenderer.invoke('backup:open'),
   backupRestore: (pass) => ipcRenderer.invoke('backup:restore', pass),
   setAppIcon: (dataUrl) => ipcRenderer.send('app:icon', dataUrl),
@@ -120,15 +121,6 @@ contextBridge.exposeInMainWorld('oto', {
     devicesBeat: (info) => ipcRenderer.invoke('devices:beat', info),
     devicesSend: (id, url, title) => ipcRenderer.invoke('devices:send', id, url, title),
     devicesForget: (id) => ipcRenderer.invoke('devices:forget', id),
-  },
-  lock: {
-    status: () => ipcRenderer.invoke('lock:status'),
-    set: (s, kind, cur) => ipcRenderer.invoke('lock:set', s, kind, cur),
-    options: (cur, o) => ipcRenderer.invoke('lock:options', cur, o),
-    remove: (cur) => ipcRenderer.invoke('lock:remove', cur),
-    unlock: (s) => ipcRenderer.invoke('lock:unlock', s),
-    verify: (s) => ipcRenderer.invoke('lock:verify', s),
-    now: () => ipcRenderer.send('lock:now'),
   },
   pwUpdate: (id, patch) => ipcRenderer.invoke('pw:update', id, patch),
   pwDelete: (id) => ipcRenderer.invoke('pw:delete', id),

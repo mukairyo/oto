@@ -5,6 +5,8 @@
 const $ = (s, r = document) => r.querySelector(s);
 const uid = () => Math.random().toString(36).slice(2, 10);
 const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
+// For the rare places that build HTML with a name or address in it: always escape it first.
+const escHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 function h(tag, attrs = {}, ...kids) {
   const el = document.createElement(tag);

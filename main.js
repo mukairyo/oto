@@ -6,6 +6,8 @@ const os = require('os');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
+// Before anything registers a message handler: only Oto's own window may use Oto's channels (main/ipc-guard.js).
+const IPC_GUARD = require('./main/ipc-guard.js')(ipcMain, __dirname);
 
 const PARTITION = 'persist:oto';
 const ICON = path.join(__dirname, 'build', 'icon.png');
@@ -243,7 +245,16 @@ app.on('web-contents-created', (_e, contents) => {
     sendVia(contents, 'page-mouse', now);
   });
   if (EXT.extensions && win) { try { EXT.extensions.addTab(contents, win); } catch {} }
+  // Websites can't send you to local files or browser-internal pages (only you can, by typing them):
+  // a page that isn't itself a local file can't navigate itself or a frame to file:, view-source:, chrome: …
+  const localOnly = /^(file|view-source|chrome|devtools|chrome-extension):/i;
+  const sameOrigin = (a, b) => { try { const x = new URL(a), y = new URL(b); return x.protocol === y.protocol && x.host === y.host; } catch { return false; } };
+  const mayOpen = (url) => !localOnly.test(String(url)) || /^file:/i.test(contents.getURL()) || (/^chrome-extension:/i.test(url) && sameOrigin(url, contents.getURL()));
+  const blockLocal = (e, url) => { try { if (!mayOpen(url)) e.preventDefault(); } catch {} };
+  contents.on('will-navigate', (e, url) => blockLocal(e, url));
+  contents.on('will-frame-navigate', (e) => blockLocal(e, e && e.url));
   contents.setWindowOpenHandler(({ url, disposition }) => {
+    if (!mayOpen(url)) return { action: 'deny' };
     if (disposition === 'new-window') {
       // Real popups (sign-in windows, etc.) keep window.opener working.
       return {
@@ -259,12 +270,22 @@ app.on('web-contents-created', (_e, contents) => {
 
 // ---------------------------------------------------------------- separate logins per space
 const spaceSessions = new Set();
+// Every cookie jar your browsing uses: the main one plus each Space that has its own logins (opened this run or not).
+function browsingPartitions() {
+  const set = new Set([PARTITION, ...spaceSessions]);
+  try { for (const w of (readJSON('state.json', {}).workspaces || [])) if (w && w.v1Own) set.add(`persist:oto-ws-${String(w.id).replace(/[^\w-]/g, '').slice(0, 40)}`); } catch {}
+  return [...set];
+}
+const eachBrowsingSession = (fn) => Promise.all(browsingPartitions().map((p) => Promise.resolve().then(() => fn(session.fromPartition(p))).catch(() => {})));
 function prepSpaceSession(part) {
   if (spaceSessions.has(part)) return;
   spaceSessions.add(part);
   try { setupSession(part); } catch {}
-  if (SH.mode() !== 'off') enableBlocking(session.fromPartition(part)).catch(() => {});
+  // Same Shield state as everywhere else (with Shield off, dangerous-site warnings still run here)
+  if (SH.mode() !== 'off') enableBlocking(session.fromPartition(part)).catch(() => {}); else disableBlocking(session.fromPartition(part));
 }
+// Every session Oto browses in right now: main, Spaces with their own logins, and Avocado (private) if open.
+const liveSessions = () => [session.fromPartition(PARTITION), ...[...spaceSessions].map((p) => session.fromPartition(p)), ...(avocadoReady ? [session.fromPartition(AVOCADO)] : [])];
 
 // ---------------------------------------------------------------- Avocado (private windows)
 // Oto's private mode: its own window whose pages use an in-memory session. Closing the last
@@ -277,7 +298,7 @@ function setupAvocadoSession() {
   addPagePreload(s);
   s.setPermissionRequestHandler((_wc, p, cb) => cb(ALWAYS.has(p)));
   s.setPermissionCheckHandler((_wc, p) => ALWAYS.has(p));
-  if (SH.mode() !== 'off') enableBlocking(s).catch(() => {});
+  if (SH.mode() !== 'off') enableBlocking(s).catch(() => {}); else disableBlocking(s);
 }
 function createAvocadoWindow() {
   setupAvocadoSession();
@@ -320,6 +341,20 @@ function appIconImage(origin) {
   try { const f = userFile(path.join('apps', `${new URL(origin).hostname}.png`)); if (fs.existsSync(f)) return nativeImage.createFromPath(f); } catch {}
   return null;
 }
+// Sign-in providers an Oto-app window may visit without leaving the window (https only). Anything else that
+// isn't the app's own site (same registrable domain) opens in a normal Oto tab.
+const SIGN_IN_HOSTS = [
+  'accounts.google.com', 'accounts.youtube.com', 'login.microsoftonline.com', 'login.live.com', 'login.microsoft.com', 'account.live.com',
+  'appleid.apple.com', 'idmsa.apple.com', 'github.com', 'gitlab.com', 'discord.com', 'www.facebook.com', 'm.facebook.com', 'id.atlassian.com',
+  'auth.openai.com', 'accounts.spotify.com', 'login.yahoo.com', 'api.twitter.com', 'x.com', 'twitter.com', 'www.linkedin.com', 'slack.com',
+  'auth.services.adobe.com', 'id.twitch.tv', 'www.amazon.com', 'login.salesforce.com',
+];
+const SIGN_IN_SUFFIXES = ['.auth0.com', '.okta.com', '.onelogin.com', '.b2clogin.com', '.slack.com', '.zoom.us', '.my.salesforce.com'];
+function appMayNavigate(appUrl, to) {
+  if (to.protocol !== 'https:' && to.origin !== appUrl.origin) return false;
+  if (SH.regDomain(to.hostname) === SH.regDomain(appUrl.hostname)) return true;
+  return SIGN_IN_HOSTS.includes(to.hostname) || SIGN_IN_SUFFIXES.some((x) => to.hostname.endsWith(x));
+}
 function openAppWindow(url) {
   let u; try { u = new URL(url); } catch { return; }
   if (!/^https?:$/.test(u.protocol)) return;
@@ -337,7 +372,8 @@ function openAppWindow(url) {
   const wc = w.webContents;
   const toOto = (link) => { send('tab:open', { url: link, background: false }); if (win) { if (win.isMinimized()) win.restore(); win.focus(); } };
   wc.setWindowOpenHandler(({ url: link }) => { try { if (new URL(link).origin === u.origin) return { action: 'allow' }; } catch {} toOto(link); return { action: 'deny' }; });
-  wc.on('will-navigate', (e, link) => { try { const o = new URL(link); if (o.origin !== u.origin && !/accounts\.|login\.|auth/.test(o.hostname)) { e.preventDefault(); toOto(link); } } catch {} });
+  // Stay in the app window for the app's own site and for real sign-in pages; everything else opens in Oto.
+  wc.on('will-navigate', (e, link) => { try { const o = new URL(link); if (o.origin !== u.origin && !appMayNavigate(u, o)) { e.preventDefault(); toOto(link); } } catch { e.preventDefault(); } });
   wc.on('page-title-updated', (_e, t) => w.setTitle(t));
   w.loadURL(url);
 }
@@ -578,23 +614,33 @@ function setupSession(part = PARTITION) {
   });
   // Screen sharing (Meet, Discord, Zoom, Teams…): Oto shows its own picker of screens and windows.
   if (ses.setDisplayMediaRequestHandler) {
+    // callback(null) refuses (Electron 45 throws on callback({}), which left the picker open and the page waiting).
     ses.setDisplayMediaRequestHandler(async (request, callback) => {
       const origin = originOf(request.securityOrigin || (request.frame && request.frame.url) || '');
-      if (!win || permDecide(origin, 'display-capture') === false) return callback({});
+      if (!win || permDecide(origin, 'display-capture') === false) return callback(null);
       let sources = [];
       const get = (types) => desktopCapturer.getSources({ types, thumbnailSize: { width: 320, height: 180 }, fetchWindowIcons: types[0] === 'window' }).catch(() => []);
       // screens and windows separately: if listing windows fails or times out, screens still show
       sources = (await Promise.all([get(['screen']), get(['window'])])).flat();
       sources = sources.filter((s) => !/^Oto( |$)/.test(s.name) || s.id.startsWith('screen'));
-      if (!sources.length) return callback({});
+      if (!sources.length) return callback(null);
       const id = ++permSeq;
-      const timer = setTimeout(() => { if (screenPicks.delete(id)) { callback({}); send('screen:cancel', id); } }, 120000);
-      screenPicks.set(id, { callback, sources, timer });
+      // The choice is tied to the page that asked: if it navigates away, closes or the 2 minutes run out, the picker
+      // closes and nothing is shared. Every request gets a fresh choice (nothing is remembered).
+      const frame = request.frame || null;
+      let reqWc = null; try { reqWc = frame ? webContents.fromFrame(frame) : null; } catch {}
+      const cancel = () => { const p = screenPicks.get(id); if (!p) return; screenPicks.delete(id); clearTimeout(p.timer); p.cleanup(); callback(null); send('screen:cancel', id); };
+      const onNav = (ev, _url, inPlace, isMain) => { const main = ev && typeof ev.isMainFrame === 'boolean' ? ev.isMainFrame : isMain; const same = ev && typeof ev.isSameDocument === 'boolean' ? ev.isSameDocument : inPlace; if (main && !same) cancel(); };
+      if (reqWc) { reqWc.on('did-start-navigation', onNav); reqWc.once('destroyed', cancel); }
+      const cleanup = () => { if (reqWc && !reqWc.isDestroyed()) { reqWc.removeListener('did-start-navigation', onNav); reqWc.removeListener('destroyed', cancel); } };
+      const stillThere = () => { try { return !frame || (!frame.detached && originOf(frame.url) === origin); } catch { return false; } };
+      const timer = setTimeout(cancel, 120000);
+      screenPicks.set(id, { callback, sources, timer, cleanup, stillThere });
       send('screen:pick', { id, origin, audio: process.platform === 'win32' && !!request.audioRequested,
         sources: sources.map((s) => ({ id: s.id, name: s.name, kind: s.id.startsWith('screen') ? 'screen' : 'window', thumb: s.thumbnail && !s.thumbnail.isEmpty() ? s.thumbnail.toDataURL() : '', icon: s.appIcon && !s.appIcon.isEmpty() ? s.appIcon.toDataURL() : '' })) });
     });
   }
-  if (part === PARTITION) {
+  { // "Block cookies" for a site works in every Space's cookie jar, not just the main one
     ses.cookies.on('changed', (_e, c, _cause, removed) => {
       if (removed || !cookieBlockHosts.length || !cookieBlocked(c.domain)) return;
       const d = String(c.domain || '').replace(/^\./, '');
@@ -655,7 +701,7 @@ function setupSession(part = PARTITION) {
     for (const k of Object.keys(prefs)) if (k in state.settings) prefs[k] = state.settings[k];
   }
   const wantBlock = !(state && state.settings && state.settings.blockTrackers === false);
-  if (wantBlock) enableBlocking(ses);
+  if (wantBlock) enableBlocking(ses); else disableBlocking(ses);
   return ses;
 }
 
@@ -774,52 +820,81 @@ function setupIPC(ses) {
     return { ok: true, shortcut };
   });
   ipcMain.on('avocado:open', () => createAvocadoWindow());
-  // Backup & restore: one .oto file with your state; passwords are added only with a backup password.
+  // Backup & restore: one .oto file. With a backup password the WHOLE file is encrypted (AES-256-GCM, key from
+  // scrypt) and saved passwords are included. Without one, Oto warns first: history, tabs, bookmarks and settings
+  // are readable by anyone who opens the file, and saved passwords are left out.
+  const crypto = require('crypto');
+  const bkKey = (pass, salt) => crypto.scryptSync(String(pass), salt, 32, { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
+  const bkSummary = (st, nPw, extra = {}) => ({ ok: true, spaces: (st.workspaces || []).length, tabs: (st.tabs || []).length, bookmarks: JSON.stringify(st.bookmarks || []).split('"url"').length - 1, passwords: nPw, ...extra });
   ipcMain.handle('backup:save', async (e, state, pass) => {
+    if (!state || typeof state !== 'object') return { ok: false };
+    pass = typeof pass === 'string' && pass ? pass : null;
+    if (!pass) {
+      const c = await dialog.showMessageBox(winOf(e), {
+        type: 'warning', buttons: ['Cancel', 'Save without encryption'], defaultId: 0, cancelId: 0, noLink: true, title: 'Unencrypted backup',
+        message: 'Save this backup without a password?',
+        detail: 'Anyone who opens the file can read your history, open tabs, bookmarks and settings. Saved passwords are left out.\n\nType a backup password first to encrypt the whole file (and include your saved passwords).',
+      });
+      if (c.response !== 1) return { ok: false };
+    }
     const day = new Date().toISOString().slice(0, 10);
     const r = await dialog.showSaveDialog(winOf(e), { defaultPath: path.join(app.getPath('documents'), `Oto-backup-${day}.oto`), filters: [{ name: 'Oto backup', extensions: ['oto'] }] });
     if (r.canceled || !r.filePath) return { ok: false };
-    const out = { oto: 'backup', v: 1, created: Date.now(), version: OTO_VERSION, state };
-    if (pass && pwOk() === true) {
-      const crypto = require('crypto');
-      const list = pwLoad().entries.map((en) => ({ origin: en.origin, username: en.username, password: pwDec(en) }));
+    let out, nPw = 0;
+    if (pass) {
+      const passwords = pwOk() === true ? pwLoad().entries.map((en) => ({ origin: en.origin, username: en.username, password: pwDec(en) })).filter((x) => x.password) : [];
+      nPw = passwords.length;
       const salt = crypto.randomBytes(16), iv = crypto.randomBytes(12);
-      const key = crypto.scryptSync(String(pass), salt, 32);
-      const c = crypto.createCipheriv('aes-256-gcm', key, iv);
-      const data = Buffer.concat([c.update(JSON.stringify(list), 'utf8'), c.final()]);
-      out.passwords = { n: list.length, salt: salt.toString('base64'), iv: iv.toString('base64'), tag: c.getAuthTag().toString('base64'), data: data.toString('base64') };
-    }
+      const c = crypto.createCipheriv('aes-256-gcm', bkKey(pass, salt), iv);
+      const data = Buffer.concat([c.update(JSON.stringify({ state, passwords }), 'utf8'), c.final()]);
+      out = { oto: 'backup', v: 2, created: Date.now(), version: OTO_VERSION, enc: { salt: salt.toString('base64'), iv: iv.toString('base64'), tag: c.getAuthTag().toString('base64'), data: data.toString('base64') } };
+    } else out = { oto: 'backup', v: 1, created: Date.now(), version: OTO_VERSION, state };
     const txt = JSON.stringify(out);
     fs.writeFileSync(r.filePath, txt);
-    return { ok: true, path: r.filePath, size: txt.length, passwords: out.passwords ? out.passwords.n : 0 };
+    return { ok: true, path: r.filePath, size: txt.length, passwords: nPw, encrypted: !!pass };
   });
   let pendingBackup = null;
   ipcMain.handle('backup:open', async (e) => {
+    pendingBackup = null;
     const r = await dialog.showOpenDialog(winOf(e), { properties: ['openFile'], filters: [{ name: 'Oto backup', extensions: ['oto'] }] });
     if (r.canceled || !r.filePaths[0]) return { ok: false };
     try {
+      if (fs.statSync(r.filePaths[0]).size > 200 * 1024 * 1024) return { ok: false, error: 'That file is too big to be an Oto backup.' };
       const d = JSON.parse(fs.readFileSync(r.filePaths[0], 'utf8'));
-      if (d.oto !== 'backup' || !d.state) return { ok: false, error: 'This isn’t an Oto backup file.' };
+      if (d.oto !== 'backup' || !(d.state || d.enc)) return { ok: false, error: 'This isn’t an Oto backup file.' };
       pendingBackup = d;
-      const st = d.state;
-      return { ok: true, created: d.created, version: d.version, spaces: (st.workspaces || []).length, tabs: (st.tabs || []).length, bookmarks: JSON.stringify(st.bookmarks || []).split('"url"').length - 1, passwords: d.passwords ? d.passwords.n : 0 };
+      if (d.enc) return { ok: true, locked: true, created: d.created, version: d.version };
+      return bkSummary(d.state, d.passwords ? d.passwords.n : 0, { created: d.created, version: d.version });
     } catch { return { ok: false, error: 'Couldn’t read that file.' }; }
+  });
+  // Encrypted (v2) backups: unlock with the backup password to see what's inside before restoring.
+  ipcMain.handle('backup:unlock', async (_e, pass) => {
+    const d = pendingBackup;
+    if (!d || !d.enc) return { ok: false };
+    try {
+      const p = d.enc;
+      const dc = crypto.createDecipheriv('aes-256-gcm', bkKey(pass, Buffer.from(p.salt, 'base64')), Buffer.from(p.iv, 'base64'));
+      dc.setAuthTag(Buffer.from(p.tag, 'base64'));
+      const inner = JSON.parse(Buffer.concat([dc.update(Buffer.from(p.data, 'base64')), dc.final()]).toString('utf8'));
+      if (!inner || typeof inner.state !== 'object') throw new Error('format');
+      pendingBackup = { oto: 'backup', v: 2, created: d.created, version: d.version, state: inner.state, pwList: Array.isArray(inner.passwords) ? inner.passwords : [] };
+      return bkSummary(inner.state, pendingBackup.pwList.length, { created: d.created, version: d.version });
+    } catch { return { ok: false, error: 'Wrong backup password.' }; }
   });
   ipcMain.handle('backup:restore', async (_e, pass) => {
     const d = pendingBackup;
-    if (!d) return { ok: false };
-    let pw = 0;
-    if (d.passwords && pass) {
+    if (!d || !d.state) return { ok: false };
+    let list = d.pwList || null;
+    if (!list && d.passwords && pass) { // v1 backups: only the passwords part was encrypted
       try {
-        const crypto = require('crypto');
         const p = d.passwords;
-        const key = crypto.scryptSync(String(pass), Buffer.from(p.salt, 'base64'), 32);
-        const dc = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(p.iv, 'base64'));
+        const dc = crypto.createDecipheriv('aes-256-gcm', crypto.scryptSync(String(pass), Buffer.from(p.salt, 'base64'), 32), Buffer.from(p.iv, 'base64'));
         dc.setAuthTag(Buffer.from(p.tag, 'base64'));
-        const list = JSON.parse(Buffer.concat([dc.update(Buffer.from(p.data, 'base64')), dc.final()]).toString('utf8'));
-        for (const en of list) if (en.origin && en.password) { pwUpsert(en.origin, en.username || '', en.password); pw++; }
+        list = JSON.parse(Buffer.concat([dc.update(Buffer.from(p.data, 'base64')), dc.final()]).toString('utf8'));
       } catch { return { ok: false, error: 'Wrong backup password.' }; }
     }
+    let pw = 0;
+    for (const en of list || []) if (en && en.origin && en.password && ['saved', 'updated', 'same'].includes(pwUpsert(en.origin, en.username || '', en.password))) pw++;
     restoringBackup = true;
     writeJSON('state.json', d.state);
     setTimeout(() => { app.relaunch(); app.quit(); }, 400);
@@ -871,14 +946,15 @@ function setupIPC(ses) {
     } catch {}
     return [];
   });
-  ipcMain.handle('blocker:set', async (_e, on) => (on ? enableBlocking(ses) : disableBlocking(ses)));
+  // Shield on/off applies to every session at once (main, every Space, Avocado), not just the main one.
+  ipcMain.handle('blocker:set', async (_e, on) => { let mode = 'off'; for (const x of liveSessions()) mode = on ? await enableBlocking(x) : disableBlocking(x); return mode; });
   SH.setupShieldIPC();
   ipcMain.on('screen:reply', (_e, id, sourceId, audio) => {
     const p = screenPicks.get(id);
     if (!p) return;
-    screenPicks.delete(id); clearTimeout(p.timer);
-    const src = sourceId && p.sources.find((s) => s.id === sourceId);
-    if (!src) return p.callback({});
+    screenPicks.delete(id); clearTimeout(p.timer); p.cleanup();
+    const src = typeof sourceId === 'string' && p.sources.find((s) => s.id === sourceId);
+    if (!src || !p.stillThere()) return p.callback(null);
     p.callback(audio && process.platform === 'win32' ? { video: src, audio: 'loopback' } : { video: src });
   });
   ipcMain.on('perm:reply', (_e, id, allow) => {
@@ -939,7 +1015,7 @@ function setupIPC(ses) {
       if (!(`${origin}|${other}` in perms)) perms[`${origin}|${other}`] = old;
     }
     savePerms();
-    if (perm === 'cookies' && val === false && origin !== '*') { try { await session.fromPartition(PARTITION).clearStorageData({ origin, storages: ['cookies'] }); } catch {} }
+    if (perm === 'cookies' && val === false && origin !== '*') await eachBrowsingSession((ses) => ses.clearStorageData({ origin, storages: ['cookies'] }));
     return perms;
   });
   // page-preload.js asks this once per page: should media wait for a click, and may this frame write cookies?
@@ -970,7 +1046,7 @@ function setupIPC(ses) {
   ipcMain.handle('site:clear', async (_e, origin) => {
     try {
       const o = new URL(origin).origin;
-      await session.fromPartition(PARTITION).clearStorageData({ origin: o });
+      await eachBrowsingSession((ses) => ses.clearStorageData({ origin: o })); // every Space, not just the main one
       for (const k of Object.keys(perms)) if (k.startsWith(`${o}|`)) delete perms[k];
       savePerms();
       return true;
@@ -998,8 +1074,7 @@ function setupIPC(ses) {
     return 'set';
   });
   ipcMain.handle('data:clear', async () => {
-    await ses.clearStorageData();
-    await ses.clearCache();
+    await eachBrowsingSession((x) => Promise.all([x.clearStorageData(), x.clearCache()])); // every Space too
     perms = {};
     savePerms();
     return true;
@@ -1039,7 +1114,7 @@ ipcMain.handle('drm:install', async () => {
   try { drmState.status = ecs.status(); } catch {}
   return drmState;
 });
-const { pwOk, pwLoad, pwDec, pwUpsert, setupPasswordIPC } = require('./main/passwords.js')(CTX);
+const { pwOk, pwLoad, pwDec, pwUpsert, pwSyncExport, pwSyncMerge, setupPasswordIPC } = require('./main/passwords.js')(CTX);
 
 // ---------------------------------------------------------------- window buttons
 function setupWindowIPC() {
@@ -1092,7 +1167,7 @@ if (!app.requestSingleInstanceLock()) {
     setupExtensionIPC(ses);
     setupBookmarkIPC();
     setupPasswordIPC();
-    ACCOUNT = require('./account.js')({ ipcMain, app, safeStorage, net, powerMonitor, readJSON, writeJSON, send, pwLoad, pwDec, pwUpsert, OTO_VERSION });
+    ACCOUNT = require('./account.js')({ ipcMain, app, safeStorage, net, readJSON, writeJSON, send, pwSyncExport, pwSyncMerge, OTO_VERSION });
     setupWindowIPC();
     initExtensionAPI(ses);
     createWindow();
@@ -1115,9 +1190,8 @@ if (!app.requestSingleInstanceLock()) {
     e.preventDefault();
     cleared = true;
     SH.flushStats();
-    const ses = session.fromPartition(PARTITION);
     Promise.race([
-      prefs.clearOnExit ? Promise.all([ses.clearStorageData(), ses.clearCache()]) : Promise.all(sessionSites.map((origin) => ses.clearStorageData({ origin }).catch(() => {}))),
+      eachBrowsingSession((ses) => (prefs.clearOnExit ? Promise.all([ses.clearStorageData(), ses.clearCache()]) : Promise.all(sessionSites.map((origin) => ses.clearStorageData({ origin }).catch(() => {}))))),
       new Promise((r) => setTimeout(r, 3000)),
     ]).finally(() => app.quit());
   });

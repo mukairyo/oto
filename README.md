@@ -40,7 +40,7 @@ Everything is dressed in one calm look: near-black, cream, thin lines, quiet typ
 **Windows**
 
 1. **[Download Oto-Setup-x.y.z.exe](https://github.com/mukairyo/oto/releases/latest)** and run it.
-2. Windows SmartScreen may say the app is unrecognised (Oto isn't code-signed yet). Click **More info → Run anyway**.
+2. Windows SmartScreen may say the app is unrecognised (Oto isn't code-signed yet). To be sure the file is the real one, compare it with `SHA256SUMS.txt` on the release page, or run `gh attestation verify Oto-Setup-x.y.z.exe --repo mukairyo/oto`. Then click **More info → Run anyway**.
 3. A two-minute setup lets you bring your bookmarks from another browser and pick your layout, speed and privacy. Or sign in to your Oto account to get everything back.
 
 New versions download by themselves. You'll see a small card in the sidebar: **Restart now**.
@@ -170,7 +170,10 @@ Android: bump `android/VERSION` on the `android` branch. The APK is signed with 
 
 ## Known limits
 
+Oto is **beta**, made by one developer. See **[SECURITY.md](SECURITY.md)** for how it protects you and what it doesn't yet, and **[PRIVACY.md](PRIVACY.md)** for exactly what leaves your PC. Found a security problem? [Report it privately](https://github.com/mukairyo/oto/security/advisories/new).
+
 - Google sometimes blocks sign-in from Chromium-based apps it doesn't recognise ("This browser or app may not be secure"). Oto works around it, but it can still happen.
-- Not code-signed yet, so Windows SmartScreen shows a warning the first time.
+- Not code-signed yet, so Windows SmartScreen shows a warning the first time (check the checksum or attestation instead).
+- Fingerprint protection makes tracking harder; it doesn't make you anonymous.
 
 <p align="center"><br><img src="docs/oto1-logo.png" width="64" alt=""><br><sub>音 &nbsp;Oto — made by <a href="https://github.com/mukairyo">mukairyo</a></sub></p>

@@ -98,7 +98,7 @@ function v1NewTab() {
       h('span', { class: 'tx' }, h('b', {}, it.t || host), h('small', {}, `${host} · ${ago}`)));
   }));
   const s = $('#emptySearch');
-  if (s && !s.querySelector('.v1-eng')) s.querySelector('kbd').before(h('span', { class: 'v1-eng', html: `${icon('globe')}<span>${v1EngineName()}</span>` }));
+  if (s && !s.querySelector('.v1-eng')) s.querySelector('kbd').before(h('span', { class: 'v1-eng', html: `${icon('globe')}<span>${escHtml(v1EngineName())}</span>` }));
 }
 function v1EngineName() {
   try { const e = currentEngine(); return (e && (e.name || e.label)) || 'Search'; } catch { return 'Search'; }
@@ -813,7 +813,7 @@ function v1NotFoundBar(v, t) {
   const old = $('#v1Nf'); if (old) old.remove();
   if (!v || !v.v1nf || v.v1nf !== t.url) return;
   let u; try { u = new URL(t.url); } catch { return; }
-  const bar = h('div', { id: 'v1Nf', class: 'v1-nf' }, h('span', { html: `${icon('search')}<span>This page doesn’t exist on <b>${u.hostname.replace(/^www\./, '')}</b></span>` }),
+  const bar = h('div', { id: 'v1Nf', class: 'v1-nf' }, h('span', { html: `${icon('search')}<span>This page doesn’t exist on <b>${escHtml(u.hostname.replace(/^www\./, ''))}</b></span>` }),
     h('button', { onclick: () => loadIn(t, `${u.origin}/`) }, 'Site home'),
     h('button', { onclick: () => openUrl(resolveInput(`${u.hostname} ${decodeURIComponent(u.pathname).replace(/[/_-]+/g, ' ').trim()}`).url) }, 'Search for it'),
     h('button', { class: 'x', html: icon('x'), onclick: () => { v.v1nf = null; bar.remove(); } }));

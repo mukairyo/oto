@@ -1,0 +1,13 @@
+# Weekly pull requests for outdated or vulnerable packages and GitHub Actions (each one runs the Checks workflow).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    ignore:
+      # castlabs Electron (Widevine build) is updated by hand / chromium-update.yml, not from npm
+      - dependency-name: electron
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

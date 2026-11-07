@@ -1,9 +1,9 @@
 'use strict';
-/* Oto v1 — Alpha 6: Oto Accounts (sign in + encrypted sync) and the PC lock. The network, encryption,
+/* Oto v1 — Alpha 6: Oto Accounts (sign in + encrypted sync). The network, encryption,
    tokens and passwords all live in the main process (account.js); this file is the UI and decides
    which parts of the state are synced. */
 
-const V1A = { st: null, form: 'signin', email: '', msg: '', err: '', busy: false, pushT: 0, peekT: 0, lockForm: null, pwForm: false, ask: null };
+const V1A = { st: null, form: 'signin', email: '', msg: '', err: '', busy: false, pushT: 0, peekT: 0, pwForm: false, ask: null };
 const V1_SYNC = [['settings', 'Settings & themes', 'All settings, your saved themes and shortcuts'], ['spaces', 'Bookmarks & spaces', 'Bookmarks, spaces, pinned tabs, folders and site notes'],
   ['card', 'Card, level & badges', 'Oto Card, XP, badges, cosmetics and music history'], ['passwords', 'Saved passwords', 'Encrypted on this PC before upload']];
 const V1_SYNC_SKIP = ['updateChannel', 'v1Sync', 'autoUpdate'];
@@ -295,110 +295,10 @@ function v1AccountPage() {
   return out;
 }
 
-// ================================================================ PC lock
-function v1LockSection() {
-  const L = (V1A.st && V1A.st.lock) || V1A.lock || {};
-  const f = V1A.lockForm;
-  if (f) {
-    let a = '', b = '', cur = '';
-    const isPin = f.kind === 'pin';
-    const attrs = isPin ? { inputmode: 'numeric', maxlength: 12, pattern: '[0-9]*' } : {};
-    return section(f.mode === 'remove' ? 'Remove the lock' : L.enabled ? 'Change the lock' : 'Set up a lock', h('div', { class: 'v1-acc-card form' },
-      f.mode !== 'remove' ? h('div', { class: 'seg' }, h('button', { class: isPin ? 'on' : '', onclick: () => { V1A.lockForm = { ...f, kind: 'pin' }; v1AccRender(); } }, 'PIN'), h('button', { class: isPin ? '' : 'on', onclick: () => { V1A.lockForm = { ...f, kind: 'password' }; v1AccRender(); } }, 'Password')) : null,
-      L.enabled ? v1Field('password', `Current ${L.kind === 'pin' ? 'PIN' : 'password'}`, '', (v) => { cur = v; }, L.kind === 'pin' ? { inputmode: 'numeric' } : {}) : null,
-      f.mode !== 'remove' ? v1Field('password', isPin ? 'New PIN (4–12 numbers)' : 'New password (6+ characters)', '', (v) => { a = v; }, attrs) : null,
-      f.mode !== 'remove' ? v1Field('password', isPin ? 'Type the PIN again' : 'Type the password again', '', (v) => { b = v; }, attrs) : null,
-      h('div', { class: 'v1-acc-btns' },
-        h('button', { class: `btn ${f.mode === 'remove' ? 'danger' : 'primary'}`, onclick: async () => {
-          let r;
-          if (f.mode === 'remove') r = await oto.lock.remove(cur);
-          else if (a !== b) r = { ok: false, error: isPin ? 'The PINs don’t match.' : 'The passwords don’t match.' };
-          else r = await oto.lock.set(a, f.kind, cur);
-          if (!r.ok) { V1A.err = r.error; return v1AccRender(); }
-          V1A.lockForm = null; V1A.err = ''; V1A.st = await oto.account.status();
-          toast(f.mode === 'remove' ? 'Lock removed' : 'Lock is on 🔒 — Oto asks for it when it starts', { icon: 'check', timeout: 2600 }); v1AccRender();
-        } }, f.mode === 'remove' ? 'Remove lock' : 'Save'),
-        h('button', { class: 'btn', onclick: () => { V1A.lockForm = null; V1A.err = ''; v1AccRender(); } }, 'Cancel')),
-      V1A.err ? h('p', { class: 'v1-acc-err' }, V1A.err) : null));
-  }
-  if (!L.enabled) {
-    return section('PC lock', row('Lock Oto with a PIN or password', 'Asked when Oto starts, after you’ve been away, and before showing saved passwords. Nothing leaves this PC.', h('button', { class: 'btn primary', onclick: () => { V1A.lockForm = { mode: 'set', kind: 'pin' }; V1A.err = ''; v1AccRender(); } }, 'Set up…')));
-  }
-  const opt = async (o, cur) => { const r = await oto.lock.options(cur, o); if (!r.ok && r.error) toast(r.error, { timeout: 1800 }); V1A.st = await oto.account.status(); v1AccRender(); };
-  return section('PC lock',
-    row('Lock now', 'Shortcut: Ctrl + Alt + L', h('button', { class: 'btn', onclick: () => oto.lock.now() }, '🔒 Lock')),
-    row('Lock after I’m away', 'When the PC has had no mouse or keyboard for this long.', h('div', { class: 'seg' }, ...[[0, 'Off'], [5, '5 min'], [15, '15 min'], [30, '30 min'], [60, '1 hour']].map(([v, l]) => h('button', { class: (L.idle || 0) === v ? 'on' : '', onclick: () => opt({ idle: v }) }, l)))),
-    row('Lock when Windows locks or sleeps', '', h('button', { class: `switch${L.onSleep ? ' on' : ''}`, role: 'switch', onclick: () => opt({ onSleep: !L.onSleep }) })),
-    row('Ask before showing a saved password', 'Showing, copying or exporting a password needs your PIN (once a minute).', h('button', { class: `switch${L.reveal ? ' on' : ''}`, role: 'switch', onclick: async () => { if (L.reveal) { const s = await v1AskSecret('Turn off the password check', L.kind); if (s == null) return; opt({ reveal: false }, s); } else opt({ reveal: true }); } })),
-    row(`Change ${L.kind === 'pin' ? 'PIN' : 'password'}`, '', h('div', { style: 'display:flex;gap:6px' }, h('button', { class: 'btn', onclick: () => { V1A.lockForm = { mode: 'set', kind: L.kind }; V1A.err = ''; v1AccRender(); } }, 'Change…'), h('button', { class: 'btn danger', onclick: () => { V1A.lockForm = { mode: 'remove', kind: L.kind }; V1A.err = ''; v1AccRender(); } }, 'Remove'))));
-}
-// small PIN prompt (used before showing a password)
-function v1AskSecret(title, kind = 'pin') {
-  return new Promise((resolve) => {
-    v1ClosePop();
-    const layer = v1Layer(() => { v1ClosePop(); resolve(null); }); v1Pop = layer;
-    const inp = h('input', { class: 'text v1-in big', type: 'password', placeholder: kind === 'pin' ? 'PIN' : 'Password', ...(kind === 'pin' ? { inputmode: 'numeric' } : {}) });
-    const done = () => { const v = inp.value; v1ClosePop(); resolve(v); };
-    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(); });
-    layer.append(h('div', { class: 'v1-pop v1-pin' }, h('div', { class: 'ic', html: icon('key') }), h('b', {}, title), inp,
-      h('div', { class: 'v1-acc-btns' }, h('button', { class: 'btn', onclick: () => { v1ClosePop(); resolve(null); } }, 'Cancel'), h('button', { class: 'btn primary', onclick: done }, 'OK'))));
-    setTimeout(() => inp.focus(), 30);
-  });
-}
+// Shows a saved password in the Library (the PC lock that used to guard this was removed in owner.16).
 async function v1PwGet(id) {
-  let c = await oto.pwGet(id, 'reveal');
-  if (c && c.needPin) {
-    const L = (V1A.st && V1A.st.lock) || {};
-    for (let i = 0; i < 3; i++) {
-      const s = await v1AskSecret('Type your PIN to see this password', L.kind);
-      if (s == null) return null;
-      const r = await oto.lock.verify(s);
-      if (r.ok) { c = await oto.pwGet(id, 'reveal'); break; }
-      toast(r.wait ? `Too many tries — wait ${r.wait} s` : 'Wrong PIN', { timeout: 1600 });
-      if (r.wait) return null;
-    }
-  }
+  const c = await oto.pwGet(id, 'reveal');
   return c && !c.needPin ? c : null;
-}
-
-// the lock screen
-const V1LK = { el: null, muted: [] };
-function v1ShowLock(L) {
-  if (V1LK.el) return;
-  document.body.classList.add('v1-locked');
-  for (const [id, v] of V) if (!v.muted) { v.muted = true; wv(v, (w) => w.setAudioMuted(true)); V1LK.muted.push(id); }
-  try { v1ClosePop(); } catch {}
-  const th = themeOf(currentWs());
-  const isPin = (L && L.kind) !== 'password';
-  const inp = h('input', { class: 'pin', type: 'password', placeholder: isPin ? 'PIN' : 'Password', autocomplete: 'off', ...(isPin ? { inputmode: 'numeric', maxlength: 12 } : {}) });
-  const err = h('div', { class: 'err' });
-  const clock = h('div', { class: 'clk' });
-  const tick = () => { const d = new Date(); clock.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
-  tick(); const ti = setInterval(tick, 10000);
-  const go = async () => {
-    const r = await oto.lock.unlock(inp.value);
-    if (r.ok) { clearInterval(ti); v1HideLock(); return; }
-    inp.value = ''; V1LK.el.querySelector('.box').classList.remove('shake'); void V1LK.el.offsetWidth; V1LK.el.querySelector('.box').classList.add('shake');
-    err.textContent = r.wait ? `Too many tries — wait ${r.wait > 90 ? `${Math.ceil(r.wait / 60)} min` : `${r.wait} s`}` : `Wrong ${isPin ? 'PIN' : 'password'}`;
-  };
-  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
-  V1LK.el = h('div', { class: 'v1-lock', style: `--g:linear-gradient(135deg, ${th.colors.join(', ')})` },
-    h('div', { class: 'box' },
-      h('div', { class: 'mk', html: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M44.5 15.2 A21 21 0 1 0 49.6 21.3"/><g transform="translate(32 32) scale(.84) translate(-32 -32)"><path d="M32 32 C28.5 26.5 24.5 24.5 20.8 24.5 C16.7 24.5 13.6 27.8 13.6 32 C13.6 36.2 16.7 39.5 20.8 39.5 C24.5 39.5 28.5 37.5 32 32 C35.5 26.5 39.5 24.5 43.2 24.5 C47.3 24.5 50.4 27.8 50.4 32 C50.4 36.2 47.3 39.5 43.2 39.5 C39.5 39.5 35.5 37.5 32 32 Z"/></g></svg>' }),
-      clock, h('p', {}, 'Oto is locked'), h('div', { class: 'row' }, inp, h('button', { class: 'go', title: 'Unlock', onclick: go }, '→')), err));
-  V1LK.el.addEventListener('keydown', (e) => e.stopPropagation());
-  document.body.append(V1LK.el);
-  setTimeout(() => inp.focus(), 50);
-}
-function v1HideLock() {
-  if (!V1LK.el) return;
-  V1LK.el.classList.add('out');
-  const el = V1LK.el; V1LK.el = null;
-  setTimeout(() => el.remove(), 260);
-  document.body.classList.remove('v1-locked');
-  for (const id of V1LK.muted) { const v = V.get(id); if (v) { v.muted = false; wv(v, (w) => w.setAudioMuted(false)); } }
-  V1LK.muted = [];
-  try { render(); } catch {}
 }
 
 // ================================================================ init
@@ -429,8 +329,6 @@ async function initV1f() {
   };
   oto.drmStatus().then((d) => { V1A.drm = d; }).catch(() => {});
   ACTIONS.push({ name: 'Oto Account & sync', kw: 'login sign in account sync cloud save data', icon: 'key', run: () => openSettings('account') });
-  // block every command while locked
-  for (const k of Object.keys(CMDS)) { const f = CMDS[k]; CMDS[k] = function () { if (document.body.classList.contains('v1-locked')) return; return f.apply(this, arguments); }; }
   // Widevine (protected content) finished installing after Oto opened: offer to reload a streaming tab
   oto.on('drm:ready', () => {
     const t = activeTab();
@@ -438,9 +336,8 @@ async function initV1f() {
       toast('Protected content is ready — reload to play', { icon: 'reload', timeout: 8000, action: { label: 'Reload', run: () => { const v = activeView(); if (v) wv(v, (w) => w.reload()); } } });
     }
   });
-  oto.on('lock:state', (L) => { if (V1A.st) V1A.st.lock = L; v1HideLock(); });
   oto.on('account:status', (st) => { const was = V1A.st && V1A.st.signedIn; V1A.st = st; if (was !== st.signedIn) v1AccRender(); });
-  try { V1A.st = await oto.account.status(); } catch { V1A.st = { configured: false, lock: {} }; }
+  try { V1A.st = await oto.account.status(); } catch { V1A.st = { configured: false }; }
   V1A.email = V1A.st.email || '';
   // auto sync: push ~20 s after changes, check the cloud at start and every 5 minutes
   const _save = save;

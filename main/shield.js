@@ -8,7 +8,7 @@ module.exports = function createShield(ctx) {
   const { readJSON, writeJSON, userFile, sendVia } = ctx;
 
   let blocker = null;
-  let fallbackOn = false;
+  const fallbackSessions = new WeakSet(); // sessions using the small built-in list (each session has its own)
   let blockingMode = 'off';
   const pendingBlocked = new Map();
   let blockedFlush = null;
@@ -86,7 +86,7 @@ module.exports = function createShield(ctx) {
       }
       cb({});
     });
-    fallbackOn = true;
+    fallbackSessions.add(ses);
   }
 
   // ---------------------------------------------------------------- Oto Shield (uBlock-style controls)
@@ -181,7 +181,7 @@ module.exports = function createShield(ctx) {
   async function enableBlocking(ses) {
     blockerSessions.add(ses);
     if (!blocker && blockerP) { try { await blockerP; } catch {} }
-    if (blocker) { blocker.enableBlockingInSession(ses); return (blockingMode = 'full'); }
+    if (blocker) { if (fallbackSessions.has(ses)) { ses.webRequest.onBeforeRequest(null); fallbackSessions.delete(ses); } if (!blocker.isBlockingEnabled(ses)) blocker.enableBlockingInSession(ses); return (blockingMode = 'full'); }
     try {
       blockerP = (async () => {
         const { ElectronBlocker } = require('@ghostery/adblocker-electron');
@@ -199,12 +199,12 @@ module.exports = function createShield(ctx) {
       blocker = await blockerP;
       SHIELD.applied = [];
       shieldApplyCustom();
-      if (fallbackOn) { ses.webRequest.onBeforeRequest(null); fallbackOn = false; }
-      blocker.enableBlockingInSession(ses);
+      for (const x of blockerSessions) if (fallbackSessions.has(x)) { x.webRequest.onBeforeRequest(null); fallbackSessions.delete(x); }
+      for (const x of blockerSessions) { try { if (!blocker.isBlockingEnabled(x)) blocker.enableBlockingInSession(x); } catch {} }
       return (blockingMode = 'full');
     } catch (err) {
       console.warn('[oto] full blocker unavailable, using built-in list:', err && err.message);
-      if (!fallbackOn) enableFallback(ses);
+      if (!fallbackSessions.has(ses)) enableFallback(ses);
       return (blockingMode = 'basic');
     } finally { blockerP = null; }
   }
@@ -218,7 +218,8 @@ module.exports = function createShield(ctx) {
 
   function disableBlocking(ses) {
     if (blocker && blocker.isBlockingEnabled(ses)) blocker.disableBlockingInSession(ses);
-    if (fallbackOn) { ses.webRequest.onBeforeRequest(null); fallbackOn = false; }
+    blockerSessions.delete(ses);
+    if (fallbackSessions.has(ses)) { ses.webRequest.onBeforeRequest(null); fallbackSessions.delete(ses); }
     ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, dangerOnly); // dangerous-site warnings stay on with blocking off
     blockingMode = 'off';
     return blockingMode;

@@ -1,14 +1,10 @@
 'use strict';
-// Oto Accounts (Supabase) + the PC lock. Runs in the main process.
+// Oto Accounts (Supabase). Runs in the main process.
 //
 // Privacy: everything is encrypted on this PC (AES-256-GCM, key = scrypt of your account password +
 // a random salt) before it goes to Supabase, so the server only ever stores scrambled data. The
 // derived key and the login tokens are kept locally with Windows' own encryption (safeStorage/DPAPI).
 // Passwords are handled only here in the main process — the UI never receives them during sync.
-//
-// The PC lock is a PIN or password (scrypt hash). While Oto is locked the UI is covered, pages are
-// hidden and muted, and saved passwords / sync refuse to work. Showing or copying a saved password
-// asks for it again.
 
 const crypto = require('crypto');
 
@@ -18,16 +14,25 @@ const SUPABASE_URL = process.env.OTO_SUPABASE_URL || 'https://lshiexrntuvueizntv
 const SUPABASE_KEY = process.env.OTO_SUPABASE_KEY || 'sb_publishable__7WNQA_K0zOmZfFDaSnhNw_4Kebnwtd';
 
 module.exports = function setupAccount(ctx) {
-  const { ipcMain, app, safeStorage, net, powerMonitor, readJSON, writeJSON, send, pwLoad, pwDec, pwUpsert, OTO_VERSION } = ctx;
+  const { ipcMain, app, safeStorage, net, readJSON, writeJSON, send, pwSyncExport, pwSyncMerge, OTO_VERSION } = ctx;
   const configured = () => !!(SUPABASE_URL && SUPABASE_KEY);
   const canSeal = () => { try { return safeStorage.isEncryptionAvailable(); } catch { return false; } };
-  const seal = (s) => (canSeal() ? { e: safeStorage.encryptString(String(s)).toString('base64') } : { p: Buffer.from(String(s)).toString('base64') });
-  const unseal = (o) => { try { if (!o) return null; if (o.e) return safeStorage.decryptString(Buffer.from(o.e, 'base64')); if (o.p) return Buffer.from(o.p, 'base64').toString(); } catch {} return null; };
+  // Login tokens, the sync key and a pending password are only written to disk encrypted by Windows (DPAPI).
+  // If Windows can't encrypt (rare), they stay in memory for this session only: you're signed in until Oto
+  // closes, and nothing readable is left on disk. ({ p: … } is the old readable format, only read to migrate.)
+  const MEM = new Map();
+  const seal = (s) => {
+    if (canSeal()) return { e: safeStorage.encryptString(String(s)).toString('base64') };
+    const m = crypto.randomBytes(9).toString('hex'); MEM.set(m, String(s)); return { m };
+  };
+  const unseal = (o) => { try { if (!o) return null; if (o.e) return safeStorage.decryptString(Buffer.from(o.e, 'base64')); if (o.m) return MEM.has(o.m) ? MEM.get(o.m) : null; if (o.p) return Buffer.from(o.p, 'base64').toString(); } catch {} return null; };
   const device = () => { try { return require('os').hostname().slice(0, 40); } catch { return 'PC'; } };
 
   // ------------------------------------------------------------ account file
   let A = readJSON('account.json', null) || {};
   const saveA = () => { try { writeJSON('account.json', A); } catch {} };
+  // Older versions could save these readable (Base64) when encryption was unavailable: re-protect them now.
+  { let moved = false; for (const k of ['access', 'refresh', 'key', 'pendingPw']) if (A[k] && A[k].p) { const v = unseal(A[k]); if (v == null) delete A[k]; else A[k] = seal(v); moved = true; } if (moved) saveA(); }
   // Signed in = tokens AND the data key (the key comes from your password; without it sync can't work).
   const signedIn = () => !!(A.userId && A.refresh && A.key);
   const status = () => ({
@@ -112,20 +117,7 @@ module.exports = function setupAccount(ctx) {
   }
 
   // ------------------------------------------------------------ passwords in the sync payload
-  const pwExport = () => pwLoad().entries.map((e) => ({ o: e.origin, u: e.username, p: pwDec(e), up: e.updated || e.created || 0 })).filter((e) => e.p);
-  function pwMerge(list) {
-    let n = 0;
-    const local = pwLoad().entries;
-    for (const r of list || []) {
-      if (!r || !r.o || !r.p) continue;
-      const ex = local.find((e) => e.origin === r.o && e.username === r.u);
-      if (ex && (ex.updated || 0) >= (r.up || 0)) continue;
-      const res = pwUpsert(r.o, r.u || '', r.p);
-      if (res !== 'same') n++;
-    }
-    return n;
-  }
-
+  // Passwords (and markers for deleted ones) are packed and merged by main/passwords.js.
   // ------------------------------------------------------------ sign up / in / out
   async function afterAuth(password) {
     const row = await getRow();
@@ -270,12 +262,13 @@ module.exports = function setupAccount(ctx) {
   // ------------------------------------------------------------ push / pull
   // push: the UI sends its sections (settings, themes, spaces, bookmarks, card); passwords are added here.
   ipcMain.handle('account:push', async (_e, sections, summary) => {
-    if (lockLocked) return { ok: false, error: 'Oto is locked' };
     if (!signedIn() || !dataKey()) { tell(); return { ok: false, error: 'Please sign in again', code: 'auth' }; }
     return queue(async () => {
     busy = 'push'; tell();
     try {
-      const payload = { v: 1, at: Date.now(), app: OTO_VERSION, device: device(), summary, sections, passwords: (sections && sections._pw === false) ? undefined : pwExport() };
+      const pwOn = !(sections && sections._pw === false);
+      const pw = pwOn ? pwSyncExport() : null;
+      const payload = { v: 1, at: Date.now(), app: OTO_VERSION, device: device(), summary, sections, passwords: pw ? pw.entries : undefined, pwDeleted: pw ? pw.deleted : undefined };
       if (payload.sections) delete payload.sections._pw;
       await putRow(encrypt(payload, dataKey()), A.salt);
       A.lastSync = payload.at; A.lastRemote = payload.at; lastError = ''; saveA();
@@ -285,7 +278,6 @@ module.exports = function setupAccount(ctx) {
   });
   // pull: returns the sections to the UI; passwords are merged straight into this PC's password store.
   ipcMain.handle('account:pull', async (_e, { passwords = true } = {}) => {
-    if (lockLocked) return { ok: false, error: 'Oto is locked' };
     if (!signedIn() || !dataKey()) { tell(); return { ok: false, error: 'Please sign in again', code: 'auth' }; }
     return queue(async () => {
     busy = 'pull'; tell();
@@ -293,7 +285,7 @@ module.exports = function setupAccount(ctx) {
       const row = await getRow();
       if (!row) { lastError = ''; return { ok: true, empty: true }; }
       const payload = decrypt(row.blob, dataKey());
-      const pw = passwords ? pwMerge(payload.passwords) : 0;
+      const pw = passwords ? pwSyncMerge(payload.passwords, payload.pwDeleted) : 0;
       A.lastRemote = payload.at || Date.parse(row.updated_at); A.lastSync = Date.now(); lastError = ''; saveA();
       return { ok: true, at: A.lastRemote, device: payload.device, sections: payload.sections || {}, passwords: pw };
     } catch (e) { lastError = e.message === 'format' ? 'Couldn’t read your cloud data' : e.message; return { ok: false, error: lastError, code: e.code }; } finally { busy = null; tell(); }
@@ -362,69 +354,15 @@ module.exports = function setupAccount(ctx) {
     catch (e) { return devErr(e); }
   });
 
-  // ------------------------------------------------------------ the PC lock
-  // The PC lock was removed (owner.16): any saved lock is cleared and Oto never locks.
-  const LOCK_REMOVED = true;
+  // ------------------------------------------------------------ the PC lock (removed)
+  // The PC lock was removed in owner.16. It is NOT a barrier any more: a saved lock file from an older version is
+  // deleted, and nothing in Oto offers or claims it. Use Windows' own sign-in to keep others out of your PC.
   try { require('fs').unlinkSync(require('path').join(app.getPath('userData'), 'lock.json')); } catch {}
-  let L = {};
-  let lockLocked = false;
-  let revealUntil = 0;
-  const lockTries = { n: 0, until: 0 };
-  const saveL = () => { try { writeJSON('lock.json', L); } catch {} };
-  const lockHash = (secret, salt) => crypto.scryptSync(String(secret), Buffer.from(salt, 'base64'), 32, { N: 1 << 14 }).toString('base64');
-  function lockCheck(secret) {
-    if (!L.hash) return true;
-    const now = Date.now();
-    if (now < lockTries.until) return { wait: Math.ceil((lockTries.until - now) / 1000) };
-    const a = Buffer.from(lockHash(secret, L.salt), 'base64'), b = Buffer.from(L.hash, 'base64');
-    if (a.length === b.length && crypto.timingSafeEqual(a, b)) { lockTries.n = 0; return true; }
-    lockTries.n++;
-    if (lockTries.n >= 5) lockTries.until = now + Math.min(15 * 60e3, 30e3 * 2 ** (lockTries.n - 5));
-    return false;
-  }
-  function lockStatus() { return { enabled: !!L.hash, locked: lockLocked, kind: L.kind || 'pin', idle: L.idle || 0, onSleep: L.onSleep !== false, reveal: L.reveal !== false }; }
-  function lockNow() { if (!L.hash || lockLocked) return; lockLocked = true; send('lock:state', lockStatus()); }
+  function lockStatus() { return { enabled: false, locked: false }; }
   ipcMain.handle('lock:status', () => lockStatus());
-  ipcMain.handle('lock:set', (_e, secret, kind, current) => {
-    if (LOCK_REMOVED) return { ok: false, error: 'The PC lock was removed.' };
-    if (L.hash && lockCheck(current) !== true) return { ok: false, error: 'Your current PIN / password is wrong.' };
-    const s = String(secret || '');
-    if (kind === 'pin' ? !/^\d{4,12}$/.test(s) : s.length < 6) return { ok: false, error: kind === 'pin' ? 'Use 4 to 12 numbers.' : 'Use at least 6 characters.' };
-    const salt = crypto.randomBytes(16).toString('base64');
-    L = { ...L, hash: lockHash(s, salt), salt, kind: kind === 'pin' ? 'pin' : 'password' };
-    saveL(); lockLocked = false; return { ok: true, lock: lockStatus() };
-  });
-  ipcMain.handle('lock:options', (_e, current, opts = {}) => {
-    if (!L.hash) return { ok: false };
-    if ('idle' in opts) L.idle = Math.max(0, Math.min(240, +opts.idle || 0));
-    if ('onSleep' in opts) L.onSleep = !!opts.onSleep;
-    if ('reveal' in opts) { if (!opts.reveal && lockCheck(current) !== true) return { ok: false, error: 'Wrong PIN / password.' }; L.reveal = !!opts.reveal; }
-    saveL(); return { ok: true, lock: lockStatus() };
-  });
-  ipcMain.handle('lock:remove', (_e, current) => {
-    const r = lockCheck(current);
-    if (r !== true) return { ok: false, error: r && r.wait ? `Too many tries — wait ${r.wait} s.` : 'Wrong PIN / password.' };
-    L = {}; saveL(); lockLocked = false; send('lock:state', lockStatus()); return { ok: true };
-  });
-  ipcMain.handle('lock:unlock', (_e, secret) => {
-    const r = lockCheck(secret);
-    if (r !== true) return { ok: false, wait: r && r.wait };
-    lockLocked = false; revealUntil = Date.now() + 60000; send('lock:state', lockStatus()); return { ok: true };
-  });
-  ipcMain.handle('lock:verify', (_e, secret) => { const r = lockCheck(secret); if (r === true) { revealUntil = Date.now() + 60000; return { ok: true }; } return { ok: false, wait: r && r.wait }; });
-  ipcMain.on('lock:now', () => lockNow());
-  // auto-lock: after N idle minutes, and when Windows locks / the PC sleeps
-  setInterval(() => { try { if (L.hash && L.idle && !lockLocked && powerMonitor.getSystemIdleTime() >= L.idle * 60) lockNow(); } catch {} }, 20000);
-  try { powerMonitor.on('lock-screen', () => { if (L.onSleep !== false) lockNow(); }); powerMonitor.on('suspend', () => { if (L.onSleep !== false) lockNow(); }); } catch {}
 
   return {
     status,
-    // used by the password IPC: nothing while locked; showing/copying needs a fresh PIN when that's on
-    pwAllowed: (purpose) => {
-      if (!L.hash) return true;
-      if (lockLocked) return false;
-      if (purpose === 'reveal' && L.reveal !== false && Date.now() > revealUntil) return 'pin';
-      return true;
-    },
+    pwAllowed: () => true,
   };
 };
