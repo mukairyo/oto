@@ -77,6 +77,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bar: LinearLayout
     private lateinit var urlText: TextView
     private lateinit var urlEdit: EditText
+    private lateinit var pillRow: LinearLayout
+    private lateinit var pill: FrameLayout
     private lateinit var tabsBtn: TextView
     private lateinit var backBtn: TextView
     private lateinit var progressLine: View
@@ -273,8 +275,8 @@ class MainActivity : AppCompatActivity() {
         backBtn = iconBtn("←") { goBack() }
         bar.addView(backBtn)
 
-        val pill = FrameLayout(this).apply { background = box(0x08FFFFFF) }
-        val pillRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(px(12), 0, px(12), 0) }
+        pill = FrameLayout(this).apply { background = box(0x08FFFFFF) }
+        pillRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(px(12), 0, px(12), 0) }
         pillRow.addView(TextView(this).apply { text = "音"; textSize = 14f; setTextColor(FG); setPadding(0, 0, px(10), 0) })
         urlText = TextView(this).apply { textSize = 14f; setTextColor(FG2); maxLines = 1; ellipsize = TextUtils.TruncateAt.END; hint = "Search or enter address"; setHintTextColor(FG3) }
         pillRow.addView(urlText, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -282,7 +284,7 @@ class MainActivity : AppCompatActivity() {
         urlEdit = EditText(this).apply {
             visibility = View.GONE; textSize = 15f; setTextColor(FG); setHintTextColor(FG3); hint = "Search or enter address"
             background = null; setPadding(px(12), 0, px(12), 0); isSingleLine = true
-            imeOptions = EditorInfo.IME_ACTION_GO; inputType = EditorInfo.TYPE_TEXT_VARIATION_URI or EditorInfo.TYPE_CLASS_TEXT
+            imeOptions = EditorInfo.IME_ACTION_GO; inputType = EditorInfo.TYPE_CLASS_TEXT or EditorInfo.TYPE_TEXT_VARIATION_URI or EditorInfo.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             setSelectAllOnFocus(true)
             setOnEditorActionListener { _, action, ev ->
                 if (action == EditorInfo.IME_ACTION_GO || (ev != null && ev.keyCode == KeyEvent.KEYCODE_ENTER)) { navigate(text.toString()); true } else false
@@ -308,6 +310,9 @@ class MainActivity : AppCompatActivity() {
     private fun startEdit() {
         val t = current() ?: return
         urlEdit.setText(if (t.url == NEWTAB) "" else t.url)
+        // the address text underneath was showing through what you type: hide it while editing
+        pillRow.visibility = View.INVISIBLE
+        pill.background = box(0x0DFFFFFF, CREAM)
         urlEdit.visibility = View.VISIBLE
         urlEdit.requestFocus()
         urlEdit.selectAll()
@@ -316,6 +321,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun endEdit() {
         urlEdit.visibility = View.GONE
+        pillRow.visibility = View.VISIBLE
+        pill.background = box(0x08FFFFFF)
         (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(urlEdit.windowToken, 0)
     }
 
