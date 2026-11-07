@@ -1,76 +1,114 @@
-<p align="center"><img src="docs/logo.png" width="96" alt="Oto logo"></p>
+<p align="center"><img src="docs/hero.png" width="900" alt="Oto — a calm browser for Windows"></p>
 
-<h1 align="center">Oto</h1>
+<p align="center">
+  <a href="https://github.com/mukairyo/oto/releases/latest"><b>⬇&nbsp; Download Oto for Windows</b></a>
+  &nbsp;·&nbsp; <a href="https://github.com/mukairyo/oto/releases/latest">Oto for Android</a>
+  &nbsp;·&nbsp; <a href="CHANGELOG.md">What's new</a>
+</p>
 
-<p align="center"><b>A calm, customisable web browser for Windows.</b><br>
-Vertical tabs and spaces with their own colours like Zen, a command bar like Dia, Arc-style settings and Helium-style privacy — built on Chromium.</p>
+<p align="center"><sub>Free · Windows 10 & 11 · Android 8+ · built on Chromium · updates itself</sub></p>
 
-<p align="center"><a href="https://github.com/mukairyo/oto/releases/latest"><b>⬇ Download Oto for Windows</b></a> · <a href="CHANGELOG.md">What's new</a></p>
+---
 
-<p align="center"><img src="docs/newtab.png" width="860" alt="Oto's new tab page with a purple-pink gradient space"></p>
+## 音 &nbsp;What is Oto?
 
-## What is Oto?
+Oto is a browser that stays out of your way. Your tabs live in a sidebar instead of across the top, grouped into **spaces** for work, school, music or anything else. Ads and trackers are blocked before the page even loads. Your settings, bookmarks and passwords follow you to every PC with an **Oto account**, and your **phone** shows up right inside Oto.
 
-Oto is a browser that stays out of your way. Your tabs live in a sidebar instead of across the top, grouped into **spaces** — each with its own gradient that tints the whole window, so you always know where you are. Everything can be changed: the layout, colours, animations, how the sidebar behaves, even the app icon. Ads and trackers are blocked out of the box, and Oto **updates itself**.
+Everything is dressed in one calm look: near-black, cream, thin lines, quiet type. Nothing blinks at you.
 
-| | |
-|---|---|
-| <img src="docs/split-view.png" alt="Split view"> **Split view** — two tabs side by side | <img src="docs/glance.png" alt="Glance"> **Glance** — preview a link without leaving the page |
-| <img src="docs/oto-card.png" alt="Oto Card"> **Oto Card** — your own customisable card | <img src="docs/setup.png" alt="Custom setup"> **Custom setup** — make it yours in two minutes |
+<p align="center"><img src="docs/newtab.png" width="860" alt="Oto's new tab page"></p>
 
-## Install
+## ✦ &nbsp;Highlights
 
-1. **[Download the latest Oto-Setup-x.y.z.exe](https://github.com/mukairyo/oto/releases/latest)** and run it.
-2. Windows SmartScreen may say the app is unrecognised (it isn't code-signed yet) — click **More info → Run anyway**.
-3. On first launch — and after any fresh install — a short setup walks you through importing bookmarks, your layout, colours, speed, privacy and favourite sites.
+<table>
+<tr>
+<td width="50%"><img src="docs/my-phone.png" alt="My phone panel"><br><b>My phone</b> — sign in to Oto on your Android phone and it appears on your PC in 3D, with its battery and open tabs. Send tabs both ways.</td>
+<td width="50%"><img src="docs/shield.png" alt="Oto Shield"><br><b>Oto Shield</b> — ad and tracker blocking with uBlock Origin's filter lists. Zap anything on a page, hide it for good, or switch blocking off per site.</td>
+</tr>
+<tr>
+<td><img src="docs/command-bar.png" alt="Command bar"><br><b>Command bar</b> (<code>Ctrl T</code>) — search, open sites, jump to any tab, find words inside your open pages, do quick sums, run actions.</td>
+<td><img src="docs/split-view.png" alt="Split view"><br><b>Split view</b> — drag a tab onto the page and get two sites side by side.</td>
+</tr>
+<tr>
+<td><img src="docs/oto-hub.png" alt="Oto Hub"><br><b>Oto Hub & Oto Card</b> — your own card that levels up as you browse, with milestones and badges to unlock.</td>
+<td><img src="docs/offline.png" alt="Offline page"><br><b>Even the offline page is nice</b> — Oto reconnects by itself, and you can play Ring Run while you wait.</td>
+</tr>
+</table>
 
-After that, new versions download in the background and install when you restart. See **[CHANGELOG.md](CHANGELOG.md)** for what each version added and fixed — the same notes appear on every [release](https://github.com/mukairyo/oto/releases).
+## ⬇ &nbsp;Install
 
-## Features
+**Windows**
 
-- **Updates itself**: Oto checks this repo's releases, downloads new versions in the background and installs them when you restart — then shows **What's new** (Settings → About → Updates).
-- **Always-patched Chromium**: a daily job picks up Electron security releases (new Chromium fixes) and publishes them as small updates automatically.
-- **Passwords**: Oto offers to save logins (encrypted on your PC with Windows' own protection) and shows your accounts when you click a login box. Manage, import (Chrome/Edge/Firefox CSV) and export them in Library → Passwords.
-- **Library** (`Ctrl+Shift+O`): Downloads, History, Media, Spaces, Boosts, Routing, your Oto Card and a first look at Oto Phone (coming soon) in one panel.
-- **Downloads** with a glowing orb that flies from your cursor into the downloads button (progress ring, count badge, a tick when done), and a live card at the bottom of the sidebar — progress, speed, pause/cancel, open or show in folder (`Ctrl+J` for all downloads).
-- **Routing**: send sites to the space they belong in — links to them open there automatically.
-- **Oto Card**: your own card in three designs — a cyberpunk **Keycard**, the **Classic** card or a holographic **Shiny** card — with name, title, artwork, colours, styles, font, grain and stats. The preview tilts and shines under your mouse. Shuffle it, save it as an image or copy it.
-- **Split view** (`Ctrl+Shift+S`): two tabs side by side — drag the divider, double-click to even it out, click either half to work in it. Right-click a tab → *Split with current tab*.
-- **Glance**: right-click any link → *Open link in Glance* to preview it in a floating window; open it as a tab or in split view from there. Settings → Tabs can also open Glance with Alt + click, for links to other sites (like Arc's Peek), or for every link.
-- **Media controls** in the sidebar for whatever is playing — play/pause, mute, picture-in-picture (`Ctrl+Shift+P`).
-- **Report a problem** (Settings → About): saves a small log of what the sidebar, top bar and mouse did, to send when something misbehaves.
-- **Zen layout** (default): back/forward, reload, the address and a ··· menu live in the sidebar; a slim top strip holds the bookmarks bar, extension buttons and Oto's own window buttons. Switch to a classic top toolbar in Settings → Appearance.
-- **Dynamic sidebar** (default): a slim icon rail that grows into the full sidebar when you hover it, pushing the page over so it stays connected to the top bar. The sidebar button switches between collapsed and expanded.
-- **Themes**: the default Oto look, or **RyokuTunes** — a near-black, editorial theme with serif headings, mono labels and a cream highlight (Settings → Appearance → Theme).
-- **Zen-strength colours**: your space colours are used at full strength and the sidebar/top text switches between light and dark automatically.
-- **Drag the sidebar edge** to resize — drag it narrow and it snaps to icons, keep going and it hides; pull it back out from the screen edge. Hidden sidebars also grow in place when you touch the edge.
-- **Sidebar settings**: icon-strip width, snap points for drag-to-resize, hover open delay, how long until it goes back — or keep it open until you click the page. Collapsed or hidden sidebars keep the Zen layout (navigation shows when the sidebar slides open), or you can move navigation to the top bar.
-- **Auto-hide** the top bar (Ctrl+Shift+B) and the sidebar (Ctrl+B) — they slide away and come back when you touch the screen edge. Animations: Off / Smooth / Playful / Custom — with a curve editor (drag two handles), speed slider, presets and a live preview.
-- **Extensions**: install from the Chrome Web Store (“Add to Chrome” just works), or add .crx (Chrome/Opera), .xpi (Firefox) and .zip files or unpacked folders. Popups, badges, context-menu items and the `chrome.tabs` API are supported.
-- **Bookmarks bar** with folders and overflow, ☆ in the address row, and import from Chrome, Edge, Brave, Opera, Opera GX, Vivaldi, Zen and Firefox — or any exported HTML file.
-- **Vertical tab sidebar** — Essentials grid (global favourites), pinned tabs, and a tab list. Drag tabs to reorder, pin, add to Essentials, or drop them on another space.
-- **Spaces** — separate sets of tabs, each with its own gradient that tints the whole window (Zen-style), and an emoji or your own image as its icon. Switch with `Ctrl+Shift+1…9`, the command bar or Library → Spaces (the dots at the bottom can be turned on in Settings → Sidebar).
-- **Colour wheel** — right-click a space dot → *Change colours*. Click the wheel to add up to 3 colours, drag the dots, pick a preset, and set intensity and grain. The window updates live.
-- **Welcome setup** — runs on first launch; run it again from Settings → About.
-- **Command bar** (`Ctrl+T` / `Ctrl+L`) — search, open URLs, jump to open tabs, history, and actions like "Dark theme" or "New space".
-- **Compact mode** (`Ctrl+B`) — hide the sidebar; hover the left edge to peek.
-- **Privacy** — ads & trackers blocked with EasyList + EasyPrivacy (Ghostery engine), DuckDuckGo by default, sites must ask before using your camera, mic, location, or notifications.
-- **Arc-style settings** (`Ctrl+,`) with General, Appearance, Tabs, Privacy, Boosts, Archive, App icon, Shortcuts and About pages:
-  - Set Oto as your Windows default browser
-  - Continue where you left off, or start fresh each launch
-  - Sidebar on the left or right, floating or edge-to-edge pages, address bar shows domain / path / full URL
-  - Auto-archive unpinned tabs after 12h–30 days, and a searchable Archive of closed tabs
-  - Memory saver that puts background tabs to sleep
-  - New-tab position, and Ctrl+Tab by sidebar order or last-used
-  - Global Privacy Control / Do Not Track, per-site permissions you can review and reset, clear cookies on exit
-  - Ask where to save downloads
-  - **Boosts**: restyle any site with your own CSS (templates included, like hiding YouTube Shorts)
-  - Choose the app icon shown in the taskbar
-- **Performance**: freezes background tabs after a few minutes (zero CPU, instant wake-up), sleeps old tabs to free RAM, presets (Balanced / Low memory / Keep everything running), a live task manager with per-tab memory and CPU, and hardware-acceleration / smooth-scrolling switches.
-- **Customise everything**: interface font and size, tab height, page corners and spacing, toolbar buttons, address-bar layout, new-tab page (clock format, greeting with your name, hints), search shortcuts (`yt lofi` searches YouTube — add your own), remappable keyboard shortcuts, **Mods** (built-in UI tweaks plus your own CSS for Oto itself), and export/import of your whole setup.
-- Find in page, zoom, mute tabs, unload tabs to save memory, downloads to your Downloads folder, light/dark/system theme, tabs restored on restart.
+1. **[Download Oto-Setup-x.y.z.exe](https://github.com/mukairyo/oto/releases/latest)** and run it.
+2. Windows SmartScreen may say the app is unrecognised (Oto isn't code-signed yet). Click **More info → Run anyway**.
+3. A two-minute setup lets you bring your bookmarks from another browser and pick your layout, speed and privacy. Or sign in to your Oto account to get everything back.
 
-## Shortcuts
+New versions download by themselves. You'll see a small card in the sidebar: **Restart now**.
+
+**Android**
+
+<img src="docs/android.png" align="right" width="200" alt="Oto for Android">
+
+1. On your phone, open the **[latest release](https://github.com/mukairyo/oto/releases/latest)** and download **Oto-Android-x.y.z-arm64.apk**.
+2. Open it to install (Android asks once to allow installs from your browser).
+3. Tap **⋯ → Oto account** and sign in with the same account as your PC. Your phone appears in **My phone** on the PC within a few seconds.
+
+Oto for Android is new (version 0.1): tabs, Oto Shield, the Oto look, desktop-site mode, and the link with your PC. It updates itself from the app menu.
+
+<br clear="right">
+
+## ◎ &nbsp;Everything else
+
+<details>
+<summary><b>Tabs & spaces</b></summary>
+
+- Vertical tabs with **Essentials** (your favourite sites as big icons), pinned tabs and **tab folders**.
+- **Spaces** with their own tabs, icon and logins. Switch with `Ctrl+Shift+1…9` or see them all in **Space overview** (`Ctrl+Shift+Space`).
+- **Glance** — preview a link in a floating window without leaving the page.
+- **Routing** — sites you choose always open in the right space.
+- Tabs fall asleep in the background to save memory and wake instantly. **Oto Health** (`Shift+Esc`) shows what's using memory.
+</details>
+
+<details>
+<summary><b>Privacy & security</b></summary>
+
+- **Oto Shield**: uBlock Origin's filter lists, element zapper, your own filters, annoyance lists for cookie banners and "turn off your adblocker" walls.
+- Cookie pop-ups clicked away for you, tracking bits removed when you copy a link.
+- **Avocado** 🥑 (`Ctrl+Shift+N`) — a private window that forgets everything when you close it.
+- Sites must ask before using your camera, mic, location or notifications. Review it all in the site panel (click the lock).
+- Chromium security fixes arrive automatically: a daily job ships them as small updates.
+</details>
+
+<details>
+<summary><b>Oto account & sync</b></summary>
+
+- Settings, themes, bookmarks, spaces, your Oto Card and passwords on every PC.
+- **End-to-end encrypted**: everything is locked with your password on your PC before it's uploaded. The server only ever sees scrambled data.
+- Forgot your password? Oto emails you a code you type right in Oto.
+- Your phone links through the same account, with the same encryption.
+</details>
+
+<details>
+<summary><b>Make it yours</b></summary>
+
+- Customize the sidebar buttons, layout, tab height, fonts, animations and shortcuts.
+- **Boosts** restyle any website with your own CSS; **Mods** restyle Oto itself.
+- **Theme maker** for your space colours, **Oto sounds**, a startup animation and sound.
+- Extensions from the Chrome Web Store just work (plus `.crx`, `.xpi` and `.zip`).
+- Streaming sites with protected video (Spotify, Netflix, Disney+, Prime Video…) play normally.
+</details>
+
+<details>
+<summary><b>Little things</b></summary>
+
+- Screenshots with drawing and blur (`Ctrl+Shift+X`), site notes, picture-in-picture and video speed controls.
+- Notification center with Do not disturb, battery saver for laptops, Oto Night.
+- **Oto Wrapped** — a story of how you use Oto (type "wrapped" in the command bar).
+- Hold `Ctrl` for a second to see every shortcut.
+- Backup and restore your whole Oto as one file.
+</details>
+
+## ⌨ &nbsp;Shortcuts
 
 | | |
 |---|---|
@@ -78,22 +116,31 @@ After that, new versions download in the background and install when you restart
 | Edit address | `Ctrl+L` |
 | Close / reopen tab | `Ctrl+W` / `Ctrl+Shift+T` |
 | Next / previous tab | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
-| Tab 1–9 | `Ctrl+1…9` |
 | Space 1–9 | `Ctrl+Shift+1…9` |
-| Toggle sidebar | `Ctrl+B` |
-| Pin / Essentials | `Ctrl+D` / `Ctrl+Shift+D` |
-| Find | `Ctrl+F` |
-| Copy link | `Ctrl+Shift+C` |
-| Zoom | `Ctrl + = / - / 0` |
+| Space overview | `Ctrl+Shift+Space` |
+| Show / hide sidebar | `Ctrl+B` |
 | Split view | `Ctrl+Shift+S` |
-| Picture in picture | `Ctrl+Shift+P` |
-| Glance a link | Right-click a link → Open link in Glance |
+| Screenshot | `Ctrl+Shift+X` |
+| Oto Health | `Shift+Esc` |
+| Avocado (private window) | `Ctrl+Shift+N` |
 | Library | `Ctrl+Shift+O` |
-| Downloads | `Ctrl+J` |
 | Settings | `Ctrl+,` |
-| Dev tools | `F12` |
+| All shortcuts | hold `Ctrl` |
 
-## Run from source
+## 🧪 &nbsp;Testing Oto (Beta and Alpha)
+
+Want new things early? In Oto, open **Settings → About & updates → Update channel**:
+
+| Channel | You get |
+|---|---|
+| **Stable** | tested versions — what everyone has |
+| **Beta** | new versions before everyone else; mostly stable |
+| **Alpha** | the newest experiments as soon as they exist; things can break |
+
+Found a bug? Use **Settings → About & updates → Report a problem** and send the file, or open an [issue](https://github.com/mukairyo/oto/issues).
+
+<details>
+<summary><b>Run from source</b></summary>
 
 Needs [Node.js](https://nodejs.org) 20 or newer.
 
@@ -102,49 +149,27 @@ npm install
 npm start
 ```
 
-Build the installer into `dist/`:
+Build the Windows installer into `dist/` with `npm run dist`. Oto for Android lives on the [`android`](https://github.com/mukairyo/oto/tree/android/android) branch (Kotlin + GeckoView) and is built by GitHub Actions.
 
-```
-npm run dist
-```
+- `main.js` — window, shortcuts, menus, ad blocking, permissions, downloads, updates
+- `account.js` — Oto accounts, encrypted sync and the phone link
+- `preload.js` — safe bridge between the UI and the main process
+- `src/` — the browser UI (`index.html`, `renderer.js`, `v1*.js`, styles)
+</details>
 
-## Project layout
+<details>
+<summary><b>Releasing a new version</b></summary>
 
-- `main.js` — window, keyboard shortcuts, context menus, ad blocking, permissions, downloads
-- `preload.js` — safe bridge between the UI and main process
-- `src/index.html`, `src/styles.css`, `src/renderer.js` — the browser UI
-- `blocklist.js` — small fallback tracker list used if the full filter lists can't load
-- `build/` — app icon
+1. Add a section for the version at the top of `CHANGELOG.md` (`## 1.0.2 — date`, then **New** / **Fixed** / **Changed** lists).
+2. Set `version` and `otoVersion` in `package.json` to the same number and push to `main`. Tester builds use a pre-release number like `1.1.0-beta.1`.
+3. The **Build & release** action builds the installer and publishes release `v1.0.2` with that changelog section as its notes. Everyone's Oto picks it up by itself.
 
-## Testing Oto (Beta and Alpha)
-
-Want new things early? In Oto, open **Settings → About → Updates → Update channel** and pick:
-
-| Channel | You get |
-|---|---|
-| **Stable** | tested versions — what everyone has |
-| **Beta** | new versions before everyone else; mostly stable |
-| **Alpha** | the newest experiments as soon as they exist; things can break |
-
-Testers keep getting every stable update as well. Found a bug? Use **Settings → About → Report a problem** and send the file, or open an [issue](https://github.com/mukairyo/oto/issues).
-
-## Releasing a new version
-
-1. Add a section for the new version at the top of `CHANGELOG.md` (`## 0.9.8.1 — date`, then **New** / **Fixed** lists).
-2. In `package.json`, set `otoVersion` (what people see) and `version` (what the updater compares), then push to `main`:
-
-   | Update | `otoVersion` | `version` |
-   |---|---|---|
-   | big | `0.9.9` | `0.9.900` |
-   | small | `0.9.9.1`, `0.9.9.2` … | `0.9.901`, `0.9.902` … |
-
-   The updater needs three-part numbers, so the last part carries both: the big number × 100 + the small number.
-
-   **Tester builds:** set both `version` and `otoVersion` to the same pre-release number, e.g. `0.10.0-beta.1` or `0.10.0-alpha.3`. It's published as a GitHub pre-release, so only Beta/Alpha testers get it (alpha builds go to Alpha only). The Chromium job leaves tester builds alone.
-
-The **Build & release** GitHub Action builds the Windows installer, publishes release `v1.2.3` with that changelog section as its notes, and everyone's Oto picks it up automatically. Editing an older changelog entry updates that release's notes on the next push.
+Android: bump `android/VERSION` on the `android` branch. The APK is signed with the Oto key and added to the newest Oto release.
+</details>
 
 ## Known limits
 
-- Google sometimes blocks sign-in from Electron-based browsers ("This browser or app may not be secure"). Oto hides the Electron tag from its user agent to reduce this, but it can still happen.
-- Not code-signed, so SmartScreen shows a warning on first run.
+- Google sometimes blocks sign-in from Chromium-based apps it doesn't recognise ("This browser or app may not be secure"). Oto works around it, but it can still happen.
+- Not code-signed yet, so Windows SmartScreen shows a warning the first time.
+
+<p align="center"><br><img src="docs/logo.png" width="64" alt=""><br><sub>音 &nbsp;Oto — made by <a href="https://github.com/mukairyo">mukairyo</a></sub></p>
