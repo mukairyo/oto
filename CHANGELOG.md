@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.2.2 — 2026-11-07
+
+*Behind the scenes: Oto's main code is split into smaller parts. Nothing changes for you.*
+
+**Changed**
+- The main process is now `main.js` plus five parts in `main/`: Oto Shield (`shield.js`), updates (`updates.js`), passwords (`passwords.js`), extensions (`extensions.js`) and bookmark import (`bookmarks.js`). Each file is small enough for security scanners like ElectroNG to read (it skipped `main.js` once it grew past 100 KB), and problems are quicker to find and fix.
+
 ## 1.2.1 — 2026-11-07
 
 *Security hardening after an Electronegativity (ElectroNG) scan.*

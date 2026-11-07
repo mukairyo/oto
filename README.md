@@ -151,7 +151,8 @@ npm start
 
 Build the Windows installer into `dist/` with `npm run dist`. Oto for Android lives on the [`android`](https://github.com/mukairyo/oto/tree/android/android) branch (Kotlin + GeckoView) and is built by GitHub Actions.
 
-- `main.js` — window, shortcuts, menus, ad blocking, permissions, downloads, updates
+- `main.js` — window, shortcuts, menus, permissions, downloads, screen sharing
+- `main/` — Oto Shield (`shield.js`), updates (`updates.js`), passwords (`passwords.js`), extensions (`extensions.js`), bookmark import (`bookmarks.js`)
 - `account.js` — Oto accounts, encrypted sync and the phone link
 - `preload.js` — safe bridge between the UI and the main process
 - `src/` — the browser UI (`index.html`, `renderer.js`, `v1*.js`, styles)
