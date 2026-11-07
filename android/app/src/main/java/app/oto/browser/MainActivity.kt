@@ -287,7 +287,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun decide(host: String, kind: String, what: String): GeckoResult<Int> {
-        val P = GeckoSession.PermissionDelegate.ContentPermission.Companion
         when (SitePerms.get(this, host, kind)) {
             SitePerms.ALLOW -> return GeckoResult.fromValue(GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW)
             SitePerms.BLOCK -> return GeckoResult.fromValue(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY)
@@ -310,32 +309,30 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun onContentPermissionRequest(session: GeckoSession, perm: GeckoSession.PermissionDelegate.ContentPermission): GeckoResult<Int>? {
-            val D = GeckoSession.PermissionDelegate
             val allow = GeckoResult.fromValue(GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW)
             val deny = GeckoResult.fromValue(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY)
             val host = hostOf(perm.uri)
             return when (perm.permission) {
-                D.PERMISSION_AUTOPLAY_INAUDIBLE, D.PERMISSION_MEDIA_KEY_SYSTEM_ACCESS, D.PERMISSION_PERSISTENT_STORAGE -> allow
-                D.PERMISSION_AUTOPLAY_AUDIBLE -> if (SitePerms.get(this@MainActivity, host, "autoplay") == SitePerms.BLOCK) deny else allow
+                GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_INAUDIBLE, GeckoSession.PermissionDelegate.PERMISSION_MEDIA_KEY_SYSTEM_ACCESS, GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE -> allow
+                GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_AUDIBLE -> if (SitePerms.get(this@MainActivity, host, "autoplay") == SitePerms.BLOCK) deny else allow
                 // Oto for Android doesn't show web notifications, so sites aren't asked to annoy you with the question
-                D.PERMISSION_DESKTOP_NOTIFICATION -> deny
-                D.PERMISSION_GEOLOCATION -> decide(host, "location", "know your location")
-                D.PERMISSION_XR -> decide(host, "xr", "use virtual reality")
-                D.PERMISSION_STORAGE_ACCESS -> decide(host, "storage:" + hostOf(perm.thirdPartyOrigin), "use its cookies inside ${hostOf(perm.thirdPartyOrigin).ifBlank { "another site" }}")
+                GeckoSession.PermissionDelegate.PERMISSION_DESKTOP_NOTIFICATION -> deny
+                GeckoSession.PermissionDelegate.PERMISSION_GEOLOCATION -> decide(host, "location", "know your location")
+                GeckoSession.PermissionDelegate.PERMISSION_XR -> decide(host, "xr", "use virtual reality")
+                GeckoSession.PermissionDelegate.PERMISSION_STORAGE_ACCESS -> decide(host, "storage:" + hostOf(perm.thirdPartyOrigin), "use its cookies inside ${hostOf(perm.thirdPartyOrigin).ifBlank { "another site" }}")
                 else -> GeckoResult.fromValue(GeckoSession.PermissionDelegate.ContentPermission.VALUE_PROMPT)
             }
         }
 
         override fun onMediaPermissionRequest(session: GeckoSession, uri: String, video: Array<out GeckoSession.PermissionDelegate.MediaSource>?, audio: Array<out GeckoSession.PermissionDelegate.MediaSource>?, callback: GeckoSession.PermissionDelegate.MediaCallback) {
-            val M = GeckoSession.PermissionDelegate.MediaSource
             val host = hostOf(uri)
             val kinds = listOfNotNull(if (!video.isNullOrEmpty()) "camera" else null, if (!audio.isNullOrEmpty()) "mic" else null)
             if (kinds.isEmpty()) { callback.reject(); return }
             val finish = { ok: Boolean ->
                 if (!ok) callback.reject()
                 else {
-                    val v = video?.firstOrNull { it.source == M.SOURCE_CAMERA } ?: video?.firstOrNull()
-                    val a = audio?.firstOrNull { it.source == M.SOURCE_MICROPHONE } ?: audio?.firstOrNull()
+                    val v = video?.firstOrNull { it.source == GeckoSession.PermissionDelegate.MediaSource.SOURCE_CAMERA } ?: video?.firstOrNull()
+                    val a = audio?.firstOrNull { it.source == GeckoSession.PermissionDelegate.MediaSource.SOURCE_MICROPHONE } ?: audio?.firstOrNull()
                     callback.grant(v?.id, a?.id)
                 }
             }
