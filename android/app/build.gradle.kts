@@ -57,6 +57,8 @@ android {
     }
     buildFeatures { buildConfig = true }
     lint { abortOnError = false; checkReleaseBuilds = false }
+    // compress the engine's native libraries in the APK (much smaller download)
+    packaging { jniLibs { useLegacyPackaging = true } }
 }
 
 dependencies {
