@@ -76,3 +76,6 @@ jobs:
           gh release create "android-v$V" "Oto-Android-$V-arm64.apk" --prerelease --target "$GITHUB_SHA" \
             --title "Oto for Android $V" \
             --notes "Oto for Android $V (GeckoView $GECKO): the Oto theme, Oto Shield, tabs, and Oto account to link your phone with Oto for Windows (My phone). Download the APK on your phone and open it to install."
+          # also put the APK on the current Oto for Windows release, so both are in one place
+          W=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          case "$W" in v*) gh release upload "$W" "Oto-Android-$V-arm64.apk" --clobber --repo "$GITHUB_REPOSITORY" && echo "added to $W";; esac
