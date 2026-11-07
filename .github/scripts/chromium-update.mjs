@@ -13,15 +13,33 @@ const display = (v) => { const [M, m, p] = parts(v); if (p < 100) return `${M}.$
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 // A tester build (e.g. 0.10.0-beta.1) is on main right now — leave it alone; the next stable release picks up Electron fixes.
 if (String(pkg.version).includes('-')) { out('changed', 'false'); console.log('tester build on main, skipping'); process.exit(0); }
-const current = parts(pkg.devDependencies.electron).join('.');
+// Oto runs on castlabs' Electron for Content Security (Electron + Widevine, for Spotify/Netflix…),
+// installed from GitHub as "github:castlabs/electron-releases#vX.Y.Z+wvcus".
+const dep = String(pkg.devDependencies.electron);
+const ECS = /castlabs\/electron-releases/.test(dep);
+const current = parts(ECS ? dep.split('#v')[1].split('+')[0] : dep).join('.');
 const major = parts(current)[0];
-const sameMajor = [].concat(npm(`"electron@^${major}" version`)).filter((v) => !String(v).includes('-')).sort(cmp).pop();
-const latest = npm('electron dist-tags').latest;
-if (parts(latest)[0] > major) out('major', latest);
+let sameMajor, latest;
+if (ECS) {
+  const tags = execSync('git ls-remote --tags https://github.com/castlabs/electron-releases', { encoding: 'utf8' })
+    .split('\n').map((l) => (l.match(/refs\/tags\/v(\d+\.\d+\.\d+)\+wvcus$/) || [])[1]).filter(Boolean).sort(cmp);
+  sameMajor = tags.filter((v) => parts(v)[0] === major).pop();
+  latest = tags.pop();
+} else {
+  sameMajor = [].concat(npm(`"electron@^${major}" version`)).filter((v) => !String(v).includes('-')).sort(cmp).pop();
+  latest = npm('electron dist-tags').latest;
+}
+if (latest && parts(latest)[0] > major) out('major', latest);
 
 if (!sameMajor || cmp(sameMajor, current) <= 0) { out('changed', 'false'); process.exit(0); }
 
-execSync(`npm install electron@${sameMajor} --save-dev --save-exact --package-lock-only --ignore-scripts`, { stdio: 'inherit' });
+if (ECS) {
+  execSync(`npm install "https://github.com/castlabs/electron-releases#v${sameMajor}+wvcus" --save-dev --save-exact --package-lock-only --ignore-scripts`, { stdio: 'inherit' });
+  // npm writes the git source as ssh; CI has no ssh key, so use https.
+  fs.writeFileSync('package-lock.json', fs.readFileSync('package-lock.json', 'utf8').replaceAll('git+ssh://git@github.com/castlabs/', 'git+https://github.com/castlabs/'));
+} else {
+  execSync(`npm install electron@${sameMajor} --save-dev --save-exact --package-lock-only --ignore-scripts`, { stdio: 'inherit' });
+}
 const p2 = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const [M, m, p] = parts(p2.version);
 const next = p < 100 ? p * 100 + 1 : p + 1; // small update: 0.9.900 (0.9.9) -> 0.9.901 (0.9.9.1)

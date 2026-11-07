@@ -380,3 +380,7 @@ body.rail:not(.rail-open) .v1-upd { display: none; }
 .v1-sheet .cf button:first-of-type { margin-left: auto; }
 .v1-sheet .cf button:hover { background: rgba(255, 255, 255, .07); }
 .v1-upd .un { margin: 8px 0 10px; font-size: 12px; color: var(--fg-2); }
+
+/* the Ctrl L hint only when there's room (hover) */
+body.v1 .url-pill .v1-kbd { display: none; }
+body.v1 .url-pill:hover .v1-kbd { display: inline; }

@@ -1576,7 +1576,7 @@ body.skin-rt .ess img.fav, body.skin-rt .ess .fav { background: rgba(255,255,255
 body.skin-rt .ess .fav-letter { padding: 0; background-clip: padding-box; }
 body.skin-rt.sb-right #sidebar { box-shadow: inset 1px 0 0 var(--rt-line); }
 body.skin-rt .ws-title { border: 1px solid var(--rt-line2); border-radius: 6px; padding: 9px 10px; gap: 9px; background: rgba(255,255,255,.015); height: auto; }
-body.skin-rt .ws-title::before { content: '力'; font: 400 17px/1 'Yu Gothic UI', 'Meiryo', 'Noto Sans CJK JP', sans-serif; color: var(--rt-fg); order: 1; }
+body.skin-rt .ws-title::before { content: '音'; font: 400 17px/1 'Yu Gothic UI', 'Meiryo', 'Noto Sans CJK JP', sans-serif; color: var(--rt-fg); order: 1; }
 body.skin-rt .ws-title .ws-chev { order: 5; margin-left: auto; opacity: .6; }
 body.skin-rt .ws-title #wsDot { order: 4; width: 10px; height: 10px; }
 body.skin-rt .ws-title #wsName { order: 2; display: flex; flex-direction: column; gap: 4px; font: 700 12px/1 var(--font); letter-spacing: .24em; text-transform: uppercase; }
@@ -1606,7 +1606,7 @@ body.skin-rt .dl-card, body.skin-rt .media-card { border-radius: 6px; background
 body.skin-rt .dl-ic.ext { background: var(--rt-cream); color: var(--rt-ink); }
 
 /* top bar: brand mark on the left */
-body.skin-rt #topstrip::before { content: '—  力  OTO'; order: -1; flex: none; align-self: center; padding: 0 14px 0 12px; font: 600 10px var(--rt-mono); letter-spacing: .3em; color: var(--rt-fg2); white-space: nowrap; }
+body.skin-rt #topstrip::before { content: '—  音  OTO'; order: -1; flex: none; align-self: center; padding: 0 14px 0 12px; font: 600 10px var(--rt-mono); letter-spacing: .3em; color: var(--rt-fg2); white-space: nowrap; }
 body.skin-rt .bm { border-radius: 4px; }
 
 /* page frame */
@@ -1680,3 +1680,112 @@ body.skin-rt .cp-soon { background: var(--rt-cream); color: var(--rt-ink); }
 .sk-ryokutunes .sp-art i:nth-child(1) { background: transparent; box-shadow: inset -1px 0 0 rgba(255,255,255,.12); background-image: linear-gradient(#e7dfd1, #e7dfd1); background-size: 80% 7px; background-position: 2px 22px; background-repeat: no-repeat; }
 .sk-ryokutunes .sp-art i:nth-child(2) { background: transparent; box-shadow: inset 0 -1px 0 rgba(255,255,255,.1); }
 .sk-ryokutunes .sp-art i:nth-child(3) { background: #111113; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); background-image: linear-gradient(#ece8e1, #ece8e1); background-size: 45% 6px; background-position: 6px 8px; background-repeat: no-repeat; }
+
+/* ================================================================== very narrow sidebar
+   At the smallest widths the top buttons and the page buttons next to the shield used to spill out of
+   the sidebar onto the top bar. Let the address pill shrink and make the buttons a bit smaller. */
+#sidebar { container: sidebar / inline-size; }
+#sbHead, #sbUrlRow, #navGroup, #pageActions { min-width: 0; }
+body.layout-single .sb-url-row .url-pill { min-width: 0; }
+@container sidebar (max-width: 230px) {
+  .sb-head { gap: 0; }
+  .sb-head .icon-btn, #navGroup .icon-btn { width: 26px; height: 26px; }
+  #navGroup { gap: 0; }
+  .sb-url-row { gap: 0; }
+  .sb-url-row #pageActions { gap: 0; }
+  .sb-url-row .url-pill { padding: 0 6px; }
+}
+@container sidebar (max-width: 180px) {
+  #btnShield span { display: none; }
+}
+
+/* Oto theme new tab: everything centred */
+body.skin-rt .empty-inner { align-items: center; text-align: center; }
+body.skin-rt .empty-inner .rt-crumb { justify-content: center; }
+body.skin-rt .empty-inner .rt-crumb .rt-rule { flex: 0 1 90px; }
+body.skin-rt .empty-inner .empty-search { margin-left: auto; margin-right: auto; }
+body.skin-rt .empty-inner .empty-hints, body.skin-rt .empty-inner .v1-jump, body.skin-rt .empty-inner .v1-widgets { justify-content: center; margin-left: auto; margin-right: auto; }
+
+/* The bookmarks strip on the top bar used to cover the whole bar, so the window couldn't be dragged.
+   Its empty part drags the window again; bookmarks themselves stay clickable. */
+#topstrip #bmbar { -webkit-app-region: drag; }
+#topstrip #bmbar > * { -webkit-app-region: no-drag; }
+
+/* Oto theme: the welcome setup sits on plain near-black (no purple glow); light/dark choice is hidden
+   because the Oto theme is always dark. */
+body.skin-rt #setup { background: radial-gradient(70% 60% at 50% 40%, #151517, #0b0b0c 75%); }
+body.skin-rt .setup-theme-row { display: none; }
+body.skin-rt .setup-welcome .logo-big svg { width: 68px; height: 68px; }
+
+/* Setup layout previews in the Oto theme: near-black window, cream lines */
+body.skin-rt .mk { --mk-bg: #0b0b0c; box-shadow: 0 0 0 1px rgba(236, 232, 225, .12); }
+body.skin-rt .setup-choice.on .mk { box-shadow: 0 0 0 1px rgba(236, 232, 225, .3); }
+body.skin-rt .mk-sb .mk-nav i, body.skin-rt .mk-top i { background: rgba(231, 223, 209, .7); }
+body.skin-rt .mk-url { background: rgba(231, 223, 209, .16); box-shadow: inset 0 0 0 1px rgba(231, 223, 209, .22); }
+body.skin-rt .mk-ess i { background: rgba(231, 223, 209, .14); box-shadow: inset 0 0 0 1px rgba(231, 223, 209, .18); }
+body.skin-rt .mk-tab { background: rgba(231, 223, 209, .12); }
+body.skin-rt .mk-tab.on { background: rgba(231, 223, 209, .82); }
+body.skin-rt .mk-top b { background: rgba(231, 223, 209, .3); }
+body.skin-rt .mk-page { background: #141416; box-shadow: 0 0 0 1px rgba(236, 232, 225, .08); }
+body.skin-rt .mk-page span { background: rgba(231, 223, 209, .12); }
+body.skin-rt .mk-page span:nth-child(1) { background: rgba(231, 223, 209, .55); }
+
+/* ---- Welcome setup in the Oto theme: full window, editorial — hairlines, serif headings, mono labels, cream ---- */
+body.skin-rt #setup { background: radial-gradient(60% 55% at 62% 40%, #121214, #0b0b0c 70%); }
+body.skin-rt #setup .setup-card {
+  width: 100vw; height: 100vh; max-height: none; border-radius: 0; background: transparent; box-shadow: none;
+  grid-template-columns: 260px 1fr; animation: fade .35s ease-out;
+}
+body.skin-rt .setup-side { background: transparent; border-right: 1px solid var(--rt-line); padding: 56px 22px 26px; gap: 30px; }
+body.skin-rt .setup-brand { gap: 10px; padding: 0 6px; font: 600 11px/1 var(--rt-mono); letter-spacing: .32em; text-transform: uppercase; color: var(--rt-fg); }
+body.skin-rt .setup-brand .k { margin-left: auto; font: 400 16px/1 'Yu Gothic UI', 'Meiryo', 'Noto Sans CJK JP', sans-serif; letter-spacing: 0; color: var(--rt-fg2); }
+body.skin-rt .setup-mark svg { width: 30px; height: 30px; filter: none; }
+body.skin-rt .setup-steps { gap: 1px; }
+body.skin-rt .setup-steps button { height: 34px; padding: 0 10px; gap: 12px; border-radius: 4px; font: 500 10.5px/1 var(--rt-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--rt-fg3); }
+body.skin-rt .setup-steps button.done { color: var(--rt-fg2); }
+body.skin-rt .setup-steps button:hover:not(:disabled) { background: rgba(255,255,255,.04); color: var(--rt-fg); }
+body.skin-rt .setup-steps button:disabled { opacity: .55; }
+body.skin-rt .setup-steps button.on { background: var(--rt-cream); color: var(--rt-ink); font-weight: 600; box-shadow: none; }
+body.skin-rt .st-dot { width: 16px; height: auto; border-radius: 0; box-shadow: none !important; background: none !important; color: inherit !important; font: 500 9.5px/1 var(--rt-mono); letter-spacing: .05em; justify-content: flex-start; opacity: .7; }
+body.skin-rt .st-dot svg.i { width: 11px; height: 11px; stroke-width: 2.4; }
+body.skin-rt .setup-side-foot { padding: 14px 6px 0; border-top: 1px solid var(--rt-line); font: 500 9px/1.7 var(--rt-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--rt-fg3); }
+body.skin-rt .setup-progress { height: 1px; background: var(--rt-line); }
+body.skin-rt .setup-progress span { background: var(--rt-cream); border-radius: 0; }
+body.skin-rt #setup .setup-body { padding: 72px clamp(40px, 7vw, 110px) 24px; }
+body.skin-rt #setup .setup-body > * { max-width: 780px; }
+body.skin-rt .setup-body .rt-crumb { margin-bottom: 22px; }
+body.skin-rt .setup-body .rt-crumb .rt-rule { max-width: 120px; }
+body.skin-rt .setup-body h1 { font: 400 56px/1 var(--rt-serif); letter-spacing: -.8px; color: var(--rt-fg); margin: 0 0 14px; }
+body.skin-rt .setup-sub { font-size: 15px; line-height: 1.55; color: var(--rt-fg2); margin-bottom: 30px; max-width: 560px; }
+body.skin-rt .setup-h { margin: 26px 0 12px; }
+/* welcome & done */
+body.skin-rt #setup .setup-welcome { max-width: none; align-items: center; text-align: center; padding-top: 0; }
+body.skin-rt .setup-welcome .rt-crumb { width: min(560px, 100%); justify-content: center; }
+body.skin-rt .setup-welcome .logo-big svg { width: 150px; height: 150px; margin: 0 0 6px; overflow: visible; }
+body.skin-rt .setup-welcome .logo-big { order: -1; }
+body.skin-rt .setup-welcome h1 { font-size: 80px; letter-spacing: -1.2px; }
+body.skin-rt .setup-welcome .setup-sub { margin-left: auto; margin-right: auto; }
+.setup-tags { display: flex; gap: 26px; justify-content: center; font: 500 10px/1 var(--rt-mono); letter-spacing: .22em; text-transform: uppercase; color: var(--rt-fg2); }
+.setup-tags i { font-style: normal; color: var(--rt-fg3); margin-right: 8px; }
+/* choices, engines, sites: hairline boxes, cream when picked */
+body.skin-rt .setup-choice, body.skin-rt .setup-engine, body.skin-rt .setup-site { border-radius: 6px; background: rgba(255,255,255,.018); box-shadow: inset 0 0 0 1px var(--rt-line); }
+body.skin-rt .setup-choice:hover, body.skin-rt .setup-engine:hover, body.skin-rt .setup-site:hover { background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .setup-choice.on, body.skin-rt .setup-engine.on, body.skin-rt .setup-site.on { background: rgba(231,223,209,.06); box-shadow: inset 0 0 0 1px var(--rt-cream); }
+body.skin-rt .setup-choice .sc-l b, body.skin-rt .setup-engine b { font-weight: 600; letter-spacing: .01em; }
+body.skin-rt .setup-choice .tick, body.skin-rt .setup-site .tick { background: var(--rt-cream); color: var(--rt-ink); border-radius: 3px; }
+body.skin-rt .setup-engine .radio { box-shadow: inset 0 0 0 1px var(--rt-fg3); }
+body.skin-rt .setup-engine.on .radio { box-shadow: inset 0 0 0 4px var(--rt-cream); }
+body.skin-rt .setup-rows, body.skin-rt .setup-toggles { border-top: 1px solid var(--rt-line); }
+body.skin-rt .setup-rows .set-row, body.skin-rt .setup-toggles .set-row, body.skin-rt .step-import .set-row { border-bottom: 1px solid var(--rt-line); }
+body.skin-rt .setup-rows select { border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .setup-anim, body.skin-rt .setup-speed { filter: grayscale(1); }
+body.skin-rt .setup-tips { width: min(620px, 100%); gap: 0 36px; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--rt-line); }
+body.skin-rt .setup-tip { border-radius: 0; background: none; border-bottom: 1px solid var(--rt-line); padding: 12px 4px; text-align: left; }
+body.skin-rt .setup-tip kbd, body.skin-rt .setup-site .fav-letter + span { font-family: var(--rt-mono); }
+body.skin-rt .setup-tip kbd { font: 500 10.5px var(--rt-mono); letter-spacing: .06em; padding: 3px 7px; border-radius: 3px; background: none; box-shadow: inset 0 0 0 1px var(--rt-line2); color: var(--rt-fg2); }
+body.skin-rt .setup-note { font: 500 9.5px/1.6 var(--rt-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--rt-fg3); }
+/* foot */
+body.skin-rt .setup-foot { border-top: 1px solid var(--rt-line); padding: 16px clamp(40px, 7vw, 110px) 18px; }
+body.skin-rt .setup-skip { font: 500 10px/1 var(--rt-mono); letter-spacing: .2em; text-transform: uppercase; color: var(--rt-fg3); border-radius: 4px; padding: 8px 10px; margin-left: -10px; }
+body.skin-rt .setup-nav .btn { height: 38px; padding: 0 22px; font-weight: 600; }
+body.skin-rt .setup-win button:hover { background: rgba(255,255,255,.08); }

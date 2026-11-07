@@ -125,16 +125,12 @@ function v1Board9() {
 
 // ================================================================ 10 · Quick window + loading line
 function v1Board10() {
-  // Links from other apps open in a floating Glance window instead of a new tab.
-  oto.on('tab:open', (p) => {
-    if (!p || !p.external || !p.url || S.settings.v1Quick === false || AVOCADO_MODE) return;
-    V1B.quickSkip = p.url;
+  // Links from other apps (Oto as the default browser) open in a floating Glance window.
+  oto.on('quick:open', (url) => {
+    if (!url) return;
+    if (S.settings.v1Quick === false || AVOCADO_MODE) routedOpen(url, { opener: activeTab() });
+    else openGlance(url);
   });
-  const _routed = routedOpen;
-  routedOpen = function (url, opts = {}) {
-    if (V1B.quickSkip && V1B.quickSkip === url) { V1B.quickSkip = null; openGlance(url); return null; }
-    return _routed.apply(this, arguments);
-  };
 }
 const V1B = { quickSkip: null };
 

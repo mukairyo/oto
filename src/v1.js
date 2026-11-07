@@ -339,7 +339,7 @@ function v1Slash(q) {
   const arg = rest.join(' ').toLowerCase();
   const all = [
     { c: 'space', d: 'Switch to a space', icon: 'layers', sub: () => S.workspaces.filter((w) => !arg || w.name.toLowerCase().includes(arg)).map((w) => ({ t: `/space ${w.name}`, run: () => switchWorkspace(w.id) })) },
-    { c: 'theme', d: 'Change the look', icon: 'palette', sub: () => [['Oto', () => { S.settings.skin = 'oto'; applyTheme(); }], ['RyokuTunes', () => { S.settings.skin = 'ryokutunes'; applyTheme(); }], ['Dark', () => setTheme('dark')], ['Light', () => setTheme('light')], ['System', () => setTheme('system')]]
+    { c: 'theme', d: 'Change the look', icon: 'palette', sub: () => [['Dark', () => setTheme('dark')], ['Light', () => setTheme('light')], ['System', () => setTheme('system')]]
       .filter(([n]) => !arg || n.toLowerCase().includes(arg)).map(([n, run]) => ({ t: `/theme ${n}`, run: () => { run(); save(); } })) },
     { c: 'card', d: 'Your Oto Card', icon: 'card', run: () => openLibrary('card') },
     { c: 'library', d: 'Downloads, history, spaces…', icon: 'library', run: () => openLibrary() },
@@ -456,9 +456,9 @@ function v1Copy(text) { try { navigator.clipboard.writeText(text); } catch {} }
 
 // ================================================================ board 4 — settings
 const V1_SET_GROUPS = [
-  ['Basics', ['general', 'appearance', 'sidebar', 'newtab']],
+  ['Basics', ['general', 'account', 'appearance', 'sidebar', 'newtab']],
   ['Browsing', ['search', 'tabs', 'privacy', 'performance', 'bookmarks']],
-  ['Make it yours', ['extensions', 'boosts', 'mods', 'icon']],
+  ['Make it yours', ['extensions', 'boosts', 'mods']],
   ['Oto', ['archive', 'shortcuts', 'about']],
 ];
 const V1_SET_NAMES = { performance: 'Speed & memory', about: 'About & updates', extensions: 'Extensions', icon: 'App icon' };
@@ -863,15 +863,31 @@ function v1ZoomPill(f) {
 // Update ready: a card at the bottom of the sidebar with the top changes.
 async function v1UpdateCard(u) {
   let card = $('#v1Upd');
-  if (!u || u.state !== 'ready') { if (card) card.remove(); return; }
-  if (card && card.dataset.v === u.version) return;
+  const rt = skinIsRt();
+  const dl = rt && u && u.state === 'downloading' && u.version;
+  if (!u || !(u.state === 'ready' || dl)) { if (card && !(u && u.state === 'checking' && card.dataset.s === 'downloading')) card.remove(); return; }
+  // downloading → just move the progress line (don't rebuild, so the logo doesn't replay)
+  if (card && card.dataset.v === u.version && card.dataset.s === u.state) {
+    if (dl) { const p = Math.max(2, Math.min(100, u.percent || 0)); card.querySelector('.bar i').style.width = `${p}%`; card.querySelector('.tx small').textContent = `DOWNLOADING · ${p}%`; }
+    return;
+  }
   if (card) card.remove();
-  card = h('div', { id: 'v1Upd', class: 'v1-upd', 'data-v': u.version },
-    h('div', { class: 'uh' }, h('span', { class: 'lg', html: logoSvg() }), h('div', {}, h('b', {}, `Oto ${u.version} is ready`), h('small', {}, 'Restart takes a few seconds'))),
-    h('p', { class: 'un' }, 'What’s new shows up right after the restart.'),
-    h('div', { class: 'ua' }, h('button', { onclick: () => card.remove() }, 'Later'), h('button', { class: 'p', onclick: () => { save(); oto.updateInstall(); } }, 'Restart now')));
+  const install = () => { save(); oto.updateInstall(); };
+  card = skinIsRt()
+    // Oto theme: same language as the sidebar — a numbered mono label with a hairline, a HOME-style box, a cream block button
+    ? h('div', { id: 'v1Upd', class: `v1-upd rt${dl ? ' dl' : ''}`, 'data-v': u.version, 'data-s': u.state },
+      h('div', { class: 'rt-lbl' }, h('span', {}, 'UPDATE'), h('i'), h('span', { class: 'ready' }, h('b'), dl ? 'NEW' : 'READY')),
+      h('div', { class: 'rt-box' }, h('span', { class: 'lg enter', html: `<i class="shock"></i>${logoSvg()}` }),
+        h('div', { class: 'tx' }, h('b', {}, `OTO ${String(u.version).toUpperCase()}`), h('small', {}, dl ? `DOWNLOADING · ${Math.max(2, u.percent || 0)}%` : 'RESTART TO INSTALL')),
+        dl ? h('div', { class: 'bar' }, h('i', { style: `width:${Math.max(2, u.percent || 0)}%` })) : null),
+      dl ? null : h('div', { class: 'ua' }, h('button', { onclick: () => card.remove() }, 'Later'), h('button', { class: 'p', onclick: install }, 'Restart now')))
+    : h('div', { id: 'v1Upd', class: 'v1-upd', 'data-v': u.version },
+      h('div', { class: 'uh' }, h('span', { class: 'lg', html: logoSvg() }), h('div', {}, h('b', {}, `Oto ${u.version} is ready`), h('small', {}, 'Restart takes a few seconds'))),
+      h('p', { class: 'un' }, 'What’s new shows up right after the restart.'),
+      h('div', { class: 'ua' }, h('button', { onclick: () => card.remove() }, 'Later'), h('button', { class: 'p', onclick: install }, 'Restart now')));
   const foot = document.querySelector('#sidebar .sb-foot');
   if (foot) foot.before(card);
+
 }
 
 // Recently closed tabs list (also /closed in the command bar).
@@ -902,7 +918,7 @@ function v1Board7() {
     v1ZoomPill(next);
   };
   const _onUpdate = onUpdate;
-  onUpdate = function (u) { _onUpdate.apply(this, arguments); v1UpdateCard(UPD); };
+  onUpdate = function (u) { if (u) v1UpdateCard(u); _onUpdate.apply(this, arguments); };
   oto.updateStatus().then((u) => v1UpdateCard(u)).catch(() => {});
   // the permission ask comes out of the address pill
   const pb = $('#permBar');
@@ -992,4 +1008,9 @@ function initV1() {
   if (typeof v1Board8 === 'function') v1Board8();
   if (typeof initV1b === 'function') initV1b();
   if (typeof initV1c === 'function') initV1c();
+  if (typeof initV1d === 'function') initV1d();
+  if (typeof initV1e === 'function') initV1e();
+  if (typeof initV1f === 'function') initV1f();
+  if (typeof initV1g === 'function') initV1g();
+  if (typeof initV1h === 'function') initV1h();
 }

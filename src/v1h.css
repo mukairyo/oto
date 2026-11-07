@@ -1,0 +1,90 @@
+/* Oto — your phone on your PC (v1h.js). Same look as the Oto theme in every skin. */
+.v1-ph {
+  --k-bg: #0b0b0c; --k-raise: #141416; --k-line: rgba(255,255,255,.075); --k-line2: rgba(255,255,255,.14);
+  --k-fg: #ece8e1; --k-fg2: rgba(236,232,225,.64); --k-fg3: rgba(236,232,225,.38); --k-cream: #e7dfd1; --k-ink: #131313;
+  --k-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace; --k-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(1000px, calc(100vw - 48px)); height: min(620px, calc(100vh - 48px));
+  display: grid; grid-template-columns: minmax(300px, 44%) 1fr; overflow: hidden;
+  background: var(--k-bg); color: var(--k-fg); border-radius: 8px;
+  box-shadow: inset 0 0 0 1px var(--k-line2), 0 40px 120px rgba(0,0,0,.6);
+  font: 13px/1.45 var(--font, 'Segoe UI', system-ui, sans-serif);
+}
+.v1-layer:has(> .v1-ph) { background: rgba(5,5,6,.55); backdrop-filter: blur(6px); animation: phFade .3s ease both; }
+.v1-ph.enter { animation: phIn .5s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes phFade { from { opacity: 0; } }
+@keyframes phIn { from { opacity: 0; transform: translate(-50%, -48%) scale(.985); } }
+
+/* left: the phone in space */
+.v1-ph .ph-stage { position: relative; overflow: hidden; border-right: 1px solid var(--k-line); background: radial-gradient(60% 50% at 50% 46%, #141417, #0b0b0c 80%); }
+.v1-ph .ph-stage .sky { position: absolute; inset: 0; opacity: .9; }
+.v1-ph .ph-stage .sky svg { width: 100%; height: 100%; display: block; }
+.v1-ph .ph-stage .glow { position: absolute; left: 50%; top: 50%; width: 70%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(231,223,209,.13), rgba(231,223,209,.04) 55%, transparent); animation: phGlow 5s ease-in-out infinite; pointer-events: none; }
+@keyframes phGlow { 50% { opacity: .65; transform: translate(-50%, -50%) scale(1.06); } }
+.v1-ph .ph3d { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.v1-ph .ph3d.grab { cursor: grabbing; }
+.v1-ph .ph-stage.waiting .ph3d { opacity: .45; filter: saturate(.6); transition: opacity .6s; }
+.v1-ph .cap { position: absolute; left: 18px; right: 18px; bottom: 14px; display: flex; align-items: center; gap: 10px;
+  font: 600 9px var(--k-mono); letter-spacing: .22em; color: var(--k-fg3); pointer-events: none; }
+.v1-ph .cap .r { flex: 1; height: 1px; background: var(--k-line2); }
+.v1-ph .cap .mdl, .v1-ph .cap .mdl * { pointer-events: auto; }
+.v1-ph .cap button { padding: 4px 0; background: none; border: 0; color: var(--k-fg2); font: inherit; letter-spacing: inherit; cursor: pointer; }
+.v1-ph .cap button:hover { color: var(--k-fg); }
+
+/* right: what the phone is doing */
+.v1-ph .ph-info { position: relative; display: flex; flex-direction: column; min-height: 0; padding: 34px 34px 18px; overflow: hidden; }
+.v1-ph .ph-x { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 4px; background: transparent; color: var(--k-fg2); cursor: pointer; z-index: 2; }
+.v1-ph .ph-x:hover { background: rgba(255,255,255,.06); color: var(--k-fg); }
+.v1-ph .ph-x svg { width: 11px; height: 11px; }
+.v1-ph .ph-crumb { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; font: 600 10px var(--k-mono); letter-spacing: .28em; color: var(--k-fg2); white-space: nowrap; }
+.v1-ph .ph-crumb i { width: 16px; height: 1px; background: var(--k-fg2); }
+.v1-ph .ph-crumb b { font: 400 13px 'Yu Mincho', 'MS Mincho', 'Noto Serif JP', serif; letter-spacing: 0; color: var(--k-fg); }
+.v1-ph .ph-crumb em { flex: 1; max-width: 110px; height: 1px; background: var(--k-line2); }
+.v1-ph h1 { margin: 0 0 12px; font: 400 46px/1 var(--k-serif); letter-spacing: -.8px; color: var(--k-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v1-ph .sub { margin: 0 0 22px; max-width: 440px; color: var(--k-fg2); font-size: 14px; }
+.v1-ph .ph-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 20px; font: 600 9.5px var(--k-mono); letter-spacing: .18em; color: var(--k-fg3); }
+.v1-ph .ph-meta span { display: inline-flex; align-items: center; gap: 7px; }
+.v1-ph .ph-meta .st i { width: 6px; height: 6px; border-radius: 50%; background: var(--k-fg3); }
+.v1-ph .ph-meta .st.on { color: var(--k-fg); }
+.v1-ph .ph-meta .st.on i { background: var(--k-cream); box-shadow: 0 0 0 3px rgba(231,223,209,.12); animation: phPulse 2.2s ease-in-out infinite; }
+@keyframes phPulse { 50% { box-shadow: 0 0 0 6px rgba(231,223,209,0); } }
+.v1-ph .ph-meta .bat i { position: relative; width: 20px; height: 9px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--k-fg3); }
+.v1-ph .ph-meta .bat i::before { content: ''; position: absolute; left: 2px; top: 2px; bottom: 2px; width: calc((100% - 4px) * var(--b) / 100); min-width: 1px; background: var(--k-fg2); border-radius: 1px; }
+.v1-ph .ph-meta .bat i.chg::before { background: var(--k-cream); }
+.v1-ph .ph-meta .bat i::after { content: ''; position: absolute; right: -3px; top: 3px; width: 2px; height: 3px; background: var(--k-fg3); border-radius: 0 1px 1px 0; }
+.v1-ph .ph-pick { display: flex; gap: 6px; margin: -4px 0 14px; }
+.v1-ph .ph-pick button { height: 26px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--k-line2); color: var(--k-fg2); font: 600 9.5px var(--k-mono); letter-spacing: .14em; text-transform: uppercase; cursor: pointer; }
+.v1-ph .ph-pick button.on { background: var(--k-cream); color: var(--k-ink); box-shadow: none; }
+.v1-ph .ph-acts { display: flex; gap: 8px; margin-bottom: 24px; }
+.v1-ph .ph-acts button, .v1-ph .ph-foot button { height: 34px; padding: 0 14px; border: 0; border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--k-line2); color: var(--k-fg); font: 600 10px var(--k-mono); letter-spacing: .16em; cursor: pointer; }
+.v1-ph .ph-acts button:hover, .v1-ph .ph-foot button:hover { background: rgba(255,255,255,.05); }
+.v1-ph .ph-acts button.pri { background: var(--k-cream); color: var(--k-ink); box-shadow: none; }
+.v1-ph .ph-acts button.pri:hover { background: #f1eadf; }
+.v1-ph .ph-acts button:disabled { opacity: .4; cursor: default; }
+.v1-ph .ph-lbl { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; font: 600 9.5px var(--k-mono); letter-spacing: .22em; color: var(--k-fg3); }
+.v1-ph .ph-lbl em { flex: 1; height: 1px; background: var(--k-line); }
+.v1-ph .ph-tabs { flex: 1; min-height: 0; overflow: auto; margin: 0 -8px; padding: 0 8px; scrollbar-width: thin; }
+.v1-ph .ph-tabs .tb { width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 8px; border: 0; border-radius: 4px; background: transparent; color: var(--k-fg); text-align: left; cursor: pointer; }
+.v1-ph .ph-tabs .tb:hover { background: rgba(255,255,255,.045); }
+.v1-ph .ph-tabs .fv { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--k-line2); font: 600 11px var(--k-mono); color: var(--k-fg2); }
+.v1-ph .ph-tabs .tt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.v1-ph .ph-tabs .tt b { font-weight: 500; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v1-ph .ph-tabs .tt small { font-size: 11px; color: var(--k-fg3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v1-ph .ph-tabs .tb em { font: 600 8.5px var(--k-mono); letter-spacing: .2em; color: var(--k-ink); background: var(--k-cream); padding: 3px 6px; border-radius: 3px; font-style: normal; }
+.v1-ph .ph-tabs .none { color: var(--k-fg3); font-size: 12.5px; padding: 6px 0; }
+.v1-ph .ph-foot { display: flex; align-items: center; gap: 12px; padding-top: 14px; margin-top: 10px; border-top: 1px solid var(--k-line); font: 600 8.5px var(--k-mono); letter-spacing: .2em; color: var(--k-fg3); }
+.v1-ph .ph-foot span { flex: 1; }
+.v1-ph .ph-foot button { height: 26px; color: var(--k-fg2); }
+.v1-ph .ph-steps { list-style: none; margin: 0 0 18px; padding: 0; border-top: 1px solid var(--k-line); }
+.v1-ph .ph-steps li { display: flex; gap: 16px; align-items: baseline; padding: 13px 0; border-bottom: 1px solid var(--k-line); color: var(--k-fg2); font-size: 13.5px; }
+.v1-ph .ph-steps b { font: 600 10px var(--k-mono); letter-spacing: .18em; color: var(--k-fg3); }
+.v1-ph .ph-err { margin: 0 0 16px; color: #e8b4a8; font-size: 12.5px; }
+
+/* "send to <phone>" on top of the QR popup */
+.v1-qr .ph-direct { align-self: stretch; display: flex; flex-direction: column; gap: 6px; margin: 10px 0 4px; }
+.v1-qr .ph-direct button { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border: 0; border-radius: 8px; background: var(--fg, #ece8e1); color: var(--bg, #131313); font: 600 12.5px var(--font); cursor: pointer; }
+.v1-qr .ph-direct button svg { width: 15px; height: 15px; }
+.v1-qr .ph-direct button span { flex: 1; min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v1-qr .ph-direct button i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .25; }
+.v1-qr .ph-direct button i.on { opacity: 1; }

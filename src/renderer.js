@@ -99,6 +99,7 @@ function applySpaceArrow() {
 
 let logoSeq = 0;
 function logoSvg() {
+  if (S && typeof skinIsRt === 'function' && skinIsRt() && typeof vortexSvg === 'function') return vortexSvg({ bg: false, live: true });
   if (S && typeof iconSvg === 'function') return iconSvg(S.settings.appIcon);
   return logoSvgClassic();
 }
@@ -292,7 +293,7 @@ const isDark = () => S.settings.theme === 'dark' || (S.settings.theme === 'syste
 let themePreview = null;     // set while the colour picker is open
 let themeNow = null;
 function applyTheme() {
-  const rt = typeof skinIsRt === 'function' && skinIsRt(); // RyokuTunes theme: always dark, near-black
+  const rt = typeof skinIsRt === 'function' && skinIsRt(); // Oto theme (near-black): always dark, near-black
   const dark = rt || isDark();
   const theme = themePreview || themeOf(currentWs());
   const b = rt ? rtBackground(theme) : buildBackground(theme, dark);
@@ -363,7 +364,7 @@ function setTheme(t) {
 const PARTS = {};
 // Zen layout keeps navigation in the sidebar — but when the sidebar is collapsed to icons or hidden
 // there's no room there, so (like Zen) back/forward, reload and the address move up to the top bar.
-const navInTopBar = () => S.settings.toolbarLayout === 'top'
+const navInTopBar = () => (S.settings.toolbarLayout === 'top' && !(typeof skinIsRt === 'function' && skinIsRt()))
   || (S.settings.navWhenCollapsed === 'top' && (!!S.settings.compact || !!S.settings.collapsed));
 function placeParts() {
   const single = !navInTopBar();
@@ -531,8 +532,8 @@ function bindView(tab, v) {
     const r = e.result || {};
     if (isActive() && r.matches != null) $('#findCount').textContent = r.matches ? `${r.activeMatchOrdinal}/${r.matches}` : '0/0';
   });
-  el.addEventListener('media-started-playing', () => { v.audible = true; render(); });
-  el.addEventListener('media-paused', () => { v.audible = false; render(); });
+  el.addEventListener('media-started-playing', () => { v.audible = true; v.audibleAt = Date.now(); render(); });
+  el.addEventListener('media-paused', () => { v.audible = false; v.audibleAt = Date.now(); render(); });
   el.addEventListener('focus', () => { if (S.settings.stayOpen) closeSlidingSidebar(); });
   el.addEventListener('enter-html-full-screen', () => document.body.classList.add('fs'));
   el.addEventListener('leave-html-full-screen', () => document.body.classList.remove('fs'));
@@ -1242,10 +1243,8 @@ const ACTIONS = [
   { name: 'Open settings', kw: 'preferences options', icon: 'settings', run: () => openSettings() },
   { name: 'Archived tabs', kw: 'archive closed restore', icon: 'clock', run: () => openSettings('archive') },
   { name: 'Boosts — restyle this site', kw: 'css custom style boost', icon: 'bolt', run: () => openSettings('boosts') },
-  { name: 'Change app icon', kw: 'icon taskbar', icon: 'star', run: () => openSettings('icon') },
   { name: 'Move sidebar to the other side', kw: 'left right sidebar position', icon: 'sidebar', run: () => { S.settings.sidebarSide = S.settings.sidebarSide === 'right' ? 'left' : 'right'; applyLayout(); save(); } },
   { name: 'Make Oto the default browser', kw: 'default', icon: 'globe', run: () => oto.makeDefaultBrowser() },
-  { name: 'RyokuTunes theme', kw: 'ryoku tunes skin style black serif', icon: 'palette', run: () => { S.settings.skin = skinIsRt() ? 'oto' : 'ryokutunes'; applyTheme(); save(); toast(skinIsRt() ? 'RyokuTunes theme on' : 'Oto theme on', { timeout: 1400 }); } },
   { name: 'Dark theme', kw: 'night mode', icon: 'moon', run: () => setTheme('dark') },
   { name: 'Light theme', kw: 'day mode', icon: 'sun', run: () => setTheme('light') },
   { name: 'System theme', kw: 'auto', icon: 'settings', run: () => setTheme('system') },

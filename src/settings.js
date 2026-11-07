@@ -5,6 +5,8 @@
 const DARK_BG = ['#1c1833', '#08080e'];
 const ICON_STYLES = {
   classic: { name: 'Neon', c: ['#a855f7', '#6366f1', '#22d3ee'] },
+  vortex: { name: 'Vortex', vortex: true },
+  cream: { name: 'Cream', c: ['#f6f1e8', '#e7dfd1', '#cbbfae'], bg: ['#1a1a1d', '#0b0b0c'], glow: false },
   sunset: { name: 'Sunset', c: ['#fb923c', '#ec4899', '#a855f7'] },
   mint: { name: 'Mint', c: ['#34d399', '#10b981', '#22d3ee'] },
   rose: { name: 'Rose', c: ['#fb7185', '#f472b6', '#fda4af'] },
@@ -15,12 +17,16 @@ const ICON_STYLES = {
   space: { name: 'Match space', c: null },
 };
 function iconPalette(style) {
+  // The Oto theme (near-black) shows the mark in cream instead of neon.
+  if ((!style || style === 'classic') && typeof skinIsRt === 'function' && skinIsRt()) style = 'cream';
   const s = ICON_STYLES[style] || ICON_STYLES.classic;
   if (s.c) return { c: s.c, bg: s.bg || DARK_BG, glow: s.glow !== false };
   const cols = themeOf(currentWs()).colors.map((c) => accentFrom(c, true));
   return { c: [cols[0], cols[Math.floor(cols.length / 2)], cols[cols.length - 1]], bg: DARK_BG, glow: true };
 }
 function iconSvg(style) {
+  // Oto theme: the Vortex is always the logo (the App icon page is gone)
+  if (style === 'vortex' || (typeof skinIsRt === 'function' && skinIsRt())) return vortexSvg();
   const { c, bg, glow } = iconPalette(style);
   return otoMarkSvg(c, bg, glow);
 }
@@ -87,7 +93,7 @@ function housekeeping() {
   if (idle) {
     for (const [id, v] of V) {
       const t = tabById(id);
-      if (!t || isActiveAnywhere(id) || v.audible) continue;
+      if (!t || isActiveAnywhere(id) || mediaBusy(id, v)) continue;
       const since = v.hiddenAt || t.lastActive || now;
       if (now - since > idle) destroyView(id);
     }
@@ -121,13 +127,16 @@ function reapplyBoosts() {
 }
 
 // ================================================================ efficiency: freezing background tabs
+// A music/video tab counts as playing for 10 minutes after its last sound, so the short gap between
+// songs (or a quick pause) never gets it frozen or put to sleep — that used to stop the next song.
+const mediaBusy = (id, v) => v.audible || (v.audibleAt && Date.now() - v.audibleAt < 10 * 60 * 1000) || (typeof media !== 'undefined' && media && media.tabId === id && !media.dismissed);
 const FREEZE_AFTER = { '1m': 6e4, '5m': 3e5, '15m': 9e5 };
 function freezeTick() {
   const ttl = FREEZE_AFTER[S.settings.freezeAfter];
   if (!ttl) return;
   const now = Date.now();
   for (const [id, v] of V) {
-    if (v.frozen || !v.ready || !v.wcId || v.audible || v.loading || isActiveAnywhere(id)) continue;
+    if (v.frozen || !v.ready || !v.wcId || mediaBusy(id, v) || v.loading || isActiveAnywhere(id)) continue;
     const t = tabById(id);
     const since = v.hiddenAt || (t && t.lastActive);
     if (!since || now - since < ttl) continue;
@@ -430,13 +439,13 @@ const PAGES = [
   ['boosts', 'Boosts', 'edit'],
   ['mods', 'Mods', 'sidebar'],
   ['archive', 'Archive', 'clock'],
-  ['icon', 'App icon', 'star'],
   ['shortcuts', 'Shortcuts', 'code'],
   ['about', 'About', 'globe'],
 ];
 
 function openSettings(tab) {
   closeCmd(false); closeMenu();
+  settingsFresh = true;
   if (tab) settingsTab = tab;
   boostEdit = null;
   renderSettings();
@@ -505,6 +514,9 @@ const PAGE_RENDER = {
       section('Default browser',
         row('Make Oto your default browser', 'Opens Windows Settings — choose Oto for web links.',
           h('button', { class: 'btn', onclick: async () => { const r = await oto.makeDefaultBrowser(); if (r === 'set') toast('Oto is now your default browser'); } }, 'Set as default'))),
+      section('Welcome setup',
+        row('Go through the setup again', 'Layout, look, speed, search & privacy and Essentials — the same steps as the first time you opened Oto.',
+          h('button', { class: 'btn', onclick: () => { closeSettings(); setTimeout(() => runSetup(), 220); } }, 'Open setup'))),
       section('Startup',
         row('When Oto starts', null, seg([['continue', 'Continue where I left off'], ['fresh', 'Start fresh']], st.startup, (v) => setPref('startup', v))),
         h('p', { class: 'set-note' }, 'Start fresh moves your unpinned tabs to the Archive on launch. Pinned tabs and Essentials stay.')),
@@ -522,7 +534,7 @@ const PAGE_RENDER = {
     const st = S.settings;
     return [
       section('Theme',
-        row('Theme', 'RyokuTunes is a near-black, editorial look with serif headings, small mono labels and a cream highlight.', h('div', { class: 'skin-picks' }, ...Object.entries(SKINS).map(([k, l]) => h('button', {
+        row('Theme', 'Oto’s look: near-black, editorial, with serif headings, small mono labels and a cream highlight.', h('div', { class: 'skin-picks' }, ...Object.entries(SKINS).map(([k, l]) => h('button', {
           class: `skin-pick sk-${k}${skinOf() === k ? ' on' : ''}`, onclick: () => { setPref('skin', k); applyTheme(); renderSettings(); },
         }, h('span', { class: 'sp-art' }, h('i'), h('i'), h('i')), h('b', {}, l))))),
         skinIsRt() ? null : row('Appearance', 'Websites follow this too, where they support it.', seg([['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], st.theme, setTheme)),
@@ -533,7 +545,7 @@ const PAGE_RENDER = {
         row('Interface size', null, slider(st.uiScale, 0.8, 1.3, 0.05, (v) => `${Math.round(v * 100)}%`, setLook('uiScale'))),
         row('Tab height', null, seg([['compact', 'Compact'], ['default', 'Default'], ['roomy', 'Roomy']], st.tabDensity, setLook('tabDensity')))),
       section('Layout',
-        row('Toolbar', 'Zen puts back/forward and the address in the sidebar. Classic keeps them along the top.',
+        skinIsRt() ? null : row('Toolbar', 'Zen puts back/forward and the address in the sidebar. Classic keeps them along the top.',
           seg([['single', 'Zen'], ['top', 'Classic']], st.toolbarLayout, (v) => { setPref('toolbarLayout', v); applyLayout(); updateChrome(); })),
         row('Auto-hide the top bar', 'It slides away; move your mouse to the top edge to bring it back. (Ctrl+Shift+B)', sw(st.autohideTop, (on) => { setPref('autohideTop', on); applyLayout(); })),
         row('Bookmarks bar', null, sw(st.showBookmarks, (on) => { setPref('showBookmarks', on); applyLayout(); })),
@@ -972,8 +984,10 @@ const PAGE_RENDER = {
         toast('Settings imported', { icon: 'check' });
       } catch (err) { toast(`Couldn’t import that file (${err.message})`, { timeout: 2500 }); }
     });
+    const heroWarp = skinIsRt() ? h('canvas', { class: 'about-warp' }) : null;
+    if (heroWarp) setTimeout(() => vortexWarpAround(heroWarp.parentElement, heroWarp), 0);
     return [
-      h('div', { class: 'about-hero' }, h('span', { class: 'icon-art', html: iconSvg(S.settings.appIcon) }),
+      h('div', { class: 'about-hero' }, skinIsRt() ? h('div', { class: 'hero-sky', html: galaxyBg({ w: 900, h: 240, stars: 320, band: false }) }) : null, heroWarp, h('span', { class: `icon-art${pageEnter ? ' enter' : ''}`, html: `${pageEnter ? '<i class="shock"></i>' : ''}${logoSvg()}` }),
         h('div', {}, h('h3', {}, 'Oto'), h('div', { class: 'about' }, `Version ${INFO.version || ''} · Chromium ${INFO.chrome || ''} · Electron ${INFO.electron || ''}`))),
       section(null,
         row('Back up your setup', 'Saves settings, space colours, Boosts, Mods and shortcuts to a file.', h('div', { class: 'btn-pair' },
@@ -1032,10 +1046,13 @@ function boostEditor() {
   ];
 }
 
+let settingsFresh = true, pageEnter = true;
 function renderSettings() {
   stopMotionPreview();
   const body = $('#settingsBody');
   const scroll = body.querySelector('.set-pane');
+  // true when this page was just opened (not a repaint after a click) — the About logo plays its start then
+  pageEnter = settingsFresh || !(scroll && scroll.dataset.page === settingsTab); settingsFresh = false;
   const keep = scroll && scroll.dataset.page === settingsTab ? scroll.scrollTop : 0;
   if (settingsTab !== 'performance') { clearInterval(perfTimer); perfTimer = null; }
   const nav = h('nav', { class: 'set-nav' }, ...PAGES.map(([k, label, ic]) => h('button', {

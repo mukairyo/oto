@@ -1,9 +1,12 @@
 'use strict';
 /* Oto — theme packs. "RyokuTunes": a near-black, editorial theme in the style of the RyokuTunes
-   music app — thin lines, serif headings, small mono labels, 力 accents and a cream highlight. */
+   music app — thin lines, serif headings, small mono labels, 音 accents and a cream highlight. */
 
-const SKINS = { oto: 'Oto', ryokutunes: 'RyokuTunes' };
-const skinOf = () => (S && SKINS[S.settings.skin] ? S.settings.skin : 'oto');
+// For now the near-black editorial look IS the Oto theme (the older bright Oto look is hidden).
+// Avocado windows keep their own green look, which is built on the older theme.
+const SKINS = { ryokutunes: 'Oto' };
+const SKIN_AVOCADO = /[?&]avocado=1/.test(location.search);
+const skinOf = () => (SKIN_AVOCADO ? 'oto' : 'ryokutunes');
 const skinIsRt = () => skinOf() === 'ryokutunes';
 
 const hexA = (hex, a) => { const [r, g, b] = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; };
@@ -45,7 +48,7 @@ function ensureSkinDecor() {
     const inner = document.querySelector('#empty .empty-inner');
     if (inner) {
       inner.prepend(h('div', { id: 'rtCrumb', class: 'rt-crumb', 'aria-hidden': 'true' },
-        h('span', { class: 'rt-dash' }), h('span', { class: 'rt-kanji' }, '力'), h('span', {}, 'HOME / BROWSE'), h('span', { class: 'rt-rule' }), h('span', {}, '01')));
+        h('span', { class: 'rt-dash' }), h('span', { class: 'rt-kanji' }, '音'), h('span', {}, 'HOME / BROWSE'), h('span', { class: 'rt-rule' }), h('span', {}, '01')));
       const greet = $('#greet');
       if (greet) greet.after(h('div', { id: 'rtSub', class: 'rt-sub' }, 'Pick up where you left off, or find the next thing worth reading.'));
     }

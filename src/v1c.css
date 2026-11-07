@@ -197,3 +197,191 @@ body.rail:not(.rail-open) .v1-kids { margin-left: 0; padding-left: 0; border: 0;
 .v1-intro .r { stroke-dasharray: 140; stroke-dashoffset: 140; animation: v1draw .5s cubic-bezier(.6, 0, .3, 1) forwards; }
 .v1-intro .i { stroke-dasharray: 125; stroke-dashoffset: 125; animation: v1draw .45s .3s cubic-bezier(.6, 0, .3, 1) forwards; }
 @keyframes v1draw { to { stroke-dashoffset: 0; } }
+body.rail:not(.rail-open) .v1-tn, body.rail:not(.rail-open) .v1-flame { display: none !important; }
+
+/* startup animation — Oto theme (near-black, cream, 音) */
+.v1-intro.rt { background: radial-gradient(55% 45% at 50% 45%, #141416, #0b0b0c 75%); color: #e7dfd1; transition: opacity .38s ease, transform .38s ease; }
+.v1-intro.rt.out { transform: scale(1.015); }
+.v1-intro.rt .st { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.v1-intro.rt .v1i-mk .r { stroke-dasharray: 140; stroke-dashoffset: 140; animation: v1draw .55s cubic-bezier(.6, 0, .3, 1) forwards; }
+.v1-intro.rt .v1i-mk .i { stroke-dasharray: 125; stroke-dashoffset: 125; animation: v1draw .5s .28s cubic-bezier(.6, 0, .3, 1) forwards; }
+.v1-intro.rt .ln { display: flex; align-items: center; gap: 16px; }
+.v1-intro.rt .ln i { display: block; height: 1px; width: 0; background: rgba(231, 223, 209, .4); animation: v1rtline .55s .45s cubic-bezier(.2, .8, .2, 1) forwards; }
+.v1-intro.rt .ln .k { font: 400 30px/1 'Yu Mincho', 'MS Mincho', 'Noto Serif JP', serif; opacity: 0; transform: translateY(6px); filter: blur(4px); animation: v1rtk .5s .55s ease forwards; }
+.v1-intro.rt .w { font: 500 11px/1 'JetBrains Mono', Consolas, monospace; letter-spacing: .1em; color: rgba(236, 232, 225, .5); opacity: 0; animation: v1rtw .6s .7s ease forwards; }
+@keyframes v1rtline { to { width: 64px; } }
+@keyframes v1rtk { to { opacity: 1; transform: none; filter: none; } }
+@keyframes v1rtw { to { opacity: 1; letter-spacing: .6em; } }
+
+/* Vortex spin-up (startup) */
+.v1-intro.rt .vx svg { width: 168px; height: 168px; display: block; overflow: visible; }
+.v1-intro.rt .st { gap: 6px; }
+.vortex-anim .vr { opacity: 0; transform-box: fill-box; transform-origin: center; animation: vxRing .7s calc(var(--i) * 45ms) cubic-bezier(.2, .8, .2, 1) forwards, vxSpin 1.6s calc(var(--i) * 45ms) linear forwards; }
+.vortex-anim .vd { opacity: 0; animation: vxFade .4s .55s ease forwards; }
+.vortex-anim .vs { opacity: 0; transform-box: fill-box; transform-origin: center; animation: vxStreak .6s calc(.45s + var(--i) * 30ms) cubic-bezier(.2, .8, .2, 1) forwards; }
+.vortex-anim .vcore { transform-box: fill-box; transform-origin: center; opacity: 0; animation: vxBurst .9s .35s cubic-bezier(.2, .9, .2, 1) forwards; }
+.vortex-anim .vdot { opacity: 0; animation: vxFade .25s .3s ease forwards; }
+@keyframes vxRing { from { opacity: 0; scale: .55; } to { opacity: 1; scale: 1; } }
+@keyframes vxSpin { from { stroke-dashoffset: calc(var(--c) * 1px); } to { stroke-dashoffset: calc(var(--c) * .55px); } }
+@keyframes vxStreak { from { opacity: 0; scale: .6; } to { opacity: 1; scale: 1; } }
+@keyframes vxBurst { 0% { opacity: 0; scale: .3; } 45% { opacity: 1; scale: 2.4; } 100% { opacity: 1; scale: 1; } }
+@keyframes vxFade { to { opacity: 1; } }
+
+/* ---- Live vortex: the logo in Oto's UI keeps slowly swirling and fades into the background ---- */
+.vortex-live { overflow: visible; -webkit-mask-image: radial-gradient(closest-side, #000 62%, transparent 100%); mask-image: radial-gradient(closest-side, #000 62%, transparent 100%); }
+.vortex-live .vr { animation: vxFlow calc(9s + var(--i) * 1.7s) linear infinite; }
+.vortex-live .vcore { transform-box: fill-box; transform-origin: center; animation: vxBreathe 4.2s ease-in-out infinite; }
+.vortex-live .vdot { animation: vxGlint 4.2s ease-in-out infinite; }
+.vortex-live .vs { animation: vxTwinkle 3.6s ease-in-out infinite; animation-delay: calc(var(--i) * -0.4s); }
+.vortex-live .vd { animation: vxTwinkle 2.8s ease-in-out infinite; }
+.vortex-live .vd:nth-child(3n) { animation-delay: -1.1s; } .vortex-live .vd:nth-child(3n+1) { animation-delay: -2s; }
+@keyframes vxFlow { from { stroke-dashoffset: calc(var(--o) * 1px); } to { stroke-dashoffset: calc((var(--o) - var(--c)) * 1px); } }
+@keyframes vxBreathe { 0%, 100% { scale: 1; opacity: .9; } 50% { scale: 1.18; opacity: 1; } }
+@keyframes vxGlint { 0%, 100% { opacity: .85; } 50% { opacity: 1; } }
+@keyframes vxTwinkle { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .vortex-live .vr, .vortex-live .vcore, .vortex-live .vdot, .vortex-live .vs, .vortex-live .vd { animation: none; } }
+body.reduce-motion .vortex-live * { animation: none !important; }
+
+/* where the live vortex sits in the Oto theme: no tile, no shadow, a little bigger, a soft glow behind */
+body.skin-rt .icon-art svg.vortex-live, body.skin-rt .wn-logo svg.vortex-live { filter: none; }
+body.skin-rt .about-hero .icon-art { position: relative; display: grid; place-items: center; width: 76px; height: 76px; margin: -10px -4px -10px -8px; }
+body.skin-rt .about-hero .icon-art::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; background: radial-gradient(closest-side, rgba(231,223,209,.10), transparent); }
+body.skin-rt .about-hero .icon-art svg { width: 76px; height: 76px; position: relative; }
+body.skin-rt .setup-mark svg.vortex-live { width: 34px; height: 34px; margin: -2px; }
+
+/* account card in the Oto theme: hairline panel, live vortex instead of the rainbow key */
+body.skin-rt .v1-acc-hero { color: var(--rt-fg); border: 0; border-radius: 6px; background: radial-gradient(70% 140% at 0% 50%, rgba(231,223,209,.06), transparent 60%), var(--rt-raise); box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .v1-acc-hero b { font: 400 24px/1.1 var(--rt-serif); letter-spacing: -.2px; }
+body.skin-rt .v1-acc-hero p { color: var(--rt-fg2); }
+body.skin-rt .v1-acc-hero .ic { width: 64px; height: 64px; border-radius: 0; background: none; margin: -6px 0; }
+body.skin-rt .v1-acc-hero .ic svg { width: 64px; height: 64px; }
+body.skin-rt .v1-acc-hero .av { background: var(--rt-cream); color: var(--rt-ink); font: 400 24px/1 var(--rt-serif); }
+body.skin-rt .v1-acc-hero .btn.primary { background: var(--rt-cream); color: var(--rt-ink); }
+/* stars streaming out of the white hole and drifting past */
+.vortex-live .vst { opacity: 0; animation: vxStar var(--t) var(--d) cubic-bezier(.4, 0, .9, .6) infinite; }
+@keyframes vxStar { 0% { opacity: 0; translate: 0 0; scale: .4; } 15% { opacity: 1; } 70% { opacity: .9; } 100% { opacity: 0; translate: calc(var(--x) * 1px) calc(var(--y) * 1px); scale: 1.6; } }
+@media (prefers-reduced-motion: reduce) { .vortex-live .vst { animation: none; opacity: 0; } }
+/* galaxy: the arms turn slowly (trailing, like a real spiral galaxy), the old rings become faint orbits */
+.vortex-live .vgal { transform-box: view-box; transform-origin: 0 0; animation: vxGal 40s linear infinite; }
+.vortex-live .vrs { opacity: .26; }
+.vortex-live .vs { opacity: .5; }
+.vortex-live .vfs { animation: vxTwinkle 3.2s var(--d) ease-in-out infinite; }
+@keyframes vxGal { to { rotate: -360deg; } }
+@media (prefers-reduced-motion: reduce) { .vortex-live .vgal, .vortex-live .vfs { animation: none; } }
+
+/* ---- Startup in the Oto theme: the galaxy forms ---- */
+.v1-intro.gx { background: radial-gradient(60% 50% at 50% 44%, #131315, #0a0a0b 72%); }
+.v1-intro.gx .vx { position: relative; }
+.v1-intro.gx .vx svg { width: 250px; height: 250px; margin: -30px 0 -40px; }
+/* star dust swirls in from far out and settles, then keeps turning */
+.v1-intro.gx .vortex-live .vgal { animation: vxGalIn 1.3s cubic-bezier(.33, .12, .22, 1) both, vxGal 40s 1.25s linear infinite; }
+@keyframes vxGalIn { 0% { rotate: 300deg; scale: 3; opacity: 0; } 30% { opacity: .6; } 100% { rotate: 0deg; scale: 1; opacity: 1; } }
+/* orbits appear from the middle out */
+.v1-intro.gx .vortex-live .vr { transform-box: fill-box; transform-origin: center; animation: vxRing .7s calc(.3s + var(--i) * 40ms) cubic-bezier(.2, .8, .2, 1) both, vxFlow calc(9s + var(--i) * 1.7s) linear infinite; }
+/* the white hole ignites at 0.75 s — the boom in the startup sound */
+.v1-intro.gx .vortex-live .vcore { animation: vxBurst .95s .35s cubic-bezier(.2, .9, .2, 1) both; }
+.v1-intro.gx .vortex-live .vdot { animation: vxIgnite .5s .5s ease both; }
+@keyframes vxIgnite { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: .95; } }
+/* light streaks and a rush of stars flying out past you */
+.v1-intro.gx .vortex-live .vs { animation: vxStreak .6s calc(.7s + var(--i) * 25ms) cubic-bezier(.2, .8, .2, 1) both; }
+.v1-intro.gx .vortex-live .vst { display: none; } /* no passing stars in the startup */
+.v1-intro.gx .vortex-live .vd, .v1-intro.gx .vortex-live .vfs { animation: vxFade .6s .6s ease both; }
+/* shockwave */
+.v1-intro.gx .shock { position: absolute; left: 50%; top: 50%; width: 20px; height: 9px; border-radius: 50%; transform: translate(-50%, -50%) rotate(-6deg); box-shadow: 0 0 0 1px rgba(255, 246, 232, .85), 0 0 18px 2px rgba(255, 240, 215, .25); opacity: 0; animation: vxShock .95s .72s cubic-bezier(.1, .7, .3, 1) both; pointer-events: none; }
+@keyframes vxShock { 0% { opacity: 0; width: 20px; height: 9px; } 10% { opacity: .9; } 100% { opacity: 0; width: 520px; height: 230px; } }
+/* text a beat later, after the burst */
+.v1-intro.gx .ln i { animation-delay: .75s; }
+.v1-intro.gx .ln .k { animation-delay: .85s; }
+.v1-intro.gx .w { animation-delay: 1s; }
+.v1-intro.gx .warp { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+.v1-intro.gx .st { position: relative; z-index: 0; }
+
+/* ---- Update card in the Oto theme ---- */
+body.skin-rt .v1-upd { position: relative; overflow: hidden; margin: 6px 0; padding: 14px 12px 12px; border-radius: 6px; background: radial-gradient(90% 120% at 0% 0%, rgba(231,223,209,.07), transparent 60%), var(--rt-raise); box-shadow: inset 0 0 0 1px var(--rt-line2); animation: vxCardIn .45s cubic-bezier(.2, .8, .2, 1) both; }
+body.skin-rt .v1-upd .uh { gap: 8px; align-items: center; }
+body.skin-rt .v1-upd .lg { flex: none; width: 46px; height: 46px; margin: -8px -4px -8px -8px; display: grid; place-items: center; }
+body.skin-rt .v1-upd .lg svg { width: 46px; height: 46px; }
+body.skin-rt .v1-upd b { font: 400 17px/1.15 var(--rt-serif); letter-spacing: -.1px; color: var(--rt-fg); }
+body.skin-rt .v1-upd small { font: 500 9px/1.6 var(--rt-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--rt-fg3); }
+body.skin-rt .v1-upd .un { margin: 10px 0 12px; font-size: 12px; line-height: 1.45; color: var(--rt-fg2); }
+body.skin-rt .v1-upd .ua button { height: 30px; border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); color: var(--rt-fg); font: 600 11.5px var(--font); }
+body.skin-rt .v1-upd .ua button:hover { background: rgba(255,255,255,.05); }
+body.skin-rt .v1-upd .ua button.p { background: var(--rt-cream); color: var(--rt-ink); box-shadow: none; }
+@keyframes vxCardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ---- About: a bigger galaxy with room to breathe (nothing cut off) ---- */
+body.skin-rt .about-hero { overflow: visible; gap: 10px; margin: 6px 0 14px; }
+body.skin-rt .about-hero .icon-art { width: 104px; height: 104px; margin: -16px -6px -16px -18px; }
+body.skin-rt .about-hero .icon-art svg { width: 104px; height: 104px; }
+body.skin-rt .about-hero .icon-art::before { inset: 14px; background: radial-gradient(closest-side, rgba(231,223,209,.12), transparent); }
+body.skin-rt .about-hero h3 { font: 400 30px/1 var(--rt-serif); letter-spacing: -.3px; margin-bottom: 6px; }
+
+/* ---- The start part on About and the update card: the galaxy forms and ignites when it appears, then keeps living ---- */
+.enter .vortex-live .vgal { animation: vxGalIn 1.3s cubic-bezier(.33, .12, .22, 1) both, vxGal 40s 1.3s linear infinite; }
+.enter .vortex-live .vr { transform-box: fill-box; transform-origin: center; animation: vxRing .7s calc(.3s + var(--i) * 40ms) cubic-bezier(.2, .8, .2, 1) both, vxFlow calc(9s + var(--i) * 1.7s) linear infinite; }
+.enter .vortex-live .vcore { animation: vxBurst .95s .35s cubic-bezier(.2, .9, .2, 1) both, vxBreathe 4.2s 1.3s ease-in-out infinite; }
+.enter .vortex-live .vdot { animation: vxIgnite .5s .5s ease both, vxGlint 4.2s 1.3s ease-in-out infinite; }
+.enter .vortex-live .vs { animation: vxStreak .6s calc(.7s + var(--i) * 25ms) cubic-bezier(.2, .8, .2, 1) both, vxTwinkle 3.6s calc(1.4s + var(--i) * .4s) ease-in-out infinite; }
+.enter .vortex-live .vd, .enter .vortex-live .vfs { animation: vxFade .6s .6s ease both; }
+.enter .vortex-live .vsts { animation: vxFade .5s .9s ease both; }
+.enter { position: relative; }
+.enter > .shock { position: absolute; left: 50%; top: 48.4%; width: 6px; height: 3px; border-radius: 50%; transform: translate(-50%, -50%) rotate(-6deg); box-shadow: 0 0 0 1px rgba(255, 246, 232, .8), 0 0 10px 1px rgba(255, 240, 215, .25); opacity: 0; animation: vxShockS .85s .72s cubic-bezier(.1, .7, .3, 1) both; pointer-events: none; z-index: 1; }
+@keyframes vxShockS { 0% { opacity: 0; width: 6px; height: 3px; } 12% { opacity: .85; } 100% { opacity: 0; width: 220%; height: 96%; } }
+@media (prefers-reduced-motion: reduce) { .enter .vortex-live *, .enter > .shock { animation: none !important; } }
+body.reduce-motion .enter > .shock { display: none; }
+/* stars passing by behind the About logo and in the update card */
+body.skin-rt .about-hero { position: relative; }
+.about-warp { position: absolute; left: -30px; top: -26px; width: calc(100% + 60px); height: calc(100% + 52px); pointer-events: none; z-index: 0; -webkit-mask-image: radial-gradient(ellipse 115px 85px at 66px 50%, #000 40%, transparent 100%); mask-image: radial-gradient(ellipse 115px 85px at 66px 50%, #000 40%, transparent 100%); }
+body.skin-rt .about-hero > :not(canvas) { position: relative; z-index: 1; }
+.upd-warp { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; -webkit-mask-image: radial-gradient(ellipse 120px 80px at 30px 32px, #000 30%, transparent 100%); mask-image: radial-gradient(ellipse 120px 80px at 30px 32px, #000 30%, transparent 100%); }
+body.skin-rt .v1-upd > :not(canvas) { position: relative; z-index: 1; }
+
+/* ---- Galaxy backgrounds + the sun ---- */
+.galaxy-bg { display: block; width: 100%; height: 100%; }
+.galaxy-bg .gtw { animation: vxTwinkle 4.5s var(--d) ease-in-out infinite; }
+/* the sun: rays turn slowly, the corona breathes */
+.vortex-live .vrays { transform-box: view-box; transform-origin: 0 0; animation: vxSunRot 50s linear infinite; }
+@keyframes vxSunRot { to { rotate: 360deg; } }
+.enter .vortex-live .vrays, .v1-intro.gx .vortex-live .vrays { animation: vxFade .6s .75s ease both, vxSunRot 50s .75s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .vortex-live .vrays, .galaxy-bg .gtw { animation: none; } }
+/* startup: the galaxy fades up behind and drifts closer */
+.v1-intro.gx .gbg { position: absolute; inset: 0; z-index: 0; animation: gxSky 2.4s cubic-bezier(.2, .7, .2, 1) both; }
+@keyframes gxSky { from { opacity: 0; transform: scale(1.12); } 30% { opacity: 1; } to { opacity: 1; transform: scale(1); } }
+.v1-intro.gx .warp { z-index: 1; }
+.v1-intro.gx .st { z-index: 2; }
+/* About: no box — just stars behind the logo that fade out softly */
+body.skin-rt .about-hero { overflow: visible; }
+.hero-sky { position: absolute; left: -40px; right: -40px; top: -30px; bottom: -30px; z-index: 0; pointer-events: none; -webkit-mask-image: radial-gradient(ellipse 240px 110px at 92px 50%, #000 25%, transparent 100%); mask-image: radial-gradient(ellipse 240px 110px at 92px 50%, #000 25%, transparent 100%); }
+body.skin-rt .about-hero > .hero-sky { position: absolute; inset: -30px -40px; z-index: 0; }
+/* update card: a darker slice of the same sky so the text stays readable */
+.upd-sky { position: absolute; inset: 0; z-index: 0; }
+.upd-sky { opacity: .8; -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent 85%); mask-image: linear-gradient(180deg, #000 30%, transparent 85%); }
+body.skin-rt .v1-upd > .upd-sky { position: absolute; }
+body.skin-rt .v1-upd > .upd-sky { position: absolute; inset: 0; z-index: 0; }
+/* full of stars: the whole About header and the whole update card, not just around the logo */
+.hero-sky, body.skin-rt .about-hero > .hero-sky { inset: -34px -40px -30px -40px; -webkit-mask-image: linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent); }
+.about-warp { -webkit-mask-image: linear-gradient(180deg, transparent, #000 20%, #000 80%, transparent); mask-image: linear-gradient(180deg, transparent, #000 20%, #000 80%, transparent); }
+.upd-sky { opacity: 1; -webkit-mask-image: none; mask-image: none; }
+.upd-warp { -webkit-mask-image: none; mask-image: none; }
+
+/* ---- Update card, sidebar style (Oto theme) ---- */
+body.skin-rt .v1-upd.rt { padding: 0; margin: 4px 0 8px; background: none; box-shadow: none; border-radius: 0; overflow: visible; animation: vxCardIn .4s cubic-bezier(.2, .8, .2, 1) both; }
+.v1-upd.rt .rt-lbl { display: flex; align-items: center; gap: 10px; margin: 0 2px 8px 2px; font: 500 9.5px/1 var(--rt-mono); letter-spacing: .2em; color: var(--rt-fg3); }
+.v1-upd.rt .rt-lbl i { flex: 1; height: 1px; background: var(--rt-line); }
+.v1-upd.rt .rt-lbl .ready { display: flex; align-items: center; gap: 6px; color: var(--rt-fg2); }
+.v1-upd.rt .rt-lbl .ready b { width: 5px; height: 5px; border-radius: 50%; background: var(--rt-cream); box-shadow: 0 0 6px rgba(231,223,209,.8); animation: vxTwinkle 1.8s ease-in-out infinite; }
+.v1-upd.rt .rt-box { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 6px; border-radius: 6px; border: 1px solid var(--rt-line2); background: rgba(255,255,255,.015); }
+body.skin-rt .v1-upd.rt .lg { width: 34px; height: 34px; margin: -6px -2px -6px -2px; flex: none; display: grid; place-items: center; }
+body.skin-rt .v1-upd.rt .lg svg { width: 34px; height: 34px; }
+.v1-upd.rt .tx { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+body.skin-rt .v1-upd.rt .tx b { font: 700 11px/1 var(--font); letter-spacing: .16em; color: var(--rt-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.skin-rt .v1-upd.rt .tx small { font: 500 8px/1.3 var(--rt-mono); letter-spacing: .16em; color: var(--rt-fg3); text-transform: uppercase; }
+body.skin-rt .v1-upd.rt .ua { display: flex; gap: 6px; margin-top: 6px; }
+body.skin-rt .v1-upd.rt .ua button { flex: 1; height: 30px; border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); color: var(--rt-fg2); font: 600 9.5px/1 var(--rt-mono); letter-spacing: .18em; text-transform: uppercase; }
+body.skin-rt .v1-upd.rt .ua button:hover { background: rgba(255,255,255,.04); color: var(--rt-fg); }
+body.skin-rt .v1-upd.rt .ua button.p { background: var(--rt-cream); color: var(--rt-ink); box-shadow: none; }
+body.skin-rt .v1-upd.rt .ua button.p:hover { filter: brightness(1.05); }
+/* downloading: a thin cream progress line along the bottom of the box */
+.v1-upd.rt .rt-box { position: relative; overflow: hidden; }
+.v1-upd.rt .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--rt-line); }
+.v1-upd.rt .bar i { display: block; height: 100%; background: var(--rt-cream); box-shadow: 0 0 8px rgba(231,223,209,.6); transition: width .4s ease; }

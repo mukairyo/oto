@@ -341,7 +341,9 @@ function onUpdate(u) {
   UPD = u || UPD;
   if (UPD.state === 'ready' && updToastShown !== UPD.version) {
     updToastShown = UPD.version;
-    toast(`Oto ${UPD.version} is ready`, { icon: 'download', timeout: 12000, action: { label: 'Restart', run: () => { save(); oto.updateInstall(); } } });
+    // the update card in the sidebar already says it — only toast when the card can't be seen (sidebar hidden or slim)
+    const card = document.getElementById('v1Upd');
+    if (!(card && card.offsetParent)) toast(`Oto ${UPD.version} is ready`, { icon: 'download', timeout: 12000, action: { label: 'Restart', run: () => { save(); oto.updateInstall(); } } });
   }
   const el = document.getElementById('updLine');
   if (el) el.textContent = updateText();
@@ -359,7 +361,8 @@ function ownerTap() {
 async function ownerSubmit() {
   const i = document.getElementById('ownerKey');
   const ok = await oto.ownerUnlock(i ? i.value : '');
-  if (!ok) { toast('That key doesn’t match', { timeout: 2200 }); return; }
+  if (ok !== true) { toast(ok && ok.wait ? `Too many wrong keys — try again in ${ok.wait > 90 ? `${Math.ceil(ok.wait / 60)} minutes` : `${ok.wait} seconds`}` : 'That key doesn’t match', { timeout: 2600 }); return; }
+  if (typeof v1OwnerRefresh === 'function') v1OwnerRefresh();
   UPD.owner = true; ownerKeyOpen = false;
   setPref('updateChannel', 'owner');
   toast('Owner unlocked — you’re on the Owner channel 🔑', { timeout: 3000 });
@@ -383,7 +386,7 @@ function updatesSection() {
     ownerKeyOpen && !UPD.owner ? row('Owner key', 'Enter your private owner key to unlock the Owner update channel.', h('div', { style: 'display:flex;gap:6px' },
       h('input', { id: 'ownerKey', class: 'lib-input', placeholder: 'OTO-XXXX-XXXX-XXXX-XXXX', spellcheck: 'false', style: 'width:230px;font-family:ui-monospace,Consolas,monospace', onkeydown: (e) => { if (e.key === 'Enter') ownerSubmit(); } }),
       h('button', { class: 'btn', onclick: ownerSubmit }, 'Unlock'))) : null,
-    UPD.owner ? row('Owner', 'This PC is unlocked for the Owner channel.', h('button', { class: 'btn', onclick: () => { oto.ownerLock().then(() => { UPD.owner = false; if (S.settings.updateChannel === 'owner') setPref('updateChannel', 'stable'); renderSettings(); }); } }, 'Lock')) : null,
+    UPD.owner ? row('Owner', 'This PC is unlocked for the Owner channel.', h('div', { style: 'display:flex;gap:6px' }, typeof v1OwnerPanel === 'function' ? h('button', { class: 'btn primary', onclick: () => { closeSettings && closeSettings(); v1OwnerPanel(); } }, 'Owner panel') : null, h('button', { class: 'btn', onclick: () => { oto.ownerLock().then(() => { UPD.owner = false; if (typeof V1D !== 'undefined') V1D.founder = null; if (S.settings.updateChannel === 'owner') setPref('updateChannel', 'stable'); renderSettings(); }); } }, 'Lock'))) : null,
         row('Show what’s new after an update', h('a', { href: '#', onclick: (e) => { e.preventDefault(); closeSettings(); showWhatsNew({ all: true }); } }, 'See the release notes'), sw(st.showWhatsNew !== false, (on) => setPref('showWhatsNew', on))));
 }
 

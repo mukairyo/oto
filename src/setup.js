@@ -33,6 +33,9 @@ function runSetup() {
   $('#settings').hidden = true;
 
   const st = S.settings;
+  // Oto theme: Zen layout only, and no gradient colours step — the theme decides the look.
+  const RT = typeof skinIsRt === 'function' && skinIsRt();
+  if (RT && st.toolbarLayout === 'top') { st.toolbarLayout = 'single'; save(); }
   const ws = currentWs();
   const model = JSON.parse(JSON.stringify(themeOf(ws)));
   const picked = new Set(essentials().map((t) => hostOf(t.url)).filter((x) => SETUP_SITES.some(([, u]) => hostOf(u) === x)));
@@ -44,7 +47,7 @@ function runSetup() {
   const STEPS = [
     ['welcome', 'Welcome'], ['import', 'Bring your stuff'], ['layout', 'Layout'], ['colours', 'Colours'],
     ['feel', 'Look & feel'], ['speed', 'Speed'], ['privacy', 'Search & privacy'], ['essentials', 'Essentials'], ['done', 'Done'],
-  ];
+  ].filter(([k]) => !(RT && k === 'colours'));
 
   const body = h('div', { class: 'setup-body' });
   const rail = h('div', { class: 'setup-steps' });
@@ -53,7 +56,7 @@ function runSetup() {
   const skip = h('button', { class: 'setup-skip', onclick: finish }, 'Skip setup');
   const progress = h('div', { class: 'setup-progress' }, h('span'));
   const side = h('div', { class: 'setup-side' },
-    h('div', { class: 'setup-brand' }, h('span', { class: 'setup-mark', html: logoSvg() }), h('b', {}, 'Oto')), rail,
+    h('div', { class: 'setup-brand' }, h('span', { class: 'setup-mark', html: logoSvg() }), h('b', {}, 'Oto'), RT ? h('span', { class: 'k' }, '音') : null), rail,
     h('div', { class: 'setup-side-foot' }, 'You can change everything later in Settings'));
   const card = h('div', { class: 'setup-card' }, side,
     h('div', { class: 'setup-main' }, progress, body, h('div', { class: 'setup-foot' }, skip, h('div', { class: 'setup-nav' }, back, next))));
@@ -91,14 +94,17 @@ function runSetup() {
 
   const views = {
     welcome: () => h('div', { class: 'setup-welcome' },
-      h('div', { class: 'logo-big', html: logoSvg() }),
+      h('div', { class: 'logo-big', html: RT ? vortexSvg({ anim: true, bg: false }) : logoSvg() }),
       ...title('Welcome to Oto', 'A calm browser with vertical tabs, spaces and built-in ad blocking. Let’s make it yours — it takes about two minutes.'),
-      h('div', { class: 'setup-pills' }, ...['Your layout', 'Your colours', 'Your speed', 'Your privacy'].map((t) => h('span', {}, t)))),
+      RT ? h('div', { class: 'setup-tags' }, ...['Layout', 'Look', 'Speed', 'Privacy'].map((t, i) => h('span', {}, h('i', {}, String(i + 1).padStart(2, '0')), t)))
+        : h('div', { class: 'setup-pills' }, ...(RT ? ['Your layout', 'Your look', 'Your speed', 'Your privacy'] : ['Your layout', 'Your colours', 'Your speed', 'Your privacy']).map((t) => h('span', {}, t)))),
 
     import: () => {
       if (!sources) oto.bookmarkSources().then((s) => { sources = s || []; if (STEPS[step][0] === 'import') paint(); });
       return h('div', {},
         ...title('Bring your stuff', 'Import bookmarks from the browser you use now, and make Oto the one that opens your links.'),
+        typeof V1A !== 'undefined' && V1A.st && V1A.st.configured && !V1A.st.signedIn ? line('Already have an Oto account?', 'Sign in and your settings, bookmarks, spaces, card and passwords come back.',
+          h('button', { class: 'btn primary', onclick: () => { finish(); setTimeout(() => openSettings('account'), 260); } }, 'Sign in')) : null,
         sub('Bookmarks'),
         sources == null ? h('p', { class: 'setup-note' }, 'Looking for other browsers…')
           : !sources.length ? h('p', { class: 'setup-note' }, 'No other browsers found on this PC. You can import an exported bookmarks file later in Settings → Bookmarks.')
@@ -114,8 +120,8 @@ function runSetup() {
 
     layout: () => h('div', {},
       ...title('Choose your layout', 'Pick how Oto is arranged. The little previews show what you get.'),
-      sub('Toolbar'),
-      h('div', { class: 'setup-choices two' },
+      RT ? null : sub('Toolbar'),
+      RT ? null : h('div', { class: 'setup-choices two' },
         choice(st.toolbarLayout !== 'top', () => layoutPref('toolbarLayout', 'single'), setupMock(mockOpts({ layout: 'single', mode: 'expanded' })), 'Zen', 'Address and buttons live in the sidebar'),
         choice(st.toolbarLayout === 'top', () => layoutPref('toolbarLayout', 'top'), setupMock(mockOpts({ layout: 'top', mode: 'expanded' })), 'Classic', 'A toolbar across the top, like Chrome')),
       sub('Sidebar'),
@@ -189,7 +195,7 @@ function runSetup() {
       h('p', { class: 'setup-note' }, `${picked.size} selected`)),
 
     done: () => h('div', { class: 'setup-welcome' },
-      h('div', { class: 'logo-big', html: logoSvg() }),
+      h('div', { class: 'logo-big', html: RT ? vortexSvg({ anim: true, bg: false }) : logoSvg() }),
       ...title('You’re all set', 'A few shortcuts worth knowing:'),
       h('div', { class: 'setup-tips' },
         ...[['Ctrl T', 'Search, open a site or jump to a tab'], ['Ctrl B', 'Hide or show the sidebar'], ['Right-click a link', 'Open it in Glance — a floating preview'],
@@ -200,7 +206,13 @@ function runSetup() {
   function paint() {
     const key = STEPS[step][0];
     const scroll = body.scrollTop;
-    body.replaceChildren(views[key]());
+    const view = views[key]();
+    if (RT) {
+      const n = String(step + 1).padStart(2, '0'), all = String(STEPS.length).padStart(2, '0');
+      view.prepend(h('div', { class: 'rt-crumb' }, h('span', { class: 'rt-dash' }), h('span', { class: 'rt-kanji' }, '音'),
+        h('span', {}, `SETUP / ${STEPS[step][1].toUpperCase()}`), h('span', { class: 'rt-rule' }), h('span', {}, `${n} / ${all}`)));
+    }
+    body.replaceChildren(view);
     body.className = `setup-body step-${key}`;
     body.scrollTop = scroll;
     rail.replaceChildren(...STEPS.map(([k, label], i) => h('button', {
