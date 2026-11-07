@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/hero.png" width="900" alt="Oto — a calm browser for Windows"></p>
+<p align="center"><img src="docs/oto1-hero.png" width="900" alt="Oto — a calm browser for Windows"></p>
 
 <p align="center">
   <a href="https://github.com/mukairyo/oto/releases/latest"><b>⬇&nbsp; Download Oto for Windows</b></a>
@@ -16,22 +16,22 @@ Oto is a browser that stays out of your way. Your tabs live in a sidebar instead
 
 Everything is dressed in one calm look: near-black, cream, thin lines, quiet type. Nothing blinks at you.
 
-<p align="center"><img src="docs/newtab.png" width="860" alt="Oto's new tab page"></p>
+<p align="center"><img src="docs/oto1-newtab.png" width="860" alt="Oto's new tab page"></p>
 
 ## ✦ &nbsp;Highlights
 
 <table>
 <tr>
-<td width="50%"><img src="docs/my-phone.png" alt="My phone panel"><br><b>My phone</b> — sign in to Oto on your Android phone and it appears on your PC in 3D, with its battery and open tabs. Send tabs both ways.</td>
-<td width="50%"><img src="docs/shield.png" alt="Oto Shield"><br><b>Oto Shield</b> — ad and tracker blocking with uBlock Origin's filter lists. Zap anything on a page, hide it for good, or switch blocking off per site.</td>
+<td width="50%"><img src="docs/oto1-my-phone.png" alt="My phone panel"><br><b>My phone</b> — sign in to Oto on your Android phone and it appears on your PC in 3D, with its battery and open tabs. Send tabs both ways.</td>
+<td width="50%"><img src="docs/oto1-shield.png" alt="Oto Shield"><br><b>Oto Shield</b> — ad and tracker blocking with uBlock Origin's filter lists. Zap anything on a page, hide it for good, or switch blocking off per site.</td>
 </tr>
 <tr>
-<td><img src="docs/command-bar.png" alt="Command bar"><br><b>Command bar</b> (<code>Ctrl T</code>) — search, open sites, jump to any tab, find words inside your open pages, do quick sums, run actions.</td>
-<td><img src="docs/split-view.png" alt="Split view"><br><b>Split view</b> — drag a tab onto the page and get two sites side by side.</td>
+<td><img src="docs/oto1-command-bar.png" alt="Command bar"><br><b>Command bar</b> (<code>Ctrl T</code>) — search, open sites, jump to any tab, find words inside your open pages, do quick sums, run actions.</td>
+<td><img src="docs/oto1-split-view.png" alt="Split view"><br><b>Split view</b> — drag a tab onto the page and get two sites side by side.</td>
 </tr>
 <tr>
-<td><img src="docs/oto-hub.png" alt="Oto Hub"><br><b>Oto Hub & Oto Card</b> — your own card that levels up as you browse, with milestones and badges to unlock.</td>
-<td><img src="docs/offline.png" alt="Offline page"><br><b>Even the offline page is nice</b> — Oto reconnects by itself, and you can play Ring Run while you wait.</td>
+<td><img src="docs/oto1-oto-hub.png" alt="Oto Hub"><br><b>Oto Hub & Oto Card</b> — your own card that levels up as you browse, with milestones and badges to unlock.</td>
+<td><img src="docs/oto1-offline.png" alt="Offline page"><br><b>Even the offline page is nice</b> — Oto reconnects by itself, and you can play Ring Run while you wait.</td>
 </tr>
 </table>
 
@@ -47,7 +47,7 @@ New versions download by themselves. You'll see a small card in the sidebar: **R
 
 **Android**
 
-<img src="docs/android.png" align="right" width="200" alt="Oto for Android">
+<img src="docs/oto1-android.png" align="right" width="200" alt="Oto for Android">
 
 1. On your phone, open the **[latest release](https://github.com/mukairyo/oto/releases/latest)** and download **Oto-Android-x.y.z-arm64.apk**.
 2. Open it to install (Android asks once to allow installs from your browser).
@@ -172,4 +172,4 @@ Android: bump `android/VERSION` on the `android` branch. The APK is signed with 
 - Google sometimes blocks sign-in from Chromium-based apps it doesn't recognise ("This browser or app may not be secure"). Oto works around it, but it can still happen.
 - Not code-signed yet, so Windows SmartScreen shows a warning the first time.
 
-<p align="center"><br><img src="docs/logo.png" width="64" alt=""><br><sub>音 &nbsp;Oto — made by <a href="https://github.com/mukairyo">mukairyo</a></sub></p>
+<p align="center"><br><img src="docs/oto1-logo.png" width="64" alt=""><br><sub>音 &nbsp;Oto — made by <a href="https://github.com/mukairyo">mukairyo</a></sub></p>
