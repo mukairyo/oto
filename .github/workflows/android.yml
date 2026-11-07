@@ -1,0 +1,58 @@
+# Oto for Android (test) — builds an arm64 APK on every push to the "android" branch and publishes it as
+# a PRE-release tagged android-v0.1.N. Pre-release on purpose: it never becomes the repo's "latest" release,
+# so Oto for Windows keeps updating exactly as before (it only looks at its own tags).
+name: Android test build
+
+on:
+  push:
+    branches: [android]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Newest stable GeckoView
+        run: |
+          V=$(curl -fsSL https://maven.mozilla.org/maven2/org/mozilla/geckoview/geckoview/maven-metadata.xml | sed -n 's:.*<release>\(.*\)</release>.*:\1:p' | head -1)
+          echo "GeckoView $V"
+          echo "GECKO=$V" >> "$GITHUB_ENV"
+
+      - name: Signing key
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS" ]; then echo "$KS" | base64 -d > "$RUNNER_TEMP/oto.jks"; echo "OTO_KS_FILE=$RUNNER_TEMP/oto.jks" >> "$GITHUB_ENV"; echo "Signed with the Oto key";
+          else echo "::warning::No ANDROID_KEYSTORE_B64 secret yet — this build uses a temporary key"; fi
+
+      - name: Build APK
+        working-directory: android
+        env:
+          OTO_KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          OTO_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: gradle assembleRelease --no-daemon --stacktrace -PgeckoVersion="$GECKO" -PversionCode=${{ github.run_number }} -PversionName=0.1.${{ github.run_number }}
+
+      - name: Publish pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=0.1.${{ github.run_number }}
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          cp "$APK" "Oto-Android-$V-arm64.apk"
+          gh release create "android-v$V" "Oto-Android-$V-arm64.apk" --prerelease --target "$GITHUB_SHA" \
+            --title "Oto for Android $V (test)" \
+            --notes "Test build of Oto for Android (GeckoView $GECKO). Download the APK on your phone and open it to install."
