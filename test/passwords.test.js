@@ -9,7 +9,7 @@ function load(opts = {}, files = {}) {
   const m = install(opts);
   delete require.cache[require.resolve('../main/passwords.js')];
   const mem = memFiles(files);
-  const pw = require('../main/passwords.js')({ readJSON: mem.readJSON, writeJSON: mem.writeJSON, win: null, account: null });
+  const pw = require('../main/passwords.js')({ readJSON: mem.readJSON, writeJSON: (n, v) => mem.writeJSON(n, v), userFile: opts.userFile, win: null, account: null });
   pw.setupPasswordIPC();
   m.restore();
   return { ...m, mem, pw, ipc: m.electron.ipcMain };
@@ -132,5 +132,47 @@ test('CSV import reports logins for sites without https (N10)', async () => {
   const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'oto-csv-')), 'p.csv');
   fs.writeFileSync(f, 'url,username,password\nhttps://s.example,a,1\nhttp://plain.example,b,2\n');
   A.electron.dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [f] });
-  assert.deepStrictEqual(await A.ipc.invoke('pw:import', UI), { added: 2, updated: 0, insecure: 1 });
+  assert.deepStrictEqual(await A.ipc.invoke('pw:import', UI), { added: 2, updated: 0, insecure: 1, skipped: 0 });
+});
+
+test('if the disk write fails, nothing reports success and nothing changes (P1-02)', async () => {
+  const A = load();
+  A.pw.pwUpsert('https://a.example', 'me', 'one');
+  const id = A.pw.pwLoad().entries[0].id;
+  const before = JSON.stringify(A.mem.files['passwords.json']);
+  A.mem.failWrites = true;
+  assert.strictEqual(A.pw.pwUpsert('https://b.example', 'me', 'two'), 'diskerror');
+  assert.strictEqual(await A.ipc.invoke('pw:save', UI, 'https://c.example/', 'me', 'three'), 'diskerror');
+  assert.strictEqual((await A.ipc.invoke('pw:update', UI, id, { username: 'renamed' })).ok, false);
+  assert.strictEqual((await A.ipc.invoke('pw:delete', UI, id)).ok, false);
+  assert.throws(() => A.pw.pwSyncMerge([{ o: 'https://d.example', u: 'x', p: 'y', up: 1 }], []), /disk/);
+  assert.strictEqual(A.pw.pwLoad().entries.length, 1, 'memory rolled back too');
+  assert.strictEqual(A.pw.pwLoad().entries[0].username, 'me');
+  assert.strictEqual(JSON.stringify(A.mem.files['passwords.json']), before, 'file untouched');
+  A.mem.failWrites = false;
+  assert.strictEqual(A.pw.pwUpsert('https://b.example', 'me', 'two'), 'saved', 'works again once the disk is fine');
+});
+
+test('a damaged passwords file is set aside, never overwritten', async () => {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oto-pw-'));
+  const file = path.join(dir, 'passwords.json');
+  fs.writeFileSync(file, '{"v":1,"entries":[{"id":"x","origin":"https://a.ex'); // cut off half-way
+  const A = load({ userFile: (n) => path.join(dir, n) });
+  A.pw.pwLoad();
+  const aside = fs.readdirSync(dir).find((f) => f.startsWith('passwords.json.damaged-'));
+  assert.ok(aside, 'kept under a new name');
+  assert.ok(fs.readFileSync(path.join(dir, aside), 'utf8').includes('a.ex'), 'with its contents intact');
+  assert.strictEqual((await A.ipc.invoke('pw:status', UI)).damaged, aside, 'and the Library says so');
+});
+
+test('CSV import refuses huge files and reports read errors', async () => {
+  const A = load();
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const big = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'oto-csv-')), 'big.csv');
+  fs.writeFileSync(big, Buffer.alloc(21 * 1024 * 1024, 97));
+  A.electron.dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [big] });
+  assert.match((await A.ipc.invoke('pw:import', UI)).error, /too big/);
+  A.electron.dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path.join(os.tmpdir(), 'does-not-exist.csv')] });
+  assert.match((await A.ipc.invoke('pw:import', UI)).error, /Couldn’t read/);
 });

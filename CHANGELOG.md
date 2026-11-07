@@ -3,6 +3,44 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.3.3 — 2026-11-08
+
+*Security release (security-focused development phase): fixes from the 1.3.2 code review plus Oto's own security testing across 8 areas. No new features.*
+
+**Privacy: private windows are private again**
+- **Private (Avocado) tabs were using your normal, saved session.** Cookies and site data from a private tab stayed after closing, and normal tabs could see them. Electron 45 ignores the switch Oto used to move private tabs into their in-memory session. Private tabs now ask for the private session themselves, and Oto's core refuses to load a page in any other session, so a mistake can never leak again. Tested: a cookie set in a private tab exists only while the window is open, is gone after closing, and normal tabs never see it. Nothing goes to history.
+- Glance now uses the same logins as the tab it was opened from (private windows and Spaces with their own logins included). Before, it always used the main session.
+
+**Password protection**
+- Changing your Oto account password can no longer leave your synced data unreadable. The re-encryption is now a job that finishes even if the internet drops halfway: the next sync completes it. If the server's answer gets lost, Oto checks which password is really in use before touching anything. A password change also waits for a running sync instead of overlapping it.
+- Saving, editing, deleting or importing passwords is all-or-nothing on disk. If the file can't be written (disk full, no permission), Oto says so and nothing changes. Before, it could say "saved" when it wasn't.
+- A saved-passwords file that can't be read is set aside under a new name, never overwritten, and the Library tells you.
+- CSV import: files over 20 MB or 100,000 rows are refused with a clear message, and read errors are explained.
+
+**Oto Shield**
+- **Fixed a bypass:** an address with a trailing dot (`evil.example.`) opens the same site, but slipped past the dangerous-site check. Now blocked. Tested against redirects, double redirects, uppercase, subdomains, phishing and dangerous content inside normal pages (all blocked). Tracker blocking also holds against trailing-dot, uppercase, port and encoded-path tricks.
+
+**Download protection**
+- Every finished download is tagged by Windows as "from the internet" (Mark of the Web), so SmartScreen and Office warn before running or editing it.
+- Opening a program, script, shortcut or disk image (.exe, .msi, .bat, .ps1, .lnk, .iso …) from Oto now always asks first, with Cancel as the default.
+- Downloads from (or redirected through) known malware/phishing sites are stopped and you're told why. Private-window downloads get the same checks.
+
+**Extensions**
+- Installing from the Chrome Web Store now shows what the extension can access, the same as files and folders. Oto keeps Web Store extensions updated and checks each update's signature.
+
+**Messages between the window and Oto's core**
+- Size limits now measure the whole message, however deeply nested. Before, a huge string inside a small object could slip through.
+- **Fixed a 1.3.2 regression:** saving a large (full-page) screenshot was refused by the new size limit.
+
+**Secure updates**
+- After every release, a separate check downloads the installer exactly as the public gets it and confirms its SHA-256, its signed build record, and that the file the updater trusts (`latest.yml`) describes that exact installer. (The published 1.3.2 installer was checked the same way and passes.)
+
+**Automated security tests**
+- New Electron security audit (12 tests) that fails the build if anyone weakens a setting: Node in web pages, isolation, web security, sandboxing, unsafe navigation, popups, permission handling, the UI's Content Security Policy, the preload API, private-window sessions or update downgrades. 56 tests in total (was 35).
+
+**Docs**
+- SECURITY.md: a copy-paste PowerShell check for downloads (with a version placeholder), the new download and extension protections, and exactly when a password reaches Oto's window (only when you press show or copy). PRIVACY.md: deletion markers have no time limit (newest 5,000 kept), and the private-window fix.
+
 ## 1.3.2 — 2026-11-07
 
 *Fixes from the follow-up review of 1.3.1.*

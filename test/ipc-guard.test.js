@@ -67,3 +67,27 @@ test('the ad blocker can protect several sessions at once (shared handlers are c
   ipc.removeHandler(ch);
   assert.ok(!ipc.handlers.has(ch), 'gone after the last session switches off');
 });
+
+test('size limits look inside nested messages, on every channel (P1-03)', () => {
+  const { ipc } = setup();
+  ipc.handle('state:save', () => 'ok'); ipc.handle('account:push', () => 'ok');
+  const silence = console.warn; console.warn = () => {};
+  try {
+    const huge = 'x'.repeat(100 * 1024 * 1024);
+    assert.throws(() => ipc.invoke('state:save', ev('window', UI), { a: huge }), /Not allowed/, 'one key, huge string');
+    assert.throws(() => ipc.invoke('account:push', ev('window', UI), { a: { b: [[huge]] } }), /Not allowed/, 'deeply hidden');
+    assert.throws(() => ipc.invoke('pw:list', ev('window', UI), { a: 'x'.repeat(3 * 1024 * 1024) }), /Not allowed/, 'normal channel, 3 MB');
+    let deep = {}; const root = deep; for (let i = 0; i < 100; i++) { deep.a = {}; deep = deep.a; }
+    assert.throws(() => ipc.invoke('pw:list', ev('window', UI), root), /Not allowed/, '100 levels deep');
+    assert.strictEqual(ipc.invoke('state:save', ev('window', UI), { tabs: Array.from({ length: 2000 }, (_, i) => ({ url: `https://e.com/${i}`, title: 'Tab' })) }), 'ok', 'a normal big state still fits');
+  } finally { console.warn = silence; }
+});
+
+test('large screenshots, images and saved state still get through (1.3.2 regression)', () => {
+  const { ipc } = setup();
+  for (const ch of ['shot:save', 'clipboard:image', 'app:install', 'state:save']) ipc.handle(ch, () => 'ok');
+  const png = 'data:image/png;base64,' + 'A'.repeat(20 * 1024 * 1024); // a very long full-page screenshot
+  assert.strictEqual(ipc.invoke('shot:save', ev('window', UI), png), 'ok');
+  assert.strictEqual(ipc.invoke('clipboard:image', ev('window', UI), png), 'ok');
+  assert.strictEqual(ipc.invoke('app:install', ev('window', UI), 'https://e.com/', 'App', 'data:image/png;base64,' + 'A'.repeat(2e6)), 'ok');
+});

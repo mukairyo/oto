@@ -29,8 +29,11 @@ extension pages and app windows before any handler runs.
 
 **Saved passwords** are encrypted with Windows' own data protection (DPAPI, the same thing Chrome uses). If Windows
 can't encrypt, Oto refuses to save passwords rather than storing a readable copy. A password only enters a page when you
-pick an account, only on the site it was saved for, and in a hidden script world the page can't read. Oto only offers to
-save logins on secure (https) pages. Exporting to CSV always asks first, because the file is unencrypted.
+pick an account, only on the site it was saved for, and in a hidden script world the page can't read. The only time a
+password reaches Oto's own window is when you press show or copy on a saved login in the Library. Oto only offers to
+save logins on secure (https) pages. Exporting to CSV always asks first, because the file is unencrypted. Saving is
+all-or-nothing: if the disk write fails, Oto says so and nothing changes. A passwords file that can't be read is set
+aside, never overwritten.
 
 **Oto Accounts / sync** encrypt everything on your PC (AES-256-GCM, key from your account password with scrypt)
 before it's uploaded, so the server only stores scrambled data. Login tokens on your PC are encrypted with DPAPI too.
@@ -44,11 +47,24 @@ yourself:
 - **Not automatic:** the GitHub build attestation and `SHA256SUMS.txt`. They are for people to check by hand, and the
   updater does not verify them. There is no Windows code signature yet (Authenticode needs a paid or sponsored
   certificate).
-- **By hand:** check a download came from this repository's own build:
+- **By hand:** check a download came from this repository's own build. In PowerShell, in the folder with the file
+  (replace `X.Y.Z` with the version you downloaded):
 
+```powershell
+(Get-FileHash .\Oto-Setup-X.Y.Z.exe -Algorithm SHA256).Hash   # compare with the line in SHA256SUMS.txt
+gh attestation verify .\Oto-Setup-X.Y.Z.exe --repo mukairyo/oto # needs the GitHub CLI
 ```
-gh attestation verify Oto-Setup-1.3.0.exe --repo mukairyo/oto
-```
+
+- **After every release:** a separate job downloads the installer exactly as the public gets it and checks its
+  SHA-256, the build attestation, and that `latest.yml` (what the updater trusts) describes that exact file.
+
+**Downloads:** every finished download is tagged by Windows as "from the internet" (Mark of the Web), so SmartScreen
+and Office warn before running or editing it. Opening a program, script, shortcut or disk image from Oto always asks
+first. Downloads from (or redirected through) known malware or phishing sites are stopped. Oto never opens a download
+by itself.
+
+**Extensions** from the Chrome Web Store show what they can access before you add them, and Oto keeps them updated
+from the Web Store, checking each update's signature. Private windows run no extensions.
 
 **Known limits (being worked on):**
 

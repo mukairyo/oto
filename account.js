@@ -254,20 +254,53 @@ module.exports = function setupAccount(ctx) {
   ipcMain.handle('account:resendConfirm', async (_e, email) => {
     try { await api('POST', '/auth/v1/resend', { body: { type: 'signup', email: String(email).trim() } }); return { ok: true }; } catch (e) { return { ok: false, error: e.message }; }
   });
-  ipcMain.handle('account:changePassword', async (_e, current, next) => {
+  // Changing your account password re-encrypts your cloud data with a key made from the new password. That takes two
+  // server steps (change the password, then upload the re-encrypted data), so it's done as a job that can't be left
+  // half-done: the new key is saved first (encrypted), the old key is kept until the cloud copy is confirmed under the
+  // new one, and if anything breaks in between, the next sync finishes the job. It runs in the same queue as sync,
+  // so it never overlaps a push or pull.
+  const keyOf = (sealed) => { const k = unseal(sealed); return k ? Buffer.from(k, 'base64') : null; };
+  async function finishRotation() {
+    const R = A.rotation;
+    if (!R) return;
+    if (R.pw) { // we don't know yet whether the server took the new password (the answer got lost)
+      try { takeSession(await api('POST', '/auth/v1/token?grant_type=password', { body: { email: A.email, password: unseal(R.pw) } })); }
+      catch (e) { if (e.status === 400) { delete A.rotation; saveA(); return; } throw e; } // 400: it didn't change, nothing to do
+      delete R.pw; saveA();
+    }
+    const newKey = keyOf(R.key), oldKey = keyOf(R.oldKey);
+    if (!newKey) { delete A.rotation; saveA(); return; } // key was memory-only and Oto restarted: signing in again fixes it
+    for (let i = 0; i < 3; i++) {
+      const row = await getRow();
+      const done = (stamp) => { A.key = R.key; A.salt = R.salt; if (stamp) A.seenStamp = stamp; delete A.rotation; saveA(); };
+      if (!row) return done(null);
+      if (row.salt === R.salt) return done(row.updated_at); // already re-encrypted
+      let payload;
+      try { payload = decrypt(row.blob, oldKey); } catch { throw Object.assign(new Error('Couldn’t read your cloud data with the old password'), { code: 'rotation' }); }
+      const stamp = await putRowIfUnchanged(encrypt(payload, newKey), R.salt, row.updated_at);
+      if (stamp) return done(stamp);
+      // another device wrote in between: read again and re-encrypt its newer copy
+    }
+    throw Object.assign(new Error('Your other device kept syncing — try again in a moment'), { code: 'conflict' });
+  }
+  ipcMain.handle('account:changePassword', async (_e, current, next) => queue(async () => {
     try {
       if (String(next || '').length < 8) return { ok: false, error: 'Use at least 8 characters.' };
+      if (A.rotation) await finishRotation(); // an earlier change still finishing
       await api('POST', '/auth/v1/token?grant_type=password', { body: { email: A.email, password: String(current) } }).then(takeSession);
-      const row = await getRow();
-      const payload = row ? decrypt(row.blob, dataKey()) : null;
-      await api('PUT', '/auth/v1/user', { token: await token(), body: { password: String(next) } });
       const salt = crypto.randomBytes(16).toString('base64');
-      const key = deriveKey(next, salt);
-      if (payload) await putRow(encrypt(payload, key), salt);
-      A.salt = salt; A.key = seal(key.toString('base64')); saveA();
+      A.rotation = { salt, key: seal(deriveKey(next, salt).toString('base64')), oldKey: A.key, at: Date.now() };
+      saveA();
+      try { await api('PUT', '/auth/v1/user', { token: await token(), body: { password: String(next) } }); }
+      catch (e) {
+        if (e.status) { delete A.rotation; saveA(); throw e; } // the server said no: nothing changed
+        A.rotation.pw = seal(String(next)); saveA(); // no answer: find out on the next sync
+        return { ok: false, pending: true, error: 'No answer from Oto Accounts — Oto will finish this when you’re back online.' };
+      }
+      try { await finishRotation(); } catch (e) { return { ok: true, pending: true, note: 'Password changed. Your synced data finishes re-encrypting on the next sync.' }; }
       return { ok: true };
     } catch (e) { return { ok: false, error: /invalid/i.test(e.message) ? 'Your current password is wrong.' : e.message }; }
-  });
+  }));
   ipcMain.handle('account:deleteCloud', async () => {
     try { await api('DELETE', `/rest/v1/oto_sync?user_id=eq.${encodeURIComponent(A.userId)}`, { token: await token() }); A.lastSync = 0; A.lastRemote = 0; saveA(); tell(); return { ok: true }; }
     catch (e) { return { ok: false, error: e.message }; }
@@ -280,6 +313,7 @@ module.exports = function setupAccount(ctx) {
     return queue(async () => {
     busy = 'push'; tell();
     try {
+      if (A.rotation) await finishRotation(); // finish an interrupted password change before writing
       const pwOn = !(sections && sections._pw === false);
       const pw = pwOn ? pwSyncExport() : null;
       const payload = { v: 1, at: Date.now(), app: OTO_VERSION, device: device(), summary, sections, passwords: pw ? pw.entries : undefined, pwDeleted: pw ? pw.deleted : undefined };
@@ -300,6 +334,7 @@ module.exports = function setupAccount(ctx) {
     return queue(async () => {
     busy = 'pull'; tell();
     try {
+      if (A.rotation) await finishRotation(); // finish an interrupted password change before reading
       const row = await getRow();
       if (!row) { lastError = ''; return { ok: true, empty: true }; }
       const payload = decrypt(row.blob, dataKey());

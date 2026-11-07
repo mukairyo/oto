@@ -76,7 +76,7 @@ module.exports = function createShield(ctx) {
       if (dangerCheck(d)) return cb({ cancel: true });
       if (d.resourceType === 'mainFrame') return cb({});
       let h;
-      try { h = new URL(d.url).hostname; } catch { return cb({}); }
+      try { h = new URL(d.url).hostname.toLowerCase().replace(/\.+$/, ''); } catch { return cb({}); }
       if (shieldAllowed(pageHostOf(d.webContentsId))) return cb({});
       while (h) {
         if (list.has(h)) { notifyBlocked(d.webContentsId, d.url); return cb({ cancel: true }); }
@@ -104,7 +104,7 @@ module.exports = function createShield(ctx) {
   const shieldLevel = () => (SHIELD_LEVELS[SHIELD.conf.level] ? SHIELD.conf.level : SHIELD.conf.annoy ? 'strict' : 'balanced');
   const shieldListsAt = () => { try { return fs.statSync(userFile(SHIELD_LEVELS[shieldLevel()][1])).mtimeMs; } catch { return 0; } };
   const FP_SESSION = require('crypto').randomBytes(16).toString('hex');
-  const shieldHost = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+  const shieldHost = (u) => { try { return new URL(u).hostname.toLowerCase().replace(/\.+$/, '').replace(/^www\./, ''); } catch { return ''; } };
   const shieldAllowed = (host) => { if (!host) return false; let h = host; while (h) { if (SHIELD.allow.has(h)) return true; const i = h.indexOf('.'); if (i < 0) break; h = h.slice(i + 1); } return false; };
   const pageHostOf = (wcId) => { try { const wc = webContents.fromId(wcId); return wc ? shieldHost(wc.getURL()) : ''; } catch { return ''; } };
   const shieldLines = () => SHIELD.custom.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('!') && !l.startsWith('#'));
@@ -155,7 +155,8 @@ module.exports = function createShield(ctx) {
     return true;
   }
   function dangerOf(host) {
-    let h = String(host || '').toLowerCase();
+    // "evil.example." (trailing dot) and "EVIL.example" open the same site, so they must match the same list entry.
+    let h = String(host || '').toLowerCase().replace(/\.+$/, '').replace(/^\[|\]$/g, '');
     if (!h || DANGER.allow.has(h)) return '';
     while (h.includes('.')) {
       if (DANGER.phishing.has(h)) return 'phishing';
@@ -285,6 +286,7 @@ module.exports = function createShield(ctx) {
 
   return {
     enableBlocking, disableBlocking, shieldHost, shieldAllowed, shieldLevel, shieldListsAt, regDomain, dangerUpdate, setupShieldIPC,
+    dangerOf: (host) => (SHIELD.conf.danger === false ? '' : dangerOf(host)),
     SHIELD, DANGER, FP_SESSION,
     mode: () => blockingMode,
     flushStats() { if (pstatsTimer) pstatsSave(); },

@@ -676,8 +676,10 @@ function v1SoundSection() {
       h('button', { class: `switch${S.settings.v1IntroSound !== false ? ' on' : ''}`, role: 'switch', onclick: () => { setPref('v1IntroSound', S.settings.v1IntroSound === false); renderSettings(); } }))) : null);
 }
 // Separate logins per space: the space's tabs use their own cookie jar.
+// Private (Avocado) windows use the in-memory 'avocado' session for every page — Oto's core refuses anything else there.
 function v1PartitionFor(tab) {
-  if (AVOCADO_MODE || !tab || tab.essential) return 'persist:oto';
+  if (AVOCADO_MODE) return 'avocado';
+  if (!tab || tab.essential) return 'persist:oto';
   const ws = S.workspaces.find((w) => w.id === tab.ws);
   return ws && ws.v1Own ? `persist:oto-ws-${String(ws.id).replace(/[^\w-]/g, '').slice(0, 40)}` : 'persist:oto';
 }

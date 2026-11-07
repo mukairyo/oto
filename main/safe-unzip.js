@@ -41,7 +41,7 @@ function readArchive(fileOrBuf, limits = LIMITS) {
   const me = plan.find((p) => p.name === 'manifest.json');
   if (!me) throw new Error('This file has no manifest.json — it isn’t a browser extension.');
   let manifest;
-  try { manifest = JSON.parse(me.en.getData().toString('utf8').replace(/^﻿/, '')); } catch { throw new Error('This extension’s manifest.json is damaged.'); }
+  try { manifest = JSON.parse(me.en.getData().toString('utf8').replace(/^\uFEFF/, '')); } catch { throw new Error('This extension’s manifest.json is damaged.'); }
   return { zip, plan, manifest, limits };
 }
 

@@ -59,7 +59,7 @@ module.exports = function createExtensions(ctx) {
           const r = await dialog.showMessageBox(ctx.win, {
             type: 'question', buttons: ['Add extension', 'Cancel'], defaultId: 0, cancelId: 1, noLink: true,
             title: 'Add extension', message: `Add “${details.localizedName}” to Oto?`,
-            detail: 'It can read and change data on the sites it asks for, like it would in Chrome.',
+            detail: `From the Chrome Web Store. It asks to:\n${manifestPermissions(details.manifest).text}\n\nOto keeps it updated from the Web Store (each update's signature is checked).`,
             icon: details.icon,
           });
           if (r.response === 0) setTimeout(() => send('ext:changed'), 1500);
@@ -89,7 +89,7 @@ module.exports = function createExtensions(ctx) {
       extractTo(plan, dir);
       // Firefox-only manifest keys Chromium doesn't understand.
       const mf = path.join(dir, 'manifest.json');
-      const m = JSON.parse(fs.readFileSync(mf, 'utf8').replace(/^﻿/, ''));
+      const m = JSON.parse(fs.readFileSync(mf, 'utf8').replace(/^\uFEFF/, ''));
       delete m.browser_specific_settings; delete m.applications;
       if (m.background && m.background.scripts && m.manifest_version === 3 && !m.background.service_worker) {
         // Firefox MV3 uses background scripts; Chromium needs a service worker that imports them.
@@ -103,7 +103,11 @@ module.exports = function createExtensions(ctx) {
   // What an extension asks for, in words, shown before it's added from a file or folder.
   function permissionText(dir) {
     let m = {};
-    try { m = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8').replace(/^﻿/, '')); } catch {}
+    try { m = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8').replace(/^\uFEFF/, '')); } catch {}
+    return manifestPermissions(m);
+  }
+  function manifestPermissions(m) {
+    m = m && typeof m === 'object' ? m : {};
     const hosts = [...(m.host_permissions || []), ...(m.permissions || []).filter((p) => /[:/*]/.test(p)), ...((m.content_scripts || []).flatMap((c) => c.matches || []))];
     const all = hosts.some((h) => /^(<all_urls>|\*:\/\/\*\/\*|https?:\/\/\*\/\*)$/.test(h));
     const api = (m.permissions || []).filter((p) => !/[:/*]/.test(p));
