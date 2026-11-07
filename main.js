@@ -906,6 +906,21 @@ function setupIPC(ses) {
   ipcMain.on('shot:show', (_e, f) => { try { if (f) shell.showItemInFolder(f); else shell.openPath(path.join(app.getPath('pictures'), 'Oto Screenshots')); } catch {} });
   ipcMain.on('shot:open', (_e, f) => { try { if (f) shell.openPath(f); } catch {} });
   ipcMain.handle('qr:svg', async (_e, text) => { try { return await require('qrcode').toString(String(text || ''), { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#1d1b26', light: '#ffffff' } }); } catch { return ''; } });
+  // Phone panel: your own 3D model of your phone (.glb) stays on this PC, in Oto's data folder.
+  ipcMain.handle('phone:pickModel', async (e) => {
+    const r = await dialog.showOpenDialog(winOf(e), { title: 'Choose a 3D model of your phone', properties: ['openFile'], filters: [{ name: '3D model (glTF binary)', extensions: ['glb'] }] });
+    if (r.canceled || !r.filePaths[0]) return { ok: false };
+    try {
+      const st = fs.statSync(r.filePaths[0]);
+      if (st.size > 80 * 1024 * 1024) return { ok: false, error: 'That file is bigger than 80 MB.' };
+      const b = fs.readFileSync(r.filePaths[0]);
+      if (b.slice(0, 4).toString() !== 'glTF') return { ok: false, error: 'That isn’t a .glb 3D model.' };
+      fs.writeFileSync(userFile('phone-model.glb'), b);
+      return { ok: true };
+    } catch (err) { return { ok: false, error: err.message }; }
+  });
+  ipcMain.handle('phone:model', () => { try { return fs.readFileSync(userFile('phone-model.glb')); } catch { return null; } });
+  ipcMain.handle('phone:clearModel', () => { try { fs.unlinkSync(userFile('phone-model.glb')); } catch {} return true; });
   ipcMain.on('app:open', (_e, url) => openAppWindow(url));
   ipcMain.handle('app:install', async (_e, url, title, iconDataUrl) => {
     let u; try { u = new URL(url); } catch { return { ok: false }; }

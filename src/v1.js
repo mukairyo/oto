@@ -1012,4 +1012,5 @@ function initV1() {
   if (typeof initV1e === 'function') initV1e();
   if (typeof initV1f === 'function') initV1f();
   if (typeof initV1g === 'function') initV1g();
+  if (typeof initV1h === 'function') initV1h();
 }

@@ -80,7 +80,7 @@ module.exports = function setupAccount(ctx) {
     return unseal(A.access);
   }
   let refreshing = null;
-  function signOutLocal() { A = { email: A.email }; saveA(); }
+  function signOutLocal() { A = { email: A.email, deviceId: A.deviceId }; saveA(); }
 
   // ------------------------------------------------------------ encryption
   const deriveKey = (password, salt) => crypto.scryptSync(String(password), Buffer.from(salt, 'base64'), 32, { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
@@ -307,6 +307,59 @@ module.exports = function setupAccount(ctx) {
       const r = Array.isArray(rows) && rows[0];
       return { ok: true, at: r ? Date.parse(r.updated_at) : 0, device: r ? r.device : '', newer: !!(r && Date.parse(r.updated_at) > (A.lastRemote || 0) + 2000 && r.device !== device()) };
     } catch (e) { return { ok: false, error: e.message }; }
+  });
+
+  // ------------------------------------------------------------ linked devices (your phone ⇄ this PC)
+  // Every Oto (PC or phone) signed in to the same account keeps one row in oto_devices. What's inside
+  // (name, model, battery, open tabs) is encrypted with a key made from your sync key, so the server only
+  // sees scrambled text. Tabs sent to a device wait in oto_inbox until that device picks them up.
+  if (!A.deviceId) { A.deviceId = crypto.randomUUID(); saveA(); }
+  const devKey = () => { const k = dataKey(); return k ? crypto.createHmac('sha256', k).update('oto-devices-v1').digest() : null; };
+  const devErr = (e) => ({ ok: false, error: e.message, code: e.code === 'auth' ? 'auth' : /42P01|PGRST205|42501|PGRST106/.test(String(e.code)) ? 'setup' : e.code });
+  let lastBeat = { at: 0, sig: '' };
+  ipcMain.handle('devices:beat', async (_e, info = {}) => {
+    if (!signedIn() || !devKey()) return { ok: false, code: 'auth' };
+    try {
+      const t = await token(), key = devKey(), uid = encodeURIComponent(A.userId);
+      const tabs = (Array.isArray(info.tabs) ? info.tabs : []).slice(0, 40).map((x) => ({ t: String(x.t || '').slice(0, 140), u: String(x.u || '').slice(0, 1000) })).filter((x) => /^https?:/i.test(x.u));
+      const me = { name: device(), kind: 'pc', os: `Windows ${require('os').release()}`, app: OTO_VERSION, tabs, active: String(info.active || '').slice(0, 1000) };
+      const sig = JSON.stringify(me);
+      // write this PC's row when something changed, and at least every 2 minutes (that's "online")
+      if (sig !== lastBeat.sig || Date.now() - lastBeat.at > 120000 || info.force) {
+        await api('POST', '/rest/v1/oto_devices?on_conflict=user_id,device_id', {
+          token: t, headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+          body: { user_id: A.userId, device_id: A.deviceId, kind: 'pc', blob: encrypt({ ...me, at: Date.now() }, key), updated_at: new Date().toISOString() },
+        });
+        lastBeat = { at: Date.now(), sig };
+      }
+      const rows = await api('GET', `/rest/v1/oto_devices?user_id=eq.${uid}&select=device_id,kind,blob,updated_at&order=updated_at.desc`, { token: t });
+      const devices = (rows || []).filter((r) => r.device_id !== A.deviceId).map((r) => {
+        let d = null; try { d = decrypt(r.blob, key); } catch {}
+        return { id: r.device_id, kind: r.kind, seen: Date.parse(r.updated_at), locked: !d, ...(d || {}) };
+      });
+      // tabs sent to this PC
+      const box = await api('GET', `/rest/v1/oto_inbox?user_id=eq.${uid}&to_device=eq.${encodeURIComponent(A.deviceId)}&select=id,blob,created_at&order=id.asc`, { token: t });
+      const inbox = [];
+      for (const m of box || []) { try { inbox.push({ ...decrypt(m.blob, key), at: Date.parse(m.created_at) }); } catch {} }
+      if ((box || []).length) await api('DELETE', `/rest/v1/oto_inbox?user_id=eq.${uid}&to_device=eq.${encodeURIComponent(A.deviceId)}&id=lte.${box[box.length - 1].id}`, { token: t }).catch(() => {});
+      return { ok: true, me: { id: A.deviceId, name: device() }, devices, inbox };
+    } catch (e) { return devErr(e); }
+  });
+  ipcMain.handle('devices:send', async (_e, deviceId, url, title) => {
+    if (!signedIn() || !devKey()) return { ok: false, code: 'auth' };
+    if (!/^https?:/i.test(String(url || ''))) return { ok: false, error: 'Only web pages can be sent.' };
+    try {
+      await api('POST', '/rest/v1/oto_inbox', {
+        token: await token(), headers: { Prefer: 'return=minimal' },
+        body: { user_id: A.userId, to_device: String(deviceId), blob: encrypt({ u: String(url).slice(0, 2000), t: String(title || '').slice(0, 200), from: device() }, devKey()) },
+      });
+      return { ok: true };
+    } catch (e) { return devErr(e); }
+  });
+  ipcMain.handle('devices:forget', async (_e, deviceId) => {
+    if (!signedIn()) return { ok: false, code: 'auth' };
+    try { await api('DELETE', `/rest/v1/oto_devices?user_id=eq.${encodeURIComponent(A.userId)}&device_id=eq.${encodeURIComponent(String(deviceId))}`, { token: await token() }); return { ok: true }; }
+    catch (e) { return devErr(e); }
   });
 
   // ------------------------------------------------------------ the PC lock
