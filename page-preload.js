@@ -1,7 +1,11 @@
 // Oto — tiny preload for web pages (runs before the page's own scripts).
 // Google sign-in refuses browsers whose `window.chrome` object is empty, which is how plain Electron looks
 // ("This browser or app may not be secure"). On Google's sign-in pages only, fill in the standard Chrome
-// properties so signing in works like in Chrome. Nothing else is changed and nothing is read from the page.
+// properties so signing in works like in Chrome.
+// Also: sites set to "Autoplay: Block" in Site permissions don't start video or sound until you click the page.
+// Fingerprint protection: canvas, WebGL and audio readouts get tiny changes that are the same on one site
+// for one session and different everywhere else, so sites can't recognise this PC by them.
+// Nothing is read from the page.
 'use strict';
 try {
   const host = location.hostname;
@@ -45,3 +49,109 @@ try {
     else if (webFrame) webFrame.executeJavaScript(`(${fill.toString()})()`);
   }
 } catch {}
+
+// Autoplay: Block — media only plays once you've clicked or typed on the page.
+// Cookies: Block — the page can't write cookies (ones sent by the server are removed by Oto right away).
+try {
+  const { ipcRenderer, contextBridge, webFrame } = require('electron');
+  const run = (fn, ...args) => { if (contextBridge && contextBridge.executeInMainWorld) contextBridge.executeInMainWorld({ func: fn, args }); else if (webFrame) webFrame.executeJavaScript(`(${fn.toString()})(...${JSON.stringify(args)})`); };
+  const site = ipcRenderer.sendSync('oto:page', location.origin) || {};
+  if (site.cookies) {
+    run(() => {
+      try { Object.defineProperty(Document.prototype, 'cookie', { configurable: true, get() { return ''; }, set() {} }); } catch (e) {}
+      try { if (window.cookieStore) window.cookieStore.set = () => Promise.resolve(); } catch (e) {}
+    });
+  }
+  if (site.fp) run(otoFarble, site.fp);
+  if (site.autoplay) {
+    const hold = () => {
+      const P = HTMLMediaElement.prototype, play = P.play;
+      const ok = () => !navigator.userActivation || navigator.userActivation.hasBeenActive;
+      P.play = function () { if (!ok()) { try { this.pause(); } catch (e) {} return Promise.reject(new DOMException('Autoplay is blocked for this site in Oto', 'NotAllowedError')); } return play.apply(this, arguments); };
+      document.addEventListener('play', (e) => { const m = e.target; if (!ok() && m && typeof m.pause === 'function') m.pause(); }, true);
+    };
+    run(hold);
+  }
+} catch {}
+
+// Runs in the page. `seed` is per site and per session (main.js). Changes are tiny (a few lowest bits) and
+// always the same for the same picture or sound on the same site, so pages still work and look right.
+function otoFarble(seed) {
+  const done = new WeakSet();
+  const natives = new WeakMap();
+  const nativeToString = Function.prototype.toString;
+  const fakeToString = function toString() { return natives.has(this) ? natives.get(this) : nativeToString.call(this); };
+  const mix = (n) => { let x = (n ^ seed) >>> 0; x = Math.imul(x ^ (x >>> 16), 0x45d9f3b) >>> 0; x = Math.imul(x ^ (x >>> 16), 0x45d9f3b) >>> 0; return (x ^ (x >>> 16)) >>> 0; };
+  const noisePixels = (d) => { for (let i = 0; i < d.length; i += 4) { const m = mix(i); if ((m & 15) === 0) { const c = i + (m >>> 4) % 3; d[c] = d[c] ^ 1; } } };
+  function patch(w) {
+    try {
+      if (!w || done.has(w)) return;
+      done.add(w);
+      const swap = (obj, name, make) => {
+        const desc = Object.getOwnPropertyDescriptor(obj, name);
+        if (!desc || typeof desc.value !== 'function') return;
+        const orig = desc.value, fn = make(orig);
+        natives.set(fn, nativeToString.call(orig));
+        Object.defineProperty(obj, name, { ...desc, value: fn });
+      };
+      const getter = (obj, name, make) => {
+        const desc = Object.getOwnPropertyDescriptor(obj, name);
+        if (!desc || !desc.get) return;
+        const fn = make(desc.get);
+        natives.set(fn, nativeToString.call(desc.get));
+        Object.defineProperty(obj, name, { ...desc, get: fn });
+      };
+      w.Function.prototype.toString = fakeToString;
+      natives.set(fakeToString, nativeToString.call(nativeToString));
+      // 2D canvas
+      const C2D = w.CanvasRenderingContext2D && w.CanvasRenderingContext2D.prototype;
+      const getImageData = C2D && C2D.getImageData;
+      if (C2D) swap(C2D, 'getImageData', (orig) => function getImageData() { const img = orig.apply(this, arguments); try { noisePixels(img.data); } catch (e) {} return img; });
+      const copyNoisy = (canvas) => {
+        const w2 = canvas.width, h2 = canvas.height;
+        if (!w2 || !h2 || w2 * h2 > 16e6) return null;
+        const c = w.document.createElement('canvas'); c.width = w2; c.height = h2;
+        const x = c.getContext('2d'); x.drawImage(canvas, 0, 0);
+        const img = getImageData.call(x, 0, 0, w2, h2); noisePixels(img.data); x.putImageData(img, 0, 0);
+        return c;
+      };
+      const HC = w.HTMLCanvasElement && w.HTMLCanvasElement.prototype;
+      if (HC) {
+        swap(HC, 'toDataURL', (orig) => function toDataURL() { let c = null; try { c = copyNoisy(this); } catch (e) {} return orig.apply(c || this, arguments); });
+        swap(HC, 'toBlob', (orig) => function toBlob() { let c = null; try { c = copyNoisy(this); } catch (e) {} return orig.apply(c || this, arguments); });
+      }
+      // WebGL: a common graphics-card name, and tiny changes to read-back pixels
+      for (const G of [w.WebGLRenderingContext, w.WebGL2RenderingContext]) {
+        if (!G) continue;
+        const P = G.prototype;
+        swap(P, 'getParameter', (orig) => function getParameter(p) { if (p === 0x9245) return 'Google Inc. (Oto)'; if (p === 0x9246) return 'ANGLE (Oto, Generic GPU, D3D11)'; return orig.apply(this, arguments); });
+        swap(P, 'readPixels', (orig) => function readPixels() { const r = orig.apply(this, arguments); try { const d = arguments[6]; if (d && d.BYTES_PER_ELEMENT === 1) noisePixels(d); } catch (e) {} return r; });
+      }
+      // Audio
+      const AB = w.AudioBuffer && w.AudioBuffer.prototype;
+      if (AB) {
+        const seen = new WeakSet();
+        swap(AB, 'getChannelData', (orig) => function getChannelData() {
+          const d = orig.apply(this, arguments);
+          try { if (!seen.has(d)) { seen.add(d); for (let i = 0; i < d.length; i += 97) { const m = mix(i); if (m & 1) d[i] += ((m >>> 8) / 4294967296 - 0.5) * 1e-7; } } } catch (e) {}
+          return d;
+        });
+      }
+      const AN = w.AnalyserNode && w.AnalyserNode.prototype;
+      if (AN) swap(AN, 'getFloatFrequencyData', (orig) => function getFloatFrequencyData(a) { orig.apply(this, arguments); try { for (let i = 0; i < a.length; i += 7) a[i] += ((mix(i) & 255) / 255 - 0.5) * 0.001; } catch (e) {} });
+      // Hardware hints: common values instead of this PC's exact ones
+      const N = w.Navigator && w.Navigator.prototype;
+      if (N) {
+        getter(N, 'hardwareConcurrency', () => function hardwareConcurrency() { return 8; });
+        getter(N, 'deviceMemory', () => function deviceMemory() { return 8; });
+      }
+      // Frames made by script (about:blank) get the same protection when the page reaches into them
+      const IF = w.HTMLIFrameElement && w.HTMLIFrameElement.prototype;
+      if (IF) {
+        getter(IF, 'contentWindow', (orig) => function contentWindow() { const cw = orig.call(this); try { if (cw && cw.document) patch(cw); } catch (e) {} return cw; });
+        getter(IF, 'contentDocument', (orig) => function contentDocument() { const cd = orig.call(this); try { if (cd && cd.defaultView) patch(cd.defaultView); } catch (e) {} return cd; });
+      }
+    } catch (e) {}
+  }
+  patch(window);
+}

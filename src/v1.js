@@ -160,8 +160,9 @@ function v1ClosePop() { if (v1Pop) { v1Pop.remove(); v1Pop = null; } }
 addEventListener('keydown', (e) => { if (e.key === 'Escape' && v1Pop) { e.stopPropagation(); v1ClosePop(); } }, true);
 
 const V1_PERMS = [
+  ['camera', 'Camera', 'cam'],
+  ['microphone', 'Microphone', 'mic'],
   ['geolocation', 'Location', 'mappin'],
-  ['media', 'Camera & mic', 'cam'],
   ['notifications', 'Notifications', 'bell'],
 ];
 
@@ -179,8 +180,10 @@ async function v1SitePanel() {
   v1Pop = layer;
   const permRow = ([key, label, ic]) => {
     const k = `${origin}|${key}`;
-    const val = k in perms ? (perms[k] ? 'allow' : 'block') : 'ask';
-    const seg3 = h('div', { class: 'v1-seg3' }, ...[['ask', 'Ask'], ['allow', 'Allow'], ['block', 'Block']].map(([id, l]) =>
+    const legacy = (key === 'camera' || key === 'microphone') && !(k in perms) && `${origin}|media` in perms ? `${origin}|media` : k;
+    const val = legacy in perms ? (perms[legacy] ? 'allow' : 'block') : 'ask';
+    const askL = perms[`*|${key}`] === false ? 'Default' : 'Ask';
+    const seg3 = h('div', { class: 'v1-seg3' }, ...[['ask', askL], ['allow', 'Allow'], ['block', 'Block']].map(([id, l]) =>
       h('button', { class: id === val ? 'on' : '', onclick: async () => {
         perms = await oto.setPermission(k, id === 'ask' ? null : id === 'allow');
         seg3.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.textContent === l));
@@ -204,7 +207,23 @@ async function v1SitePanel() {
     S.settings.blockTrackers ? h('div', { class: 'stat' },
       h('div', {}, h('b', {}, String(blockedPage)), h('small', {}, 'ads & trackers blocked here')),
       h('div', {}, h('b', {}, blockedAll > 9999 ? `${Math.round(blockedAll / 1000)}k` : String(blockedAll)), h('small', {}, 'blocked by Oto so far'))) : null,
-    h('div', { class: 'sec' }, ...V1_PERMS.map(permRow), h('div', { class: 'v1-prow' }, iconEl('vol'), h('span', { class: 'l' }, 'Sound'), sw)),
+    h('div', { class: 'sec' }, ...V1_PERMS.map(permRow),
+      (() => { const k = `${origin}|cookies`, cur = perms[k] === false ? 'block' : perms[k] === 'session' ? 'session' : 'allow';
+        const seg = h('div', { class: 'v1-seg3' }, ...[['allow', 'Allow'], ['block', 'Block'], ['session', 'Clear on close']].map(([id, l]) => h('button', { class: id === cur ? 'on' : '', title: id === 'session' ? 'Allow, but clear this site’s cookies when Oto closes' : '', onclick: async () => {
+          perms = await oto.setPermission(k, id === 'allow' ? null : id === 'block' ? false : 'session');
+          seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.textContent === l));
+          if (id === 'block') toast(`Cookies blocked on ${host}. You’ll be signed out there`, { timeout: 2400 });
+        } }, l)));
+        return h('div', { class: 'v1-prow' }, iconEl('cookie'), h('span', { class: 'l' }, 'Cookies'), seg); })(),
+      (() => { const k = `${origin}|autoplay`, cur = perms[k] === false || (!(k in perms) && perms['*|autoplay'] === false) ? 'block' : 'allow';
+        const seg = h('div', { class: 'v1-seg3' }, ...[['allow', 'Allow'], ['block', 'Block']].map(([id, l]) => h('button', { class: id === cur ? 'on' : '', onclick: async () => {
+          perms = await oto.setPermission(k, id === 'allow' ? (perms['*|autoplay'] === false ? true : null) : false);
+          seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.textContent === l));
+          toast('Reload the page to apply', { timeout: 1600 });
+        } }, l)));
+        return h('div', { class: 'v1-prow' }, iconEl('autoplay'), h('span', { class: 'l' }, 'Autoplay'), seg); })(),
+      h('div', { class: 'v1-prow' }, iconEl('vol'), h('span', { class: 'l' }, 'Sound'), sw),
+      typeof v1ShieldPage === 'function' ? h('button', { class: 'allp', onclick: () => { v1ClosePop(); v1ShieldPage('permissions'); } }, 'All site permissions…') : null),
     h('div', { class: 'sec' },
       h('div', { class: 'v1-prow' }, iconEl('zoomin'), h('span', { class: 'l' }, 'Zoom'),
         h('div', { class: 'v1-seg3' }, h('button', { onclick: () => doZoom(-1) }, '−'), h('button', { class: 'on', onclick: () => doZoom(0), title: 'Reset' }, zoomVal), h('button', { onclick: () => doZoom(1) }, '+'))),
@@ -1029,4 +1048,5 @@ function initV1() {
   if (typeof initV1f === 'function') initV1f();
   if (typeof initV1g === 'function') initV1g();
   if (typeof initV1h === 'function') initV1h();
+  if (typeof initV1j === 'function') initV1j();
 }

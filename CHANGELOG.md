@@ -3,6 +3,27 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.1.0 — 2026-11-07
+
+*Oto Shield grows up: a privacy dashboard, protection levels, YouTube switches and one page for every site's permissions.*
+
+**New**
+- **Privacy dashboard** — how many ads and trackers Oto blocked today, this week and in total, a 14-day chart, every website that tried to track you (and with what), and the tracking companies seen most. Counted on your PC only. Open it from the Oto Shield button → *Dashboard*, or type "privacy" in the command bar.
+- **Protection levels** — *Basic* (ads only), *Balanced* (ads and trackers, the default) or *Strict* (also cookie banners, popups and "turn off your adblocker" walls). Switch right in the Oto Shield button.
+- **Update filter lists now** — one click downloads the newest uBlock Origin lists (they still update by themselves every week). Zap, Hide for good, My filters and the sites where blocking is off are all on the same page.
+- **YouTube switches** — hide Shorts, comments, suggested videos, end screens, live chat, the home feed, hover previews, promos, Explore and the bell. Open Shorts in the normal player. No filters to write; changes show right away.
+- **Site permissions page** — camera, microphone, location, notifications, cookies and autoplay for every website in one place, with defaults for all sites ("block every notification request", "no autoplay anywhere").
+- **Cookies per site** — Allow, Block, or *Clear on close*. **Autoplay per site** — Block means video and sound wait until you click the page.
+- **Fingerprint protection** (on by default) — canvas, WebGL and audio give every site slightly different answers that change each session, and the graphics card and CPU look like everyone else's. Sites can't recognise your PC by them anymore. Switch it in Oto Shield → *Blocking*.
+- **Oto's extra block list** — on top of uBlock Origin's lists: Yahoo, Yandex, Unity, TikTok, Facebook and X ad servers, error trackers, and phone-maker telemetry (Apple, Samsung, Xiaomi, Huawei, Oppo, Realme, OnePlus) that the lists missed. Adblock testers go from about 92 of 132 blocked to all of them.
+
+**Changed**
+- Camera and microphone are now separate permissions (your old choices are kept).
+- The site panel (click the lock) has Cookies and Autoplay too, plus a link to all site permissions.
+
+**Fixed**
+- The close button on the My phone panel was invisible.
+
 ## 1.0.1 — 2026-11-07
 
 *Bug fixes, and the Oto theme everywhere.*

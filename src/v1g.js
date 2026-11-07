@@ -72,20 +72,25 @@ async function v1ShieldMenu() {
     h('div', { class: 'site' }, h('b', {}, st.host), h('small', {}, !globalOn ? 'Blocking is off everywhere — click to turn it on' : siteOn ? 'Blocking ads & trackers here' : 'Blocking is off on this site')),
     h('div', { class: 'nums' },
       h('div', {}, h('b', {}, String(siteOn ? (v.blocked || 0) : 0)), h('small', {}, 'on this page')),
-      h('div', {}, h('b', {}, total > 9999 ? `${Math.round(total / 1000)}K` : total.toLocaleString()), h('small', {}, `since ${since}`))),
+      h('div', { class: 'tap', title: 'Open the privacy dashboard', onclick: () => { v1ClosePop(); v1ShieldPage('overview'); } }, h('b', {}, total > 9999 ? `${Math.round(total / 1000)}K` : total.toLocaleString()), h('small', {}, `since ${since}`))),
     h('div', { class: 'tools' },
       h('button', { title: 'Click anything on the page to remove it (until you reload)', onclick: () => v1ShieldPick('zap') }, h('span', { html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>' }), 'Zap'),
       h('button', { title: 'Pick something to hide on this site for good', onclick: () => v1ShieldPick('pick') }, h('span', { html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>' }), 'Hide'),
       h('button', { title: 'Reload the page', onclick: () => { v1ClosePop(); reload(); } }, h('span', { html: icon('reload') }), 'Reload')),
-    h('label', { class: 'opt' }, h('span', {}, h('b', {}, 'Block annoyances'), h('small', {}, 'Cookie banners, newsletter popups, “turn off your adblocker” walls')),
-      h('button', { class: `switch${st.annoy ? ' on' : ''}`, role: 'switch', onclick: async (e) => {
-        const b = e.currentTarget; b.disabled = true; b.classList.toggle('on');
-        const r = await oto.shield.annoy(!st.annoy); st.annoy = r.annoy; b.disabled = false;
-        toast(r.annoy ? 'Annoyance lists on — reload pages to see it' : 'Annoyance lists off', { icon: 'shield', timeout: 2200 });
-      } })),
+    h('div', { class: 'lvl' }, h('small', {}, 'Protection'),
+      h('div', { class: 'v1-seg3' }, ...[['basic', 'Basic'], ['balanced', 'Balanced'], ['strict', 'Strict']].map(([id, l]) => h('button', { class: (st.level || 'balanced') === id ? 'on' : '', title: id === 'basic' ? 'Ads only' : id === 'balanced' ? 'Ads and trackers' : 'Ads, trackers, cookie banners and annoyances', onclick: async (e) => {
+        if (st.level === id) return;
+        const seg = e.currentTarget.parentElement;
+        seg.querySelectorAll('button').forEach((b) => { b.classList.toggle('on', b === e.currentTarget); b.disabled = true; });
+        const r = await oto.shield.level(id); st.level = r.level; st.annoy = r.annoy;
+        seg.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+        toast(`${l} protection. Reload pages to apply`, { icon: 'shield', timeout: 2200 });
+      } }, l)))),
+    /(^|\.)youtube\.com$/.test(st.host) ? h('button', { class: 'yt', onclick: () => { v1ClosePop(); v1ShieldPage('youtube'); } }, h('span', { html: icon('ytube') }), h('span', {}, h('b', {}, 'YouTube switches'), h('small', {}, 'Hide Shorts, comments, suggestions…')), h('span', { class: 'go', html: icon('chev') })) : null,
     h('div', { class: 'ft' },
+      h('button', { onclick: () => { v1ClosePop(); v1ShieldPage('overview'); } }, 'Dashboard'),
       h('button', { onclick: () => { v1ClosePop(); v1ShieldFilters(); } }, `My filters${st.filters ? ` (${st.filters})` : ''}…`),
-      h('button', { onclick: () => { v1ClosePop(); openSettings('privacy'); } }, 'Settings')));
+      h('button', { onclick: () => { v1ClosePop(); v1ShieldPage('permissions'); } }, 'Permissions')));
   pop.style.left = `${clamp(anchor.left + anchor.width / 2 - 150, 8, innerWidth - 308)}px`;
   pop.style.top = `${anchor.bottom + 10}px`;
   pop.style.setProperty('--arrow-x', `${clamp(anchor.left + anchor.width / 2 - (parseFloat(pop.style.left)), 20, 280)}px`);

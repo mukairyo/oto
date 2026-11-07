@@ -316,7 +316,7 @@ function v1Board11() {
     const on = v1DarkOn(t.url);
     const sw = h('button', { class: `switch${on ? ' on' : ''}`, role: 'switch', onclick: () => { const n = !sw.classList.contains('on'); sw.classList.toggle('on', n); v1SetDark(host, n); } });
     const sec = panel.querySelectorAll('.sec')[0];
-    if (sec) sec.append(h('div', { class: 'v1-prow' }, iconEl('moon'), h('span', { class: 'l' }, 'Dark page'), sw));
+    if (sec) { const row = h('div', { class: 'v1-prow' }, iconEl('moon'), h('span', { class: 'l' }, 'Dark page'), sw); const ap = sec.querySelector('.allp'); if (ap) ap.before(row); else sec.append(row); }
     const ck = (S.stats && S.stats.cookies) || 0;
     const stat = panel.querySelector('.stat');
     if (stat && ck) stat.append(h('div', {}, h('b', {}, String(ck)), h('small', {}, 'cookie popups handled')));

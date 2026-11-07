@@ -747,19 +747,9 @@ const PAGE_RENDER = {
 
   privacy() {
     const st = S.settings;
-    const permBox = h('div', { class: 'perm-list' }, h('p', { class: 'set-note' }, 'Loading…'));
-    oto.listPermissions().then((perms) => {
-      const keys = Object.keys(perms || {});
-      if (!keys.length) { permBox.replaceChildren(h('p', { class: 'set-note' }, 'No sites have asked for permissions yet.')); return; }
-      permBox.replaceChildren(...keys.sort().map((key) => {
-        const [origin, perm] = key.split('|');
-        const label = permLabel({ permission: perm, mediaTypes: ['audio', 'video'] });
-        return h('div', { class: 'perm-row' },
-          h('span', { class: 'ph' }, h('b', {}, hostOf(origin) || origin), h('small', {}, label)),
-          h('span', { class: `perm-state ${perms[key] ? 'ok' : 'no'}` }, perms[key] ? 'Allowed' : 'Blocked'),
-          h('button', { class: 'icon-btn sm', title: 'Forget — ask again next time', html: icon('x'), onclick: async () => { await oto.resetPermission(key); renderSettings(); } }));
-      }));
-    });
+    const permBox = h('div', {},
+      row('Camera, microphone, location, notifications, cookies & autoplay', 'Set them for all sites, or for each site, in Oto Shield.',
+        h('button', { class: 'btn', onclick: () => { closeSettings(); v1ShieldPage('permissions'); } }, 'Manage site permissions')));
     return [
       section('Passwords',
         row('Offer to save passwords', 'When you log in to a site, Oto asks whether to save the password (encrypted on this PC).', sw(st.pwOffer !== false, (on) => setPref('pwOffer', on))),
@@ -773,6 +763,9 @@ const PAGE_RENDER = {
             updateChrome(); renderSettings();
             toast(on ? 'Blocking on — reload pages to apply' : 'Blocking off', { icon: 'shield', timeout: 1800 });
           })),
+        row('Privacy dashboard', 'What Oto blocked today, this week and in total, and which websites tried to track you.', h('button', { class: 'btn', onclick: () => { closeSettings(); v1ShieldPage('overview'); } }, 'Open dashboard')),
+        row('Protection level & filter lists', 'Basic, Balanced or Strict. Update the lists, zap things, turn blocking off per site.', h('button', { class: 'btn', onclick: () => { closeSettings(); v1ShieldPage('blocking'); } }, 'Blocking settings')),
+        row('YouTube switches', 'Hide Shorts, comments, suggested videos, end screens and more.', h('button', { class: 'btn', onclick: () => { closeSettings(); v1ShieldPage('youtube'); } }, 'YouTube')),
         row('Ask sites not to sell or share my data', 'Sends the Global Privacy Control and Do Not Track signals.', sw(st.gpc, (on) => setPref('gpc', on)))),
       section('Site permissions', permBox),
       section('Browsing data',

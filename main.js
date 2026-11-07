@@ -645,8 +645,54 @@ let blockingMode = 'off';
 const pendingBlocked = new Map();
 let blockedFlush = null;
 
-function notifyBlocked(wcId) {
+// ---- Privacy dashboard: what was blocked, per day and per website (stays on this PC)
+const { trackerOf, extraFilters } = require('./trackers.js');
+const PSTATS = Object.assign({ v: 1, days: {}, sites: {}, total: 0, since: Date.now() }, readJSON('privacy-stats.json', {}) || {});
+let pstatsTimer = null;
+const dayKey = (t = new Date()) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+const regDomain = (h) => { const p = String(h || '').split('.'); return p.length > 2 && /^(co|com|org|net|ac|gov|edu)$/.test(p[p.length - 2]) ? p.slice(-3).join('.') : p.slice(-2).join('.'); };
+function pstatsSave(now) {
+  clearTimeout(pstatsTimer); pstatsTimer = null;
+  const old = dayKey(new Date(Date.now() - 400 * 864e5));
+  for (const k of Object.keys(PSTATS.days)) if (k < old) delete PSTATS.days[k];
+  const sites = Object.entries(PSTATS.sites);
+  if (sites.length > 500) { sites.sort((a, b) => b[1].last - a[1].last); PSTATS.sites = Object.fromEntries(sites.slice(0, 500)); }
+  for (const s of Object.values(PSTATS.sites)) { const by = Object.entries(s.by || {}); if (by.length > 40) { s.by = Object.fromEntries(by.sort((a, b) => b[1] - a[1]).slice(0, 40)); if (s.co) for (const k of Object.keys(s.co)) if (!(k in s.by)) delete s.co[k]; } }
+  try { writeJSON('privacy-stats.json', PSTATS); } catch {}
+}
+function recordBlocked(wcId, url, domain) {
+  let host = '';
+  try { host = new URL(url).hostname; } catch {}
+  const co = trackerOf(host);
+  const d = PSTATS.days[dayKey()] || (PSTATS.days[dayKey()] = { a: 0, t: 0 });
+  if (co) d.t++; else d.a++;
+  PSTATS.total++;
+  const site = pageHostOf(wcId);
+  if (site) {
+    const s = PSTATS.sites[site] || (PSTATS.sites[site] = { a: 0, t: 0, last: 0, by: {} });
+    if (co) s.t++; else s.a++;
+    s.last = Date.now();
+    const k = domain || regDomain(host);
+    if (k) { s.by[k] = (s.by[k] || 0) + 1; if (co) (s.co || (s.co = {}))[k] = co; }
+  }
+  if (!pstatsTimer) pstatsTimer = setTimeout(pstatsSave, 5000);
+}
+function pstatsView() {
+  const sites = Object.entries(PSTATS.sites).map(([host, s]) => {
+    const by = Object.entries(s.by || {}).sort((a, b) => b[1] - a[1]);
+    return { host, a: s.a, t: s.t, last: s.last, by: by.slice(0, 14).map(([d, n]) => ({ d, n, co: (s.co && s.co[d]) || trackerOf(d) })) };
+  }).sort((a, b) => (b.t * 4 + b.a) - (a.t * 4 + a.a));
+  const cos = new Map();
+  for (const s of sites) for (const b of s.by) if (b.co) { const c = cos.get(b.co) || { name: b.co, n: 0, sites: new Set() }; c.n += b.n; c.sites.add(s.host); cos.set(b.co, c); }
+  return {
+    days: PSTATS.days, total: PSTATS.total, since: PSTATS.since, sites: sites.slice(0, 200),
+    companies: [...cos.values()].map((c) => ({ name: c.name, n: c.n, sites: c.sites.size, top: [...c.sites].slice(0, 4) })).sort((a, b) => b.sites - a.sites || b.n - a.n).slice(0, 40),
+  };
+}
+
+function notifyBlocked(wcId, url, domain) {
   if (!wcId) return;
+  try { if (url) recordBlocked(wcId, url, domain); } catch {}
   pendingBlocked.set(wcId, (pendingBlocked.get(wcId) || 0) + 1);
   if (blockedFlush) return;
   blockedFlush = setTimeout(() => {
@@ -664,7 +710,7 @@ function enableFallback(ses) {
     try { h = new URL(d.url).hostname; } catch { return cb({}); }
     if (shieldAllowed(pageHostOf(d.webContentsId))) return cb({});
     while (h) {
-      if (list.has(h)) { notifyBlocked(d.webContentsId); return cb({ cancel: true }); }
+      if (list.has(h)) { notifyBlocked(d.webContentsId, d.url); return cb({ cancel: true }); }
       const i = h.indexOf('.');
       if (i < 0) break;
       h = h.slice(i + 1);
@@ -684,18 +730,23 @@ const SHIELD = {
   custom: (() => { try { return fs.readFileSync(userFile('shield-filters.txt'), 'utf8'); } catch { return ''; } })(),
   applied: [],
 };
+// Protection level: Basic = ads, Balanced = ads + trackers, Strict = everything incl. annoyances & cookie banners.
+const SHIELD_LEVELS = { basic: ['fromPrebuiltAdsOnly', 'adblock-engine-ads.bin'], balanced: ['fromPrebuiltAdsAndTracking', 'adblock-engine.bin'], strict: ['fromPrebuiltFull', 'adblock-engine-full.bin'] };
+const shieldLevel = () => (SHIELD_LEVELS[SHIELD.conf.level] ? SHIELD.conf.level : SHIELD.conf.annoy ? 'strict' : 'balanced');
+const shieldListsAt = () => { try { return fs.statSync(userFile(SHIELD_LEVELS[shieldLevel()][1])).mtimeMs; } catch { return 0; } };
+const FP_SESSION = require('crypto').randomBytes(16).toString('hex');
 const shieldHost = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
 const shieldAllowed = (host) => { if (!host) return false; let h = host; while (h) { if (SHIELD.allow.has(h)) return true; const i = h.indexOf('.'); if (i < 0) break; h = h.slice(i + 1); } return false; };
 const pageHostOf = (wcId) => { try { const wc = webContents.fromId(wcId); return wc ? shieldHost(wc.getURL()) : ''; } catch { return ''; } };
 const shieldLines = () => SHIELD.custom.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('!') && !l.startsWith('#'));
 function shieldApplyCustom() {
   if (!blocker) return 0;
-  const lines = shieldLines();
+  const lines = [...new Set([...extraFilters(shieldLevel()), ...shieldLines()])];
   const added = lines.filter((l) => !SHIELD.applied.includes(l));
   const removed = SHIELD.applied.filter((l) => !lines.includes(l));
   try { if (added.length || removed.length) blocker.updateFromDiff({ added, removed }); } catch (e) { console.warn('[oto] custom filters:', e && e.message); }
   SHIELD.applied = lines;
-  return lines.length;
+  return shieldLines().length;
 }
 function shieldPatch(b) {
   const ob = b.onBeforeRequest, oh = b.onHeadersReceived, oc = b.onInjectCosmeticFilters;
@@ -715,14 +766,14 @@ async function enableBlocking(ses) {
   try {
     blockerP = (async () => {
       const { ElectronBlocker } = require('@ghostery/adblocker-electron');
-      const full = !!SHIELD.conf.annoy;
-      const cache = userFile(full ? 'adblock-engine-full.bin' : 'adblock-engine.bin');
+      const [maker, file] = SHIELD_LEVELS[shieldLevel()];
+      const cache = userFile(file);
       try { if (Date.now() - fs.statSync(cache).mtimeMs > 7 * 864e5) fs.unlinkSync(cache); } catch {}
       const fetchFn = (url, opts) => net.fetch(url, opts);
       const opts = { path: cache, read: fs.promises.readFile, write: fs.promises.writeFile };
-      const b = await (full ? ElectronBlocker.fromPrebuiltFull(fetchFn, opts) : ElectronBlocker.fromPrebuiltAdsAndTracking(fetchFn, opts));
-      b.on('request-blocked', (req) => notifyBlocked(req.tabId));
-      b.on('request-redirected', (req) => notifyBlocked(req.tabId)); // trackers swapped for harmless stubs
+      const b = await ElectronBlocker[maker](fetchFn, opts);
+      b.on('request-blocked', (req) => notifyBlocked(req.tabId, req.url, req.domain));
+      b.on('request-redirected', (req) => notifyBlocked(req.tabId, req.url, req.domain)); // trackers swapped for harmless stubs
       shieldPatch(b);
       return b;
     })();
@@ -761,6 +812,25 @@ let permSeq = 0;
 const pendingPerms = new Map();
 
 function originOf(u) { try { return new URL(u).origin; } catch { return String(u || ''); } }
+// Saved choice for a site, else the default for all sites ("*|permission"), else undefined (= ask).
+// Camera and microphone are separate ("camera" / "microphone"); older saves used one "media" key for both.
+function permDecide(origin, perm) {
+  const k = `${origin}|${perm}`;
+  if (k in perms) return perms[k];
+  if ((perm === 'camera' || perm === 'microphone') && `${origin}|media` in perms) return perms[`${origin}|media`];
+  if (`*|${perm}` in perms) return perms[`*|${perm}`];
+  return undefined;
+}
+const mediaParts = (types) => (types && types.length ? [...new Set(types.map((t) => (t === 'video' ? 'camera' : 'microphone')))] : ['media']);
+// Cookies per site: false = blocked (removed as soon as they're set), 'session' = cleared when Oto closes.
+let cookieBlockHosts = [];
+const bareHost = (h) => String(h || '').replace(/^\./, '').replace(/^www\./, '').toLowerCase();
+function savePerms() {
+  try { writeJSON('permissions.json', perms); } catch {}
+  cookieBlockHosts = Object.keys(perms).filter((k) => k.endsWith('|cookies') && perms[k] === false).map((k) => { try { return bareHost(new URL(k.split('|')[0]).hostname); } catch { return ''; } }).filter(Boolean);
+}
+const cookieBlocked = (domain) => { const d = bareHost(domain); return !!d && cookieBlockHosts.some((h) => d === h || d.endsWith(`.${h}`) || h.endsWith(`.${d}`)); };
+const autoplayBlocked = (origin) => permDecide(origin, 'autoplay') === false;
 
 // Page preload (page-preload.js): fixes Google sign-in ("This browser or app may not be secure").
 function addPagePreload(ses) {
@@ -774,28 +844,40 @@ function addPagePreload(ses) {
 function setupSession(part = PARTITION) {
   const ses = session.fromPartition(part);
   addPagePreload(ses);
-  if (part === PARTITION) perms = readJSON('permissions.json', {});
+  if (part === PARTITION) { perms = readJSON('permissions.json', {}); savePerms(); }
 
   ses.setPermissionRequestHandler((wc, permission, callback, details) => {
     if (ALWAYS.has(permission)) return callback(true);
     const origin = originOf(details.requestingUrl || (wc && wc.getURL()));
-    const key = `${origin}|${permission}`;
-    if (key in perms) return callback(perms[key]);
+    const parts = permission === 'media' ? mediaParts(details.mediaTypes) : [permission];
+    const vals = parts.map((p) => permDecide(origin, p));
+    if (vals.some((v) => v === false)) return callback(false);
+    if (vals.every((v) => v === true)) return callback(true);
     if (!win) return callback(false);
+    const keys = parts.map((p) => `${origin}|${p}`);
     const id = ++permSeq;
     const timer = setTimeout(() => {
       if (pendingPerms.delete(id)) { callback(false); send('perm:cancel', id); }
     }, 90000);
-    pendingPerms.set(id, { callback, key, timer });
+    pendingPerms.set(id, { callback, keys, timer });
     send('perm:ask', {
       id, origin, permission, mediaTypes: details.mediaTypes || [],
       externalURL: details.externalURL || '', wcId: wc ? wc.id : 0,
     });
   });
-  ses.setPermissionCheckHandler((_wc, permission, origin) => {
+  ses.setPermissionCheckHandler((_wc, permission, origin, details) => {
     if (ALWAYS.has(permission)) return true;
-    return perms[`${originOf(origin)}|${permission}`] === true;
+    const o = originOf(origin);
+    if (permission === 'media') return mediaParts(details && details.mediaType ? [details.mediaType] : []).every((p) => permDecide(o, p) === true);
+    return permDecide(o, permission) === true;
   });
+  if (part === PARTITION) {
+    ses.cookies.on('changed', (_e, c, _cause, removed) => {
+      if (removed || !cookieBlockHosts.length || !cookieBlocked(c.domain)) return;
+      const d = String(c.domain || '').replace(/^\./, '');
+      ses.cookies.remove(`http${c.secure ? 's' : ''}://${d}${c.path || '/'}`, c.name).catch(() => {});
+    });
+  }
 
   // Downloads go straight to the Downloads folder, Chrome-style.
   let dlSeq = 0;
@@ -1048,7 +1130,7 @@ function setupIPC(ses) {
   // Oto Shield menu
   ipcMain.handle('shield:state', (_e, url) => {
     const host = shieldHost(url);
-    return { host, allowed: shieldAllowed(host), annoy: !!SHIELD.conf.annoy, mode: blockingMode, filters: shieldLines().length };
+    return { host, allowed: shieldAllowed(host), fp: SHIELD.conf.fp !== false, annoy: shieldLevel() === 'strict', level: shieldLevel(), listsAt: shieldListsAt(), mode: blockingMode, filters: shieldLines().length, allow: [...SHIELD.allow].sort() };
   });
   ipcMain.handle('shield:site', (_e, url, allow) => {
     const host = shieldHost(url);
@@ -1074,19 +1156,36 @@ function setupIPC(ses) {
     if (!shieldLines().includes(line)) { SHIELD.custom = `${SHIELD.custom.replace(/\s*$/, '')}\n${line}\n`.replace(/^\n/, ''); try { fs.writeFileSync(userFile('shield-filters.txt'), SHIELD.custom); } catch {} shieldApplyCustom(); }
     return true;
   });
-  ipcMain.handle('shield:annoy', async (_e, on) => {
-    SHIELD.conf.annoy = !!on;
+  const setLevel = async (lvl) => {
+    if (!SHIELD_LEVELS[lvl]) lvl = 'balanced';
+    const changed = lvl !== shieldLevel();
+    SHIELD.conf.level = lvl; SHIELD.conf.annoy = lvl === 'strict';
     try { writeJSON('shield.json', SHIELD.conf); } catch {}
-    if (blocker) await shieldRebuild();
-    return { annoy: SHIELD.conf.annoy, mode: blockingMode };
+    if (changed && blocker) await shieldRebuild();
+    return { annoy: lvl === 'strict', level: shieldLevel(), mode: blockingMode, listsAt: shieldListsAt() };
+  };
+  ipcMain.handle('shield:annoy', (_e, on) => setLevel(on ? 'strict' : 'balanced'));
+  ipcMain.handle('shield:level', (_e, lvl) => setLevel(String(lvl || '')));
+  // Download fresh filter lists now (they also refresh by themselves every 7 days). Keeps the old ones if offline.
+  ipcMain.handle('shield:update', async () => {
+    if (!blocker) return { ok: false, off: true, listsAt: shieldListsAt(), mode: blockingMode };
+    const f = userFile(SHIELD_LEVELS[shieldLevel()][1]), bak = `${f}.old`;
+    try { fs.renameSync(f, bak); } catch {}
+    await shieldRebuild();
+    const ok = blockingMode === 'full' && fs.existsSync(f);
+    if (ok) { try { fs.unlinkSync(bak); } catch {} } else { try { fs.renameSync(bak, f); } catch {} await shieldRebuild(); }
+    return { ok, listsAt: shieldListsAt(), mode: blockingMode };
   });
+  ipcMain.handle('shield:fp', (_e, on) => { SHIELD.conf.fp = !!on; try { writeJSON('shield.json', SHIELD.conf); } catch {} return SHIELD.conf.fp; });
+  ipcMain.handle('shield:stats', () => pstatsView());
+  ipcMain.handle('shield:statsReset', () => { PSTATS.days = {}; PSTATS.sites = {}; PSTATS.total = 0; PSTATS.since = Date.now(); pstatsSave(); return pstatsView(); });
   ipcMain.on('perm:reply', (_e, id, allow) => {
     const p = pendingPerms.get(id);
     if (!p) return;
     pendingPerms.delete(id);
     clearTimeout(p.timer);
-    perms[p.key] = !!allow;
-    try { writeJSON('permissions.json', perms); } catch {}
+    for (const k of p.keys || [p.key]) perms[k] = !!allow;
+    savePerms();
     p.callback(!!allow);
   });
   ipcMain.on('settings:sync', (_e, p) => {
@@ -1127,25 +1226,47 @@ function setupIPC(ses) {
     } catch { return false; }
   });
   ipcMain.handle('perm:list', () => perms);
-  ipcMain.handle('perm:set', (_e, key, val) => {
+  ipcMain.handle('perm:set', async (_e, key, val) => {
     if (typeof key !== 'string' || !key.includes('|')) return perms;
-    if (val === null || val === undefined) delete perms[key]; else perms[key] = !!val;
-    try { writeJSON('permissions.json', perms); } catch {}
+    const [origin, perm] = key.split('|');
+    if (val === null || val === undefined) delete perms[key]; else perms[key] = perm === 'cookies' && val === 'session' ? 'session' : !!val;
+    // camera / microphone replace the old shared "media" choice for that site
+    if ((perm === 'camera' || perm === 'microphone') && `${origin}|media` in perms) {
+      const old = perms[`${origin}|media`]; delete perms[`${origin}|media`];
+      const other = perm === 'camera' ? 'microphone' : 'camera';
+      if (!(`${origin}|${other}` in perms)) perms[`${origin}|${other}`] = old;
+    }
+    savePerms();
+    if (perm === 'cookies' && val === false && origin !== '*') { try { await session.fromPartition(PARTITION).clearStorageData({ origin, storages: ['cookies'] }); } catch {} }
     return perms;
+  });
+  // page-preload.js asks this once per page: should media wait for a click, and may this frame write cookies?
+  ipcMain.on('oto:page', (e, frameOrigin) => {
+    const r = { autoplay: false, cookies: false, fp: 0 };
+    // Fingerprint protection: a number that's the same for one site during one session, different everywhere else.
+    try {
+      const top = shieldHost(e.sender.getURL());
+      if (top && SHIELD.conf.fp !== false && blockingMode !== 'off' && !shieldAllowed(top)) {
+        r.fp = require('crypto').createHash('sha256').update(`${FP_SESSION}|${regDomain(top)}`).digest().readUInt32LE(0) || 1;
+      }
+    } catch {}
+    try { r.autoplay = autoplayBlocked(originOf(e.sender.getURL())); } catch {}
+    try { r.cookies = cookieBlockHosts.length > 0 && cookieBlocked(new URL(String(frameOrigin)).hostname); } catch {}
+    e.returnValue = r;
   });
   ipcMain.handle('site:clear', async (_e, origin) => {
     try {
       const o = new URL(origin).origin;
       await session.fromPartition(PARTITION).clearStorageData({ origin: o });
       for (const k of Object.keys(perms)) if (k.startsWith(`${o}|`)) delete perms[k];
-      try { writeJSON('permissions.json', perms); } catch {}
+      savePerms();
       return true;
     } catch { return false; }
   });
   ipcMain.on('ctx:do', (_e, act, arg) => ctxAction(act, arg));
   ipcMain.handle('perm:reset', (_e, key) => {
     if (key) delete perms[key]; else perms = {};
-    try { writeJSON('permissions.json', perms); } catch {}
+    savePerms();
     return perms;
   });
   ipcMain.on('app:icon', (_e, dataUrl) => {
@@ -1167,7 +1288,7 @@ function setupIPC(ses) {
     await ses.clearStorageData();
     await ses.clearCache();
     perms = {};
-    try { writeJSON('permissions.json', perms); } catch {}
+    savePerms();
     return true;
   });
 }
@@ -1600,15 +1721,19 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => app.quit());
   app.whenReady().then(() => setupUpdates());
 
+  app.on('will-quit', () => { if (pstatsTimer) pstatsSave(); });
   // "Clear cookies & site data when Oto closes"
   let cleared = false;
   app.on('before-quit', (e) => {
-    if (!prefs.clearOnExit || cleared) return;
+    // sites set to "Clear when Oto closes" in Site permissions
+    const sessionSites = Object.keys(perms).filter((k) => k.endsWith('|cookies') && perms[k] === 'session').map((k) => k.split('|')[0]).filter((o) => o !== '*');
+    if ((!prefs.clearOnExit && !sessionSites.length) || cleared) return;
     e.preventDefault();
     cleared = true;
+    if (pstatsTimer) pstatsSave();
     const ses = session.fromPartition(PARTITION);
     Promise.race([
-      Promise.all([ses.clearStorageData(), ses.clearCache()]),
+      prefs.clearOnExit ? Promise.all([ses.clearStorageData(), ses.clearCache()]) : Promise.all(sessionSites.map((origin) => ses.clearStorageData({ origin }).catch(() => {}))),
       new Promise((r) => setTimeout(r, 3000)),
     ]).finally(() => app.quit());
   });

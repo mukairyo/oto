@@ -242,7 +242,7 @@ async function v1Phone() {
     h('canvas', { class: 'ph3d' }),
     h('div', { class: 'cap' }, h('span', {}, 'DRAG TO TURN'), h('span', { class: 'r' }), h('span', { class: 'mdl' })));
   const info = h('div', { class: 'ph-info' });
-  box.append(stage, info, h('button', { class: 'ph-x', title: 'Close', html: icon('close'), onclick: () => close() }));
+  box.append(stage, info, h('button', { class: 'ph-x', title: 'Close', html: icon('x'), onclick: () => close() }));
   layer.append(box);
   const cur = () => phPhones().find((d) => d.id === PH.sel) || phPhones()[0] || null;
   const st3 = phStage(stage.querySelector('canvas'), cur);
