@@ -1,6 +1,5 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
 }
 
 // Set by the GitHub build: the newest stable GeckoView, and the build number as the version.
@@ -10,7 +9,7 @@ val vName: String = (project.findProperty("versionName") as String?) ?: "0.1.0"
 
 android {
     namespace = "app.oto.browser"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "app.oto.browser.test"
@@ -54,7 +53,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
     buildFeatures { buildConfig = true }
     lint { abortOnError = false; checkReleaseBuilds = false }
 }
