@@ -17,6 +17,7 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 - **Oto Accounts** (Settings → *Account & sync*) — your settings, themes, bookmarks, spaces, card and passwords follow you to any PC. Everything is encrypted on your PC with your password before it's uploaded.
 - **Forgot your password?** Oto emails you a code, and you type it right in Oto.
 - **My phone** — Oto for Android signs in with the same account. Your phone shows up in Windows Oto in 3D, with its battery and open tabs. Send tabs to your phone and back. You can use your own 3D model of your phone, and it stays on your PC.
+- **Oto for Android 0.1** — download **Oto-Android-0.1-arm64.apk** below on your phone and open it to install.
 
 **Browsing**
 - **Oto Shield** — ad and tracker blocking using uBlock Origin's lists. Zap or hide anything, turn it off per site, block cookie banners and annoyances, and write your own filters.
