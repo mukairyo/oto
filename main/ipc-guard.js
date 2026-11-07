@@ -53,7 +53,7 @@ module.exports = function guardIPC(ipcMain, appDir) {
     return false;
   }
   const refuse = (ch, e) => {
-    if (!refused.has(ch)) { refused.add(ch); console.warn(`[oto] refused "${ch}" from ${(() => { try { return e.sender.getType() + ' ' + e.senderFrame.url; } catch { return 'unknown'; } })()}`); }
+    if (!refused.has(ch)) { refused.add(ch); console.warn(`[oto] refused "${ch}" from ${(() => { try { return `${e.sender.getType()} ${new URL(e.senderFrame.url).origin}`; } catch { return 'unknown'; } })()}`); } // origin only: full addresses can hold tokens
   };
   // The ad blocker registers the same two handlers once per session it protects. Electron allows only one
   // handler per channel, so the second session's setup threw halfway (that session got no network blocking),

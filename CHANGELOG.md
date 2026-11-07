@@ -24,6 +24,7 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 - Every finished download is tagged by Windows as "from the internet" (Mark of the Web), so SmartScreen and Office warn before running or editing it.
 - Opening a program, script, shortcut or disk image (.exe, .msi, .bat, .ps1, .lnk, .iso …) from Oto now always asks first, with Cancel as the default.
 - Downloads from (or redirected through) known malware/phishing sites are stopped and you're told why. Private-window downloads get the same checks.
+- Download file names get a second, independent check (on top of Chromium's): never a path, no Windows device names (CON, NUL …), no hidden trailing dots or right-to-left tricks that disguise `.exe` as `.jpg`, always inside Downloads, never overwriting an existing file.
 
 **Extensions**
 - Installing from the Chrome Web Store now shows what the extension can access, the same as files and folders. Oto keeps Web Store extensions updated and checks each update's signature.
@@ -35,8 +36,13 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 **Secure updates**
 - After every release, a separate check downloads the installer exactly as the public gets it and confirms its SHA-256, its signed build record, and that the file the updater trusts (`latest.yml`) describes that exact installer. (The published 1.3.2 installer was checked the same way and passes.)
 
+**Logs**
+- The only log line that could hold an address (a refused message) now keeps just the site's origin, since full addresses can contain tokens. The problem report was checked: it holds layout events only, with no addresses, page data or secrets (now enforced by a test).
+
 **Automated security tests**
-- New Electron security audit (12 tests) that fails the build if anyone weakens a setting: Node in web pages, isolation, web security, sandboxing, unsafe navigation, popups, permission handling, the UI's Content Security Policy, the preload API, private-window sessions or update downgrades. 56 tests in total (was 35).
+- New Electron security audit (12 tests) that fails the build if anyone weakens a setting: Node in web pages, isolation, web security, sandboxing, unsafe navigation, popups, permission handling, the UI's Content Security Policy, the preload API, private-window sessions or update downgrades. Plus download, certificate and log-privacy tests. 63 tests in total (was 35).
+- Every push now also builds the Windows app on GitHub and checks what's packaged: Oto's code is in it, and tests, scripts, keys or exports never are.
+- Dependencies: what Oto ships has 0 known vulnerabilities. The 6 moderate advisories are all in one library (`minimatch`) used only by Electron Builder while packaging, never shipped. The only "fix" npm offers is downgrading Electron Builder to 24, so they're documented instead of forced.
 
 **Docs**
 - SECURITY.md: a copy-paste PowerShell check for downloads (with a version placeholder), the new download and extension protections, and exactly when a password reaches Oto's window (only when you press show or copy). PRIVACY.md: deletion markers have no time limit (newest 5,000 kept), and the private-window fix.

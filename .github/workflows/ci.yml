@@ -27,3 +27,32 @@ jobs:
       - run: npm run lint
       - name: Known vulnerabilities in what Oto ships
         run: npm audit --omit=dev --audit-level=high
+
+  # Windows packaging check on every push: builds the unpacked Windows app (no installer, no publishing) and checks
+  # what's inside the app archive: Oto's code is there, and tests, scripts, keys or exports never are.
+  windows-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build the unpacked Windows app
+        run: npm run pack
+      - name: Check what's packaged
+        shell: bash
+        run: |
+          test -f dist/win-unpacked/Oto.exe
+          node -e "
+            const files = require('@electron/asar').listPackage('dist/win-unpacked/resources/app.asar').map((f) => f.replace(/\\\\/g, '/'));
+            const must = ['/main.js', '/preload.js', '/page-preload.js', '/main/ipc-guard.js', '/main/passwords.js', '/src/index.html'];
+            const never = /^\/(test|scripts|\.github|docs)\/|\.(pem|key|jks|p12|pfx|env|oto|csv)$|SHA256SUMS/i;
+            const missing = must.filter((f) => !files.includes(f));
+            const leaked = files.filter((f) => never.test(f));
+            console.log(files.length + ' files in app.asar');
+            if (missing.length) { console.error('missing:', missing); process.exit(1); }
+            if (leaked.length) { console.error('should not be packaged:', leaked); process.exit(1); }
+            console.log('packaged contents OK');
+          "

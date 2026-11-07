@@ -681,12 +681,8 @@ function setupSession(part = PARTITION) {
     } catch {}
     const base = () => ({ id, name: item.getSavePath() ? path.basename(item.getSavePath()) : name, url, path: item.getSavePath() || '', total: item.getTotalBytes(), received: item.getReceivedBytes(), startedAt: Math.round(item.getStartTime() * 1000) || Date.now() });
     if (!prefs.downloadsAsk) {
-      const dir = app.getPath('downloads');
-      const ext = path.extname(name);
-      const stem = path.basename(name, ext);
-      let file = path.join(dir, name);
-      for (let i = 1; fs.existsSync(file); i++) file = path.join(dir, `${stem} (${i})${ext}`);
-      item.setSavePath(file);
+      // Checked name, always inside Downloads, never overwriting an existing file (main/download-name.js)
+      try { item.setSavePath(require('./main/download-name.js').downloadPath(app.getPath('downloads'), name)); } catch { item.cancel(); return; }
     }
     // With "ask where to save", Electron shows the Save dialog itself; we report once a path is chosen.
     let announced = false;
