@@ -3,6 +3,14 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.2.1 — 2026-11-07
+
+*Security hardening after an Electronegativity (ElectroNG) scan.*
+
+**Security**
+- **Opening files is locked down** — Oto only opens or shows files it downloaded or saved itself, or files in your Downloads and Oto Screenshots folders. Before, the "open download" and "open screenshot" buttons would open any path they were given.
+- **Stricter rules for Oto's own window** — its Content Security Policy now also blocks plugins, base-URL tricks and form posts (`object-src`, `base-uri` and `form-action` set to `'none'`).
+
 ## 1.2.0 — 2026-11-07
 
 *A security release: a newer engine, dangerous-site warnings, safer passwords and screen sharing.*

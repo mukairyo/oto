@@ -864,6 +864,25 @@ let permSeq = 0;
 const pendingPerms = new Map();
 const screenPicks = new Map();
 
+// Files Oto may open or show for you: ones it downloaded or saved itself, or anything in your Downloads
+// and Oto Screenshots folders. A path coming from the UI is never opened just because it was asked for.
+const KNOWN_FILES = new Set(readJSON('known-files.json', []));
+let knownTimer = null;
+function rememberFile(p) {
+  if (!p) return;
+  KNOWN_FILES.delete(path.resolve(p)); KNOWN_FILES.add(path.resolve(p));
+  while (KNOWN_FILES.size > 1000) KNOWN_FILES.delete(KNOWN_FILES.values().next().value);
+  clearTimeout(knownTimer); knownTimer = setTimeout(() => { try { writeJSON('known-files.json', [...KNOWN_FILES]); } catch {} }, 1000);
+}
+function fileAllowed(p) {
+  if (typeof p !== 'string' || !p) return false;
+  let real;
+  try { real = fs.realpathSync(path.resolve(p)); } catch { return false; }
+  if (KNOWN_FILES.has(path.resolve(p)) || KNOWN_FILES.has(real)) return true;
+  const inside = (dir) => { try { const rel = path.relative(fs.realpathSync(dir), real); return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel); } catch { return false; } };
+  return inside(app.getPath('downloads')) || inside(path.join(app.getPath('pictures'), 'Oto Screenshots'));
+}
+
 function originOf(u) { try { return new URL(u).origin; } catch { return String(u || ''); } }
 // Saved choice for a site, else the default for all sites ("*|permission"), else undefined (= ask).
 // Camera and microphone are separate ("camera" / "microphone"); older saves used one "media" key for both.
@@ -988,6 +1007,7 @@ function setupSession(part = PARTITION) {
       const file = item.getSavePath();
       if (st === 'cancelled' && !file) return;
       let iconUrl = '';
+      if (st === 'completed' && file) rememberFile(file);
       if (st === 'completed' && file) { try { iconUrl = (await app.getFileIcon(file, { size: 'normal' })).toDataURL(); } catch {} }
       send('download', { ...base(), state: st, icon: iconUrl, doneAt: Date.now() });
     });
@@ -1074,11 +1094,12 @@ function setupIPC(ses) {
       const d = new Date(), p2 = (n) => String(n).padStart(2, '0');
       const f = path.join(dir, `Oto ${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}.${p2(d.getMinutes())}.${p2(d.getSeconds())}.png`);
       fs.writeFileSync(f, nativeImage.createFromDataURL(String(dataUrl)).toPNG());
+      rememberFile(f);
       return f;
     } catch { return ''; }
   });
-  ipcMain.on('shot:show', (_e, f) => { try { if (f) shell.showItemInFolder(f); else shell.openPath(path.join(app.getPath('pictures'), 'Oto Screenshots')); } catch {} });
-  ipcMain.on('shot:open', (_e, f) => { try { if (f) shell.openPath(f); } catch {} });
+  ipcMain.on('shot:show', (_e, f) => { try { if (f) { if (fileAllowed(f)) shell.showItemInFolder(f); } else { const d = path.join(app.getPath('pictures'), 'Oto Screenshots'); fs.mkdirSync(d, { recursive: true }); shell.openPath(d); } } catch {} });
+  ipcMain.on('shot:open', (_e, f) => { try { if (fileAllowed(f)) shell.openPath(f); } catch {} });
   ipcMain.handle('qr:svg', async (_e, text) => { try { return await require('qrcode').toString(String(text || ''), { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#1d1b26', light: '#ffffff' } }); } catch { return ''; } });
   // Phone panel: your own 3D model of your phone (.glb) stays on this PC, in Oto's data folder.
   ipcMain.handle('phone:pickModel', async (e) => {
@@ -1193,7 +1214,7 @@ function setupIPC(ses) {
   });
   ipcMain.on('theme:set', (_e, t) => { nativeTheme.themeSource = ['light', 'dark'].includes(t) ? t : 'system'; });
   ipcMain.on('clipboard:write', (_e, text) => clipboard.writeText(String(text || '')));
-  ipcMain.on('shell:show', (_e, p) => { if (typeof p === 'string') shell.showItemInFolder(p); });
+  ipcMain.on('shell:show', (_e, p) => { if (fileAllowed(p)) shell.showItemInFolder(p); });
   ipcMain.on('clipboard:image', (_e, dataUrl) => { try { const img = nativeImage.createFromDataURL(String(dataUrl || '')); if (!img.isEmpty()) clipboard.writeImage(img); } catch {} });
   ipcMain.on('dl:action', (_e, id, act) => {
     const it = dlItems.get(id);
@@ -1204,6 +1225,7 @@ function setupIPC(ses) {
   });
   ipcMain.handle('dl:open', async (_e, p) => {
     if (!p || !fs.existsSync(p)) return 'missing';
+    if (!fileAllowed(p)) return 'error';
     const err = await shell.openPath(p);
     return err ? 'error' : 'ok';
   });
