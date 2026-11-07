@@ -1,0 +1,21 @@
+# Oto for Android engine updates: every day, ask the Android build (android branch) to check for a newer
+# GeckoView. If there is one, that build raises Oto for Android's version by one and puts the new APK on the
+# current Oto release; the app finds it with its own update check. Like chromium-update.yml does for Windows.
+name: Android engine check
+
+on:
+  schedule:
+    - cron: '41 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask the Android build to look for a newer GeckoView
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run android.yml --ref android -f engine=true --repo "$GITHUB_REPOSITORY"
