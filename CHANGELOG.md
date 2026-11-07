@@ -3,6 +3,16 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.34 — 2026-11-07
+
+*Owner test build of Oto v1 — updates show up by themselves.*
+
+**Fixed**
+- **New versions show up without restarting** — on the Owner (and Beta/Alpha) channel Oto now looks every 2 minutes and again whenever you come back to the window after a minute away (Stable: every 30 minutes). Before it was every 15 minutes, so you often restarted to find an update. A check that never answers no longer blocks the next ones.
+
+**Changed**
+- **The update card matches the sidebar** — an "UPDATE ——— ● READY" label like "01 TABS", a HOME-style box with the galaxy logo and "OTO 1.0.0-OWNER.N" in spaced capitals, and LATER / RESTART NOW buttons (Restart now is a cream block like the open tab). No serif title or stars in the card.
+
 ## 1.0.0-owner.33 — 2026-11-07
 
 *Owner test build of Oto v1 — space.*

@@ -866,13 +866,21 @@ async function v1UpdateCard(u) {
   if (!u || u.state !== 'ready') { if (card) card.remove(); return; }
   if (card && card.dataset.v === u.version) return;
   if (card) card.remove();
-  card = h('div', { id: 'v1Upd', class: 'v1-upd', 'data-v': u.version },
-    h('div', { class: 'uh' }, h('span', { class: 'lg enter', html: `<i class="shock"></i>${logoSvg()}` }), h('div', {}, h('b', {}, `Oto ${u.version} is ready`), h('small', {}, skinIsRt() ? 'Restart to install' : 'Restart takes a few seconds'))),
-    h('p', { class: 'un' }, 'What’s new shows up right after the restart.'),
-    h('div', { class: 'ua' }, h('button', { onclick: () => card.remove() }, 'Later'), h('button', { class: 'p', onclick: () => { save(); oto.updateInstall(); } }, 'Restart now')));
+  const install = () => { save(); oto.updateInstall(); };
+  card = skinIsRt()
+    // Oto theme: same language as the sidebar — a numbered mono label with a hairline, a HOME-style box, a cream block button
+    ? h('div', { id: 'v1Upd', class: 'v1-upd rt', 'data-v': u.version },
+      h('div', { class: 'rt-lbl' }, h('span', {}, 'UPDATE'), h('i'), h('span', { class: 'ready' }, h('b'), 'READY')),
+      h('div', { class: 'rt-box' }, h('span', { class: 'lg enter', html: `<i class="shock"></i>${logoSvg()}` }),
+        h('div', { class: 'tx' }, h('b', {}, `OTO ${String(u.version).toUpperCase()}`), h('small', {}, 'RESTART TO INSTALL'))),
+      h('div', { class: 'ua' }, h('button', { onclick: () => card.remove() }, 'Later'), h('button', { class: 'p', onclick: install }, 'Restart now')))
+    : h('div', { id: 'v1Upd', class: 'v1-upd', 'data-v': u.version },
+      h('div', { class: 'uh' }, h('span', { class: 'lg', html: logoSvg() }), h('div', {}, h('b', {}, `Oto ${u.version} is ready`), h('small', {}, 'Restart takes a few seconds'))),
+      h('p', { class: 'un' }, 'What’s new shows up right after the restart.'),
+      h('div', { class: 'ua' }, h('button', { onclick: () => card.remove() }, 'Later'), h('button', { class: 'p', onclick: install }, 'Restart now')));
   const foot = document.querySelector('#sidebar .sb-foot');
   if (foot) foot.before(card);
-  if (skinIsRt() && typeof vortexWarpAround === 'function') { const cv = h('canvas', { class: 'upd-warp' }); card.prepend(cv); card.prepend(h('div', { class: 'upd-sky', html: galaxyBg({ w: 460, h: 300, stars: 170, band: false }) })); vortexWarpAround(card.querySelector('.lg'), cv, { n: 80, scale: 0.4, alpha: 0.4, clear: 24 }); }
+
 }
 
 // Recently closed tabs list (also /closed in the command bar).

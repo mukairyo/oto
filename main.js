@@ -359,7 +359,8 @@ const OTO_VERSION = (() => { try { return require('./package.json').otoVersion |
 
 // ---------------------------------------------------------------- auto-update (GitHub Releases)
 // New versions are published as releases on github.com/mukairyo/oto. Oto checks a few seconds after
-// launch and every 6 hours, downloads in the background and installs when you restart.
+// launch, every 2 minutes on the Owner/test channels (30 on Stable) and when you come back to the window;
+// downloads in the background and installs when you restart.
 let updater = null;
 let updateState = { state: 'idle' };
 function setUpdate(st) {
@@ -403,9 +404,16 @@ function setupUpdates() {
   // Look again regularly while Oto stays open (every 15 min on the Owner/test channels, hourly on Stable)
   // and when you come back to the window — before, it only looked every 6 hours, so new versions
   // waited until you checked in Settings.
-  const due = () => Date.now() - lastUpdateCheck > (updateChannel() === 'stable' ? 60 : 15) * 60 * 1000;
-  setInterval(() => { if (due()) checkForUpdates(false); }, 5 * 60 * 1000);
-  app.on('browser-window-focus', () => { if (Date.now() - lastUpdateCheck > 5 * 60 * 1000 && due()) checkForUpdates(false); });
+  // Owner/test channels: every 2 minutes (and whenever you come back to the window after a minute away),
+  // so a new build shows up by itself within a couple of minutes. Stable: every 30 minutes.
+  const every = () => (updateChannel() === 'stable' ? 30 : 2) * 60 * 1000;
+  const due = () => Date.now() - lastUpdateCheck > every();
+  setInterval(() => {
+    // a check that never answered (network hiccup) must not block the next ones until a restart
+    if (updateState.state === 'checking' && Date.now() - (updateState.at || 0) > 90 * 1000) setUpdate({ state: 'idle' });
+    if (due()) checkForUpdates(false);
+  }, 60 * 1000);
+  app.on('browser-window-focus', () => { if (Date.now() - lastUpdateCheck > (updateChannel() === 'stable' ? 10 * 60 : 60) * 1000) checkForUpdates(false); });
 }
 // Update channels: Stable (everyone), Beta (testers get new versions early), Alpha (newest
 // experiments). Testers also still get every stable update — if their channel has nothing newer,
@@ -470,8 +478,10 @@ async function checkForUpdates(manual) {
   lastUpdateCheck = Date.now();
   const ch = updateChannel();
   let found = false;
-  try { configureChannel(ch); const r = await updater.checkForUpdates(); found = !!(r && r.isUpdateAvailable); } catch {}
-  if (!found && ch !== 'stable') { try { configureChannel('stable'); await updater.checkForUpdates(); } catch {} }
+  const withTimeout = (p) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 60 * 1000))]);
+  try { configureChannel(ch); const r = await withTimeout(updater.checkForUpdates()); found = !!(r && r.isUpdateAvailable); } catch {}
+  if (!found && ch !== 'stable') { try { configureChannel('stable'); await withTimeout(updater.checkForUpdates()); } catch {} }
+  if (updateState.state === 'checking') setUpdate({ state: 'idle' });
   return updateState;
 }
 
