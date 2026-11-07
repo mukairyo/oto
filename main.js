@@ -404,6 +404,25 @@ function setupUpdates() {
   // Look again regularly while Oto stays open (every 15 min on the Owner/test channels, hourly on Stable)
   // and when you come back to the window — before, it only looked every 6 hours, so new versions
   // waited until you checked in Settings.
+  // Quick look: GitHub's release feed is tiny, so on the Owner/test channels Oto peeks at it every 30 seconds
+  // and starts the real update the moment a newer build for its channel is listed (Stable: every 10 minutes).
+  const peekEvery = () => (updateChannel() === 'stable' ? 600 : 30) * 1000;
+  let lastPeek = 0, peeking = false;
+  const peek = async () => {
+    if (peeking || prefs.autoUpdate === false || ['checking', 'downloading', 'ready'].includes(updateState.state)) return;
+    peeking = true; lastPeek = Date.now();
+    try {
+      const res = await net.fetch(`https://github.com/mukairyo/oto/releases.atom?t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache', Accept: 'application/atom+xml' } });
+      if (res.ok) {
+        const xml = await res.text(), ch = updateChannel();
+        const tags = [...xml.matchAll(/\/releases\/tag\/v?([0-9][^"<\s]*)/g)].map((m) => decodeURIComponent(m[1]));
+        const mine = (t) => (ch === 'stable' ? !t.includes('-') : t.includes(`-${ch}.`) || !t.includes('-'));
+        const newest = tags.filter(mine).sort((a, b) => verCmpMain(b, a))[0];
+        if (newest && verCmpMain(newest, app.getVersion()) > 0) checkForUpdates(false);
+      }
+    } catch {} finally { peeking = false; }
+  };
+  setInterval(() => { if (Date.now() - lastPeek >= peekEvery() - 500) peek(); }, 10 * 1000);
   // Owner/test channels: every 2 minutes (and whenever you come back to the window after a minute away),
   // so a new build shows up by itself within a couple of minutes. Stable: every 30 minutes.
   const every = () => (updateChannel() === 'stable' ? 30 : 2) * 60 * 1000;
@@ -413,7 +432,7 @@ function setupUpdates() {
     if (updateState.state === 'checking' && Date.now() - (updateState.at || 0) > 90 * 1000) setUpdate({ state: 'idle' });
     if (due()) checkForUpdates(false);
   }, 60 * 1000);
-  app.on('browser-window-focus', () => { if (Date.now() - lastUpdateCheck > (updateChannel() === 'stable' ? 10 * 60 : 60) * 1000) checkForUpdates(false); });
+  app.on('browser-window-focus', () => { peek(); if (Date.now() - lastUpdateCheck > (updateChannel() === 'stable' ? 10 * 60 : 60) * 1000) checkForUpdates(false); });
 }
 // Update channels: Stable (everyone), Beta (testers get new versions early), Alpha (newest
 // experiments). Testers also still get every stable update — if their channel has nothing newer,
@@ -471,6 +490,23 @@ function configureChannel(ch) {
   updater.allowDowngrade = false;
 }
 let lastUpdateCheck = 0;
+// semver order without a library: 1.0.0-owner.35 > 1.0.0-owner.9 > 0.9.10; a release (no "-") beats its pre-releases
+function verCmpMain(a, b) {
+  const [am, ap] = String(a).split('-', 2).length > 1 ? [String(a).slice(0, String(a).indexOf('-')), String(a).slice(String(a).indexOf('-') + 1)] : [String(a), ''];
+  const [bm, bp] = String(b).split('-', 2).length > 1 ? [String(b).slice(0, String(b).indexOf('-')), String(b).slice(String(b).indexOf('-') + 1)] : [String(b), ''];
+  const an = am.split('.').map(Number), bn = bm.split('.').map(Number);
+  for (let i = 0; i < 3; i++) { const d = (an[i] || 0) - (bn[i] || 0); if (d) return d > 0 ? 1 : -1; }
+  if (!ap && !bp) return 0; if (!ap) return 1; if (!bp) return -1;
+  const ai = ap.split('.'), bi = bp.split('.');
+  for (let i = 0; i < Math.max(ai.length, bi.length); i++) {
+    if (ai[i] === undefined) return -1; if (bi[i] === undefined) return 1;
+    const x = /^\d+$/.test(ai[i]), y = /^\d+$/.test(bi[i]);
+    if (x && y) { const d = Number(ai[i]) - Number(bi[i]); if (d) return d > 0 ? 1 : -1; }
+    else if (x !== y) return x ? -1 : 1;
+    else if (ai[i] !== bi[i]) return ai[i] > bi[i] ? 1 : -1;
+  }
+  return 0;
+}
 async function checkForUpdates(manual) {
   if (!updater) return updateState;
   if (!manual && prefs.autoUpdate === false) return updateState;

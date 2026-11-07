@@ -863,17 +863,24 @@ function v1ZoomPill(f) {
 // Update ready: a card at the bottom of the sidebar with the top changes.
 async function v1UpdateCard(u) {
   let card = $('#v1Upd');
-  if (!u || u.state !== 'ready') { if (card) card.remove(); return; }
-  if (card && card.dataset.v === u.version) return;
+  const rt = skinIsRt();
+  const dl = rt && u && u.state === 'downloading' && u.version;
+  if (!u || !(u.state === 'ready' || dl)) { if (card && !(u && u.state === 'checking' && card.dataset.s === 'downloading')) card.remove(); return; }
+  // downloading → just move the progress line (don't rebuild, so the logo doesn't replay)
+  if (card && card.dataset.v === u.version && card.dataset.s === u.state) {
+    if (dl) { const p = Math.max(2, Math.min(100, u.percent || 0)); card.querySelector('.bar i').style.width = `${p}%`; card.querySelector('.tx small').textContent = `DOWNLOADING · ${p}%`; }
+    return;
+  }
   if (card) card.remove();
   const install = () => { save(); oto.updateInstall(); };
   card = skinIsRt()
     // Oto theme: same language as the sidebar — a numbered mono label with a hairline, a HOME-style box, a cream block button
-    ? h('div', { id: 'v1Upd', class: 'v1-upd rt', 'data-v': u.version },
-      h('div', { class: 'rt-lbl' }, h('span', {}, 'UPDATE'), h('i'), h('span', { class: 'ready' }, h('b'), 'READY')),
+    ? h('div', { id: 'v1Upd', class: `v1-upd rt${dl ? ' dl' : ''}`, 'data-v': u.version, 'data-s': u.state },
+      h('div', { class: 'rt-lbl' }, h('span', {}, 'UPDATE'), h('i'), h('span', { class: 'ready' }, h('b'), dl ? 'NEW' : 'READY')),
       h('div', { class: 'rt-box' }, h('span', { class: 'lg enter', html: `<i class="shock"></i>${logoSvg()}` }),
-        h('div', { class: 'tx' }, h('b', {}, `OTO ${String(u.version).toUpperCase()}`), h('small', {}, 'RESTART TO INSTALL'))),
-      h('div', { class: 'ua' }, h('button', { onclick: () => card.remove() }, 'Later'), h('button', { class: 'p', onclick: install }, 'Restart now')))
+        h('div', { class: 'tx' }, h('b', {}, `OTO ${String(u.version).toUpperCase()}`), h('small', {}, dl ? `DOWNLOADING · ${Math.max(2, u.percent || 0)}%` : 'RESTART TO INSTALL')),
+        dl ? h('div', { class: 'bar' }, h('i', { style: `width:${Math.max(2, u.percent || 0)}%` })) : null),
+      dl ? null : h('div', { class: 'ua' }, h('button', { onclick: () => card.remove() }, 'Later'), h('button', { class: 'p', onclick: install }, 'Restart now')))
     : h('div', { id: 'v1Upd', class: 'v1-upd', 'data-v': u.version },
       h('div', { class: 'uh' }, h('span', { class: 'lg', html: logoSvg() }), h('div', {}, h('b', {}, `Oto ${u.version} is ready`), h('small', {}, 'Restart takes a few seconds'))),
       h('p', { class: 'un' }, 'What’s new shows up right after the restart.'),

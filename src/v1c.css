@@ -381,3 +381,7 @@ body.skin-rt .v1-upd.rt .ua button { flex: 1; height: 30px; border-radius: 4px; 
 body.skin-rt .v1-upd.rt .ua button:hover { background: rgba(255,255,255,.04); color: var(--rt-fg); }
 body.skin-rt .v1-upd.rt .ua button.p { background: var(--rt-cream); color: var(--rt-ink); box-shadow: none; }
 body.skin-rt .v1-upd.rt .ua button.p:hover { filter: brightness(1.05); }
+/* downloading: a thin cream progress line along the bottom of the box */
+.v1-upd.rt .rt-box { position: relative; overflow: hidden; }
+.v1-upd.rt .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--rt-line); }
+.v1-upd.rt .bar i { display: block; height: 100%; background: var(--rt-cream); box-shadow: 0 0 8px rgba(231,223,209,.6); transition: width .4s ease; }

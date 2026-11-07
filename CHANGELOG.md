@@ -3,6 +3,14 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.35 — 2026-11-07
+
+*Owner test build of Oto v1 — instant update notice.*
+
+**Changed**
+- **New versions show up almost right away** — on the Owner/test channels Oto peeks at the release list every 30 seconds (it's tiny) and the moment a newer build is out it starts downloading. Coming back to the window peeks too. (Stable peeks every 10 minutes.)
+- **The update card appears as soon as the download starts** — "UPDATE ——— ● NEW", "DOWNLOADING · 37%" and a thin cream progress line along the box; when it's done it turns into "READY" with LATER / RESTART NOW.
+
 ## 1.0.0-owner.34 — 2026-11-07
 
 *Owner test build of Oto v1 — updates show up by themselves.*
