@@ -10,6 +10,9 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
+import android.text.InputType
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.KeyEvent
@@ -107,7 +110,110 @@ class MainActivity : AppCompatActivity() {
         intent.dataString?.let { if (it.startsWith("http")) openTab(it) }
     }
 
-    override fun onPause() { super.onPause(); saveTabs() }
+    override fun onPause() { super.onPause(); saveTabs(); linkHandler.removeCallbacks(linkTick) }
+    override fun onResume() { super.onResume(); linkHandler.removeCallbacks(linkTick); linkHandler.postDelayed(linkTick, 1500) }
+
+    // ------------------------------------------------------------------ Oto account: this phone ⇄ your PC
+    private val linkHandler = Handler(Looper.getMainLooper())
+    private var linkBusy = false
+    private var linkDevices: List<OtoLink.Device> = emptyList()
+    private val linkTick = object : Runnable {
+        override fun run() { linkBeat(); linkHandler.postDelayed(this, 30000) }
+    }
+    /** something changed (tab opened, page loaded): tell the PC in a few seconds */
+    private fun linkSoon() { if (OtoLink.signedIn(this)) { linkHandler.removeCallbacks(linkSoonRun); linkHandler.postDelayed(linkSoonRun, 4000) } }
+    private val linkSoonRun = Runnable { linkBeat() }
+    private fun linkBeat(after: (() -> Unit)? = null) {
+        if (linkBusy || !OtoLink.signedIn(this)) { after?.invoke(); return }
+        linkBusy = true
+        val me = OtoLink.info(this, tabs.map { it.url to it.title }, current()?.url ?: "")
+        thread {
+            val r = try { OtoLink.beat(this, me) } catch (e: OtoLink.LinkError) { if (e.auth) runOnUiThread { toast(e.message ?: "Please sign in again") }; null } catch (e: Exception) { null }
+            runOnUiThread {
+                linkBusy = false
+                if (r != null) {
+                    linkDevices = r.devices
+                    r.inbox.forEach { m -> if (m.url.startsWith("http")) { tabs.add(Tab(m.url, m.title)); select(tabs.size - 1); toast("From ${m.from.ifBlank { "your PC" }}: ${m.title.ifBlank { prettyUrl(m.url) }}") } }
+                }
+                after?.invoke()
+            }
+        }
+    }
+    private fun pcs() = linkDevices.filter { it.kind == "pc" && !it.locked }
+    private fun sendToPc(d: OtoLink.Device) {
+        val t = current() ?: return
+        if (!t.url.startsWith("http")) { toast("Open a web page first"); return }
+        val from = OtoLink.info(this, emptyList(), "").optString("name", "Phone")
+        thread {
+            val err = try { OtoLink.send(this, d.id, t.url, t.title, from); null } catch (e: Exception) { e.message ?: "Couldn’t send" }
+            runOnUiThread { toast(err ?: "Sent to ${d.name} ✓") }
+        }
+    }
+    private fun ago(t: Long): String { val s = (System.currentTimeMillis() - t) / 1000; return when { s < 100 -> "ONLINE"; s < 3600 -> "${s / 60} MIN AGO"; s < 86400 -> "${s / 3600} H AGO"; else -> "${s / 86400} D AGO" } }
+
+    private fun field(hintText: String, password: Boolean) = EditText(this).apply {
+        hint = hintText; setHintTextColor(FG3); setTextColor(FG); textSize = 15f; isSingleLine = true
+        background = box(0x08FFFFFF, LINE2, 6); setPadding(px(14), 0, px(14), 0)
+        inputType = if (password) InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+    }
+
+    private fun showAccount() {
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(px(16), px(18), px(16), px(16)); background = box(BG, LINE2, 10) }
+        if (!OtoLink.signedIn(this)) {
+            panel.addView(label("—  音  OTO // ACCOUNT", "01"))
+            panel.addView(TextView(this).apply { text = "Link to your PC"; textSize = 30f; setTextColor(FG); typeface = Typeface.SERIF; setPadding(px(4), 0, 0, px(6)) })
+            panel.addView(TextView(this).apply { text = "Sign in with the same Oto account as Oto for Windows. Your PC then shows this phone — its battery and open tabs — and you can send tabs both ways."; textSize = 13.5f; setTextColor(FG2); setPadding(px(4), 0, px(4), px(14)) })
+            val em = field("Email", false).apply { setText(OtoLink.email(this@MainActivity)) }
+            val pw = field("Password", true)
+            panel.addView(em, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(46)).apply { setMargins(0, 0, 0, px(8)) })
+            panel.addView(pw, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(46)).apply { setMargins(0, 0, 0, px(8)) })
+            val msg = TextView(this).apply { textSize = 12.5f; setTextColor(0xFFE8B4A8.toInt()); visibility = View.GONE; setPadding(px(4), px(2), px(4), px(8)) }
+            panel.addView(msg)
+            lateinit var go: TextView
+            go = blockBtn("Sign in", true) {
+                val e = em.text.toString().trim(); val p = pw.text.toString()
+                if (e.isEmpty() || p.isEmpty()) { msg.text = "Type your email and password."; msg.visibility = View.VISIBLE; return@blockBtn }
+                go.text = "SIGNING IN…"; go.isEnabled = false; msg.visibility = View.GONE
+                thread {
+                    val err = OtoLink.signIn(this, e, p)
+                    runOnUiThread {
+                        if (err != null) { go.text = "SIGN IN"; go.isEnabled = true; msg.text = err; msg.visibility = View.VISIBLE }
+                        else { closeSheet(); endEdit(); toast("Signed in — this phone now shows up on your PC"); linkBeat() }
+                    }
+                }
+            }
+            panel.addView(go, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(44)))
+            panel.addView(mono("End-to-end encrypted with your Oto password", 8.5f, FG3, 0.18f).apply { gravity = Gravity.CENTER; setPadding(0, px(14), 0, 0) })
+        } else {
+            val list = pcs()
+            panel.addView(label("—  音  OTO // LINKED", String.format("%02d", list.size)))
+            panel.addView(TextView(this).apply { text = if (list.isEmpty()) "No PC yet" else "Your PC"; textSize = 30f; setTextColor(FG); typeface = Typeface.SERIF; setPadding(px(4), 0, 0, px(4)) })
+            panel.addView(mono(OtoLink.email(this), 9.5f, FG3, 0.14f).apply { isAllCaps = false; setPadding(px(4), 0, 0, px(12)) })
+            if (list.isEmpty()) panel.addView(TextView(this).apply { text = "Open Oto on your PC and sign in with the same account. It shows up here."; textSize = 13.5f; setTextColor(FG2); setPadding(px(4), 0, px(4), px(14)) })
+            list.forEach { d ->
+                val b = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(px(12), px(12), px(12), px(12)); background = box(0x05FFFFFF, LINE2, 6) }
+                val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+                top.addView(TextView(this).apply { text = d.name; textSize = 15f; setTextColor(FG); setTypeface(Typeface.DEFAULT, Typeface.BOLD); maxLines = 1; ellipsize = TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                val a = ago(d.seen); top.addView(mono((if (a == "ONLINE") "●  " else "") + a, 9f, if (a == "ONLINE") CREAM else FG3, 0.18f))
+                b.addView(top)
+                b.addView(mono("${d.tabs.size} tabs open", 9f, FG3, 0.16f).apply { setPadding(0, px(4), 0, px(10)) })
+                d.tabs.take(4).forEach { (u, ti) ->
+                    b.addView(TextView(this).apply {
+                        text = "↗  " + ti.ifBlank { prettyUrl(u) }; textSize = 13f; setTextColor(FG2); maxLines = 1; ellipsize = TextUtils.TruncateAt.END; setPadding(0, px(7), 0, px(7))
+                        setOnClickListener { closeSheet(); openTab(u) }
+                    })
+                }
+                b.addView(blockBtn("Send this tab to ${d.name}", true) { closeSheet(); sendToPc(d) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(40)).apply { setMargins(0, px(10), 0, 0) })
+                panel.addView(b, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 0, 0, px(8)) })
+            }
+            val btns = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, px(4), 0, 0) }
+            btns.addView(blockBtn("Sign out", false) { closeSheet(); thread { OtoLink.signOut(this); runOnUiThread { linkDevices = emptyList(); toast("Signed out") } } }, LinearLayout.LayoutParams(0, px(40), 1f).apply { setMargins(0, 0, px(6), 0) })
+            btns.addView(blockBtn("Refresh", false) { linkBeat { if (sheet != null) showAccount() } }, LinearLayout.LayoutParams(0, px(40), 1f))
+            panel.addView(btns)
+        }
+        val scroll = ScrollView(this).apply { addView(panel); isFillViewport = false }
+        sheetFrame(scroll)
+    }
 
     // Oto Shield = GeckoView's built-in blocking of ads, trackers, social trackers, fingerprinting and cryptominers
     private fun shieldSettings(on: Boolean): ContentBlocking.Settings =
@@ -267,7 +373,7 @@ class MainActivity : AppCompatActivity() {
         s.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onProgressChange(session: GeckoSession, progress: Int) { tabFor(session)?.progress = progress; if (tabFor(session) === current()) refreshBar() }
             override fun onPageStart(session: GeckoSession, url: String) { tabFor(session)?.progress = 5; refreshBar() }
-            override fun onPageStop(session: GeckoSession, success: Boolean) { tabFor(session)?.progress = 100; refreshBar(); saveTabs() }
+            override fun onPageStop(session: GeckoSession, success: Boolean) { tabFor(session)?.progress = 100; refreshBar(); saveTabs(); linkSoon() }
         }
         s.contentDelegate = object : GeckoSession.ContentDelegate {
             override fun onTitleChange(session: GeckoSession, title: String?) { tabFor(session)?.title = title ?: "" }
@@ -312,6 +418,7 @@ class MainActivity : AppCompatActivity() {
         if (i == cur) gecko.releaseSession()
         t.session?.close()
         tabs.removeAt(i)
+        linkSoon()
         if (tabs.isEmpty()) { openTab(); return }
         if (i < cur || cur >= tabs.size) cur--
         select(cur.coerceAtLeast(0))
@@ -443,6 +550,9 @@ class MainActivity : AppCompatActivity() {
         if (t != null && t.url != NEWTAB) row("Share") {
             startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t.url), "Share"))
         }
+        val linked = OtoLink.signedIn(this)
+        if (linked && t != null && t.url.startsWith("http")) pcs().forEach { d -> row("Send to ${d.name}", ago(d.seen).let { if (it == "ONLINE") "ON" else "" }) { sendToPc(d) } }
+        row("Oto account", if (linked) "LINKED" else "SIGN IN") { if (linked) linkBeat { showAccount() } else showAccount() }
         row("Oto Shield", if (shieldOn) "ON" else "OFF") { setShield(!shieldOn) }
         row("Desktop site", if (prefs.getBoolean("desktop", false)) "ON" else "OFF") { setDesktop(!prefs.getBoolean("desktop", false)) }
         row("Startup sound", if (soundOn) "ON" else "OFF") { prefs.edit().putBoolean("sound", !soundOn).apply() }

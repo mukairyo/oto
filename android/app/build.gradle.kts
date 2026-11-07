@@ -58,11 +58,16 @@ android {
     buildFeatures { buildConfig = true }
     lint { abortOnError = false; checkReleaseBuilds = false }
     // compress the engine's native libraries in the APK (much smaller download)
-    packaging { jniLibs { useLegacyPackaging = true } }
+    packaging {
+        jniLibs { useLegacyPackaging = true }
+        resources { excludes += setOf("META-INF/versions/9/OSGI-INF/MANIFEST.MF", "META-INF/DEPENDENCIES") }
+    }
 }
 
 dependencies {
     implementation("org.mozilla.geckoview:geckoview:$geckoVersion")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
+    // scrypt, to make the same account key as Oto for Windows
+    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
 }

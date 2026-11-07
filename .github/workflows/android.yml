@@ -5,7 +5,7 @@ name: Android test build
 
 on:
   push:
-    branches: [android]
+    branches: [android, android-dev]
   workflow_dispatch:
 
 permissions:
@@ -46,7 +46,17 @@ jobs:
           OTO_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: gradle assembleRelease --no-daemon --stacktrace -PgeckoVersion="$GECKO" -PversionCode=${{ github.run_number }} -PversionName=0.1.${{ github.run_number }}
 
+      # android-dev: just check that it builds (no release)
+      - name: Keep the APK (dev build)
+        if: github.ref != 'refs/heads/android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: oto-android-dev
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 3
+
       - name: Publish pre-release
+        if: github.ref == 'refs/heads/android'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
