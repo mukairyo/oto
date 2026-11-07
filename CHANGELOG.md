@@ -3,6 +3,11 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.3.1 — 2026-11-07
+
+**Fixed**
+- Glance on YouTube: with "Links to other sites", links in video descriptions and comments opened a new tab instead of Glance. YouTube sends them through its own redirect page (youtube.com/redirect?q=…), so they looked like YouTube links. Oto now reads the real address inside redirect links (YouTube, Google, Facebook, Instagram, Reddit, Steam, VK, LinkedIn), opens them in Glance, and goes straight to the real site, skipping the tracking redirect.
+
 ## 1.3.0 — 2026-11-07
 
 *Security release: fixes from the independent 1.2.2 code review (59 items). Nothing to do — it updates itself.*

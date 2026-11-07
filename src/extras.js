@@ -181,7 +181,26 @@ const PAGE_HELPER = `(() => {
   };
   // "site" = the last two parts of the host name (www.youtube.com and m.youtube.com are both youtube.com)
   const site = (h) => { const p = String(h || '').toLowerCase().replace(/^www\./, '').split('.'); return p.length > 2 && p[p.length - 2].length <= 3 && p[p.length - 1].length === 2 ? p.slice(-3).join('.') : p.slice(-2).join('.'); };
-  const otherSite = (a) => { try { return site(new URL(a.href).hostname) !== site(location.hostname); } catch (_) { return false; } };
+  // Many sites send outside links through their own redirect page first (YouTube descriptions and comments use
+  // youtube.com/redirect?q=…). Look inside those for the real address, so "other site" means where you'll end up.
+  const REDIRECTS = [
+    [/(^|\\.)youtube\\.com$/, /^\\/redirect$/, ['q']], [/(^|\\.)google\\.[a-z.]+$/, /^\\/url$/, ['q', 'url']],
+    [/^l\\.facebook\\.com$|^lm\\.facebook\\.com$/, /^\\/l\\.php$/, ['u']], [/^l\\.instagram\\.com$/, /^\\/$/, ['u']],
+    [/^out\\.reddit\\.com$/, /./, ['url']], [/(^|\\.)steamcommunity\\.com$/, /^\\/linkfilter\\/?$/, ['url', 'u']],
+    [/^away\\.vk\\.com$|(^|\\.)vk\\.com$/, /^\\/away\\.php$/, ['to']], [/^href\\.li$/, /./, []], [/^(www\\.)?linkedin\\.com$/, /^\\/redir\\/redirect$/, ['url']],
+  ];
+  const realUrl = (href) => {
+    try {
+      const u = new URL(href);
+      for (const [host, path, keys] of REDIRECTS) {
+        if (!host.test(u.hostname) || !path.test(u.pathname)) continue;
+        const t = keys.length ? keys.map((k) => u.searchParams.get(k)).find(Boolean) : decodeURIComponent(u.search.slice(1));
+        if (t && /^https?:\\/\\//i.test(t)) return new URL(t).href;
+      }
+      return u.href;
+    } catch (_) { return href; }
+  };
+  const otherSite = (a) => { try { return site(new URL(realUrl(a.href)).hostname) !== site(location.hostname); } catch (_) { return false; } };
   addEventListener('mousedown', (e) => { downLink = wants(e) ? linkAt(e.target) : null; }, true);
   addEventListener('click', (e) => {
     if (!wants(e)) { downLink = null; return; }
@@ -192,7 +211,7 @@ const PAGE_HELPER = `(() => {
     downLink = null;
     e.preventDefault(); e.stopImmediatePropagation();
     setMark(null);
-    console.log('__oto_glance__' + a.href);
+    console.log('__oto_glance__' + realUrl(a.href)); // opens the real site, skipping the redirect page
   }, true);
 })();`;
 const glanceMode = () => (['off', 'alt', 'external', 'click'].includes(S.settings.glanceMode) ? S.settings.glanceMode : 'off');
