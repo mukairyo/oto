@@ -9,7 +9,9 @@ val vName: String = (project.findProperty("versionName") as String?) ?: "0.1.0"
 
 android {
     namespace = "app.oto.browser"
-    compileSdk = 37
+    compileSdk {
+        version = release(37) { minorApiLevel = 2 }
+    }
 
     defaultConfig {
         applicationId = "app.oto.browser.test"
