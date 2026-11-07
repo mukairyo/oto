@@ -3,6 +3,19 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.1 — 2026-11-07
+
+*Bug fixes, and the Oto theme everywhere.*
+
+**Fixed**
+- **Oto Health opens again** — it was opening above the top of the window, so nothing seemed to happen. Open it with `Shift+Esc` or from the command bar.
+- **Fewer buttons at the bottom of the sidebar** — Library, Notifications and My phone. Settings is in the ⋯ menu (`Ctrl+,`), and you can add any button back with right-click → *Customize buttons*.
+
+**Changed**
+- **The Oto theme everywhere** — the offline and error pages (with the white hole instead of the old logo, and Ring Run in space), Oto Health, Notifications, Oto Hub, Oto Wrapped, the shortcut sheet, space overview, Send to phone, Oto Shield, site notes (cream paper now), the theme maker, Customize buttons, zoom and screenshots.
+- **The Oto Card** shows the white hole instead of the old ∞.
+- **Oto for Android 0.1.1** — the address bar no longer shows the old address under what you type. Download **Oto-Android-0.1.1-arm64.apk** below, or update from inside the app.
+
 ## 1.0.0 — 2026-11-07
 
 *Oto v1 — the biggest update yet. A new look, Oto Accounts, Oto Shield, streaming, and your phone linked to your PC.*

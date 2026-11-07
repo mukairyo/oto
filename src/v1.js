@@ -686,7 +686,11 @@ function v1ErrorPage(v) {
     msg = h('p', {}, known ? known[1](u) : `${e.desc || 'Something went wrong'} (${e.code})`);
     btns = [btn('Try again', 'reload', v1Retry, true), e.code === -105 ? btn('Search instead', 'search', () => openUrl(resolveInput(host).url || host)) : null];
   }
-  const kids = [h('div', { class: 'art', html: art }), h('h2', {}, title), msg, h('div', { class: 'btns' }, ...btns.filter(Boolean))];
+  // Oto theme: the white hole instead of the old ∞ (dimmed while offline), and a label line like the sidebar's
+  const rt = typeof skinIsRt === 'function' && skinIsRt() && typeof vortexSvg === 'function';
+  if (rt && kind !== 'cert' && kind !== 'crash') art = `<span class="v1-evx${offline ? ' off' : ''}">${vortexSvg({ bg: false, live: true })}</span>`;
+  const lbl = { offline: 'OFFLINE / WAITING', cert: 'NOT SAFE / STOPPED', crash: 'TAB / CRASHED', other: 'PAGE / NOT REACHED' }[kind];
+  const kids = [h('div', { class: 'art', html: art }), rt ? h('div', { class: 'v1-ecrumb' }, h('i'), h('b', {}, '音'), h('span', {}, lbl), h('em')) : null, h('h2', {}, title), msg, h('div', { class: 'btns' }, ...btns.filter(Boolean))].filter(Boolean);
   if (offline) {
     kids.push(h('div', { id: 'v1RetryLine', class: 'v1-retry' }, h('span', { class: 'rg' }), h('span', { class: 'tx' }, '')));
     kids.push(h('div', { class: 'v1-checks' },
@@ -708,7 +712,8 @@ function v1RingRun() {
   const card = h('div', { class: 'v1-game', tabindex: '0' });
   const cv = h('canvas', { width: 520, height: 150 });
   const best = () => (S.v1RingBest || 0);
-  card.append(h('div', { class: 'gt', html: `${icon('star')}<b>Ring Run</b><span class="bs">BEST ${best()}</span>` }), cv, h('small', {}, 'Space or click to jump the ∞ through the rings'));
+  const rtTxt = typeof skinIsRt === 'function' && skinIsRt();
+  card.append(h('div', { class: 'gt', html: `${icon('star')}<b>Ring Run</b><span class="bs">BEST ${best()}</span>` }), cv, h('small', {}, rtTxt ? 'Space or click to fly the white hole through the rings' : 'Space or click to jump the ∞ through the rings'));
   const ctx = cv.getContext('2d');
   const G = { y: 75, vy: 0, rings: [], t: 0, score: 0, state: 'ready', last: 0, raf: 0 };
   const W = 520, H = 150, PX = 80;
@@ -718,8 +723,18 @@ function v1RingRun() {
     if (G.state === 'ready') G.state = 'play';
     G.vy = -4.6;
   };
+  const rtG = typeof skinIsRt === 'function' && skinIsRt();
   const inf = (x, y, s) => {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+    if (rtG) {
+      // the Oto white hole: a glowing cream core inside tilted rings
+      const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, 16); gl.addColorStop(0, 'rgba(255,250,240,.9)'); gl.addColorStop(.35, 'rgba(231,223,209,.35)'); gl.addColorStop(1, 'rgba(231,223,209,0)');
+      ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, 0, 16, 0, 7); ctx.fill();
+      ctx.rotate(-0.1); ctx.strokeStyle = 'rgba(231,223,209,.85)'; ctx.lineWidth = 1.4;
+      for (const r of [7, 11, 15]) { ctx.globalAlpha = 1 - r / 22; ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.46, 0, 0, 7); ctx.stroke(); }
+      ctx.globalAlpha = 1; ctx.fillStyle = '#fffaf2'; ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, 7); ctx.fill();
+      ctx.restore(); return;
+    }
     const g = ctx.createLinearGradient(-12, 0, 12, 0); g.addColorStop(0, '#a855f7'); g.addColorStop(1, '#22d3ee');
     ctx.strokeStyle = g; ctx.lineWidth = 3.2; ctx.lineCap = 'round'; ctx.beginPath();
     ctx.moveTo(0, 0); ctx.bezierCurveTo(-4, -6, -8, -7, -11, -7); ctx.bezierCurveTo(-15, -7, -17, -3.5, -17, 0); ctx.bezierCurveTo(-17, 3.5, -15, 7, -11, 7); ctx.bezierCurveTo(-8, 7, -4, 6, 0, 0);
@@ -747,15 +762,16 @@ function v1RingRun() {
       if (G.y > H - 10 || G.y < 8) { G.y = clamp(G.y, 8, H - 10); if (G.state === 'play') { G.state = 'over'; if (G.score > best()) { S.v1RingBest = G.score; save(); card.querySelector('.bs').textContent = `BEST ${G.score}`; } } }
     }
     ctx.clearRect(0, 0, W, H);
-    ctx.strokeStyle = '#2c2540'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, H - 4); ctx.lineTo(W, H - 4); ctx.stroke();
+    ctx.strokeStyle = rtG ? 'rgba(255,255,255,.12)' : '#2c2540'; ctx.lineWidth = rtG ? 1 : 2; ctx.beginPath(); ctx.moveTo(0, H - 4); ctx.lineTo(W, H - 4); ctx.stroke();
+    if (rtG) { let sd = 7; const rn = () => ((sd = (sd * 16807) % 2147483647) / 2147483647); for (let i = 0; i < 40; i++) { const sx = ((rn() * W * 2 - G.t * (0.4 + rn())) % W + W) % W; ctx.fillStyle = `rgba(255,250,242,${0.15 + rn() * 0.4})`; ctx.fillRect(sx, rn() * (H - 10), 1.2, 1.2); } }
     for (const r of G.rings) {
-      ctx.strokeStyle = r.hit ? 'rgba(74,222,128,.9)' : '#4b4366'; ctx.lineWidth = 3;
+      ctx.strokeStyle = rtG ? (r.hit ? '#e7dfd1' : 'rgba(236,232,225,.35)') : (r.hit ? 'rgba(74,222,128,.9)' : '#4b4366'); ctx.lineWidth = rtG ? (r.hit ? 2 : 1.5) : 3;
       ctx.beginPath(); ctx.ellipse(r.x, r.y, 9, r.r, 0, 0, Math.PI * 2); ctx.stroke();
     }
     inf(PX, G.y, 0.9);
-    ctx.fillStyle = '#e9e5f5'; ctx.font = '600 14px ui-monospace, Consolas, monospace'; ctx.textAlign = 'right';
+    ctx.fillStyle = rtG ? '#ece8e1' : '#e9e5f5'; ctx.font = rtG ? "500 13px 'JetBrains Mono', Consolas, monospace" : '600 14px ui-monospace, Consolas, monospace'; ctx.textAlign = 'right';
     ctx.fillText(String(G.score), W - 10, 22);
-    if (G.state !== 'play') { ctx.textAlign = 'center'; ctx.fillStyle = '#c4b5fd'; ctx.font = '600 15px system-ui, sans-serif'; ctx.fillText(G.state === 'over' ? `Score ${G.score} — Space to try again` : 'Press Space to start', W / 2, H / 2 + 5); }
+    if (G.state !== 'play') { ctx.textAlign = 'center'; ctx.fillStyle = rtG ? 'rgba(236,232,225,.7)' : '#c4b5fd'; ctx.font = rtG ? "500 12px 'JetBrains Mono', Consolas, monospace" : '600 15px system-ui, sans-serif'; ctx.fillText(G.state === 'over' ? `Score ${G.score} — Space to try again` : 'Press Space to start', W / 2, H / 2 + 5); }
   };
   card.addEventListener('mousedown', (e) => { e.preventDefault(); card.focus(); jump(); });
   card.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'ArrowUp') { e.preventDefault(); jump(); } });

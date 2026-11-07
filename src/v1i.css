@@ -1,0 +1,210 @@
+/* Oto 1.0.1 — the Oto theme everywhere.
+   Loaded last: brings every older panel (shortcuts, overview, theme maker, Wrapped, Hub, notes, QR,
+   Shield, customize tray, zoom, screenshots…) into the Oto look: near-black, cream, hairlines, mono labels,
+   serif numbers, 4–8px corners. Space colours stay where they ARE the content (colour pickers, card colours). */
+
+:root body.skin-rt {
+  --panel: var(--rt-bg); --panel-border: var(--rt-line2);
+  --v1-glow: var(--rt-cream); --v1-holo: var(--rt-cream);
+}
+
+/* ------------------------------------------------------------------ shared bits */
+body.skin-rt .v1-pop { border: 0; border-radius: 8px; background: var(--rt-bg); color: var(--rt-fg); box-shadow: inset 0 0 0 1px var(--rt-line2), 0 30px 80px rgba(0,0,0,.55); }
+body.skin-rt .switch { background: rgba(255,255,255,.12); }
+body.skin-rt .switch.on { background: var(--rt-cream); }
+body.skin-rt .switch.on::after { background: var(--rt-ink); box-shadow: none; }
+body.skin-rt kbd { border-radius: 3px; }
+/* text that sat on the (now cream) accent colour in white */
+body.skin-rt .v1-tray .it.used i, body.skin-rt .v1-cardpanel .titles button.on, body.skin-rt .v1-focuspill button.end,
+body.skin-rt .card-form .chip.on, body.skin-rt .dl-ic.ext, body.skin-rt .dlb-badge, body.skin-rt .setup-site .tick,
+body.skin-rt .setup-choice .tick, body.skin-rt .setup-steps .on .st-dot, body.skin-rt .v1-upd .ua button.p, body.skin-rt .cp-soon { color: var(--rt-ink); }
+body.skin-rt .v1-ebtn.p { background: var(--rt-cream); color: var(--rt-ink); box-shadow: none; }
+body.skin-rt .v1-err .v1-eico.red { background: transparent; }
+
+/* ------------------------------------------------------------------ shortcut sheet (hold Ctrl) */
+body.skin-rt .v1-sheet-layer { background: rgba(5,5,6,.55); backdrop-filter: blur(6px); }
+body.skin-rt .v1-sheet { border-radius: 8px; background: var(--rt-bg); color: var(--rt-fg); box-shadow: inset 0 0 0 1px var(--rt-line2), 0 40px 100px rgba(0,0,0,.6); }
+body.skin-rt .v1-sheet h3 { font: 400 30px var(--rt-serif); letter-spacing: -.3px; }
+body.skin-rt .v1-sheet .srch { border-radius: 4px; background: rgba(255,255,255,.03); box-shadow: inset 0 0 0 1px var(--rt-line2); color: var(--rt-fg3); }
+body.skin-rt .v1-sheet .srch input { color: var(--rt-fg); }
+body.skin-rt .v1-sheet .hold { font: 600 9.5px var(--rt-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--rt-fg3); }
+body.skin-rt .v1-sheet kbd { font: 500 10px var(--rt-mono); background: transparent; color: var(--rt-fg); border-radius: 3px; box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .v1-sheet .col { border-radius: 6px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line); }
+body.skin-rt .v1-sheet h4 { font: 600 9.5px var(--rt-mono); letter-spacing: .24em; color: var(--rt-fg2); }
+body.skin-rt .v1-sheet h4 svg.i { display: none; }
+body.skin-rt .v1-sheet .k { color: var(--rt-fg); }
+body.skin-rt .v1-sheet .cf { color: var(--rt-fg3); }
+body.skin-rt .v1-sheet .cf button { color: var(--rt-fg); border-radius: 4px; font: 600 9.5px var(--rt-mono); letter-spacing: .16em; text-transform: uppercase; box-shadow: inset 0 0 0 1px var(--rt-line2); }
+
+/* ------------------------------------------------------------------ space overview */
+body.skin-rt .v1-ov { background: rgba(5,5,6,.82); backdrop-filter: blur(8px); }
+body.skin-rt .v1-ov .srch { border-radius: 4px; background: var(--rt-bg); box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .v1-ov .spc { border-radius: 6px; color: var(--rt-fg); background-color: var(--rt-raise) !important; background-size: 100% 3px !important; background-repeat: no-repeat !important; background-position: top !important;
+  box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .v1-ov .spc::after { display: none; }
+body.skin-rt .v1-ov .spc.cur { box-shadow: inset 0 0 0 1px var(--rt-cream); }
+body.skin-rt .v1-ov .spc.drop { box-shadow: inset 0 0 0 1px var(--rt-cream), 0 0 30px rgba(231,223,209,.2); }
+body.skin-rt .v1-ov .sh { text-shadow: none; font: 400 26px var(--rt-serif); margin-top: 6px; }
+body.skin-rt .v1-ov .sh kbd { font: 500 10px var(--rt-mono); background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); color: var(--rt-fg2); }
+body.skin-rt .v1-ov .ot { border-radius: 4px; background: rgba(255,255,255,.035); }
+body.skin-rt .v1-ov .ot:hover { background: rgba(255,255,255,.07); }
+body.skin-rt .v1-ov .ft, body.skin-rt .v1-ov .more { font: 600 9.5px var(--rt-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--rt-fg3); opacity: 1; }
+body.skin-rt .v1-ov .spc.new { background: transparent !important; border: 1px dashed var(--rt-line2); box-shadow: none; }
+body.skin-rt .v1-ov .spc.new .big { border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .v1-ov .spc.new b { font: 400 22px var(--rt-serif); }
+body.skin-rt .v1-ov .foot { font: 600 9.5px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--rt-fg3); }
+body.skin-rt .v1-ov .foot kbd { background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); color: var(--rt-fg); }
+
+/* ------------------------------------------------------------------ send to phone (QR) */
+body.skin-rt .v1-qr { border-radius: 8px; }
+body.skin-rt .v1-qr > b { font: 400 24px var(--rt-serif); }
+body.skin-rt .v1-qr small { font: 600 9px var(--rt-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--rt-fg3); }
+body.skin-rt .v1-qr .qbox { border-radius: 6px; background: var(--rt-cream); box-shadow: none; }
+body.skin-rt .v1-qr .lg { border-radius: 50%; background: var(--rt-bg); box-shadow: 0 0 0 4px var(--rt-cream); }
+body.skin-rt .v1-qr .u { color: var(--rt-fg3); }
+body.skin-rt .v1-qr .row3 button { border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); font: 600 10px var(--rt-mono); letter-spacing: .16em; text-transform: uppercase; }
+body.skin-rt .v1-qr .ph-direct button { border-radius: 4px; background: var(--rt-cream); color: var(--rt-ink); }
+
+/* ------------------------------------------------------------------ customize buttons tray */
+body.skin-rt .v1-tray { border-radius: 8px; background: var(--rt-bg); border: 0; box-shadow: inset 0 0 0 1px var(--rt-line2), 0 30px 80px rgba(0,0,0,.55); }
+body.skin-rt .v1-tray .th b { font: 400 24px var(--rt-serif); }
+body.skin-rt .v1-tray .it { border-radius: 6px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line); color: var(--rt-fg2); }
+body.skin-rt .v1-tray .it:hover { background: rgba(255,255,255,.04); }
+body.skin-rt .v1-tray .it .bx { border-radius: 4px; background: transparent; box-shadow: none; }
+body.skin-rt .v1-tray .it.used { box-shadow: inset 0 0 0 1px var(--rt-cream); color: var(--rt-fg); }
+body.skin-rt .v1-tray .it i { background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .v1-tray .it.used i { background: var(--rt-cream); box-shadow: none; }
+body.skin-rt .v1-tray .opts { font: 600 9.5px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--rt-fg3); }
+body.skin-rt .v1-seg3 { border-radius: 4px; }
+body.skin-rt .v1-seg3 button { border-radius: 3px; }
+body.skin-rt .v1-seg3 button.on { background: var(--rt-cream); color: var(--rt-ink); }
+
+/* ------------------------------------------------------------------ theme maker */
+body.skin-rt .v1-tm { border-radius: 8px; }
+body.skin-rt .v1-tm .hd svg.i { display: none; }
+body.skin-rt .v1-tm .hd b { font: 400 24px var(--rt-serif); }
+body.skin-rt .v1-tm .hd small { font: 600 9px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; }
+body.skin-rt .v1-tm .ttl { font: 600 9.5px var(--rt-mono); letter-spacing: .24em; color: var(--rt-fg2); }
+body.skin-rt .v1-tm .cols .bar, body.skin-rt .v1-tm .styles button, body.skin-rt .v1-tm .mine button { border-radius: 4px; }
+body.skin-rt .v1-tm .cols .add, body.skin-rt .v1-tm .cw input { border-radius: 4px; }
+body.skin-rt .v1-tm .code { border-radius: 6px; background: transparent; color: var(--rt-fg); box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .v1-tm .code .cl { font: 600 9.5px var(--rt-mono); letter-spacing: .24em; color: var(--rt-fg2); }
+body.skin-rt .v1-tm .code .cv { background: none; -webkit-text-fill-color: var(--rt-cream); color: var(--rt-cream); font-family: var(--rt-mono); }
+body.skin-rt .v1-tm .code .cb button { border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); font: 600 10px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--rt-fg); }
+body.skin-rt .v1-tm .code .cb button.p { background: var(--rt-cream); color: var(--rt-ink); box-shadow: none; }
+body.skin-rt .v1-tm .paste input { border-radius: 4px; background: rgba(255,255,255,.03); box-shadow: inset 0 0 0 1px var(--rt-line2); }
+
+/* ------------------------------------------------------------------ site notes: cream paper */
+body.skin-rt .v1-note { border-radius: 6px; background: var(--rt-cream); box-shadow: 0 30px 70px rgba(0,0,0,.55); }
+body.skin-rt .v1-note .nh { background: transparent; border-bottom: 1px solid rgba(19,19,19,.12); color: var(--rt-ink); font: 600 9.5px var(--rt-mono); letter-spacing: .18em; text-transform: uppercase; }
+body.skin-rt .v1-note .nh small { color: rgba(19,19,19,.5); font: 600 8.5px var(--rt-mono); }
+body.skin-rt .v1-note textarea { color: var(--rt-ink); font: 400 19px/1.45 var(--rt-serif); }
+body.skin-rt .v1-note textarea::placeholder { color: rgba(19,19,19,.4); }
+body.skin-rt .v1-note .nf { color: rgba(19,19,19,.55); }
+body.skin-rt .v1-note .sc button { border-radius: 3px; background: transparent; box-shadow: inset 0 0 0 1px rgba(19,19,19,.2); color: var(--rt-ink); font: 600 9px var(--rt-mono); letter-spacing: .12em; text-transform: uppercase; }
+body.skin-rt .v1-note .sc button.on { background: var(--rt-ink); color: var(--rt-cream); box-shadow: none; }
+body.skin-rt .v1-note .del { border-radius: 3px; color: rgba(19,19,19,.6); }
+
+/* ------------------------------------------------------------------ Oto Shield */
+body.skin-rt .v1-shield .hd b { font: 600 10px var(--rt-mono); letter-spacing: .26em; text-transform: uppercase; color: var(--rt-fg2); }
+body.skin-rt .v1-shield .hd small { font: 600 8.5px var(--rt-mono); letter-spacing: .12em; text-transform: uppercase; }
+body.skin-rt .v1-shield .power { background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .v1-shield .power.on { color: var(--rt-ink); background: radial-gradient(circle at 40% 35%, #fffaf2, var(--rt-cream)); box-shadow: 0 0 40px rgba(231,223,209,.25); }
+body.skin-rt .v1-shield .site b { font: 400 24px var(--rt-serif); }
+body.skin-rt .v1-shield .nums > div, body.skin-rt .v1-shield .tools button { border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line); }
+body.skin-rt .v1-shield .nums b { font: 400 30px/1 var(--rt-serif); }
+body.skin-rt .v1-shield .nums small, body.skin-rt .v1-shield .tools button { font: 600 9px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; }
+body.skin-rt .v1-shield .ft button { font: 600 9.5px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; border-radius: 3px; }
+body.skin-rt .v1-shield-flt .flt { border-radius: 4px; background: rgba(255,255,255,.03); box-shadow: inset 0 0 0 1px var(--rt-line2); font-family: var(--rt-mono); }
+body.skin-rt .v1-shield-flt .chip { border-radius: 3px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); }
+
+/* ------------------------------------------------------------------ site panel + menus */
+body.skin-rt .v1-site .hd small.ok { color: var(--rt-fg2); }
+body.skin-rt .v1-site .hd small.warn { color: #e8b4a8; }
+body.skin-rt .v1-menu .mi.hl { background: rgba(231,223,209,.08); }
+body.skin-rt .v1-menu .mi.hl svg.i { color: var(--rt-cream); }
+
+/* ------------------------------------------------------------------ small pills: zoom, saved, not-found, screenshots */
+body.skin-rt .v1-zoom { border-radius: 6px; background: var(--rt-bg); box-shadow: inset 0 0 0 1px var(--rt-line2), 0 20px 50px rgba(0,0,0,.5); color: var(--rt-fg); }
+body.skin-rt .v1-zoom button { border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); color: var(--rt-fg); }
+body.skin-rt .v1-zoom button.rs { box-shadow: none; color: var(--rt-fg2); font: 600 9.5px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; }
+body.skin-rt .v1-zoom .bar i { background: var(--rt-cream); }
+body.skin-rt .v1-saved { border-radius: 4px; background: var(--rt-bg); color: var(--rt-fg); box-shadow: inset 0 0 0 1px var(--rt-line2), 0 16px 40px rgba(0,0,0,.5); }
+body.skin-rt .v1-saved .ic svg.i { color: var(--rt-cream); }
+body.skin-rt .v1-saved button { border-radius: 3px; background: transparent; color: var(--rt-cream); font: 600 9.5px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; }
+body.skin-rt .v1-nf svg.i { color: var(--rt-cream); }
+body.skin-rt .v1-drop .z { border-radius: 6px; border: 1px dashed rgba(231,223,209,.4); color: var(--rt-fg2); }
+body.skin-rt .v1-pane.focus { box-shadow: inset 0 -1px 0 var(--rt-cream); }
+body.skin-rt .v1-shot .sel { border: 1px solid var(--rt-cream); border-radius: 0; box-shadow: 0 0 0 9999px rgba(5,5,6,.5); }
+body.skin-rt .v1-shot .sel .dim { background: var(--rt-bg); border-radius: 3px; font-family: var(--rt-mono); box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .v1-shot .modes button { border-radius: 4px; color: var(--rt-fg2); font: 600 9.5px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; }
+body.skin-rt .v1-shot .modes button.on { background: var(--rt-cream); color: var(--rt-ink); }
+body.skin-rt .v1-shotdone .sd svg.i { color: var(--rt-cream); }
+body.skin-rt .v1-shotdone .sd button { color: var(--rt-cream); }
+
+/* ------------------------------------------------------------------ Oto Wrapped: deep space instead of neon */
+body.skin-rt .v1-wrap { background: rgba(5,5,6,.82); }
+body.skin-rt .v1-wrap .wc { border-radius: 8px; color: var(--rt-fg); box-shadow: inset 0 0 0 1px var(--rt-line2), 0 40px 100px rgba(0,0,0,.7); }
+body.skin-rt .v1-wrap .c1 { background: radial-gradient(80% 50% at 50% 0%, rgba(231,223,209,.16), transparent 70%), #0b0b0c; }
+body.skin-rt .v1-wrap .c2 { background: radial-gradient(70% 50% at 100% 0%, rgba(231,223,209,.12), transparent 70%), #0b0b0c; }
+body.skin-rt .v1-wrap .c3 { background: radial-gradient(70% 50% at 0% 100%, rgba(231,223,209,.14), transparent 70%), #0b0b0c; }
+body.skin-rt .v1-wrap .c4 { background: radial-gradient(60% 40% at 50% 50%, rgba(231,223,209,.1), transparent 70%), #0b0b0c; }
+body.skin-rt .v1-wrap .c5 { background: radial-gradient(80% 50% at 50% 100%, rgba(231,223,209,.18), transparent 70%), #0b0b0c; }
+body.skin-rt .v1-wrap .wc h2, body.skin-rt .v1-wrap .wc .big { font-family: var(--rt-serif); font-weight: 400; letter-spacing: -.5px; }
+body.skin-rt .v1-wrap .dots i { border-radius: 0; height: 1px; background: rgba(255,255,255,.2); }
+body.skin-rt .v1-wrap .dots i.on { background: var(--rt-cream); }
+body.skin-rt .v1-wrap .stats div { border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .v1-wrap .hrs i { background: rgba(255,255,255,.12); border-radius: 0; }
+body.skin-rt .v1-wrap .hrs i.pk { background: var(--rt-cream); box-shadow: 0 0 12px rgba(231,223,209,.5); }
+body.skin-rt .v1-wrap .share { border-radius: 4px; background: var(--rt-cream); color: var(--rt-ink); font: 600 10px var(--rt-mono); letter-spacing: .16em; text-transform: uppercase; }
+body.skin-rt .v1-wrap .nav { background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); color: var(--rt-fg); }
+body.skin-rt .v1-wrap .close { background: var(--rt-cream); color: var(--rt-ink); }
+
+/* ------------------------------------------------------------------ Oto Hub + card panel + level up */
+body.skin-rt .v1-hub .hub { border-radius: 8px; background: var(--rt-bg) !important; color: var(--rt-fg); box-shadow: inset 0 0 0 1px var(--rt-line2), 0 40px 120px rgba(0,0,0,.65) !important; }
+body.skin-rt .v1-hub .hub::before, body.skin-rt .v1-hub .hub::after { display: none !important; }
+body.skin-rt .v1-hub .logo .mk { border-radius: 50%; background: transparent; color: var(--rt-fg); animation: none; }
+body.skin-rt .v1-hub .logo b, body.skin-rt .v1-hub .logo { font-family: var(--rt-serif); font-weight: 400; }
+body.skin-rt .v1-hub nav button { border-radius: 4px; color: var(--rt-fg2); font: 600 9.5px var(--rt-mono); letter-spacing: .16em; text-transform: uppercase; }
+body.skin-rt .v1-hub nav button:hover { background: rgba(255,255,255,.05); color: var(--rt-fg); }
+body.skin-rt .v1-hub nav button.on { background: var(--rt-cream); color: var(--rt-ink); box-shadow: none; }
+body.skin-rt .v1-hub .btn { border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); color: var(--rt-fg); font: 600 9.5px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; }
+body.skin-rt .v1-hub .btn.primary { background: var(--rt-cream); color: var(--rt-ink); box-shadow: none; }
+body.skin-rt .v1-hub .acc { border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); color: var(--rt-fg); }
+body.skin-rt .v1-hub .acc .av { background: var(--rt-cream); color: var(--rt-ink); font-family: var(--rt-serif); font-weight: 400; }
+body.skin-rt .v1-hub .hl, body.skin-rt .v1-hub .mi, body.skin-rt .v1-hub .np, body.skin-rt .v1-hub .bg .b, body.skin-rt .v1-hub .co { border-radius: 6px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line); }
+body.skin-rt .v1-hub .hl { box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .v1-hub .hl .chip, body.skin-rt .v1-cardpanel .lvh .chip { border-radius: 3px; }
+body.skin-rt .v1-hub .bar { border-radius: 0; height: 2px; background: rgba(255,255,255,.08); }
+body.skin-rt .v1-hub .bar i, body.skin-rt .v1-hub .hl .bar i { border-radius: 0; background: var(--rt-cream); box-shadow: none; }
+body.skin-rt .v1-hub .sh, body.skin-rt .v1-hub h3 { font-family: var(--rt-serif); font-weight: 400; }
+body.skin-rt .v1-hub .sh .lnk { color: var(--rt-fg3); font: 600 9.5px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; }
+body.skin-rt .v1-hub .np .art { border-radius: 4px; box-shadow: inset 0 0 0 1px var(--rt-line2); }
+body.skin-rt .v1-hub .np .wave i, body.skin-rt .v1-hub .np.on .wave i:nth-child(3n) { background: var(--rt-cream); border-radius: 0; }
+body.skin-rt .v1-hub .ri { border-radius: 4px; }
+body.skin-rt .v1-hub .bg .b.on { background: rgba(231,223,209,.06); box-shadow: inset 0 0 0 1px rgba(231,223,209,.4); }
+body.skin-rt .v1-hub .bg .b.on .ic { box-shadow: 0 0 18px rgba(231,223,209,.25); }
+body.skin-rt .v1-hub .mi .r1 .ic { color: var(--rt-cream); }
+body.skin-rt .v1-hub .mi b, body.skin-rt .v1-hub .mi .v { font-family: var(--rt-serif); font-weight: 400; }
+body.skin-rt .v1-hub .mi .pips i.on { background: var(--rt-cream); box-shadow: none; }
+body.skin-rt .v1-hub .co.on { background: rgba(231,223,209,.06); box-shadow: inset 0 0 0 1px var(--rt-cream); }
+body.skin-rt .v1-hub .co .eq { border-radius: 3px; background: var(--rt-cream); color: var(--rt-ink); }
+body.skin-rt .v1-hub .x:hover { background: rgba(255,255,255,.06); }
+body.skin-rt .v1-cardpanel .titles button { border-radius: 3px; }
+body.skin-rt .v1-cardpanel .titles button.on { background: var(--rt-cream); }
+body.skin-rt .v1-cardpanel .badges span { border-radius: 4px; }
+body.skin-rt .v1-cardpanel .badges span.on { background: rgba(231,223,209,.06); box-shadow: inset 0 0 0 1px rgba(231,223,209,.4); }
+body.skin-rt .v1-cardpanel .bar i, body.skin-rt .v1-widgets .bar i { background: var(--rt-cream); box-shadow: none; border-radius: 0; }
+body.skin-rt .v1-lvlup { background: rgba(5,5,6,.75); }
+body.skin-rt .v1-lvlup .front { background: var(--rt-raise); box-shadow: inset 0 0 0 1px var(--rt-line2); color: var(--rt-fg); }
+body.skin-rt .v1-focuspill button.end { background: var(--rt-cream); }
+body.skin-rt .v1-hub .logo .mk svg { width: 100%; height: 100%; overflow: visible; }
+body.skin-rt .v1-wrap .wt { font: 600 9.5px var(--rt-mono); letter-spacing: .26em; color: var(--rt-fg2); opacity: 1; }
+body.skin-rt .v1-wrap h4 { font: 400 38px/1.02 var(--rt-serif); letter-spacing: -.5px; }
+body.skin-rt .v1-wrap .huge { font: 400 120px/.9 var(--rt-serif); letter-spacing: -3px; color: var(--rt-cream); }
+body.skin-rt .v1-wrap p { color: var(--rt-fg2); opacity: 1; }
+body.skin-rt .v1-wrap .rows > div { font-weight: 500; border-bottom: 1px solid var(--rt-line); padding-bottom: 8px; }
+body.skin-rt .v1-wrap .rows b { font: 500 11px var(--rt-mono); letter-spacing: .1em; color: var(--rt-fg3); opacity: 1; }
+body.skin-rt .v1-wrap .rows small, body.skin-rt .v1-wrap .hl { font-family: var(--rt-mono); letter-spacing: .08em; color: var(--rt-fg3); opacity: 1; }
+body.skin-rt .v1-wrap .stats b { font: 400 34px var(--rt-serif); }
+body.skin-rt .v1-wrap .stats small { font: 600 9px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--rt-fg3); opacity: 1; }

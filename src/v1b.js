@@ -69,8 +69,9 @@ async function v1Health() {
       h('small', {}, V1H.bat ? (V1H.bat.charging ? `Plugged in · ${Math.round(V1H.bat.level * 100)}% — turns on by itself when you unplug` : `On battery · ${Math.round(V1H.bat.level * 100)}%`) : 'Turns on by itself when a laptop runs on battery'),
       h('ul', {}, h('li', {}, 'Background tabs sleep after 5 minutes'), h('li', {}, 'Fewer animations'), h('li', {}, 'Videos in background tabs pause'))));
   layer.append(panel);
-  const b = $('#v1HealthBtn');
-  const r = b ? b.getBoundingClientRect() : { left: 20, top: innerHeight - 40, width: 20 };
+  // open next to whatever Health button is on screen (the old one is hidden in v1: it opened off the top)
+  const b = [document.querySelector('.v1-fb[data-k="health"]'), $('#v1HealthBtn'), $('#v1Foot'), document.querySelector('#sidebar .sb-foot')].find((x) => x && x.getBoundingClientRect().width > 0);
+  const r = b ? b.getBoundingClientRect() : { left: 28, top: innerHeight - 40, width: 20 };
   panel.style.left = `${clamp(r.left - 20, 8, innerWidth - 460)}px`;
   panel.style.bottom = `${innerHeight - r.top + 10}px`;
 }

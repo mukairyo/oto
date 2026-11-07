@@ -32,7 +32,8 @@ const V1_FOOT = {
   wrapped: ['gift', 'Oto Wrapped', () => v1Wrapped()],
   extensions: ['puzzle', 'Extensions', () => { const b = $('#btnExtensions'); if (b) b.click(); }],
 };
-const V1_FOOT_DEFAULT = ['library', 'notifications', 'health', 'settings'];
+// Settings is in the ⋯ menu (Ctrl+,) and Oto Health on Shift+Esc / the command bar, so they're not here by default.
+const V1_FOOT_DEFAULT = ['library', 'notifications'];
 const v1FootList = () => (Array.isArray(S.settings.v1Foot) ? S.settings.v1Foot : V1_FOOT_DEFAULT).filter((k) => V1_FOOT[k]);
 let v1FootDrag = null;
 function v1RenderFoot() {
@@ -130,8 +131,8 @@ function v1Notifs() {
       h('div', { class: 'empty' }, h('span', { html: icon('bell') }), 'No notifications yet', h('small', {}, 'When a site sends one, it shows up here — even while Do not disturb is on.')),
     V1N.list.length ? h('div', { class: 'nf' }, h('button', { onclick: () => { V1N.list = []; v1Notifs(); } }, 'Clear all')) : null);
   layer.append(panel);
-  const b = document.querySelector('.v1-fb[data-k="notifications"]') || $('#v1Foot') || $('#sidebar');
-  const r = b.getBoundingClientRect();
+  const b = [document.querySelector('.v1-fb[data-k="notifications"]'), $('#v1Foot'), $('#sidebar')].find((x) => x && x.getBoundingClientRect().width > 0);
+  const r = b ? b.getBoundingClientRect() : { left: 28, top: innerHeight - 40 };
   panel.style.left = `${clamp(r.left - 10, 8, innerWidth - 400)}px`;
   panel.style.bottom = `${innerHeight - r.top + 10}px`;
 }

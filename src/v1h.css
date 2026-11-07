@@ -88,3 +88,101 @@
 .v1-qr .ph-direct button span { flex: 1; min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .v1-qr .ph-direct button i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .25; }
 .v1-qr .ph-direct button i.on { opacity: 1; }
+
+/* Oto Health in the Oto theme: label line like "01 TABS", serif number, cream lines */
+body.skin-rt .v1-health { width: 420px; padding: 18px; border: 0; border-radius: 8px; background: #0b0b0c; color: #ece8e1;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 30px 80px rgba(0,0,0,.55); }
+body.skin-rt .v1-health .ht { gap: 12px; }
+body.skin-rt .v1-health .ht svg.i { display: none; }
+body.skin-rt .v1-health .ht b { font: 600 10px 'JetBrains Mono', Consolas, monospace; letter-spacing: .28em; text-transform: uppercase; color: rgba(236,232,225,.64); }
+body.skin-rt .v1-health .ht::after { content: ''; order: 2; flex: 1; height: 1px; background: rgba(255,255,255,.14); }
+body.skin-rt .v1-health .lv { order: 3; margin: 0; padding: 0; background: none; border-radius: 0; font: 600 9.5px 'JetBrains Mono', Consolas, monospace; letter-spacing: .2em; text-transform: uppercase; color: #e7dfd1; }
+body.skin-rt .v1-health .lv.warn { color: #e8b4a8; background: none; }
+body.skin-rt .v1-health .hero { margin: 16px 0 12px; padding: 16px; border-radius: 6px; background: radial-gradient(90% 120% at 0% 0%, rgba(231,223,209,.07), transparent 60%), #141416; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+body.skin-rt .v1-health .donut { width: 72px; height: 72px; background: conic-gradient(#e7dfd1 calc(var(--p) * 360deg), rgba(255,255,255,.08) 0); }
+body.skin-rt .v1-health .big { font: 400 44px/1 'Instrument Serif', Georgia, serif; letter-spacing: -.5px; }
+body.skin-rt .v1-health .hero small { margin-top: 6px; font: 600 9px/1.5 'JetBrains Mono', Consolas, monospace; letter-spacing: .16em; text-transform: uppercase; color: rgba(236,232,225,.38); }
+body.skin-rt .v1-health .sv { margin-top: 10px; font-weight: 500; font-size: 12.5px; color: rgba(236,232,225,.64); }
+body.skin-rt .v1-health .sv svg.i { color: #e7dfd1; }
+body.skin-rt .v1-health .tr { height: 34px; border-radius: 4px; color: #ece8e1; }
+body.skin-rt .v1-health button.tr:hover { background: rgba(255,255,255,.045); }
+body.skin-rt .v1-health .tr .fav, body.skin-rt .v1-health .tr .fav-letter, body.skin-rt .v1-health .tr .ic-slot { border-radius: 4px; color: rgba(236,232,225,.64); }
+body.skin-rt .v1-health .tr .bar { height: 2px; border-radius: 0; background: rgba(255,255,255,.08); }
+body.skin-rt .v1-health .tr .bar i { border-radius: 0; background: #e7dfd1; }
+body.skin-rt .v1-health .tr .bar i.hot { background: #e8b4a8; }
+body.skin-rt .v1-health .tr .mb { font: 500 10px 'JetBrains Mono', Consolas, monospace; letter-spacing: .08em; color: rgba(236,232,225,.38); }
+body.skin-rt .v1-health .warn { border-radius: 6px; background: transparent; box-shadow: inset 0 0 0 1px rgba(232,180,168,.35); }
+body.skin-rt .v1-health .warn .wi { border-radius: 4px; background: rgba(232,180,168,.12); color: #e8b4a8; }
+body.skin-rt .v1-health .warn small { color: rgba(236,232,225,.38); }
+body.skin-rt .v1-health .warn button { border-radius: 4px; background: #e7dfd1; color: #131313; font: 600 10px 'JetBrains Mono', Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; }
+body.skin-rt .v1-health .bs { margin-top: 12px; padding: 13px 14px; border-radius: 6px; background: transparent; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+body.skin-rt .v1-health .bs .bh { font: 600 10px 'JetBrains Mono', Consolas, monospace; letter-spacing: .2em; text-transform: uppercase; color: #ece8e1; }
+body.skin-rt .v1-health .bs .bh svg.i { color: #e7dfd1; }
+body.skin-rt .v1-health .bs small { margin: 8px 0 4px; font-size: 12px; color: rgba(236,232,225,.5); }
+body.skin-rt .v1-health .bs ul { list-style: none; padding: 0; margin: 8px 0 0; color: rgba(236,232,225,.64); font-size: 12.5px; }
+body.skin-rt .v1-health .bs li { position: relative; padding: 3px 0 3px 18px; }
+body.skin-rt .v1-health .bs li::before { content: ''; position: absolute; left: 2px; top: 11px; width: 8px; height: 1px; background: rgba(236,232,225,.38); }
+body.skin-rt .v1-health .switch { background: rgba(255,255,255,.12); }
+body.skin-rt .v1-health .switch.on { background: #e7dfd1; }
+body.skin-rt .v1-health .switch.on::after, body.skin-rt .v1-health .switch.on::before { background: #131313; }
+
+/* Notifications in the Oto theme */
+body.skin-rt .v1-notifs { width: 380px; border: 0; border-radius: 8px; background: #0b0b0c; color: #ece8e1; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 30px 80px rgba(0,0,0,.55); }
+body.skin-rt .v1-notifs .nh { gap: 12px; padding: 16px 16px 12px; border-bottom: 1px solid rgba(255,255,255,.075); }
+body.skin-rt .v1-notifs .nh svg.i { display: none; }
+body.skin-rt .v1-notifs .nh b { font: 600 10px 'JetBrains Mono', Consolas, monospace; letter-spacing: .28em; text-transform: uppercase; color: rgba(236,232,225,.64); }
+body.skin-rt .v1-notifs .dnd { font: 600 9px 'JetBrains Mono', Consolas, monospace; letter-spacing: .16em; text-transform: uppercase; color: rgba(236,232,225,.38); }
+body.skin-rt .v1-notifs .switch { background: rgba(255,255,255,.12); }
+body.skin-rt .v1-notifs .switch.on { background: #e7dfd1; }
+body.skin-rt .v1-notifs .switch.on::after { background: #131313; }
+body.skin-rt .v1-notifs .grp { padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,.075); }
+body.skin-rt .v1-notifs .gh { font: 600 9.5px 'JetBrains Mono', Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; color: rgba(236,232,225,.5); padding: 2px 6px 6px; }
+body.skin-rt .v1-notifs .gh b { font-weight: 600; }
+body.skin-rt .v1-notifs .cnt { background: #e7dfd1; color: #131313; border-radius: 3px; font: 600 9px 'JetBrains Mono', Consolas, monospace; padding: 2px 6px; }
+body.skin-rt .v1-notifs .ni { border-radius: 4px; color: #ece8e1; }
+body.skin-rt .v1-notifs .ni:hover { background: rgba(255,255,255,.045); }
+body.skin-rt .v1-notifs .ni b { font-weight: 500; font-size: 13px; }
+body.skin-rt .v1-notifs .ni small { color: rgba(236,232,225,.38); }
+body.skin-rt .v1-notifs .ni .tm { font: 500 9.5px 'JetBrains Mono', Consolas, monospace; letter-spacing: .1em; text-transform: uppercase; color: rgba(236,232,225,.38); }
+body.skin-rt .v1-notifs .empty { padding: 30px 24px; color: #ece8e1; font: 400 22px 'Instrument Serif', Georgia, serif; }
+body.skin-rt .v1-notifs .empty svg.i { color: rgba(236,232,225,.38); width: 22px; height: 22px; }
+body.skin-rt .v1-notifs .empty small { font: 400 12.5px var(--font, system-ui); color: rgba(236,232,225,.5); }
+body.skin-rt .v1-notifs .nf { padding: 10px 12px; }
+body.skin-rt .v1-notifs .nf button { border-radius: 4px; padding: 6px 10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); color: #ece8e1; font: 600 9.5px 'JetBrains Mono', Consolas, monospace; letter-spacing: .16em; text-transform: uppercase; }
+body.skin-rt .v1-notifs .nf button:hover { background: rgba(255,255,255,.05); }
+
+/* Error pages (offline, can't reach, not safe, crashed) in the Oto theme */
+body.skin-rt #error.v1e { background: radial-gradient(55% 45% at 50% 42%, #131315, #0b0b0c 75%); color: #ece8e1; }
+body.skin-rt .v1-err { max-width: 560px; }
+body.skin-rt .v1-err .art { margin-bottom: 10px; }
+body.skin-rt .v1-evx { display: block; width: 150px; height: 150px; }
+body.skin-rt .v1-evx svg { width: 100%; height: 100%; display: block; overflow: visible; }
+body.skin-rt .v1-evx.off { filter: grayscale(1) brightness(.62); animation: vxOff 3.2s ease-in-out infinite; }
+@keyframes vxOff { 50% { filter: grayscale(1) brightness(.4); } }
+body.skin-rt .v1-eico, body.skin-rt .v1-eico.red, body.skin-rt .v1-eico.violet { width: 76px; height: 76px; margin-bottom: 14px; border-radius: 8px; background: transparent; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); color: #e7dfd1; }
+body.skin-rt .v1-eico.red { color: #e8b4a8; box-shadow: inset 0 0 0 1px rgba(232,180,168,.4); }
+body.skin-rt .v1-ecrumb { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0 14px; font: 600 10px 'JetBrains Mono', Consolas, monospace; letter-spacing: .28em; color: rgba(236,232,225,.64); }
+body.skin-rt .v1-ecrumb i { width: 16px; height: 1px; background: rgba(236,232,225,.64); }
+body.skin-rt .v1-ecrumb b { font: 400 13px 'Yu Mincho', 'MS Mincho', 'Noto Serif JP', serif; letter-spacing: 0; color: #ece8e1; }
+body.skin-rt .v1-ecrumb em { width: 60px; height: 1px; background: rgba(255,255,255,.14); }
+body.skin-rt .v1-err h2 { font: 400 52px/1.02 'Instrument Serif', Georgia, serif; letter-spacing: -.8px; margin: 0 0 12px; color: #ece8e1; }
+body.skin-rt .v1-err p { color: rgba(236,232,225,.64); font-size: 15px; }
+body.skin-rt .v1-err p b { color: #ece8e1; font-weight: 500; }
+body.skin-rt .v1-ebtn { height: 38px; padding: 0 16px; border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); color: #ece8e1; font: 600 10.5px 'JetBrains Mono', Consolas, monospace; letter-spacing: .16em; text-transform: uppercase; }
+body.skin-rt .v1-ebtn:hover { background: rgba(255,255,255,.05); }
+body.skin-rt .v1-ebtn.p { background: #e7dfd1; color: #131313; box-shadow: none; }
+body.skin-rt .v1-ebtn.p:hover { background: #f1eadf; }
+body.skin-rt .v1-err.cert .v1-ebtn.p { background: #e8b4a8; color: #131313; box-shadow: none; }
+body.skin-rt .v1-retry { font: 600 9.5px 'JetBrains Mono', Consolas, monospace; letter-spacing: .18em; text-transform: uppercase; color: rgba(236,232,225,.38); }
+body.skin-rt .v1-retry .rg { background: conic-gradient(#e7dfd1 calc(var(--p) * 360deg), rgba(255,255,255,.1) 0); }
+body.skin-rt .v1-checks { gap: 0; margin-top: 28px; border-top: 1px solid rgba(255,255,255,.075); border-bottom: 1px solid rgba(255,255,255,.075); }
+body.skin-rt .v1-checks > div { padding: 12px 18px; border-radius: 0; box-shadow: none; color: #ece8e1; font: 600 9.5px 'JetBrains Mono', Consolas, monospace; letter-spacing: .18em; text-transform: uppercase; }
+body.skin-rt .v1-checks > div + div { border-left: 1px solid rgba(255,255,255,.075); }
+body.skin-rt .v1-checks svg.i { color: #e7dfd1; }
+body.skin-rt .v1-checks small { margin-top: 3px; font: 400 11.5px var(--font, system-ui); letter-spacing: 0; text-transform: none; color: rgba(236,232,225,.38); }
+body.skin-rt .v1-game { border-radius: 6px; background: #0b0b0c; color: #ece8e1; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 20px 50px rgba(0,0,0,.5); }
+body.skin-rt .v1-game:focus { box-shadow: inset 0 0 0 1px rgba(231,223,209,.6), 0 20px 50px rgba(0,0,0,.5); outline: none; }
+body.skin-rt .v1-game .gt svg.i { display: none; }
+body.skin-rt .v1-game .gt b { font: 600 10px 'JetBrains Mono', Consolas, monospace; letter-spacing: .26em; text-transform: uppercase; color: rgba(236,232,225,.64); }
+body.skin-rt .v1-game .gt .bs { color: #e7dfd1; font: 600 9.5px 'JetBrains Mono', Consolas, monospace; letter-spacing: .18em; }
+body.skin-rt .v1-game small { color: rgba(236,232,225,.38); font-size: 11px; }

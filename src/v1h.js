@@ -326,7 +326,9 @@ function initV1h() {
     qbox.querySelector('b').after(h('div', { class: 'ph-direct' }, ...phones.map((d) => h('button', { onclick: () => { v1ClosePop(); phSend(d, url, t && t.title); } }, iconEl('phone'), h('span', {}, `Send to ${d.name || 'phone'}`), h('i', { class: phOnline(d) ? 'on' : '' })))));
   };
   V1_FOOT.myphone = ['phone', 'My phone', () => v1Phone()];
-  if (!V1_FOOT_DEFAULT.includes('myphone')) V1_FOOT_DEFAULT.splice(2, 0, 'myphone');
+  if (!V1_FOOT_DEFAULT.includes('myphone')) V1_FOOT_DEFAULT.push('myphone');
+  // 1.0.1: Oto Health and Settings left the bottom of the sidebar (still in Customize buttons, the ⋯ menu and their shortcuts)
+  if (Array.isArray(S.settings.v1Foot) && !S.settings.v1Foot101) { S.settings.v1Foot = S.settings.v1Foot.filter((k) => k !== 'health' && k !== 'settings'); S.settings.v1Foot101 = true; save(); }
   // people who customised their buttons get it once, too
   if (Array.isArray(S.settings.v1Foot) && !S.settings.v1PhoneBtn) { if (!S.settings.v1Foot.includes('myphone')) S.settings.v1Foot.splice(Math.min(2, S.settings.v1Foot.length), 0, 'myphone'); S.settings.v1PhoneBtn = true; save(); }
   try { v1RenderFoot(); } catch {}

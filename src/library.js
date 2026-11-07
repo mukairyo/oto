@@ -303,6 +303,12 @@ const compact = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M
 const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 function rng(seed) { let s = (seed >>> 0) || 1; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 
+// The Oto mark on cards: the white hole (tilted rings around a bright core), in a 64×64 box.
+function cardVortex(stroke, sw = 3) {
+  const rings = [10, 16, 22, 28].map((r, i) => `<ellipse cx="32" cy="32" rx="${r}" ry="${(r * 0.46).toFixed(1)}" stroke-width="${(sw * (1 - i * 0.18)).toFixed(2)}" opacity="${(1 - i * 0.2).toFixed(2)}"/>`).join('');
+  return `<g fill="none" stroke="${stroke}" transform="rotate(-6 32 32)">${rings}</g><circle cx="32" cy="32" r="${(sw * 1.5).toFixed(1)}" fill="${stroke}"/>`;
+}
+
 function cardArt(m, cols, W, H, id) {
   const r = rng(m.seed);
   const white = (o) => `rgba(255,255,255,${o})`;
@@ -313,7 +319,7 @@ function cardArt(m, cols, W, H, id) {
       return `<g fill="none" stroke="${white(0.55)}" stroke-linecap="round">
         <circle cx="${cx}" cy="${cy}" r="${R}" stroke-width="10" stroke-dasharray="${R * 5.2} ${R * 1.1}" transform="rotate(${-40 + r() * 30} ${cx} ${cy})"/>
         <circle cx="${cx}" cy="${cy}" r="${R * 0.78}" stroke-width="2" opacity=".6"/>
-        <path d="${inf}" stroke-width="2.6" transform="translate(${cx - R * 0.9} ${cy - R * 0.9}) scale(${(R * 1.8) / 64})"/></g>`;
+        </g><g transform="translate(${cx - R * 0.9} ${cy - R * 0.9}) scale(${(R * 1.8) / 64})">${cardVortex(white(0.75), 1.6)}</g>`;
     }
     case 'waves': {
       let out = '';
@@ -389,8 +395,7 @@ function cardSvgClassic(m = cardModel(), { scale = 1 } = {}) {
     return `<text x="${x}" y="368" font-family="${font}" font-size="20" font-weight="700" fill="${theme.ink}">${esc(compact(cardStatValue(k)))}</text>
       <text x="${x}" y="384" font-family="${mono}" font-size="8.5" letter-spacing=".8" fill="${theme.sub}">${esc(CARD_STATS[k].toUpperCase())}</text>`;
   }).join('') : '';
-  const mark = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s / 64})" fill="none" stroke="${theme.ink}" stroke-width="5" stroke-linecap="round">
-    <path d="M44.5 15.2 A21 21 0 1 0 49.6 21.3"/><g transform="translate(32 32) scale(.84) translate(-32 -32)"><path stroke-width="5" d="M32 32 C28.5 26.5 24.5 24.5 20.8 24.5 C16.7 24.5 13.6 27.8 13.6 32 C13.6 36.2 16.7 39.5 20.8 39.5 C24.5 39.5 28.5 37.5 32 32 C35.5 26.5 39.5 24.5 43.2 24.5 C47.3 24.5 50.4 27.8 50.4 32 C50.4 36.2 47.3 39.5 43.2 39.5 C39.5 39.5 35.5 37.5 32 32 Z"/></g></g>`;
+  const mark = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s / 64})">${cardVortex(theme.ink, 4)}</g>`;
   const grain = m.grain > 0.02 ? `<rect x="${P}" y="${P}" width="${AW}" height="${AH}" rx="14" filter="url(#${id}n)" opacity="${(m.grain * 0.9).toFixed(2)}"/>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W * scale}" height="${H * scale}">
   <defs>
@@ -487,7 +492,7 @@ function cardSvgShiny(m = cardModel(), { scale = 1 } = {}) {
     ${rows}
     <line x1="24" y1="${H - 50}" x2="${W - 24}" y2="${H - 50}" stroke="rgba(255,255,255,.2)"/>
     <text x="24" y="${H - 30}" font-family="${mono}" font-size="8.5" letter-spacing="1.4" fill="${sub}">OTO · SINCE ${esc(since)}</text>
-    <g transform="translate(${W - 46} ${H - 44}) scale(${22 / 64})" fill="none" stroke="url(#${id}f)" stroke-width="5.5" stroke-linecap="round"><path d="${markPath}"/><g transform="translate(32 32) scale(.84) translate(-32 -32)"><path d="${infPath}"/></g></g>
+    <g transform="translate(${W - 46} ${H - 44}) scale(${22 / 64})">${cardVortex(`url(#${id}f)`, 4.5)}</g>
     <rect width="${W}" height="${H}" fill="url(#${id}shine)" style="mix-blend-mode:soft-light" opacity=".9"/>
     <rect width="${W}" height="${H}" fill="url(#${id}shine)" opacity=".25"/>
   </g>
@@ -537,7 +542,7 @@ function cardSvgKeycard(m = cardModel(), { scale = 1 } = {}) {
   }).join('') : `<text x="${P}" y="${statsY + 20}" font-family="${mono}" font-size="9" letter-spacing="2" fill="${T.sub}">// CLEARANCE GRANTED</text>`;
   const markPath = 'M44.5 15.2 A21 21 0 1 0 49.6 21.3';
   const infPath = 'M32 32 C28.5 26.5 24.5 24.5 20.8 24.5 C16.7 24.5 13.6 27.8 13.6 32 C13.6 36.2 16.7 39.5 20.8 39.5 C24.5 39.5 28.5 37.5 32 32 C35.5 26.5 39.5 24.5 43.2 24.5 C47.3 24.5 50.4 27.8 50.4 32 C50.4 36.2 47.3 39.5 43.2 39.5 C39.5 39.5 35.5 37.5 32 32 Z';
-  const mark = (x, y, sz, stroke) => `<g transform="translate(${x} ${y}) scale(${sz / 64})" fill="none" stroke="${stroke}" stroke-width="5" stroke-linecap="round"><path d="${markPath}"/><g transform="translate(32 32) scale(.84) translate(-32 -32)"><path d="${infPath}"/></g></g>`;
+  const mark = (x, y, sz, stroke) => `<g transform="translate(${x} ${y}) scale(${sz / 64})">${cardVortex(stroke, 4)}</g>`;
   const grain = m.grain > 0.02 ? `<path d="${art}" filter="url(#${id}n)" opacity="${(m.grain * 0.9).toFixed(2)}"/>` : '';
   const nameY = 334;
   const glitch = T.glitch ? `<text x="${P - 1.6}" y="${nameY}" font-family="${font}" font-size="${nameSize}" font-weight="800" letter-spacing="1" fill="#22d3ee" opacity=".55">${esc(name)}</text>

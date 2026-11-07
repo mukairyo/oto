@@ -181,7 +181,7 @@ function v1HubRender() {
   const y = scroll ? scroll.scrollTop : 0;
   box.replaceChildren(h('div', { class: 'hub' },
     h('div', { class: 'hh' },
-      h('div', { class: 'logo' }, h('span', { class: 'mk', html: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M44.5 15.2 A21 21 0 1 0 49.6 21.3"/><g transform="translate(32 32) scale(.84) translate(-32 -32)"><path d="M32 32 C28.5 26.5 24.5 24.5 20.8 24.5 C16.7 24.5 13.6 27.8 13.6 32 C13.6 36.2 16.7 39.5 20.8 39.5 C24.5 39.5 28.5 37.5 32 32 C35.5 26.5 39.5 24.5 43.2 24.5 C47.3 24.5 50.4 27.8 50.4 32 C50.4 36.2 47.3 39.5 43.2 39.5 C39.5 39.5 35.5 37.5 32 32 Z"/></g></svg>' }), h('b', {}, 'Oto Hub')),
+      h('div', { class: 'logo' }, h('span', { class: 'mk', html: (typeof skinIsRt === 'function' && skinIsRt() && typeof vortexSvg === 'function') ? vortexSvg({ bg: false, live: true }) : '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M44.5 15.2 A21 21 0 1 0 49.6 21.3"/><g transform="translate(32 32) scale(.84) translate(-32 -32)"><path d="M32 32 C28.5 26.5 24.5 24.5 20.8 24.5 C16.7 24.5 13.6 27.8 13.6 32 C13.6 36.2 16.7 39.5 20.8 39.5 C24.5 39.5 28.5 37.5 32 32 C35.5 26.5 39.5 24.5 43.2 24.5 C47.3 24.5 50.4 27.8 50.4 32 C50.4 36.2 47.3 39.5 43.2 39.5 C39.5 39.5 35.5 37.5 32 32 Z"/></g></svg>' }), h('b', {}, 'Oto Hub')),
       h('nav', {}, ...tabs.map(([id, label]) => h('button', { class: V1HUB.tab === id ? 'on' : '', onclick: () => { V1HUB.tab = id; v1HubRender(); } }, label))),
       h('button', { class: 'x', html: icon('x'), title: 'Close (Esc)', onclick: v1HubClose })),
     h('div', { class: 'bd' },
