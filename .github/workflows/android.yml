@@ -79,3 +79,16 @@ jobs:
           # also put the APK on the current Oto for Windows release, so both are in one place
           W=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
           case "$W" in v*) gh release upload "$W" "Oto-Android-$V-arm64.apk" --clobber --repo "$GITHUB_REPOSITORY" && echo "added to $W";; esac
+
+      # A commit message with [replace-apk] rebuilds the same version and swaps the APK on its release
+      # (and on the Oto for Windows release). Only with the real Oto key, so a temporary key never replaces it.
+      - name: Replace the APK on the release
+        if: github.ref == 'refs/heads/android' && steps.ver.outputs.skip == 'true' && contains(github.event.head_commit.message, '[replace-apk]') && env.OTO_KS_FILE != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=${{ steps.ver.outputs.v }}
+          cp "$(ls android/app/build/outputs/apk/release/*.apk | head -1)" "Oto-Android-$V-arm64.apk"
+          gh release upload "android-v$V" "Oto-Android-$V-arm64.apk" --clobber --repo "$GITHUB_REPOSITORY"
+          W=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          case "$W" in v*) gh release upload "$W" "Oto-Android-$V-arm64.apk" --clobber --repo "$GITHUB_REPOSITORY" && echo "replaced on $W";; esac
