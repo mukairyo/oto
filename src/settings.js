@@ -774,9 +774,9 @@ const PAGE_RENDER = {
         row('Clear all browsing data', 'Cookies, cache, site permissions and history.', h('button', {
           class: 'btn danger', onclick: async () => {
             if (!confirm('Clear cookies, cache, site permissions and history? You’ll be signed out of websites.')) return;
-            await oto.clearData();
+            const r = await oto.clearData();
             S.history = []; save(); renderSettings();
-            toast('Browsing data cleared', { icon: 'trash' });
+            toast(r === true ? 'Browsing data cleared' : `Cleared, but ${(r && r.failed) || 'some'} Space${r && r.failed === 1 ? '' : 's'} couldn’t be cleared — try again`, { icon: r === true ? 'trash' : 'x', timeout: r === true ? 1800 : 4000 });
           },
         }, 'Clear…'))),
     ];

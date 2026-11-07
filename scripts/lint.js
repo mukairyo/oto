@@ -7,8 +7,16 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
-const DIRS = ['.', 'main', 'src', 'test', 'scripts', 'build'];
-const files = DIRS.flatMap((d) => { try { return fs.readdirSync(path.join(ROOT, d)).filter((f) => f.endsWith('.js')).map((f) => path.join(d, f)); } catch { return []; } });
+// Every .js file in the repository, in any folder (except dependencies, build output and git data).
+const SKIP = new Set(['node_modules', 'dist', '.git', 'coverage', 'out']);
+function walk(dir) {
+  return fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((d) => {
+    const rel = path.join(dir, d.name);
+    if (d.isDirectory()) return SKIP.has(d.name) || d.name.startsWith('userdata') ? [] : walk(rel);
+    return d.isFile() && /\.(c|m)?js$/.test(d.name) ? [rel] : [];
+  });
+}
+const files = walk('.').map((f) => path.normalize(f));
 let bad = 0;
 const fail = (msg) => { bad++; console.error(`✗ ${msg}`); };
 
@@ -29,6 +37,10 @@ const RULES = [
   [/['"]pw:inject['"]/, /./, 'no generic code-injection channel (audit 03)'],
   [/executeJavaScriptInIsolatedWorld/, /^(?!main[\\/]passwords\.js$)/, 'only main/passwords.js runs code in pages’ hidden world'],
   [/extractAllTo\(/, /./, 'unpack archives with main/safe-unzip.js (audit 13)'],
+  [/\beval\(|new Function\(/, /^(main|src|account\.js|preload\.js|page-preload\.js|main\.js)/, 'no eval / new Function in Oto’s own code'],
+  [/shell\.openExternal\((?!['"`])/, /./, 'shell.openExternal only with a fixed address (anything else goes through Oto’s checked helpers)'],
+  [/sandbox:\s*false/, /^(?!main\.js$)/, 'only Oto’s own window may run unsandboxed (audit 06, documented in SECURITY.md)'],
+  [/callback\(\{\}\)/, /^main\.js$/, 'screen-share refusals use callback(null) (Electron 45 throws on {})'],
   [/ignore-certificate-errors|setCertificateVerifyProc\([^)]*callback\(0\)/, /^(?!test[\\/])/, 'never turn off certificate checks'],
 ];
 for (const f of files) {
@@ -37,7 +49,7 @@ for (const f of files) {
   for (const [re, applies, why] of RULES) {
     if (!applies.test(f)) continue;
     const lines = text.split('\n');
-    lines.forEach((l, i) => { if (re.test(l)) fail(`${f}:${i + 1} — ${why}\n    ${l.trim().slice(0, 140)}`); });
+    lines.forEach((l, i) => { if (!/^\s*(\/\/|\*)/.test(l) && re.test(l)) fail(`${f}:${i + 1} — ${why}\n    ${l.trim().slice(0, 140)}`); });
   }
 }
 

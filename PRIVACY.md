@@ -20,7 +20,7 @@ last private window closes.
 | The pages you visit | those websites | when you browse (like any browser) |
 | What you type in the address bar | your search engine's suggestion service (DuckDuckGo, Google, Brave or Bing) | while you type, if suggestions are on |
 | Ad/tracker filter lists (download only) | GitHub (`raw.githubusercontent.com`, uBlock Origin / EasyList lists) | about once a week |
-| Malware and phishing lists (download only) | `malware-filter.gitlab.io`, `curbengh.github.io` or `malware-filter.pages.dev` | about once an hour |
+| Malware and phishing lists (download only) | `malware-filter.gitlab.io`, `curbengh.github.io` or `malware-filter.pages.dev` | at most twice a day (checked hourly, downloaded when 12 hours old) |
 | Update check (download only) | GitHub (`github.com`, `api.github.com`) | at start, then every 30 minutes |
 | Widevine (protected video) | Google's component server | once, so Netflix/Spotify can play |
 | **Sync (only if you sign in)** | Supabase (`supabase.co`), Oto's account server | after changes, and every few minutes |
@@ -53,5 +53,11 @@ happens **on your PC** against the downloaded list. No website addresses are sen
 A `.oto` backup made **with** a backup password is fully encrypted (everything in it, plus your saved passwords). A
 backup made **without** a password is readable by anyone who opens the file and never contains passwords. Oto warns you
 before saving one.
+
+## "Clear when Oto closes"
+
+Oto clears when you close it (up to 5 seconds). If Oto is killed, crashes or the PC loses power before that finishes,
+Oto clears at the next start, before you browse. A forced close can't run any code, so until that next start the data
+is still on disk.
 
 Questions: open an issue on [GitHub](https://github.com/mukairyo/oto/issues).

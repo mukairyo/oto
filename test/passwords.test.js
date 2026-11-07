@@ -89,3 +89,48 @@ test('saving a login again after deleting it brings it back', async () => {
   assert.strictEqual(A.pw.pwSyncExport().deleted.length, 0);
   assert.strictEqual(A.pw.pwLoad().entries.length, 1);
 });
+
+test('a failed edit changes nothing (N02)', async () => {
+  const A = load();
+  A.pw.pwUpsert('https://a.example', 'me', 'one');
+  const before = JSON.stringify(A.pw.pwLoad());
+  A.state.canEncrypt = false; // Windows encryption goes away
+  assert.strictEqual(await A.ipc.invoke('pw:update', UI, A.pw.pwLoad().entries[0].id, { username: 'new', url: 'https://b.example', password: 'two' }), false);
+  assert.strictEqual(JSON.stringify(A.pw.pwLoad()), before, 'entry and deletion markers untouched');
+});
+
+test('an edit can’t silently merge into another saved login', async () => {
+  const A = load();
+  A.pw.pwUpsert('https://a.example', 'me', 'one'); A.pw.pwUpsert('https://a.example', 'you', 'two');
+  const id = A.pw.pwLoad().entries[0].id;
+  assert.strictEqual(await A.ipc.invoke('pw:update', UI, id, { username: 'you' }), false);
+});
+
+test('synced logins keep the other device’s edit time (N03)', () => {
+  const A = load();
+  const t = Date.now() - 3600e3;
+  A.pw.pwSyncMerge([{ o: 'https://a.example', u: 'me', p: 'old', up: t }], []);
+  assert.strictEqual(A.pw.pwLoad().entries[0].updated, t, 'not “now”');
+  // a newer local edit then wins over that older copy coming back again
+  A.pw.pwUpsert('https://a.example', 'me', 'newer');
+  A.pw.pwSyncMerge([{ o: 'https://a.example', u: 'me', p: 'old', up: t }], []);
+  assert.strictEqual(A.pw.pwDec(A.pw.pwLoad().entries[0]), 'newer');
+});
+
+test('deletion markers don’t expire (N08)', async () => {
+  const A = load();
+  A.pw.pwUpsert('https://a.example', 'me', 'one');
+  await A.ipc.invoke('pw:delete', UI, A.pw.pwLoad().entries[0].id);
+  A.pw.pwLoad().deleted[0].at = Date.now() - 5 * 365 * 864e5; // five years ago
+  A.pw.pwSyncMerge([{ o: 'https://a.example', u: 'me', p: 'one', up: Date.now() - 6 * 365 * 864e5 }], []);
+  assert.strictEqual(A.pw.pwLoad().entries.length, 0);
+});
+
+test('CSV import reports logins for sites without https (N10)', async () => {
+  const A = load();
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'oto-csv-')), 'p.csv');
+  fs.writeFileSync(f, 'url,username,password\nhttps://s.example,a,1\nhttp://plain.example,b,2\n');
+  A.electron.dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [f] });
+  assert.deepStrictEqual(await A.ipc.invoke('pw:import', UI), { added: 2, updated: 0, insecure: 1 });
+});

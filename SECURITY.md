@@ -35,8 +35,16 @@ save logins on secure (https) pages. Exporting to CSV always asks first, because
 **Oto Accounts / sync** encrypt everything on your PC (AES-256-GCM, key from your account password with scrypt)
 before it's uploaded, so the server only stores scrambled data. Login tokens on your PC are encrypted with DPAPI too.
 
-**Updates** come only from this repository's GitHub releases. Each release has a `SHA256SUMS.txt` and a signed GitHub
-build attestation, so you can check a download really came from this repository's build:
+**Updates** come only from this repository's GitHub releases. What is checked automatically, and what you can check
+yourself:
+
+- **Automatic (every update):** Oto's updater (electron-updater) downloads only from `github.com/mukairyo/oto` releases
+  over HTTPS, and refuses an installer whose SHA-512 doesn't match the one in that release's `latest.yml`.
+  Both files come from the same release, so this catches broken or swapped downloads, not a compromised GitHub account.
+- **Not automatic:** the GitHub build attestation and `SHA256SUMS.txt`. They are for people to check by hand, and the
+  updater does not verify them. There is no Windows code signature yet (Authenticode needs a paid or sponsored
+  certificate).
+- **By hand:** check a download came from this repository's own build:
 
 ```
 gh attestation verify Oto-Setup-1.3.0.exe --repo mukairyo/oto
@@ -62,4 +70,10 @@ npm test       # unit tests (passwords, sync deletions, IPC gatekeeper, extensio
 npm run lint   # every file parses + security rules (no Base64 secrets, no code-injection channel, …)
 ```
 
-Both run on every pull request and before every release; a failure stops the release.
+Both run on every push to every branch (main included, version bump or not), on every pull request, and again before
+every release build; a failure stops the release.
+
+**Channels the gatekeeper leaves open** (they are meant for pages or libraries, and each checks its own callers):
+`oto:page` (returns only on/off flags for the frame that asks), `crx-*` (electron-chrome-extensions: extension APIs,
+routed by extension ID), `@ghostery/*` (cosmetic filters for the asking frame's URL), `chromeWebstore.*` / `chrome.*`
+(electron-chrome-web-store: refuses any sender that isn't `chromewebstore.google.com`).

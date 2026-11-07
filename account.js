@@ -116,6 +116,20 @@ module.exports = function setupAccount(ctx) {
     });
   }
 
+  // Write only if the cloud row is still the one this PC last saw (compare-and-swap on updated_at). If another
+  // device wrote in between, nothing is overwritten: the caller pulls and merges first, then tries again.
+  async function putRowIfUnchanged(blob, salt, seen) {
+    const body = { blob, salt, updated_at: new Date().toISOString(), device: device() };
+    const t = await token();
+    if (!seen) { // no row yet: create it, but never replace one that appeared meanwhile
+      try { await api('POST', '/rest/v1/oto_sync', { token: t, headers: { Prefer: 'return=representation' }, body: { user_id: A.userId, ...body } }); }
+      catch (e) { if (e.status === 409 || e.code === '23505') return null; throw e; }
+      return body.updated_at;
+    }
+    const rows = await api('PATCH', `/rest/v1/oto_sync?user_id=eq.${encodeURIComponent(A.userId)}&updated_at=eq.${encodeURIComponent(seen)}`, { token: t, headers: { Prefer: 'return=representation' }, body });
+    return Array.isArray(rows) && rows[0] ? rows[0].updated_at : null;
+  }
+
   // ------------------------------------------------------------ passwords in the sync payload
   // Passwords (and markers for deleted ones) are packed and merged by main/passwords.js.
   // ------------------------------------------------------------ sign up / in / out
@@ -270,8 +284,12 @@ module.exports = function setupAccount(ctx) {
       const pw = pwOn ? pwSyncExport() : null;
       const payload = { v: 1, at: Date.now(), app: OTO_VERSION, device: device(), summary, sections, passwords: pw ? pw.entries : undefined, pwDeleted: pw ? pw.deleted : undefined };
       if (payload.sections) delete payload.sections._pw;
-      await putRow(encrypt(payload, dataKey()), A.salt);
-      A.lastSync = payload.at; A.lastRemote = payload.at; lastError = ''; saveA();
+      // Changed in the cloud since this PC last synced? Merge first (the UI pulls, then pushes again).
+      const row = await getRow();
+      if (row && row.updated_at !== A.seenStamp) return { ok: false, code: 'conflict', error: 'Your other device synced first' };
+      const stamp = await putRowIfUnchanged(encrypt(payload, dataKey()), A.salt, row ? row.updated_at : null);
+      if (!stamp) return { ok: false, code: 'conflict', error: 'Your other device synced first' };
+      A.seenStamp = stamp; A.lastSync = payload.at; A.lastRemote = payload.at; lastError = ''; saveA();
       return { ok: true, at: payload.at };
     } catch (e) { lastError = e.message; return { ok: false, error: e.message, code: e.code }; } finally { busy = null; tell(); }
     });
@@ -286,7 +304,7 @@ module.exports = function setupAccount(ctx) {
       if (!row) { lastError = ''; return { ok: true, empty: true }; }
       const payload = decrypt(row.blob, dataKey());
       const pw = passwords ? pwSyncMerge(payload.passwords, payload.pwDeleted) : 0;
-      A.lastRemote = payload.at || Date.parse(row.updated_at); A.lastSync = Date.now(); lastError = ''; saveA();
+      A.lastRemote = payload.at || Date.parse(row.updated_at); A.seenStamp = row.updated_at; A.lastSync = Date.now(); lastError = ''; saveA();
       return { ok: true, at: A.lastRemote, device: payload.device, sections: payload.sections || {}, passwords: pw };
     } catch (e) { lastError = e.message === 'format' ? 'Couldn’t read your cloud data' : e.message; return { ok: false, error: lastError, code: e.code }; } finally { busy = null; tell(); }
     });

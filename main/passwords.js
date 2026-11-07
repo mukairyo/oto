@@ -44,10 +44,11 @@ module.exports = function createPasswords(ctx) {
   const pwOrigin = (u) => { try { const x = new URL(String(u)); return /^https?:$/.test(x.protocol) ? x.origin : null; } catch { return null; } };
   const pwSite = (origin) => { try { return new URL(origin).hostname.replace(/^www\./, ''); } catch { return origin; } };
   const pwPublic = (e) => ({ id: e.id, origin: e.origin, site: pwSite(e.origin), username: e.username, created: e.created, updated: e.updated, lastUsed: e.lastUsed || 0 });
-  // Deleted logins leave a small marker (site + username + time, never the password) for a year, so sync can
+  // Deleted logins leave a small marker (site + username + time, never the password), so sync can
   // delete them on your other devices too instead of bringing them back.
-  const TOMB_MS = 365 * 864e5;
-  function pwTombs() { const d = pwLoad(); d.deleted = (Array.isArray(d.deleted) ? d.deleted : []).filter((t) => t && t.o && Date.now() - (t.at || 0) < TOMB_MS); return d.deleted; }
+  // Kept for good (newest 5,000), so even a device that was offline for years can't bring a deleted login back.
+  const TOMB_MAX = 5000;
+  function pwTombs() { const d = pwLoad(); d.deleted = (Array.isArray(d.deleted) ? d.deleted : []).filter((t) => t && t.o); if (d.deleted.length > TOMB_MAX) d.deleted = d.deleted.sort((x, y) => (y.at || 0) - (x.at || 0)).slice(0, TOMB_MAX); return d.deleted; }
   function pwTomb(o, u, at = Date.now()) {
     const list = pwTombs(); const t = list.find((x) => x.o === o && x.u === u);
     if (t) t.at = Math.max(t.at || 0, at); else list.push({ o, u, at });
@@ -75,16 +76,17 @@ module.exports = function createPasswords(ctx) {
       if (tomb && tomb.at >= (r.up || 0)) continue; // deleted after this copy was saved
       const ex = pwFind(r.o, u);
       if (ex && (ex.updated || 0) >= (r.up || 0)) continue;
-      const res = pwUpsert(r.o, u, r.p);
+      const res = pwUpsert(r.o, u, r.p, r.up);
       if (res === 'saved' || res === 'updated') n++;
     }
     pwSave();
     return n;
   }
   function pwFind(origin, username) { return pwLoad().entries.find((e) => e.origin === origin && e.username === username); }
-  function pwUpsert(origin, username, password) {
+  // `at`: when this version was saved (sync passes the other device's time, so the newest edit keeps winning).
+  function pwUpsert(origin, username, password, at) {
     const d = pwLoad();
-    const now = Date.now();
+    const now = at > 0 && at <= Date.now() + 60e3 ? at : Date.now();
     const ex = pwFind(origin, username);
     if (ex && pwDec(ex) === password) { ex.lastUsed = now; pwSave(); return 'same'; }
     const sealed = pwEnc(password);
@@ -137,14 +139,18 @@ module.exports = function createPasswords(ctx) {
     });
     ipcMain.handle('pw:save', (_e, url, username, password) => { const o = pwOrigin(url); return o && pwSecure(o) && typeof password === 'string' && password && password.length <= 4096 ? pwUpsert(o, String(username || '').slice(0, 512), password) : 'invalid'; });
     ipcMain.handle('pw:get', (_e, id, purpose) => { const ok = pwOk(purpose); if (ok === 'pin') return { needPin: true }; if (ok !== true) return null; const e = pwLoad().entries.find((x) => x.id === id); if (!e) return null; e.lastUsed = Date.now(); pwSave(); return { username: e.username, password: pwDec(e), origin: e.origin }; });
+    // All checks and the encryption happen first; only then is anything changed (a failed edit changes nothing).
     ipcMain.handle('pw:update', (_e, id, patch) => {
       const e = pwLoad().entries.find((x) => x.id === id);
       if (!e || !patch || typeof patch !== 'object') return false;
-      const before = [e.origin, e.username];
-      if (typeof patch.username === 'string') e.username = patch.username.slice(0, 512);
-      if (typeof patch.url === 'string' && pwOrigin(patch.url)) e.origin = pwOrigin(patch.url);
-      if (before[0] !== e.origin || before[1] !== e.username) pwTomb(before[0], before[1]); // the old site/username is gone
-      if (typeof patch.password === 'string' && patch.password) { const sealed = pwEnc(patch.password); if (!sealed) return false; delete e.enc; delete e.plain; Object.assign(e, sealed); }
+      const username = typeof patch.username === 'string' ? patch.username.slice(0, 512) : e.username;
+      const origin = typeof patch.url === 'string' && pwOrigin(patch.url) ? pwOrigin(patch.url) : e.origin;
+      let sealed = null;
+      if (typeof patch.password === 'string' && patch.password) { if (patch.password.length > 4096) return false; sealed = pwEnc(patch.password); if (!sealed) return false; }
+      if ((origin !== e.origin || username !== e.username) && pwFind(origin, username)) return false; // would duplicate another login
+      if (origin !== e.origin || username !== e.username) pwTomb(e.origin, e.username); // the old site/username is gone
+      e.origin = origin; e.username = username;
+      if (sealed) { delete e.enc; delete e.plain; Object.assign(e, sealed); }
       e.updated = Date.now(); pwSave(); return true;
     });
     // Password helpers run in a hidden world of the page (world 1077): page scripts can't see or fake them.
@@ -191,14 +197,15 @@ module.exports = function createPasswords(ctx) {
       const iu = col('url', 'origin', 'login_uri', 'website'), iuser = col('username', 'login_username', 'login', 'user'), ip = col('password', 'login_password');
       if (iu < 0 || ip < 0) return { error: 'This file doesn’t look like a password export (it needs url and password columns).' };
       if (!pwCanEncrypt()) return { error: 'Windows can’t encrypt passwords right now, so Oto won’t import them (it never stores passwords unencrypted).' };
-      let added = 0, updated = 0;
+      let added = 0, updated = 0, insecure = 0;
       for (const row of rows.slice(1)) {
         const o = pwOrigin(row[iu]); const pass = row[ip];
         if (!o || !pass) continue;
         const res = pwUpsert(o, iuser >= 0 ? row[iuser] || '' : '', pass);
         if (res === 'saved') added++; else if (res === 'updated') updated++;
+        if ((res === 'saved' || res === 'updated') && !pwSecure(o)) insecure++;
       }
-      return { added, updated };
+      return { added, updated, insecure }; // imported http logins are kept (they're yours), but the UI says so
     });
     ipcMain.handle('pw:export', async () => {
       { const ok = pwOk('reveal'); if (ok === 'pin') return { needPin: true }; if (ok !== true) return false; }

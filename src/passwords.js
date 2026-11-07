@@ -154,7 +154,7 @@ LIB_RENDER.passwords = function passwords() {
   const list = PWS.list.filter((e) => matchQ(e.site, e.username, e.origin));
   const tools = h('div', { class: 'lib-tools' },
     h('button', { class: 'btn primary', onclick: () => { PWS.adding = true; PWS.editing = null; renderLibrary(); } }, 'Add password'),
-    h('button', { class: 'btn', onclick: async () => { const r = await oto.pwImport(); if (!r) return; if (r.error) toast(r.error, { timeout: 3000 }); else { toast(`Imported ${r.added} new, ${r.updated} updated`, { icon: 'key', timeout: 2400 }); pwRefreshCache(); pwLoadLib(); } } }, 'Import…'),
+    h('button', { class: 'btn', onclick: async () => { const r = await oto.pwImport(); if (!r) return; if (r.error) toast(r.error, { timeout: 3000 }); else { toast(`Imported ${r.added} new, ${r.updated} updated${r.insecure ? ` · ${r.insecure} for sites without https (Oto won’t fill those without warning)` : ''}`, { icon: 'key', timeout: r.insecure ? 4500 : 2400 }); pwRefreshCache(); pwLoadLib(); } } }, 'Import…'),
     // Oto itself asks before exporting (a Windows dialog that explains the risk), so nothing can export silently.
     h('button', { class: 'btn', onclick: async () => { const r = await oto.pwExport(); if (r === true) toast('Passwords exported — delete the file once you’ve imported it', { timeout: 3200 }); } }, 'Export…'));
   const intro = h('p', { class: 'lib-intro' }, PWS.status && !PWS.status.encrypted

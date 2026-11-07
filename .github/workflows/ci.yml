@@ -1,11 +1,12 @@
-# Checks every pull request and every branch push (main and v1 also run them inside the release workflow):
+# Checks every pull request and EVERY push to every branch, main included, whether or not the version changed:
 # unit tests, the security rules in scripts/lint.js, and known-vulnerability check of the shipped packages.
+# (The release workflow runs the same tests again before it builds an installer.)
 name: Checks
 
 on:
   pull_request:
   push:
-    branches-ignore: [main, v1, android]
+    branches-ignore: [android] # the Android app has its own build
 
 permissions:
   contents: read

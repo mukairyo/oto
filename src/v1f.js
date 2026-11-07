@@ -87,8 +87,10 @@ async function v1Push({ quiet = true } = {}) {
   const secs = v1Sections();
   const hsh = v1Hash(secs);
   if (quiet && hsh === V1A.lastHash && Date.now() - (V1A.lastPushAt || 0) < 10 * 60 * 1000) return { ok: true, same: true };
-  const r = await oto.account.push(secs, v1Summary());
-  if (r.ok) { V1A.lastHash = hsh; V1A.lastPushAt = Date.now(); }
+  let r = await oto.account.push(secs, v1Summary());
+  // Another device synced in between: bring its changes in first (merged per section and per password), then push.
+  for (let i = 0; i < 2 && r && r.code === 'conflict'; i++) { await v1Pull({ quiet: true }); r = await oto.account.push(v1Sections(), v1Summary()); }
+  if (r.ok) { V1A.lastHash = v1Hash(v1Sections()); V1A.lastPushAt = Date.now(); }
   _v1SaveNoSync();
   if (!quiet) toast(r.ok ? 'Synced ✓' : `Couldn’t sync — ${r.error}`, { icon: r.ok ? 'check' : 'x', timeout: 2000 });
   return r;

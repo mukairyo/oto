@@ -276,7 +276,16 @@ function browsingPartitions() {
   try { for (const w of (readJSON('state.json', {}).workspaces || [])) if (w && w.v1Own) set.add(`persist:oto-ws-${String(w.id).replace(/[^\w-]/g, '').slice(0, 40)}`); } catch {}
   return [...set];
 }
-const eachBrowsingSession = (fn) => Promise.all(browsingPartitions().map((p) => Promise.resolve().then(() => fn(session.fromPartition(p))).catch(() => {})));
+// Runs fn in every browsing session; resolves to the list of sessions where it failed (empty = all worked).
+const eachBrowsingSession = async (fn) => {
+  const parts = browsingPartitions();
+  const res = await Promise.all(parts.map((p) => Promise.resolve().then(() => fn(session.fromPartition(p))).then(() => null, (e) => { console.warn('[oto] clearing failed in', p, e && e.message); return p; })));
+  return res.filter(Boolean);
+};
+// "Clear when Oto closes": what to clear, and a marker so a crash or forced close is cleaned up at the next start.
+const exitClearSites = () => Object.keys(perms).filter((k) => k.endsWith('|cookies') && perms[k] === 'session').map((k) => k.split('|')[0]).filter((o) => o !== '*');
+const exitClearWanted = () => !!(prefs.clearOnExit || exitClearSites().length);
+const runExitClear = () => { const sites = exitClearSites(); return eachBrowsingSession((ses) => (prefs.clearOnExit ? Promise.all([ses.clearStorageData(), ses.clearCache()]) : Promise.all(sites.map((origin) => ses.clearStorageData({ origin }))))); };
 function prepSpaceSession(part) {
   if (spaceSessions.has(part)) return;
   spaceSessions.add(part);
@@ -702,6 +711,11 @@ function setupSession(part = PARTITION) {
   }
   const wantBlock = !(state && state.settings && state.settings.blockTrackers === false);
   if (wantBlock) enableBlocking(ses); else disableBlocking(ses);
+  if (part === PARTITION) {
+    // Last time Oto didn't get to finish "Clear when Oto closes" (crash, forced close, power cut): do it now.
+    if (exitClearWanted() && readJSON('exit-clear.json', { done: true }).done === false) runExitClear().then((f) => { if (!f.length) writeJSON('exit-clear.json', { done: false }); }).catch(() => {});
+    writeJSON('exit-clear.json', { done: false });
+  }
   return ses;
 }
 
@@ -1046,10 +1060,10 @@ function setupIPC(ses) {
   ipcMain.handle('site:clear', async (_e, origin) => {
     try {
       const o = new URL(origin).origin;
-      await eachBrowsingSession((ses) => ses.clearStorageData({ origin: o })); // every Space, not just the main one
+      const failed = await eachBrowsingSession((ses) => ses.clearStorageData({ origin: o })); // every Space, not just the main one
       for (const k of Object.keys(perms)) if (k.startsWith(`${o}|`)) delete perms[k];
       savePerms();
-      return true;
+      return failed.length === 0; // only "done" if every Space was really cleared
     } catch { return false; }
   });
   ipcMain.on('ctx:do', (_e, act, arg) => ctxAction(act, arg));
@@ -1074,10 +1088,10 @@ function setupIPC(ses) {
     return 'set';
   });
   ipcMain.handle('data:clear', async () => {
-    await eachBrowsingSession((x) => Promise.all([x.clearStorageData(), x.clearCache()])); // every Space too
+    const failed = await eachBrowsingSession((x) => Promise.all([x.clearStorageData(), x.clearCache()])); // every Space too
     perms = {};
     savePerms();
-    return true;
+    return failed.length === 0 ? true : { ok: false, failed: failed.length };
   });
 }
 
@@ -1185,14 +1199,14 @@ if (!app.requestSingleInstanceLock()) {
   let cleared = false;
   app.on('before-quit', (e) => {
     // sites set to "Clear when Oto closes" in Site permissions
-    const sessionSites = Object.keys(perms).filter((k) => k.endsWith('|cookies') && perms[k] === 'session').map((k) => k.split('|')[0]).filter((o) => o !== '*');
-    if ((!prefs.clearOnExit && !sessionSites.length) || cleared) return;
+    if (!exitClearWanted() || cleared) { if (!exitClearWanted()) writeJSON('exit-clear.json', { done: true }); return; }
     e.preventDefault();
     cleared = true;
     SH.flushStats();
+    // Up to 5 seconds; if it doesn't finish (or Oto is killed/crashes), the marker stays and the next start clears.
     Promise.race([
-      eachBrowsingSession((ses) => (prefs.clearOnExit ? Promise.all([ses.clearStorageData(), ses.clearCache()]) : Promise.all(sessionSites.map((origin) => ses.clearStorageData({ origin }).catch(() => {}))))),
-      new Promise((r) => setTimeout(r, 3000)),
+      runExitClear().then((failed) => { if (!failed.length) writeJSON('exit-clear.json', { done: true, at: Date.now() }); }),
+      new Promise((r) => setTimeout(r, 5000)),
     ]).finally(() => app.quit());
   });
 }

@@ -76,7 +76,7 @@ Oto for Android is new (version 0.1): tabs, Oto Shield, the Oto look, desktop-si
 - Cookie pop-ups clicked away for you, tracking bits removed when you copy a link.
 - **Avocado** 🥑 (`Ctrl+Shift+N`) — a private window that forgets everything when you close it.
 - Sites must ask before using your camera, mic, location or notifications. Review it all in the site panel (click the lock).
-- Chromium security fixes arrive automatically: a daily job ships them as small updates.
+- Chromium security fixes: a daily job checks for a new castlabs Electron build (Electron with Widevine) on Oto's version. When castlabs publishes one with a newer Chromium, Oto releases it as a small update the same day. How quickly that happens depends on castlabs, usually within days of Electron.
 </details>
 
 <details>

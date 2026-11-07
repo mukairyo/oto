@@ -189,14 +189,20 @@ const PAGE_HELPER = `(() => {
     [/^out\\.reddit\\.com$/, /./, ['url']], [/(^|\\.)steamcommunity\\.com$/, /^\\/linkfilter\\/?$/, ['url', 'u']],
     [/^away\\.vk\\.com$|(^|\\.)vk\\.com$/, /^\\/away\\.php$/, ['to']], [/^href\\.li$/, /./, []], [/^(www\\.)?linkedin\\.com$/, /^\\/redir\\/redirect$/, ['url']],
   ];
+  // Only real web addresses come out (http/https, up to 8 KB); a redirect inside a redirect is followed up to 3 deep.
+  const unwrapOnce = (u) => {
+    for (const [host, path, keys] of REDIRECTS) {
+      if (!host.test(u.hostname) || !path.test(u.pathname)) continue;
+      let t = keys.length ? keys.map((k) => u.searchParams.get(k)).find(Boolean) : u.search.slice(1);
+      if (t && !/^https?:/i.test(t) && /^https?%3a/i.test(t)) { try { t = decodeURIComponent(t); } catch (_) {} }
+      if (t && t.length <= 8192 && /^https?:\\/\\//i.test(t)) { try { return new URL(t); } catch (_) {} }
+    }
+    return null;
+  };
   const realUrl = (href) => {
     try {
-      const u = new URL(href);
-      for (const [host, path, keys] of REDIRECTS) {
-        if (!host.test(u.hostname) || !path.test(u.pathname)) continue;
-        const t = keys.length ? keys.map((k) => u.searchParams.get(k)).find(Boolean) : decodeURIComponent(u.search.slice(1));
-        if (t && /^https?:\\/\\//i.test(t)) return new URL(t).href;
-      }
+      let u = new URL(href);
+      for (let i = 0; i < 3; i++) { const next = unwrapOnce(u); if (!next) break; u = next; }
       return u.href;
     } catch (_) { return href; }
   };

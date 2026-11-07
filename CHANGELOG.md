@@ -3,6 +3,32 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.3.2 — 2026-11-07
+
+*Fixes from the follow-up review of 1.3.1.*
+
+**Sync**
+- **Sync can't overwrite another device's newer changes any more.** Before writing, Oto checks that the cloud copy is still the one it last saw. If your other device synced in between, Oto first merges those changes in (per section, per password), then writes. Before, an automatic sync could replace newer changes, including deleted passwords.
+- Passwords synced from another device keep the time they were really changed, so the newest edit keeps winning on every device.
+- Deleted-password markers no longer expire after a year, so a device that was offline for a very long time can't bring a deleted login back.
+
+**Passwords**
+- Editing a saved login is now all-or-nothing: if anything fails (like Windows encryption being unavailable), nothing changes. An edit also can't silently turn one login into a duplicate of another.
+- Importing a CSV now tells you how many logins were for sites without https.
+
+**Clearing data**
+- "Clear site data" and "Clear all browsing data" only say "done" if every Space was really cleared, and warn you if one wasn't.
+- "Clear when Oto closes" now also happens after a crash, forced close or power cut: if clearing didn't finish, Oto does it at the next start. Tested by killing Oto mid-session.
+
+**Glance**
+- Redirect links: a redirect inside a redirect is followed (up to 3 deep), double-encoded addresses work, and only real web addresses (http/https, up to 8 KB) are ever opened. Tested against unsafe and lookalike links.
+
+**Quality**
+- Checks now run on **every** push to every branch, main included, even without a version change. Before, a change pushed to main without a new version number could skip them.
+- The security checks now scan every folder, with new rules (no `eval`, no unsandboxed windows besides Oto's own, fixed-address `openExternal`, screen-share refusals). 35 unit tests (was 24).
+- Messages between Oto's window and its core have a size limit per channel: 1 MB normally, larger only for saving state, backups and images.
+- SECURITY.md now says exactly what the updater checks automatically (download address, SHA-512) and what you can check by hand (checksums, build attestation). PRIVACY.md now gives the real malware-list schedule and explains clear-on-close after a crash. The README says how Chromium security fixes arrive.
+
 ## 1.3.1 — 2026-11-07
 
 **Fixed**
