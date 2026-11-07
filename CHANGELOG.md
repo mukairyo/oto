@@ -3,6 +3,43 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0 — 2026-11-07
+
+*Oto v1 — the biggest update yet. A new look, Oto Accounts, Oto Shield, streaming, and your phone linked to your PC.*
+
+**A new Oto**
+- **The Oto theme** — near-black, cream text, mono labels and 音. A calm editorial look across the sidebar, new tab, settings, menus and setup.
+- **A new logo** — a living galaxy around a white hole. Oto opens with a short warp through the stars and a deep startup sound (change the volume or turn it off in Settings).
+- **New setup** — pick your layout, speed and privacy in about two minutes, or sign in to bring your Oto with you. Open it again any time from Settings → General.
+- **New installer** in the same look.
+
+**Your Oto everywhere**
+- **Oto Accounts** (Settings → *Account & sync*) — your settings, themes, bookmarks, spaces, card and passwords follow you to any PC. Everything is encrypted on your PC with your password before it's uploaded.
+- **Forgot your password?** Oto emails you a code, and you type it right in Oto.
+- **My phone** — Oto for Android signs in with the same account. Your phone shows up in Windows Oto in 3D, with its battery and open tabs. Send tabs to your phone and back. You can use your own 3D model of your phone, and it stays on your PC.
+
+**Browsing**
+- **Oto Shield** — ad and tracker blocking using uBlock Origin's lists. Zap or hide anything, turn it off per site, block cookie banners and annoyances, and write your own filters.
+- **Spotify, Netflix, Disney+, Prime Video and more** play now (Widevine).
+- **Command bar** with filters, sums, slash commands and search inside your open tabs; **split view** by dragging a tab onto the page; **Glance**, **tab folders**, **site notes**, **space overview**, **space templates**.
+- **Site panel** — permissions, dark page, zoom, sound, *Always open in* a space, clear site data.
+- **No more cookie popups**, **clean links** when you copy, **video tools** (speed, loop, picture-in-picture).
+- **Oto Health** and **battery saver**, **notification center** with Do not disturb, **screenshots** with drawing and blur, **Avocado** private window, **Oto Apps**, **Oto Night**, comfort options, swipe to go back.
+- **Make it yours** — customize the sidebar buttons, theme maker, Oto sounds, separate logins per space.
+- **Updates show up by themselves** — a card in the sidebar while the update downloads, then *Restart now*.
+
+## 1.0.0-owner.36 — 2026-11-07
+
+*Owner test build of Oto v1 — your phone.*
+
+**New**
+- **My phone** — a phone button at the bottom of the sidebar. Sign in to the same Oto account in Oto for Android and your phone shows up as a 3D phone you can turn, with its battery, Android version and open tabs. Click a tab to open it on the PC, or send this tab to the phone. End-to-end encrypted.
+- **Use your own 3D model** of your phone (.glb). It stays on this PC.
+- **Send to phone** sends straight to your linked phone, with the QR code still there.
+
+**Changed**
+- **The installer is in the Oto theme** — dark pages with the galaxy artwork, and its "Oto is ready" page finally shows Oto's own text.
+
 ## 1.0.0-owner.35 — 2026-11-07
 
 *Owner test build of Oto v1 — instant update notice.*
