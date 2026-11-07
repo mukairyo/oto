@@ -611,7 +611,7 @@ function v1Intro() {
   if (typeof skinIsRt === 'function' && skinIsRt()) {
     // Oto theme: a galaxy forms — star dust swirls in from far out and settles into two spiral arms,
     // the white hole ignites (with the boom), a shockwave and stars rush out past you, then 音 and OTO.
-    const el = h('div', { id: 'v1Intro', class: 'v1-intro rt gx', html: `<div class="st"><div class="vx"><i class="shock"></i>${vortexSvg({ bg: false, live: true })}</div>
+    const el = h('div', { id: 'v1Intro', class: 'v1-intro rt gx', html: `<div class="gbg">${galaxyBg({ band: false, stars: 520 })}</div><div class="st"><div class="vx"><i class="shock"></i>${vortexSvg({ bg: false, live: true })}</div>
       <div class="ln"><i></i><span class="k">音</span><i></i></div>
       <div class="w">OTO</div></div>` });
     document.body.append(el);

@@ -867,11 +867,12 @@ async function v1UpdateCard(u) {
   if (card && card.dataset.v === u.version) return;
   if (card) card.remove();
   card = h('div', { id: 'v1Upd', class: 'v1-upd', 'data-v': u.version },
-    h('div', { class: 'uh' }, h('span', { class: 'lg', html: logoSvg() }), h('div', {}, h('b', {}, `Oto ${u.version} is ready`), h('small', {}, 'Restart takes a few seconds'))),
+    h('div', { class: 'uh' }, h('span', { class: 'lg enter', html: `<i class="shock"></i>${logoSvg()}` }), h('div', {}, h('b', {}, `Oto ${u.version} is ready`), h('small', {}, skinIsRt() ? 'Restart to install' : 'Restart takes a few seconds'))),
     h('p', { class: 'un' }, 'What’s new shows up right after the restart.'),
     h('div', { class: 'ua' }, h('button', { onclick: () => card.remove() }, 'Later'), h('button', { class: 'p', onclick: () => { save(); oto.updateInstall(); } }, 'Restart now')));
   const foot = document.querySelector('#sidebar .sb-foot');
   if (foot) foot.before(card);
+  if (skinIsRt() && typeof vortexWarpAround === 'function') { const cv = h('canvas', { class: 'upd-warp' }); card.prepend(cv); card.prepend(h('div', { class: 'upd-sky', html: galaxyBg({ w: 460, h: 300, stars: 170, band: false }) })); vortexWarpAround(card.querySelector('.lg'), cv, { n: 80, scale: 0.4, alpha: 0.4, clear: 24 }); }
 }
 
 // Recently closed tabs list (also /closed in the command bar).
@@ -902,7 +903,7 @@ function v1Board7() {
     v1ZoomPill(next);
   };
   const _onUpdate = onUpdate;
-  onUpdate = function (u) { _onUpdate.apply(this, arguments); v1UpdateCard(UPD); };
+  onUpdate = function (u) { if (u) v1UpdateCard(u); _onUpdate.apply(this, arguments); };
   oto.updateStatus().then((u) => v1UpdateCard(u)).catch(() => {});
   // the permission ask comes out of the address pill
   const pb = $('#permBar');

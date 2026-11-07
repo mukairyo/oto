@@ -341,7 +341,9 @@ function onUpdate(u) {
   UPD = u || UPD;
   if (UPD.state === 'ready' && updToastShown !== UPD.version) {
     updToastShown = UPD.version;
-    toast(`Oto ${UPD.version} is ready`, { icon: 'download', timeout: 12000, action: { label: 'Restart', run: () => { save(); oto.updateInstall(); } } });
+    // the update card in the sidebar already says it — only toast when the card can't be seen (sidebar hidden or slim)
+    const card = document.getElementById('v1Upd');
+    if (!(card && card.offsetParent)) toast(`Oto ${UPD.version} is ready`, { icon: 'download', timeout: 12000, action: { label: 'Restart', run: () => { save(); oto.updateInstall(); } } });
   }
   const el = document.getElementById('updLine');
   if (el) el.textContent = updateText();

@@ -3,6 +3,16 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.0.0-owner.33 — 2026-11-07
+
+*Owner test build of Oto v1 — space.*
+
+**Changed**
+- **Space behind the startup** — deep black space full of stars (some twinkle) fades up behind the galaxy and drifts closer while the warp streaks rush past.
+- **About is in space too** — the header is full of stars, the galaxy forms and the white hole ignites (with a small shockwave) every time you open the page, and warp stars keep flying out of it. Bigger logo, serif "Oto".
+- **The update card is remade in the Oto theme** — dark hairline panel full of stars, the galaxy logo forming and igniting when it appears, a serif title, a small "RESTART TO INSTALL" label and a cream Restart now button. It slides in softly. (The old purple card and its pop are gone.) The "is ready" toast only shows when the card can't be seen.
+- The old little drifting stars around the logo are gone — the warp streaks replace them.
+
 ## 1.0.0-owner.32 — 2026-11-07
 
 *Owner test build of Oto v1 — warp.*

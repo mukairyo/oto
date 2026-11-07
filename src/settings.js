@@ -445,6 +445,7 @@ const PAGES = [
 
 function openSettings(tab) {
   closeCmd(false); closeMenu();
+  settingsFresh = true;
   if (tab) settingsTab = tab;
   boostEdit = null;
   renderSettings();
@@ -983,8 +984,10 @@ const PAGE_RENDER = {
         toast('Settings imported', { icon: 'check' });
       } catch (err) { toast(`Couldn’t import that file (${err.message})`, { timeout: 2500 }); }
     });
+    const heroWarp = skinIsRt() ? h('canvas', { class: 'about-warp' }) : null;
+    if (heroWarp) setTimeout(() => vortexWarpAround(heroWarp.parentElement, heroWarp), 0);
     return [
-      h('div', { class: 'about-hero' }, h('span', { class: 'icon-art', html: logoSvg() }),
+      h('div', { class: 'about-hero' }, skinIsRt() ? h('div', { class: 'hero-sky', html: galaxyBg({ w: 900, h: 240, stars: 320, band: false }) }) : null, heroWarp, h('span', { class: `icon-art${pageEnter ? ' enter' : ''}`, html: `${pageEnter ? '<i class="shock"></i>' : ''}${logoSvg()}` }),
         h('div', {}, h('h3', {}, 'Oto'), h('div', { class: 'about' }, `Version ${INFO.version || ''} · Chromium ${INFO.chrome || ''} · Electron ${INFO.electron || ''}`))),
       section(null,
         row('Back up your setup', 'Saves settings, space colours, Boosts, Mods and shortcuts to a file.', h('div', { class: 'btn-pair' },
@@ -1043,10 +1046,13 @@ function boostEditor() {
   ];
 }
 
+let settingsFresh = true, pageEnter = true;
 function renderSettings() {
   stopMotionPreview();
   const body = $('#settingsBody');
   const scroll = body.querySelector('.set-pane');
+  // true when this page was just opened (not a repaint after a click) — the About logo plays its start then
+  pageEnter = settingsFresh || !(scroll && scroll.dataset.page === settingsTab); settingsFresh = false;
   const keep = scroll && scroll.dataset.page === settingsTab ? scroll.scrollTop : 0;
   if (settingsTab !== 'performance') { clearInterval(perfTimer); perfTimer = null; }
   const nav = h('nav', { class: 'set-nav' }, ...PAGES.map(([k, label, ic]) => h('button', {
