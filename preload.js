@@ -2,13 +2,14 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 const CHANNELS = new Set([
-  'cmd', 'tab:open', 'search', 'blocked', 'download', 'perm:ask', 'perm:cancel', 'window-fullscreen', 'overlay-sampled',
+  'cmd', 'tab:open', 'search', 'blocked', 'download', 'perm:ask', 'perm:cancel', 'screen:pick', 'screen:cancel', 'danger', 'window-fullscreen', 'overlay-sampled',
   'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'glance', 'update', 'ctx:show', 'ctrl-hold', 'quick:open', 'account:status', 'lock:state', 'drm:ready',
 ]);
 
 contextBridge.exposeInMainWorld('oto', {
   info: () => ipcRenderer.invoke('app:info'),
   changelog: () => ipcRenderer.invoke('app:changelog'),
+  versions: () => ipcRenderer.invoke('app:versions'),
   loadState: () => ipcRenderer.invoke('state:load'),
   saveState: (s) => ipcRenderer.send('state:save', s),
   saveStateSync: (s) => ipcRenderer.sendSync('state:save-sync', s),
@@ -33,6 +34,9 @@ contextBridge.exposeInMainWorld('oto', {
     update: () => ipcRenderer.invoke('shield:update'),
     stats: () => ipcRenderer.invoke('shield:stats'),
     fp: (on) => ipcRenderer.invoke('shield:fp', on),
+    danger: (on) => ipcRenderer.invoke('shield:danger', on),
+    dangerAllow: (host) => ipcRenderer.invoke('shield:dangerAllow', host),
+    dangerUpdate: () => ipcRenderer.invoke('shield:dangerUpdate'),
     statsReset: () => ipcRenderer.invoke('shield:statsReset'),
   },
   replyPermission: (id, allow) => ipcRenderer.send('perm:reply', id, allow),
@@ -45,6 +49,9 @@ contextBridge.exposeInMainWorld('oto', {
   listPermissions: () => ipcRenderer.invoke('perm:list'),
   resetPermission: (key) => ipcRenderer.invoke('perm:reset', key),
   setPermission: (key, val) => ipcRenderer.invoke('perm:set', key, val),
+  replyScreen: (id, sourceId, audio) => ipcRenderer.send('screen:reply', id, sourceId || null, !!audio),
+  pwInject: (wcId, code) => ipcRenderer.invoke('pw:inject', wcId, code),
+  pwFillInto: (wcId, id) => ipcRenderer.invoke('pw:fillInto', wcId, id),
   clearSite: (origin) => ipcRenderer.invoke('site:clear', origin),
   ctxDo: (act, arg) => ipcRenderer.send('ctx:do', act, arg),
   appMode: () => ipcRenderer.invoke('app:mode'),

@@ -184,6 +184,9 @@ function shpBlocking() {
       SHP.busy = false; Object.assign(st, r); shpPaint();
       toast(`${name} protection. Reload pages to apply`, { icon: 'shield', timeout: 2200 });
     } }, h('small', {}, String(i + 1).padStart(2, '0')), h('b', {}, name), h('span', {}, desc), h('i', { class: 'meter' }, ...[0, 1, 2].map((k) => h('em', { class: k <= i ? 'f' : '' })))))),
+    shpLbl('DANGEROUS SITES'),
+    h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'Warn me about dangerous sites'), h('small', {}, st.dangerCount ? `${shpN(st.dangerCount)} known malware and phishing sites · list updated ${shpAgo(st.dangerAt)} · checked on this PC, nothing is sent anywhere` : 'Malware and phishing lists from URLhaus (abuse.ch), updated twice a day · checked on this PC')),
+      shpSwitch(st.danger !== false, async (v) => { st.danger = await oto.shield.danger(v); toast(v ? 'Dangerous-site warnings on' : 'Dangerous-site warnings off', { icon: 'shield', timeout: 2000 }); })),
     shpLbl('FINGERPRINTING'),
     h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'Fingerprint protection'), h('small', {}, 'Each site gets slightly different canvas, WebGL and audio answers every session, so it can’t recognise this PC')),
       shpSwitch(st.fp !== false, async (v) => { st.fp = await oto.shield.fp(v); toast(v ? 'Fingerprint protection on. Reload pages to apply' : 'Fingerprint protection off', { icon: 'shield', timeout: 2200 }); })),
@@ -345,7 +348,62 @@ async function v1ShieldPage(tab) {
   shpPaint();
 }
 
+// ---------------------------------------------------------------- screen sharing picker
+const SCR = { open: null, queue: [] };
+const SHP_DANGER = new Map(); // webContents id -> the dangerous page Oto just stopped
+function v1ScreenPick(p) {
+  if (SCR.open) { SCR.queue.push(p); return; }
+  const host = hostOf(p.origin) || 'This site';
+  let kind = p.sources.some((s) => s.kind === 'screen') ? 'screen' : 'window', sel = null, audio = !!p.audio;
+  const layer = v1Layer(() => done(null));
+  const grid = h('div', { class: 'sc-grid' });
+  const share = h('button', { class: 'pri', disabled: true, onclick: () => done(sel) });
+  share.textContent = 'SHARE';
+  const tabs = h('div', { class: 'sc-tabs' });
+  const paint = () => {
+    tabs.replaceChildren(...[['screen', 'SCREENS'], ['window', 'WINDOWS']].filter(([k]) => p.sources.some((s) => s.kind === k)).map(([k, l]) => h('button', { class: k === kind ? 'on' : '', onclick: () => { kind = k; sel = null; paint(); } }, l)));
+    grid.replaceChildren(...p.sources.filter((s) => s.kind === kind).map((s) => h('button', { class: `sc-src${sel === s.id ? ' on' : ''}`, title: s.name, onclick: () => { sel = s.id; paint(); }, ondblclick: () => done(s.id) },
+      h('span', { class: 'th' }, s.thumb ? h('img', { src: s.thumb, alt: '' }) : null),
+      h('span', { class: 'nm' }, s.icon ? h('img', { src: s.icon, alt: '' }) : null, h('span', {}, s.name)))));
+    share.disabled = !sel;
+  };
+  const box = h('div', { class: 'v1-scr enter' },
+    h('div', { class: 'sh-crumb' }, h('i', {}), h('b', {}, '音'), h('span', {}, 'SHARE / SCREEN'), h('em', {})),
+    h('h1', {}, 'Share your screen'),
+    h('p', { class: 'sub' }, h('b', {}, host), ' wants to see your screen. Pick what it can see. You can stop sharing any time.'),
+    tabs, grid,
+    h('div', { class: 'sc-foot' },
+      p.audio ? h('label', { class: 'sc-aud' }, (() => { const c = h('input', { type: 'checkbox', checked: audio, onchange: () => { audio = c.checked; } }); return c; })(), h('span', {}, 'Share sound too')) : h('span', {}),
+      h('button', { onclick: () => done(null) }, 'CANCEL'), share));
+  layer.append(box);
+  SCR.open = { id: p.id, layer };
+  paint();
+  function done(sourceId) {
+    if (!SCR.open) return;
+    oto.replyScreen(p.id, sourceId, sourceId && audio);
+    layer.remove(); SCR.open = null;
+    if (sourceId) toast(`Sharing with ${host}`, { icon: 'eye', timeout: 2600 });
+    const next = SCR.queue.shift(); if (next) v1ScreenPick(next);
+  }
+}
+
 function initV1j() {
+  // A stopped page load looks like "cancelled" to the tab, so show the warning page ourselves.
+  oto.on('danger', (d) => {
+    if (!d || !d.wcId) return;
+    SHP_DANGER.set(d.wcId, d);
+    const show = () => {
+      if (SHP_DANGER.get(d.wcId) !== d) return;
+      const tabId = wcToTab.get(d.wcId), v = tabId && V.get(tabId), t = tabId && tabById(tabId);
+      if (!v) return;
+      v.error = { code: 'danger', desc: d.kind, url: d.url }; v.loading = false;
+      if (t) { t.url = d.url; t.title = hostOf(d.url); }
+      render(); if (S.active[S.activeWs] === tabId) updateChrome();
+    };
+    setTimeout(show, 150); setTimeout(show, 700);
+  });
+  oto.on('screen:pick', (p) => v1ScreenPick(p));
+  oto.on('screen:cancel', (id) => { if (SCR.open && SCR.open.id === id) { SCR.open.layer.remove(); SCR.open = null; } SCR.queue = SCR.queue.filter((x) => x.id !== id); });
   Object.assign(ICONS, SHP_ICONS);
   // YouTube switches on every YouTube page
   const _bind = bindView;

@@ -3,6 +3,8 @@
 // ("This browser or app may not be secure"). On Google's sign-in pages only, fill in the standard Chrome
 // properties so signing in works like in Chrome.
 // Also: sites set to "Autoplay: Block" in Site permissions don't start video or sound until you click the page.
+// YouTube: the ads are removed from the player's data before the player reads it (like uBlock Origin does),
+// and if an ad still starts, it is skipped.
 // Fingerprint protection: canvas, WebGL and audio readouts get tiny changes that are the same on one site
 // for one session and different everywhere else, so sites can't recognise this PC by them.
 // Nothing is read from the page.
@@ -63,6 +65,7 @@ try {
     });
   }
   if (site.fp) run(otoFarble, site.fp);
+  if (site.yt) run(otoYouTubeAds);
   if (site.autoplay) {
     const hold = () => {
       const P = HTMLMediaElement.prototype, play = P.play;
@@ -154,4 +157,43 @@ function otoFarble(seed) {
     } catch (e) {}
   }
   patch(window);
+}
+
+// Runs in YouTube pages before YouTube's own scripts.
+function otoYouTubeAds() {
+  const KEYS = ['adPlacements', 'playerAds', 'adSlots', 'adBreakHeartbeatParams'];
+  const strip = (o) => { if (o && typeof o === 'object') for (const k of KEYS) if (k in o) { try { delete o[k]; } catch (e) {} } };
+  const prune = (o) => {
+    try {
+      if (!o || typeof o !== 'object') return o;
+      strip(o); strip(o.playerResponse);
+      if (Array.isArray(o)) for (const x of o) if (x && typeof x === 'object') strip(x.playerResponse);
+    } catch (e) {}
+    return o;
+  };
+  const disguise = (fn, orig) => { try { const s = Function.prototype.toString.call(orig); Object.defineProperty(fn, 'toString', { value: () => s, configurable: true }); } catch (e) {} return fn; };
+  const jp = JSON.parse;
+  JSON.parse = disguise(function parse() { return prune(jp.apply(this, arguments)); }, jp);
+  const rj = Response.prototype.json;
+  Response.prototype.json = disguise(function json() { return rj.apply(this, arguments).then(prune); }, rj);
+  // The first video's data is written straight into the page
+  for (const name of ['ytInitialPlayerResponse', 'playerResponse']) {
+    let val;
+    try { Object.defineProperty(window, name, { configurable: true, get() { return val; }, set(v) { val = prune(v); } }); } catch (e) {}
+  }
+  // Safety net: if an ad still starts, jump to its end and press Skip; sound comes back for the real video.
+  let mutedByOto = false;
+  setInterval(() => {
+    try {
+      const p = document.querySelector('.html5-video-player');
+      if (!p) return;
+      const v = p.querySelector('video');
+      if (p.classList.contains('ad-showing')) {
+        if (v && !v.muted) { v.muted = true; mutedByOto = true; }
+        if (v && isFinite(v.duration) && v.duration > 0 && v.currentTime < v.duration - 0.1) v.currentTime = v.duration;
+        const b = document.querySelector('.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-ad-skip-button-container button');
+        if (b) b.click();
+      } else if (mutedByOto && v) { v.muted = false; mutedByOto = false; }
+    } catch (e) {}
+  }, 250);
 }

@@ -3,6 +3,23 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.2.0 — 2026-11-07
+
+*A security release: a newer engine, dangerous-site warnings, safer passwords and screen sharing.*
+
+**Security**
+- **Newer engine** — Oto now runs on Electron 45 with Chromium 156 (was Chromium 152), with every security fix since. Small engine updates keep arriving by themselves every day.
+- **Dangerous-site warnings** — like Chrome's Safe Browsing: Oto stops known malware and phishing sites before they open and shows a warning page (you can still continue if you're sure). The lists come from URLhaus (abuse.ch) and are updated twice a day; the check happens on your PC and nothing is sent anywhere. Works even with ad blocking turned off. Switch in Oto Shield → *Blocking*.
+- **Saved passwords are safer** — Oto's save and fill helpers now run in a hidden, separate part of the page that the website's own scripts can't see or fake, and a password is only filled after a real click on your account. Before, a script on a login page could ask Oto to fill a saved password without you clicking. Logins on pages without HTTPS now show a warning in the account list.
+
+**New**
+- **Screen sharing** — Google Meet, Discord, Zoom, Teams and other sites can share your screen or a window now, with Oto's own picker (and "Share sound too" on Windows).
+- **Ad boxes added after the page loads** are hidden now too (the common Google ad boxes and friends), not only the ones there from the start.
+- **Settings → About → Versions** — every version in one place: Oto (and whether an update is downloading or ready), Chromium, Electron, Widevine, Node and V8, when the filter lists and the dangerous-site list were last updated, the newest Oto for Android and your Windows version. *Copy* puts it all on the clipboard for bug reports.
+
+**Fixed**
+- **YouTube no longer gets stuck before a video** — sometimes the player waited for an ad that Oto had blocked and showed nothing until you reloaded. Oto now removes the ads from YouTube's player data before the player reads it, and skips any ad that still starts.
+
 ## 1.1.0 — 2026-11-07
 
 *Oto Shield grows up: a privacy dashboard, protection levels, YouTube switches and one page for every site's permissions.*

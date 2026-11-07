@@ -4,7 +4,9 @@
 // Injected into pages: notices a login being sent (form submit, Enter in a password box, clicking a
 // submit button) and reports the username + password to Oto, which then offers to save them.
 // Also remembers the username typed on step one of two-step logins (like Google's).
-const PW_CAPTURE = `(() => {
+// Runs in a separate, hidden JavaScript world (page scripts can't see it or fake its messages:
+// every message carries a secret made fresh for each page).
+const PW_CAPTURE = (nonce) => `(() => {
   if (window.__otoPw) return; window.__otoPw = 1;
   const textish = (x) => x && x.tagName === 'INPUT' && /^(text|email|tel|)$/i.test(x.getAttribute('type') || '');
   const userish = (x) => textish(x) && /user|mail|login|identifier|account|phone|name/i.test((x.name || '') + ' ' + (x.id || '') + ' ' + (x.autocomplete || '') + ' ' + (x.placeholder || ''));
@@ -25,7 +27,7 @@ const PW_CAPTURE = `(() => {
     const k = c.u + '\\n' + c.p;
     if (k === last) return;
     last = k;
-    console.debug('__oto_pw__' + JSON.stringify(c));
+    console.debug('__oto_pw__${nonce}' + JSON.stringify(c));
   };
   document.addEventListener('submit', (e) => send(e.target), true);
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.type === 'password') send(e.target.form || document); }, true);
@@ -44,9 +46,14 @@ const PW_CAPTURE = `(() => {
 // Injected into pages that have saved logins: when you click a username or password box, a small
 // list of your saved accounts appears under it. Picking one asks Oto to fill it — the password only
 // enters the page at that moment.
-const PW_CHOOSER = `(() => {
-  if (window.__otoFill) return; window.__otoFill = 1;
-  const logins = () => window.__otoLogins || [];
+// Also in the hidden world: only a real click (not a script) on one of these buttons asks Oto to fill.
+const PW_CHOOSER = (nonce, list) => `(() => {
+  const LOGINS = ${JSON.stringify(list)};
+  if (window.__otoFill) { window.__otoFill(LOGINS); return; }
+  let current = LOGINS;
+  window.__otoFill = (l) => { current = l; };
+  const logins = () => current;
+  const insecure = location.protocol === 'http:' && !/^(localhost|127\\.0\\.0\\.1|\\[::1\\])$/.test(location.hostname);
   const textish = (x) => x && x.tagName === 'INPUT' && /^(text|email|tel|)$/i.test(x.getAttribute('type') || '');
   const isPass = (x) => x && x.tagName === 'INPUT' && x.type === 'password' && x.autocomplete !== 'new-password';
   const hasPass = (x) => !!(x.form ? x.form.querySelector('input[type=password]') : document.querySelector('input[type=password]'));
@@ -66,7 +73,7 @@ const PW_CHOOSER = `(() => {
     const box = document.createElement('div');
     box.style.cssText = 'position:fixed;left:' + Math.max(4, r.left) + 'px;top:' + (r.bottom + 4) + 'px;min-width:' + Math.max(220, r.width) + 'px;max-width:360px;background:#1b1a22;color:#f4f2fb;border-radius:12px;padding:6px;box-shadow:0 12px 32px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.08);font:13px "Segoe UI",system-ui,sans-serif;';
     const head = document.createElement('div');
-    head.textContent = 'Oto · saved logins';
+    head.textContent = insecure ? 'Oto · saved logins · ⚠ this page isn’t secure' : 'Oto · saved logins';
     head.style.cssText = 'font-size:11px;opacity:.6;padding:4px 8px 6px;';
     box.appendChild(head);
     for (const l of list.slice(0, 6)) {
@@ -82,7 +89,7 @@ const PW_CHOOSER = `(() => {
       t.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
       b.append(key, t);
       b.addEventListener('mousedown', (e) => e.preventDefault());
-      b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); hide(); console.debug('__oto_pwfill__' + l.id); });
+      b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (!e.isTrusted) return; hide(); console.debug('__oto_pwfill__${nonce}:' + l.id); });
       box.appendChild(b);
     }
     sh.appendChild(box);
@@ -97,22 +104,6 @@ const PW_CHOOSER = `(() => {
   if (a && (isPass(a) || (userish(a) && hasPass(a)))) show(a);
 })();`;
 
-const pwFillCode = (u, p) => `((u, p) => {
-  const vis = (x) => x && x.offsetParent !== null && !x.disabled && !x.readOnly;
-  const set = (el, v) => { if (!el) return; const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value'); d.set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
-  const a = document.activeElement;
-  const pass = a && a.type === 'password' ? a : [...document.querySelectorAll('input[type=password]')].find(vis);
-  const scope = (pass && pass.form) || (a && a.form) || document;
-  const texts = [...scope.querySelectorAll('input')].filter((x) => vis(x) && /^(text|email|tel|)$/i.test(x.getAttribute('type') || ''));
-  let user = null;
-  if (a && texts.includes(a)) user = a;
-  else if (pass) { const all = [...scope.querySelectorAll('input')]; const i = all.indexOf(pass); user = texts.filter((x) => all.indexOf(x) < i).pop() || null; }
-  else user = texts.find((x) => /user|mail|login|identifier|account|phone/i.test((x.name || '') + (x.id || '') + (x.autocomplete || ''))) || texts[0] || null;
-  if (user && u) set(user, u);
-  if (pass) { set(pass, p); pass.focus(); }
-  return { user: !!user, pass: !!pass };
-})(${JSON.stringify(u)}, ${JSON.stringify(p)})`;
-
 // ---- per-page wiring
 const pwPending = new Map(); // tab id -> { u, p, at, origin }
 const pwSitesCache = { at: 0, origins: new Set() };
@@ -125,22 +116,27 @@ async function pwRefreshCache() {
 const originOf = (u) => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.origin : null; } catch { return null; } };
 const pwNever = () => (S.settings.pwNever = S.settings.pwNever || []);
 
+const pwNonce = () => [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
 async function pwInject(tab, v) {
-  const url = tab.url;
+  const url = wv(v, (w) => w.getURL(), tab.url);
   if (!originOf(url)) return;
-  if (S.settings.pwOffer !== false && !pwNever().includes(originOf(url))) wv(v, (w) => w.executeJavaScript(PW_CAPTURE).catch(() => {}));
+  if (!v.wcId) mapWebContents(tab, v);
+  if (!v.wcId) return;
+  v.pwNonce = pwNonce();
+  if (S.settings.pwOffer !== false && !pwNever().includes(originOf(url))) oto.pwInject(v.wcId, PW_CAPTURE(v.pwNonce)).catch(() => {});
   if (S.settings.pwFill === false) return;
   const list = await oto.pwForOrigin(url).catch(() => []);
   if (!list.length) return;
-  wv(v, (w) => w.executeJavaScript(`window.__otoLogins = ${JSON.stringify(list.map((e) => ({ id: e.id, u: e.username })))};${PW_CHOOSER}`).catch(() => {}));
+  oto.pwInject(v.wcId, PW_CHOOSER(v.pwNonce, list.map((e) => ({ id: e.id, u: e.username })))).catch(() => {});
 }
+// The password goes from Oto's main process straight into the page's login box (in the hidden world),
+// only if the page is still on the site the login belongs to. It never passes through this window.
 async function pwFill(tab, id) {
   const v = V.get(tab.id);
-  const cred = await oto.pwGet(id);
-  if (!v || !cred) return;
-  if (originOf(tab.url) !== cred.origin) return; // never fill a login into a different site
-  const r = await wv(v, (w) => w.executeJavaScript(pwFillCode(cred.username, cred.password)).catch(() => null), null);
-  if (r && !r.user && !r.pass) toast('No login box found on this page', { timeout: 1800 });
+  if (!v || !v.wcId) return;
+  const r = await oto.pwFillInto(v.wcId, id).catch(() => null);
+  if (r && r.needPin) return toast('Unlock Oto to use saved passwords', { timeout: 2000 });
+  if (r && r.ok && !r.user && !r.pass) toast('No login box found on this page', { timeout: 1800 });
 }
 
 function pwBindView(tab, v) {
@@ -148,10 +144,12 @@ function pwBindView(tab, v) {
   el.addEventListener('dom-ready', () => pwInject(tab, v));
   el.addEventListener('console-message', (e) => {
     const m = e.message || '';
-    if (m.startsWith('__oto_pwfill__')) { pwFill(tab, m.slice(14)); return; }
-    if (!m.startsWith('__oto_pw__')) return;
+    if (!v.pwNonce) return;
+    const fillTag = `__oto_pwfill__${v.pwNonce}:`, saveTag = `__oto_pw__${v.pwNonce}`;
+    if (m.startsWith(fillTag)) { pwFill(tab, m.slice(fillTag.length)); return; }
+    if (!m.startsWith(saveTag)) return;
     let c;
-    try { c = JSON.parse(m.slice(10)); } catch { return; }
+    try { c = JSON.parse(m.slice(saveTag.length)); } catch { return; }
     if (!c || !c.p || typeof c.p !== 'string') return;
     const origin = originOf(tab.url);
     if (!origin || S.settings.pwOffer === false || pwNever().includes(origin)) return;

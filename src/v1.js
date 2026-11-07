@@ -682,6 +682,8 @@ function v1ErrorPage(v) {
   const offline = e.code === -106 || ((e.code === -105 || e.code === -137 || e.code === -21) && !navigator.onLine);
   const cert = typeof e.code === 'number' && e.code <= -200 && e.code > -300;
   const crash = e.code === 'crash';
+  const danger = typeof SHP_DANGER !== 'undefined' && SHP_DANGER.get(v.wcId);
+  const isDanger = !!(danger && (e.code === 'danger' || e.code === -20 || e.code === -27) && hostOf(danger.url) === hostOf(u));
   const key = `${e.code}|${u}`;
   if (V1E.key !== key) { V1E.key = key; if (!offline) V1E.tries = 0; }
   v1StopRetry();
@@ -691,6 +693,14 @@ function v1ErrorPage(v) {
     kind = 'offline'; title = 'You’re offline';
     msg = h('p', {}, 'Oto can’t reach ', h('b', {}, host), ' because your internet connection is off. Your tabs are safe — Oto opens the page by itself as soon as you’re back.');
     btns = [btn('Try again', 'reload', v1Retry, true)];
+  } else if (isDanger) {
+    kind = 'danger'; art = `<span class="v1-eico red">${icon('shield')}</span>`;
+    title = danger.kind === 'phishing' ? 'This site may steal your passwords' : 'This site spreads harmful software';
+    msg = h('p', {}, h('b', {}, host), danger.kind === 'phishing'
+      ? ' is on a list of fake sites that pretend to be a real one (phishing) to get your passwords or card details. Oto stopped before it opened.'
+      : ' is on a list of sites that spread malware. Oto stopped before it opened, so nothing was downloaded.');
+    btns = [btn('Go back', 'back', () => { const w = v.wv; try { if (w.canGoBack()) w.goBack(); else closeTab(activeTab().id); } catch {} }, true),
+      btn('Continue anyway', 'alert', async () => { if (!confirm(`Open ${host} anyway? Oto thinks it is dangerous.`)) return; await oto.shield.dangerAllow(danger.host); SHP_DANGER.delete(v.wcId); try { v.wv.loadURL(danger.url); } catch {} })];
   } else if (cert) {
     kind = 'cert'; title = 'This site isn’t safe right now'; art = `<span class="v1-eico red">${icon('alert')}</span>`;
     msg = h('p', {}, 'The lock for ', h('b', {}, host), ' is broken, so someone could see or change what you send. Oto stopped before the page opened.');
@@ -707,8 +717,8 @@ function v1ErrorPage(v) {
   }
   // Oto theme: the white hole instead of the old ∞ (dimmed while offline), and a label line like the sidebar's
   const rt = typeof skinIsRt === 'function' && skinIsRt() && typeof vortexSvg === 'function';
-  if (rt && kind !== 'cert' && kind !== 'crash') art = `<span class="v1-evx${offline ? ' off' : ''}">${vortexSvg({ bg: false, live: true })}</span>`;
-  const lbl = { offline: 'OFFLINE / WAITING', cert: 'NOT SAFE / STOPPED', crash: 'TAB / CRASHED', other: 'PAGE / NOT REACHED' }[kind];
+  if (rt && kind !== 'cert' && kind !== 'crash' && kind !== 'danger') art = `<span class="v1-evx${offline ? ' off' : ''}">${vortexSvg({ bg: false, live: true })}</span>`;
+  const lbl = { offline: 'OFFLINE / WAITING', cert: 'NOT SAFE / STOPPED', danger: 'DANGEROUS / STOPPED', crash: 'TAB / CRASHED', other: 'PAGE / NOT REACHED' }[kind];
   const kids = [h('div', { class: 'art', html: art }), rt ? h('div', { class: 'v1-ecrumb' }, h('i'), h('b', {}, '音'), h('span', {}, lbl), h('em')) : null, h('h2', {}, title), msg, h('div', { class: 'btns' }, ...btns.filter(Boolean))].filter(Boolean);
   if (offline) {
     kids.push(h('div', { id: 'v1RetryLine', class: 'v1-retry' }, h('span', { class: 'rg' }), h('span', { class: 'tx' }, '')));

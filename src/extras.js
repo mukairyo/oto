@@ -390,6 +390,33 @@ function updatesSection() {
         row('Show what’s new after an update', h('a', { href: '#', onclick: (e) => { e.preventDefault(); closeSettings(); showWhatsNew({ all: true }); } }, 'See the release notes'), sw(st.showWhatsNew !== false, (on) => setPref('showWhatsNew', on))));
 }
 
+// Settings → About: what version everything is.
+function versionsSection() {
+  const grid = h('div', { class: 'ver-grid' }, h('p', { class: 'set-note' }, 'Loading…'));
+  const ago = (t) => { if (!t) return 'not yet'; const s = (Date.now() - t) / 1000; return s < 90 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} days ago`; };
+  let text = '';
+  oto.versions().then((v) => {
+    const u = v.update || {};
+    const upd = u.state === 'ready' ? `${u.version} downloaded — restart to finish` : u.state === 'downloading' ? `downloading ${u.version || ''} · ${u.percent || 0}%` : u.state === 'checking' ? 'checking…' : u.state === 'latest' ? 'up to date' : u.state === 'dev' ? 'running from source' : u.state === 'error' ? 'couldn’t check' : '';
+    const rows = [
+      ['Oto', `${v.oto}`, `${(v.channel || 'stable').replace(/^./, (c) => c.toUpperCase())} channel${upd ? ` · ${upd}` : ''}${v.latest && v.latest !== v.oto && u.state !== 'ready' ? ` · newest is ${v.latest}` : ''}`],
+      ['Chromium', v.chrome, 'the web engine — security fixes arrive with Oto updates'],
+      ['Electron', v.electron, 'castlabs build with Widevine'],
+      ['Widevine', v.widevine || '—', 'protected video (Netflix, Spotify, Disney+…)'],
+      ['Node.js · V8', `${v.node} · ${v.v8}`, ''],
+      ['Filter lists', ago(v.lists && v.lists.at), `${(v.lists && v.lists.level) || 'balanced'} level${v.lists && v.lists.mode === 'off' ? ' · blocking is off' : ''}`],
+      ['Dangerous sites', ago(v.danger && v.danger.at), v.danger && v.danger.count ? `${v.danger.count.toLocaleString()} known sites` : 'list not downloaded yet'],
+      ['Oto for Android', v.android || '—', 'newest app on the latest release'],
+      ['System', v.os, ''],
+    ];
+    text = rows.map(([k, val, sub]) => `${k}: ${val}${sub ? ` (${sub})` : ''}`).join('\n');
+    grid.replaceChildren(...rows.map(([k, val, sub]) => h('div', { class: 'vr' }, h('span', { class: 'k' }, k), h('span', { class: 'v' }, h('b', {}, val || '—'), sub ? h('small', {}, sub) : null))));
+  }).catch(() => grid.replaceChildren(h('p', { class: 'set-note' }, 'Couldn’t read the versions.')));
+  return section('Versions', grid, h('div', { class: 'ver-acts' },
+    h('button', { class: 'btn', onclick: () => { if (text) { oto.copy(text); toast('Versions copied', { icon: 'check', timeout: 1600 }); } } }, 'Copy'),
+    h('button', { class: 'btn', onclick: () => { onUpdate({ state: 'checking' }); oto.updateCheck().then((r) => { onUpdate(r); renderSettings(); }); } }, 'Check for updates')));
+}
+
 // ================================================================ hooks used by renderer.js
 function extrasBindView(tab, v) {
   const el = v.wv;

@@ -1,6 +1,6 @@
 // Oto — main process
 const {
-  app, BrowserWindow, ipcMain, session, Menu, clipboard, shell, nativeTheme, net, screen, nativeImage, webContents, dialog, safeStorage, powerMonitor,
+  app, BrowserWindow, ipcMain, session, Menu, clipboard, shell, nativeTheme, net, screen, nativeImage, webContents, dialog, safeStorage, powerMonitor, desktopCapturer,
 } = require('electron');
 const os = require('os');
 const path = require('path');
@@ -705,6 +705,7 @@ function notifyBlocked(wcId, url, domain) {
 function enableFallback(ses) {
   const list = new Set(require('./blocklist.js'));
   ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (d, cb) => {
+    if (dangerCheck(d)) return cb({ cancel: true });
     if (d.resourceType === 'mainFrame') return cb({});
     let h;
     try { h = new URL(d.url).hostname; } catch { return cb({}); }
@@ -750,13 +751,63 @@ function shieldApplyCustom() {
 }
 function shieldPatch(b) {
   const ob = b.onBeforeRequest, oh = b.onHeadersReceived, oc = b.onInjectCosmeticFilters;
-  b.onBeforeRequest = (d, cb) => (shieldAllowed(pageHostOf(d.webContentsId)) ? cb({}) : ob(d, cb));
+  b.onBeforeRequest = (d, cb) => (dangerCheck(d) ? cb({ cancel: true }) : shieldAllowed(pageHostOf(d.webContentsId)) ? cb({}) : ob(d, cb));
   b.onHeadersReceived = (d, cb) => (shieldAllowed(pageHostOf(d.webContentsId)) ? cb({}) : oh(d, cb));
   b.onInjectCosmeticFilters = async (ev, url, msg) => {
     if (shieldAllowed(shieldHost(ev.sender && ev.sender.getURL ? ev.sender.getURL() : url))) return;
     return oc(ev, url, msg);
   };
 }
+// ---- Dangerous sites (like Chrome's Safe Browsing): known malware and phishing hosts from URLhaus (abuse.ch)
+// and the phishing filter by malware-filter. Updated twice a day; the check happens on this PC, nothing is sent anywhere.
+const DANGER = { malware: new Set(), phishing: new Set(), allow: new Set(), at: 0 };
+const DANGER_LISTS = {
+  malware: ['https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-domains.txt', 'https://curbengh.github.io/malware-filter/urlhaus-filter-domains.txt', 'https://malware-filter.pages.dev/urlhaus-filter-domains.txt'],
+  phishing: ['https://malware-filter.gitlab.io/malware-filter/phishing-filter-domains.txt', 'https://curbengh.github.io/malware-filter/phishing-filter-domains.txt', 'https://malware-filter.pages.dev/phishing-filter-domains.txt'],
+};
+(() => { const d = readJSON('danger-lists.json', null); if (d) { DANGER.malware = new Set(d.malware || []); DANGER.phishing = new Set(d.phishing || []); DANGER.at = d.at || 0; } })();
+async function dangerUpdate(force) {
+  if (!force && Date.now() - DANGER.at < 12 * 3600e3) return false;
+  const out = {};
+  for (const [kind, urls] of Object.entries(DANGER_LISTS)) {
+    for (const u of urls) {
+      try {
+        const r = await net.fetch(u, { cache: 'no-store' });
+        if (!r.ok) continue;
+        const list = (await r.text()).split(/\r?\n/).map((l) => l.trim().toLowerCase()).filter((l) => l && !l.startsWith('#') && !l.startsWith('!') && /^[a-z0-9.:\[\]-]+$/.test(l));
+        if (list.length > 100) { out[kind] = list; break; }
+      } catch {}
+    }
+  }
+  if (!out.malware && !out.phishing) return false;
+  if (out.malware) DANGER.malware = new Set(out.malware);
+  if (out.phishing) DANGER.phishing = new Set(out.phishing);
+  DANGER.at = Date.now();
+  try { writeJSON('danger-lists.json', { at: DANGER.at, malware: [...DANGER.malware], phishing: [...DANGER.phishing] }); } catch {}
+  return true;
+}
+function dangerOf(host) {
+  let h = String(host || '').toLowerCase();
+  if (!h || DANGER.allow.has(h)) return '';
+  while (h.includes('.')) {
+    if (DANGER.phishing.has(h)) return 'phishing';
+    if (DANGER.malware.has(h)) return 'malware';
+    h = h.slice(h.indexOf('.') + 1);
+  }
+  return '';
+}
+// true = cancel this request. A page that is itself dangerous gets Oto's warning page instead.
+function dangerCheck(d) {
+  if (SHIELD.conf.danger === false || (!DANGER.malware.size && !DANGER.phishing.size)) return false;
+  let host = '';
+  try { const u = new URL(d.url); if (!/^(https?|wss?):$/.test(u.protocol)) return false; host = u.hostname; } catch { return false; }
+  const kind = dangerOf(host);
+  if (!kind) return false;
+  if (d.resourceType === 'mainFrame') { let wc = null; try { wc = webContents.fromId(d.webContentsId); } catch {} sendVia(wc, 'danger', { wcId: d.webContentsId, url: d.url, host, kind }); }
+  return true;
+}
+const dangerOnly = (d, cb) => cb(dangerCheck(d) ? { cancel: true } : {});
+
 const blockerSessions = new Set();
 let blockerP = null;
 async function enableBlocking(ses) {
@@ -800,6 +851,7 @@ async function shieldRebuild() {
 function disableBlocking(ses) {
   if (blocker && blocker.isBlockingEnabled(ses)) blocker.disableBlockingInSession(ses);
   if (fallbackOn) { ses.webRequest.onBeforeRequest(null); fallbackOn = false; }
+  ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, dangerOnly); // dangerous-site warnings stay on with blocking off
   blockingMode = 'off';
   return blockingMode;
 }
@@ -810,6 +862,7 @@ const ALWAYS = new Set(['fullscreen', 'clipboard-sanitized-write', 'window-manag
 let perms = {};
 let permSeq = 0;
 const pendingPerms = new Map();
+const screenPicks = new Map();
 
 function originOf(u) { try { return new URL(u).origin; } catch { return String(u || ''); } }
 // Saved choice for a site, else the default for all sites ("*|permission"), else undefined (= ask).
@@ -849,6 +902,7 @@ function setupSession(part = PARTITION) {
   ses.setPermissionRequestHandler((wc, permission, callback, details) => {
     if (ALWAYS.has(permission)) return callback(true);
     const origin = originOf(details.requestingUrl || (wc && wc.getURL()));
+    if (permission === 'display-capture') return callback(permDecide(origin, 'display-capture') !== false); // Oto's screen picker asks next
     const parts = permission === 'media' ? mediaParts(details.mediaTypes) : [permission];
     const vals = parts.map((p) => permDecide(origin, p));
     if (vals.some((v) => v === false)) return callback(false);
@@ -868,9 +922,28 @@ function setupSession(part = PARTITION) {
   ses.setPermissionCheckHandler((_wc, permission, origin, details) => {
     if (ALWAYS.has(permission)) return true;
     const o = originOf(origin);
+    if (permission === 'display-capture') return permDecide(o, 'display-capture') !== false;
     if (permission === 'media') return mediaParts(details && details.mediaType ? [details.mediaType] : []).every((p) => permDecide(o, p) === true);
     return permDecide(o, permission) === true;
   });
+  // Screen sharing (Meet, Discord, Zoom, Teams…): Oto shows its own picker of screens and windows.
+  if (ses.setDisplayMediaRequestHandler) {
+    ses.setDisplayMediaRequestHandler(async (request, callback) => {
+      const origin = originOf(request.securityOrigin || (request.frame && request.frame.url) || '');
+      if (!win || permDecide(origin, 'display-capture') === false) return callback({});
+      let sources = [];
+      const get = (types) => desktopCapturer.getSources({ types, thumbnailSize: { width: 320, height: 180 }, fetchWindowIcons: types[0] === 'window' }).catch(() => []);
+      // screens and windows separately: if listing windows fails or times out, screens still show
+      sources = (await Promise.all([get(['screen']), get(['window'])])).flat();
+      sources = sources.filter((s) => !/^Oto( |$)/.test(s.name) || s.id.startsWith('screen'));
+      if (!sources.length) return callback({});
+      const id = ++permSeq;
+      const timer = setTimeout(() => { if (screenPicks.delete(id)) { callback({}); send('screen:cancel', id); } }, 120000);
+      screenPicks.set(id, { callback, sources, timer });
+      send('screen:pick', { id, origin, audio: process.platform === 'win32' && !!request.audioRequested,
+        sources: sources.map((s) => ({ id: s.id, name: s.name, kind: s.id.startsWith('screen') ? 'screen' : 'window', thumb: s.thumbnail && !s.thumbnail.isEmpty() ? s.thumbnail.toDataURL() : '', icon: s.appIcon && !s.appIcon.isEmpty() ? s.appIcon.toDataURL() : '' })) });
+    });
+  }
   if (part === PARTITION) {
     ses.cookies.on('changed', (_e, c, _cause, removed) => {
       if (removed || !cookieBlockHosts.length || !cookieBlocked(c.domain)) return;
@@ -955,6 +1028,25 @@ function setupIPC(ses) {
     // set by the installer on a fresh install (not on updates) — the UI shows the welcome setup once
     installMarker: (() => { try { return fs.readFileSync(path.join(process.resourcesPath, 'fresh-install.txt'), 'utf8').trim() || null; } catch { return null; } })(),
   }));
+  // Settings → About: every version in one place (Oto, its engine, DRM, filter lists, Android app).
+  let androidVer = { v: '', at: 0 };
+  ipcMain.handle('app:versions', async () => {
+    let widevine = '';
+    try { const st = ecs && ecs.status ? ecs.status() : null; for (const c of Object.values(st || {})) { if (/widevine/i.test(`${c.name || ''} ${c.title || ''}`) || st.oimompecagnajdejgnnjijobebaeigek === c) { widevine = c.version || c.status || ''; break; } } } catch {}
+    if (Date.now() - androidVer.at > 3600e3) {
+      try {
+        const r = await net.fetch('https://api.github.com/repos/mukairyo/oto/releases/latest', { headers: { Accept: 'application/vnd.github+json' } });
+        if (r.ok) { const j = await r.json(); const a = (j.assets || []).map((x) => (/^Oto-Android-([0-9.]+)-arm64\.apk$/.exec(x.name) || [])[1]).find(Boolean); androidVer = { v: a || '', latest: displayVersion(String(j.tag_name || '').replace(/^v/, '')), at: Date.now() }; }
+      } catch {}
+    }
+    return {
+      oto: OTO_VERSION, channel: updateChannel(), update: updateState, latest: androidVer.latest || '',
+      chrome: process.versions.chrome, electron: process.versions.electron, node: process.versions.node, v8: process.versions.v8,
+      widevine, os: `${process.platform === 'win32' ? 'Windows' : process.platform} ${os.release()} (${process.arch})`,
+      lists: { level: shieldLevel(), at: shieldListsAt(), mode: blockingMode }, danger: { at: DANGER.at, count: DANGER.malware.size + DANGER.phishing.size },
+      android: androidVer.v,
+    };
+  });
   ipcMain.handle('state:load', () => readJSON('state.json', null));
   ipcMain.handle('app:changelog', () => { try { return fs.readFileSync(path.join(__dirname, 'CHANGELOG.md'), 'utf8'); } catch { return ''; } });
   ipcMain.on('state:save', (e, s) => { if (restoringBackup || isAvocadoUi(e.sender)) return; try { writeJSON('state.json', s); } catch {} });
@@ -1130,7 +1222,7 @@ function setupIPC(ses) {
   // Oto Shield menu
   ipcMain.handle('shield:state', (_e, url) => {
     const host = shieldHost(url);
-    return { host, allowed: shieldAllowed(host), fp: SHIELD.conf.fp !== false, annoy: shieldLevel() === 'strict', level: shieldLevel(), listsAt: shieldListsAt(), mode: blockingMode, filters: shieldLines().length, allow: [...SHIELD.allow].sort() };
+    return { host, allowed: shieldAllowed(host), fp: SHIELD.conf.fp !== false, danger: SHIELD.conf.danger !== false, dangerAt: DANGER.at, dangerCount: DANGER.malware.size + DANGER.phishing.size, annoy: shieldLevel() === 'strict', level: shieldLevel(), listsAt: shieldListsAt(), mode: blockingMode, filters: shieldLines().length, allow: [...SHIELD.allow].sort() };
   });
   ipcMain.handle('shield:site', (_e, url, allow) => {
     const host = shieldHost(url);
@@ -1176,9 +1268,20 @@ function setupIPC(ses) {
     if (ok) { try { fs.unlinkSync(bak); } catch {} } else { try { fs.renameSync(bak, f); } catch {} await shieldRebuild(); }
     return { ok, listsAt: shieldListsAt(), mode: blockingMode };
   });
+  ipcMain.handle('shield:danger', (_e, on) => { SHIELD.conf.danger = !!on; try { writeJSON('shield.json', SHIELD.conf); } catch {} return SHIELD.conf.danger; });
+  ipcMain.handle('shield:dangerAllow', (_e, host) => { const h = String(host || '').toLowerCase(); if (h) DANGER.allow.add(h); return true; }); // until Oto restarts
+  ipcMain.handle('shield:dangerUpdate', async () => { const ok = await dangerUpdate(true); return { ok, dangerAt: DANGER.at, dangerCount: DANGER.malware.size + DANGER.phishing.size }; });
   ipcMain.handle('shield:fp', (_e, on) => { SHIELD.conf.fp = !!on; try { writeJSON('shield.json', SHIELD.conf); } catch {} return SHIELD.conf.fp; });
   ipcMain.handle('shield:stats', () => pstatsView());
   ipcMain.handle('shield:statsReset', () => { PSTATS.days = {}; PSTATS.sites = {}; PSTATS.total = 0; PSTATS.since = Date.now(); pstatsSave(); return pstatsView(); });
+  ipcMain.on('screen:reply', (_e, id, sourceId, audio) => {
+    const p = screenPicks.get(id);
+    if (!p) return;
+    screenPicks.delete(id); clearTimeout(p.timer);
+    const src = sourceId && p.sources.find((s) => s.id === sourceId);
+    if (!src) return p.callback({});
+    p.callback(audio && process.platform === 'win32' ? { video: src, audio: 'loopback' } : { video: src });
+  });
   ipcMain.on('perm:reply', (_e, id, allow) => {
     const p = pendingPerms.get(id);
     if (!p) return;
@@ -1242,7 +1345,13 @@ function setupIPC(ses) {
   });
   // page-preload.js asks this once per page: should media wait for a click, and may this frame write cookies?
   ipcMain.on('oto:page', (e, frameOrigin) => {
-    const r = { autoplay: false, cookies: false, fp: 0 };
+    const r = { autoplay: false, cookies: false, fp: 0, yt: false };
+    // YouTube (also its players embedded on other sites): strip the ads out of the player's data before it reads it,
+    // so the player never waits for an ad Oto blocked (that left an empty player until you reloaded).
+    try {
+      const fh = new URL(String(frameOrigin)).hostname, top = shieldHost(e.sender.getURL());
+      r.yt = /(^|\.)(youtube\.com|youtube-nocookie\.com)$/.test(fh) && blockingMode !== 'off' && !shieldAllowed(top || fh);
+    } catch {}
     // Fingerprint protection: a number that's the same for one site during one session, different everywhere else.
     try {
       const top = shieldHost(e.sender.getURL());
@@ -1592,6 +1701,21 @@ function csvParse(text) {
   return rows.filter((r) => r.some((x) => x.trim()));
 }
 const csvCell = (v) => (/[",\n\r]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+const pwFillCode = (u, p) => `((u, p) => {
+  const vis = (x) => x && x.offsetParent !== null && !x.disabled && !x.readOnly;
+  const set = (el, v) => { if (!el) return; const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value'); d.set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
+  const a = document.activeElement;
+  const pass = a && a.type === 'password' ? a : [...document.querySelectorAll('input[type=password]')].find(vis);
+  const scope = (pass && pass.form) || (a && a.form) || document;
+  const texts = [...scope.querySelectorAll('input')].filter((x) => vis(x) && /^(text|email|tel|)$/i.test(x.getAttribute('type') || ''));
+  let user = null;
+  if (a && texts.includes(a)) user = a;
+  else if (pass) { const all = [...scope.querySelectorAll('input')]; const i = all.indexOf(pass); user = texts.filter((x) => all.indexOf(x) < i).pop() || null; }
+  else user = texts.find((x) => /user|mail|login|identifier|account|phone/i.test((x.name || '') + (x.id || '') + (x.autocomplete || ''))) || texts[0] || null;
+  if (user && u) set(user, u);
+  if (pass) { set(pass, p); pass.focus(); }
+  return { user: !!user, pass: !!pass };
+})(${JSON.stringify(u)}, ${JSON.stringify(p)})`;
 function setupPasswordIPC() {
   ipcMain.handle('pw:status', () => ({ encrypted: pwCanEncrypt(), count: pwLoad().entries.length }));
   ipcMain.handle('pw:list', () => pwOk() !== true ? [] : pwLoad().entries.map(pwPublic).sort((a, b) => a.site.localeCompare(b.site) || a.username.localeCompare(b.username)));
@@ -1612,6 +1736,20 @@ function setupPasswordIPC() {
     if (typeof patch.url === 'string' && pwOrigin(patch.url)) e.origin = pwOrigin(patch.url);
     if (typeof patch.password === 'string' && patch.password) { delete e.enc; delete e.plain; Object.assign(e, pwEnc(patch.password)); }
     e.updated = Date.now(); pwSave(); return true;
+  });
+  // Password helpers run in a hidden world of the page (world 1077): page scripts can't see or fake them.
+  const PW_WORLD = 1077;
+  const pageWc = (e, wcId) => { if (!e.sender || e.sender.getType() !== 'window') return null; const wc = webContents.fromId(Number(wcId)); return wc && !wc.isDestroyed() && wc.getType() === 'webview' ? wc : null; };
+  ipcMain.handle('pw:inject', (e, wcId, code) => { const wc = pageWc(e, wcId); if (!wc || typeof code !== 'string') return false; return wc.executeJavaScriptInIsolatedWorld(PW_WORLD, [{ code }]).then(() => true, () => false); });
+  ipcMain.handle('pw:fillInto', async (e, wcId, id) => {
+    const wc = pageWc(e, wcId);
+    if (!wc) return { ok: false };
+    const ok = pwOk(); if (ok === 'pin') return { needPin: true }; if (ok !== true) return { ok: false };
+    const cred = pwLoad().entries.find((x) => x.id === id);
+    if (!cred || pwOrigin(wc.getURL()) !== cred.origin) return { ok: false }; // never fill a login into a different site
+    cred.lastUsed = Date.now(); pwSave();
+    const r = await wc.executeJavaScriptInIsolatedWorld(PW_WORLD, [{ code: pwFillCode(cred.username, pwDec(cred)) }]).catch(() => null);
+    return { ok: true, user: !!(r && r.user), pass: !!(r && r.pass) };
   });
   ipcMain.handle('pw:delete', (_e, id) => { const d = pwLoad(); const n = d.entries.length; d.entries = d.entries.filter((x) => x.id !== id); pwSave(); return d.entries.length < n; });
   ipcMain.handle('pw:import', async () => {
@@ -1722,6 +1860,7 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => setupUpdates());
 
   app.on('will-quit', () => { if (pstatsTimer) pstatsSave(); });
+  app.whenReady().then(() => { setTimeout(() => dangerUpdate(false).catch(() => {}), 15000); setInterval(() => dangerUpdate(false).catch(() => {}), 3600e3); });
   // "Clear cookies & site data when Oto closes"
   let cleared = false;
   app.on('before-quit', (e) => {

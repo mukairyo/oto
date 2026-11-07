@@ -994,6 +994,7 @@ const PAGE_RENDER = {
           },
         }, 'Reset'))),
       updatesSection(),
+      versionsSection(),
       section('Report a problem',
         row('Something not working right?', 'Saves a small report of what the sidebar, top bar and mouse did recently, plus your layout settings. Nothing about the sites you visit is included. Send the file to whoever is helping you.',
           h('div', { class: 'btn-pair' },

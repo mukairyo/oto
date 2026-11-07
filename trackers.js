@@ -102,7 +102,16 @@ const BY = new Map();
 for (const [name, list] of Object.entries(T)) for (const d of list) BY.set(d, name);
 for (const [name, list] of Object.entries(EXTRA)) for (const d of list) if (!BY.has(d)) BY.set(d, name);
 BY.set('extmaps-api.yandex.net', 'Yandex');
-const extraFilters = (level) => [...Object.values(EXTRA).flat(), ...(level === 'strict' ? EXTRA_STRICT : [])].map((d) => `||${d}^`);
+// Common ad boxes that the downloaded lists don't hide on their own (also when a page adds them later).
+const EXTRA_COSMETIC = [
+  'ins.adsbygoogle', '.adsbygoogle', '.adsbox', '.ad-banner', '.banner-ad', '.textads', '.text-ads', '.ad-slot', '.ad-unit', '.ad-container',
+  '.ad-placeholder', '.advertisement', '.sponsored-ad', '[id^="div-gpt-ad"]', '[id^="google_ads_iframe"]', '[id^="google_ads_frame"]',
+  'iframe[src*="googlesyndication.com"]', 'iframe[src*="doubleclick.net"]', 'a[href*="doubleclick.net/"]', '[data-ad-slot]', '[data-google-query-id]',
+];
+const extraFilters = (level) => [
+  ...[...Object.values(EXTRA).flat(), ...(level === 'strict' ? EXTRA_STRICT : [])].map((d) => `||${d}^`),
+  ...EXTRA_COSMETIC.map((sel) => `##${sel}`),
+];
 
 // The company behind a request's hostname, or '' if it isn't a known tracker.
 function trackerOf(host) {
