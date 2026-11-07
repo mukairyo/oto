@@ -1,0 +1,94 @@
+# Oto for Android — builds an arm64 APK on every push to the "android" branch. The version is in android/VERSION;
+# a new release (android-v<VERSION>) is published only when that number changes. Marked pre-release on purpose:
+# it never becomes the repo's "latest" release,
+# so Oto for Windows keeps updating exactly as before (it only looks at its own tags).
+name: Android build
+
+on:
+  push:
+    branches: [android, android-dev]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+
+      - name: Newest stable GeckoView
+        run: |
+          V=$(curl -fsSL https://maven.mozilla.org/maven2/org/mozilla/geckoview/geckoview/maven-metadata.xml | sed -n 's:.*<release>\(.*\)</release>.*:\1:p' | head -1)
+          echo "GeckoView $V"
+          echo "GECKO=$V" >> "$GITHUB_ENV"
+
+      - name: Signing key
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS" ]; then echo "$KS" | base64 -d > "$RUNNER_TEMP/oto.jks"; echo "OTO_KS_FILE=$RUNNER_TEMP/oto.jks" >> "$GITHUB_ENV"; echo "Signed with the Oto key";
+          else echo "::warning::No ANDROID_KEYSTORE_B64 secret yet — this build uses a temporary key"; fi
+
+      - name: Version
+        id: ver
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=$(tr -d ' \n\r' < android/VERSION)
+          echo "v=$V" >> "$GITHUB_OUTPUT"
+          if gh release view "android-v$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "android-v$V is already released: build only"; echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Build APK
+        working-directory: android
+        env:
+          OTO_KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          OTO_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: gradle assembleRelease --no-daemon --stacktrace -PgeckoVersion="$GECKO" -PversionCode=${{ github.run_number }} -PversionName=${{ steps.ver.outputs.v }}
+
+      # android-dev: just check that it builds (no release)
+      - name: Keep the APK (dev build)
+        if: github.ref != 'refs/heads/android' || steps.ver.outputs.skip == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: oto-android-dev
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 3
+
+      - name: Publish pre-release
+        if: github.ref == 'refs/heads/android' && steps.ver.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=${{ steps.ver.outputs.v }}
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          cp "$APK" "Oto-Android-$V-arm64.apk"
+          gh release create "android-v$V" "Oto-Android-$V-arm64.apk" --prerelease --target "$GITHUB_SHA" \
+            --title "Oto for Android $V" \
+            --notes "Oto for Android $V (GeckoView $GECKO): the Oto theme, Oto Shield, tabs, and Oto account to link your phone with Oto for Windows (My phone). Download the APK on your phone and open it to install."
+          # also put the APK on the current Oto for Windows release, so both are in one place
+          W=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          case "$W" in v*) gh release upload "$W" "Oto-Android-$V-arm64.apk" --clobber --repo "$GITHUB_REPOSITORY" && echo "added to $W";; esac
+
+      # A commit message with [replace-apk] rebuilds the same version and swaps the APK on its release
+      # (and on the Oto for Windows release). Only with the real Oto key, so a temporary key never replaces it.
+      - name: Replace the APK on the release
+        if: github.ref == 'refs/heads/android' && steps.ver.outputs.skip == 'true' && contains(github.event.head_commit.message, '[replace-apk]') && env.OTO_KS_FILE != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=${{ steps.ver.outputs.v }}
+          cp "$(ls android/app/build/outputs/apk/release/*.apk | head -1)" "Oto-Android-$V-arm64.apk"
+          gh release upload "android-v$V" "Oto-Android-$V-arm64.apk" --clobber --repo "$GITHUB_REPOSITORY"
+          W=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          case "$W" in v*) gh release upload "$W" "Oto-Android-$V-arm64.apk" --clobber --repo "$GITHUB_REPOSITORY" && echo "replaced on $W";; esac
