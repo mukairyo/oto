@@ -224,7 +224,8 @@ function createWindow() {
     // v1: a space can have its own logins (its own cookie jar): persist:oto-ws-<space id>
     const sp = /^persist:oto-ws-[\w-]{1,40}$/.test(params.partition || '') ? params.partition : null;
     if (sp) prepSpaceSession(sp);
-    params.partition = sp || PARTITION;
+    // Electron 45 ignores changes to params.partition, so a page asking for any other cookie jar is refused outright.
+    if (!sp && params.partition !== PARTITION) { console.warn('[oto] refused a page with session', params.partition); return e.preventDefault(); }
     if (params.src && !/^(https?|file|about|data|view-source|chrome-extension):/i.test(params.src)) e.preventDefault();
   });
 }
@@ -308,6 +309,12 @@ function setupAvocadoSession() {
   s.setPermissionRequestHandler((_wc, p, cb) => cb(ALWAYS.has(p)));
   s.setPermissionCheckHandler((_wc, p) => ALWAYS.has(p));
   if (SH.mode() !== 'off') enableBlocking(s).catch(() => {}); else disableBlocking(s);
+  // Downloads from private windows get the same safety: stopped if they come from a dangerous site, and tagged by
+  // Windows as "from the internet" when done (Electron asks where to save them).
+  s.on('will-download', (_e, item) => {
+    try { if ((item.getURLChain ? item.getURLChain() : [item.getURL()]).some((u) => { try { return SH.dangerOf(new URL(u).hostname); } catch { return false; } })) { item.cancel(); return; } } catch {}
+    item.once('done', (_ev, st) => { const f = item.getSavePath(); if (st === 'completed' && f) { rememberFile(f); markFromInternet(f, item.getURL(), item.getReferrer ? item.getReferrer() : ''); } });
+  });
 }
 function createAvocadoWindow() {
   setupAvocadoSession();
@@ -327,7 +334,9 @@ function createAvocadoWindow() {
   ui.on('will-attach-webview', (e, webPreferences, params) => {
     delete webPreferences.preload;
     webPreferences.nodeIntegration = false; webPreferences.contextIsolation = true; webPreferences.sandbox = true;
-    params.partition = AVOCADO;
+    // Private window: only the in-memory 'avocado' session. Electron 45 ignores changes to params.partition, so a page
+    // asking for anything else (like the saved 'persist:oto' jar) is refused, never loaded where it could leave traces.
+    if (params.partition !== AVOCADO) { console.warn('[oto] refused a non-private page in a private window:', params.partition); return e.preventDefault(); }
     if (params.src && !/^(https?|file|about|data|view-source):/i.test(params.src)) e.preventDefault();
   });
   w.on('closed', () => {
@@ -664,14 +673,16 @@ function setupSession(part = PARTITION) {
     const name = item.getFilename() || 'download';
     const url = item.getURL();
     dlItems.set(id, item);
+    // A download that came from (or was redirected through) a known malware/phishing site is stopped.
+    try {
+      const chain = item.getURLChain ? item.getURLChain() : [url];
+      const bad = chain.map((u) => { try { return SH.dangerOf(new URL(u).hostname); } catch { return ''; } }).find(Boolean);
+      if (bad) { item.cancel(); send('download', { id, name, url, path: '', total: 0, received: 0, startedAt: Date.now(), state: 'cancelled', reason: 'danger', kind: bad }); return; }
+    } catch {}
     const base = () => ({ id, name: item.getSavePath() ? path.basename(item.getSavePath()) : name, url, path: item.getSavePath() || '', total: item.getTotalBytes(), received: item.getReceivedBytes(), startedAt: Math.round(item.getStartTime() * 1000) || Date.now() });
     if (!prefs.downloadsAsk) {
-      const dir = app.getPath('downloads');
-      const ext = path.extname(name);
-      const stem = path.basename(name, ext);
-      let file = path.join(dir, name);
-      for (let i = 1; fs.existsSync(file); i++) file = path.join(dir, `${stem} (${i})${ext}`);
-      item.setSavePath(file);
+      // Checked name, always inside Downloads, never overwriting an existing file (main/download-name.js)
+      try { item.setSavePath(require('./main/download-name.js').downloadPath(app.getPath('downloads'), name)); } catch { item.cancel(); return; }
     }
     // With "ask where to save", Electron shows the Save dialog itself; we report once a path is chosen.
     let announced = false;
@@ -694,6 +705,7 @@ function setupSession(part = PARTITION) {
       if (st === 'cancelled' && !file) return;
       let iconUrl = '';
       if (st === 'completed' && file) rememberFile(file);
+      if (st === 'completed' && file) markFromInternet(file, item.getURL(), item.getReferrer ? item.getReferrer() : '');
       if (st === 'completed' && file) { try { iconUrl = (await app.getFileIcon(file, { size: 'normal' })).toDataURL(); } catch {} }
       send('download', { ...base(), state: st, icon: iconUrl, doneAt: Date.now() });
     });
@@ -717,6 +729,22 @@ function setupSession(part = PARTITION) {
     writeJSON('exit-clear.json', { done: false });
   }
   return ses;
+}
+
+// ---------------------------------------------------------------- downloads: safety
+// File types that can run code when opened.
+const RISKY_FILE = /\.(exe|msi|msix|msixbundle|appx|appxbundle|bat|cmd|com|scr|pif|cpl|msc|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|lnk|url|reg|jar|dll|sys|iso|img|vhd|vhdx|application|appref-ms|gadget|inf|scf|chm|settingcontent-ms)$/i;
+// Windows' "this came from the internet" tag (Mark of the Web). Windows SmartScreen, Office Protected View and
+// others use it to warn before running or editing downloaded files. Written for every finished download.
+function markFromInternet(file, url, referrer) {
+  if (process.platform !== 'win32') return;
+  try {
+    const safe = (u) => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? `${x.origin}${x.pathname}` : ''; } catch { return ''; } };
+    const lines = ['[ZoneTransfer]', 'ZoneId=3'];
+    if (safe(referrer)) lines.push(`ReferrerUrl=${safe(referrer)}`);
+    if (safe(url)) lines.push(`HostUrl=${safe(url)}`);
+    fs.writeFileSync(`${file}:Zone.Identifier`, `${lines.join('\r\n')}\r\n`);
+  } catch (err) { console.warn('[oto] could not mark download as from the internet:', err && err.message); }
 }
 
 // ---------------------------------------------------------------- IPC
@@ -943,9 +971,18 @@ function setupIPC(ses) {
     else if (act === 'pause') it.pause();
     else if (act === 'resume' && it.canResume()) it.resume();
   });
-  ipcMain.handle('dl:open', async (_e, p) => {
+  ipcMain.handle('dl:open', async (e, p) => {
     if (!p || !fs.existsSync(p)) return 'missing';
     if (!fileAllowed(p)) return 'error';
+    // Files that can run code (programs, scripts, shortcuts, disk images …) are never opened without a clear warning.
+    if (RISKY_FILE.test(p)) {
+      const c = await dialog.showMessageBox(winOf(e), {
+        type: 'warning', buttons: ['Cancel', 'Open anyway'], defaultId: 0, cancelId: 0, noLink: true, title: 'Open this file?',
+        message: `“${path.basename(p)}” can run programs on your PC.`,
+        detail: 'Only open it if you trust where it came from. Files like this are how most viruses get in. Windows will check it too (SmartScreen).',
+      });
+      if (c.response !== 1) return 'cancelled';
+    }
     const err = await shell.openPath(p);
     return err ? 'error' : 'ok';
   });

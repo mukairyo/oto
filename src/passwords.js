@@ -16,6 +16,15 @@ async function pwRefreshCache() {
 const originOf = (u) => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.origin : null; } catch { return null; } };
 const pwNever = () => (S.settings.pwNever = S.settings.pwNever || []);
 
+// Why a password save/edit/delete didn't happen ('' = it worked).
+function pwWhy(r, isEdit) {
+  if (r === true || r === 'saved' || r === 'updated' || r === 'same') return '';
+  if (r && r.error) return r.error;
+  if (r === 'noenc') return 'Not saved: Windows can’t encrypt passwords right now, and Oto never stores them unencrypted';
+  if (r === 'diskerror') return 'Not saved: Oto couldn’t write to disk (is it full?)';
+  if (r === 'invalid') return 'Not saved: Oto only saves passwords for secure (https) sites';
+  return isEdit ? 'Couldn’t save — another saved login already uses that site and username' : 'Couldn’t save that password';
+}
 async function pwInject(tab, v) {
   const url = wv(v, (w) => w.getURL(), tab.url);
   if (!originOf(url)) return;
@@ -87,7 +96,7 @@ function showPwBar(tab, c, isUpdate) {
       onclick: async () => {
         const res = await oto.pwSave(c.origin, c.u, c.p);
         close();
-        if (res === 'noenc') return toast('Not saved: Windows can’t encrypt passwords right now, and Oto never stores them unencrypted', { timeout: 4000 });
+        if (pwWhy(res)) return toast(pwWhy(res), { icon: 'x', timeout: 4000 });
         toast(isUpdate ? 'Password updated' : 'Password saved', { icon: 'key', timeout: 1600 });
         pwRefreshCache();
         if (LIB.open && LIB.page === 'passwords') renderLibrary();
@@ -141,8 +150,12 @@ function pwForm(entry, done) {
     let url = urlIn.value.trim();
     if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
     if (!originOf(url)) { urlIn.focus(); return; }
-    if (entry) await oto.pwUpdate(entry.id, { url, username: userIn.value, password: passIn.value });
-    else { if (!passIn.value) { passIn.focus(); return; } await oto.pwSave(url, userIn.value, passIn.value); }
+    let r;
+    if (entry) r = await oto.pwUpdate(entry.id, { url, username: userIn.value, password: passIn.value });
+    else { if (!passIn.value) { passIn.focus(); return; } r = await oto.pwSave(url, userIn.value, passIn.value); }
+    // Only close the form when it really saved; otherwise say why and keep what you typed.
+    const why = pwWhy(r, !!entry);
+    if (why) return toast(why, { icon: 'x', timeout: 3500 });
     done(); pwRefreshCache(); pwLoadLib();
   };
   return h('div', { class: 'pw-form' }, urlIn, userIn,
@@ -158,8 +171,9 @@ LIB_RENDER.passwords = function passwords() {
     // Oto itself asks before exporting (a Windows dialog that explains the risk), so nothing can export silently.
     h('button', { class: 'btn', onclick: async () => { const r = await oto.pwExport(); if (r === true) toast('Passwords exported — delete the file once you’ve imported it', { timeout: 3200 }); } }, 'Export…'));
   const intro = h('p', { class: 'lib-intro' }, PWS.status && !PWS.status.encrypted
-    ? '⚠ This system doesn’t offer encryption, so passwords are stored unprotected.'
-    : 'Saved on this PC and encrypted with Windows’ own protection. When you click a login box, Oto shows your accounts for that site.');
+    ? '⚠ Windows can’t encrypt passwords right now, so Oto won’t save new ones until it can (it never stores them unencrypted).'
+    : 'Saved on this PC and encrypted with Windows’ own protection. When you click a login box, Oto shows your accounts for that site.',
+    PWS.status && PWS.status.damaged ? h('b', { style: 'display:block;margin-top:6px;color:#f59e0b' }, `⚠ Your saved-passwords file couldn’t be read, so Oto set it aside as “${PWS.status.damaged}” in Oto’s folder instead of overwriting it. Your other devices still have your synced passwords.`) : null);
   const out = [intro, tools];
   if (PWS.adding) out.push(pwForm(null, () => { PWS.adding = false; renderLibrary(); }));
   if (!list.length && !PWS.adding) {
@@ -176,7 +190,7 @@ LIB_RENDER.passwords = function passwords() {
       libBtn(shown ? 'eyeoff' : 'eye', shown ? 'Hide' : 'Show password', async () => { if (shown) delete PWS.revealed[e.id]; else { const c = await (typeof v1PwGet === 'function' ? v1PwGet(e.id) : oto.pwGet(e.id)); if (c) PWS.revealed[e.id] = c.password; } renderLibrary(); }),
       libBtn('copy', 'Copy password', async () => { const c = await (typeof v1PwGet === 'function' ? v1PwGet(e.id) : oto.pwGet(e.id)); if (c) { oto.copy(c.password); toast('Password copied', { icon: 'copy', timeout: 1400 }); } }),
       libBtn('edit', 'Edit', () => { PWS.editing = e.id; PWS.adding = false; renderLibrary(); }),
-      libBtn('trash', 'Delete', async () => { if (!confirm(`Delete the saved password for ${e.username || e.site}?`)) return; await oto.pwDelete(e.id); pwRefreshCache(); pwLoadLib(); }));
+      libBtn('trash', 'Delete', async () => { if (!confirm(`Delete the saved password for ${e.username || e.site}?`)) return; const r = await oto.pwDelete(e.id); if (r !== true) toast(pwWhy(r) || 'Couldn’t delete it', { icon: 'x', timeout: 3500 }); pwRefreshCache(); pwLoadLib(); }));
   })));
   if ((S.settings.pwNever || []).length) {
     out.push(h('div', { class: 'lib-group' }, h('h5', {}, 'Never saved for'), ...S.settings.pwNever.map((o) => libRow({},

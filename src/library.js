@@ -913,7 +913,7 @@ function initLibrary() {
     });
     libBtnEl.before(db);
   }
-  oto.on('download', onDownload);
+  oto.on('download', (d) => { if (d && d.reason === 'danger') toast(`Download blocked: ${d.name} comes from a site known for ${d.kind === 'phishing' ? 'phishing' : 'harmful software'}`, { icon: 'shield', timeout: 5000 }); onDownload(d); });
   oto.on('blocked', (_wc, n) => bumpStat('blocked', n || 1));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && LIB.open && $('#wsDialog').hidden && $('#menuLayer').hidden) { e.stopPropagation(); closeLibrary(); } }, true);
   ensureSince();

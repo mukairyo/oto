@@ -10,8 +10,9 @@ turn on sync, and sync is encrypted before it leaves your PC.
 - Oto Shield's blocked-ads counts and per-site settings.
 - Site permissions (camera, microphone, location, cookies…).
 
-All of it lives in Oto's folder in `%APPDATA%`. Private windows (Avocado) keep everything in memory and wipe it when the
-last private window closes.
+All of it lives in Oto's folder in `%APPDATA%`. Private windows (Avocado) keep cookies, site storage and cache in memory
+only, never write them to disk, and wipe them when the last private window closes. Private tabs don't go into your
+history or saved tabs. (Before 1.3.3, private tabs wrongly used the normal saved session. That's fixed and tested.)
 
 ## What leaves your PC, and why
 
@@ -34,8 +35,9 @@ happens **on your PC** against the downloaded list. No website addresses are sen
 - Before upload, your settings, Spaces, bookmarks, themes, Oto Card and (if you choose) passwords are encrypted on your PC
   with a key made from your account password. The server stores only the encrypted blob, your email address, the device
   name and when it last synced. **The server can't read your data.** Not even Oto's developer can.
-- Deleted passwords leave a small marker (site and username, never the password) for a year, so a deletion reaches your
-  other devices.
+- Deleted passwords leave a small marker (site and username, never the password) so a deletion reaches your other
+  devices. Markers don't expire; Oto keeps the newest 5,000. Only a device that stayed offline while more than 5,000
+  other logins were deleted could bring back one of the oldest.
 - If you reset your account password by email, data encrypted with the old password can't be read any more.
 - Sending a tab to your phone stores the link (encrypted) until the phone picks it up.
 - To delete your cloud data: Settings → Account & sync → **Delete cloud data**. This PC keeps its own copy.

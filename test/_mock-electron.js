@@ -39,11 +39,12 @@ function install({ canEncrypt = true } = {}) {
 // In-memory JSON files for ctx.readJSON / ctx.writeJSON
 function memFiles(init = {}) {
   const files = JSON.parse(JSON.stringify(init));
-  return {
+  const api = {
     files,
     readJSON: (n, d) => (n in files ? JSON.parse(JSON.stringify(files[n])) : d),
-    writeJSON: (n, v) => { files[n] = JSON.parse(JSON.stringify(v)); },
+    writeJSON: (n, v) => { if (api.failWrites) { const e = new Error('ENOSPC: no space left on device'); e.code = 'ENOSPC'; throw e; } files[n] = JSON.parse(JSON.stringify(v)); },
   };
+  return api;
 }
 
 module.exports = { install, memFiles, fakeIpcMain };

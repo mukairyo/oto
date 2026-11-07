@@ -1,7 +1,9 @@
 'use strict';
 // Oto — saved logins (moved out of main.js). Each password is encrypted with Windows' own data protection
-// (Electron safeStorage = DPAPI, the same thing Chrome uses). Nothing leaves the PC. The UI only ever gets
-// usernames; a password goes from here straight into the page's login box (in a hidden world of the page).
+// (Electron safeStorage = DPAPI, the same thing Chrome uses). Nothing leaves the PC except in your encrypted sync.
+// Filling a login: the password goes from here straight into the page's login box (in a hidden world of the page),
+// never through the window UI. The one exception is pw:get, used when YOU press "show" or "copy" on a saved login in
+// the Library: then Oto's own window (only it — see main/ipc-guard.js) receives that one password.
 const { app, ipcMain, dialog, safeStorage, webContents } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -15,9 +17,17 @@ module.exports = function createPasswords(ctx) {
   const pwOk = (purpose) => (ctx.account ? ctx.account.pwAllowed(purpose) : true);
   let PW = null;
   const pwCanEncrypt = () => { try { return safeStorage.isEncryptionAvailable(); } catch { return false; } };
+  let pwDamaged = '';
   function pwLoad() {
     if (PW) return PW;
     const d = readJSON(PW_FILE, null);
+    // A file that exists but can't be read is never overwritten: it's moved aside (so nothing is lost) and Oto says so.
+    const file = ctx.userFile ? ctx.userFile(PW_FILE) : null;
+    if (!(d && Array.isArray(d.entries)) && file && fs.existsSync(file)) {
+      const aside = `${file}.damaged-${Date.now()}`;
+      try { fs.renameSync(file, aside); pwDamaged = path.basename(aside); } catch { pwDamaged = PW_FILE; }
+      console.warn('[oto] passwords.json could not be read; kept as', pwDamaged);
+    }
     PW = d && Array.isArray(d.entries) ? d : { v: 1, entries: [] };
     // Older versions saved a readable copy (Base64) when Windows encryption was unavailable. Encrypt those now.
     if (pwCanEncrypt()) {
@@ -27,7 +37,19 @@ module.exports = function createPasswords(ctx) {
     }
     return PW;
   }
-  function pwSave() { try { writeJSON(PW_FILE, PW); } catch {} }
+  // Saving is all-or-nothing: the file is written to a temporary copy and swapped in (writeJSON), and if that fails the
+  // change is undone in memory too, so Oto never says "saved" for something that isn't on disk.
+  function pwSave() { try { writeJSON(PW_FILE, PW); return true; } catch (e) { console.warn('[oto] could not save passwords:', e && e.message); return false; } }
+  const DISK = Symbol('disk');
+  function pwTx(fn) {
+    const before = JSON.stringify(pwLoad());
+    let r;
+    try { r = fn(); } catch (e) { PW = JSON.parse(before); throw e; }
+    if (r === 'noenc' || r === false || r === 'same-unsaved') { if (JSON.stringify(PW) !== before) PW = JSON.parse(before); return r; }
+    if (pwSave()) return r;
+    PW = JSON.parse(before);
+    return DISK;
+  }
   // Passwords are only ever saved encrypted. If Windows can't encrypt, Oto refuses to save (never a readable copy).
   function pwEnc(plain) {
     if (!pwCanEncrypt()) return null;
@@ -60,6 +82,11 @@ module.exports = function createPasswords(ctx) {
     };
   }
   function pwSyncMerge(list, deleted) {
+    const r = pwTx(() => syncMergeMem(list, deleted));
+    if (r === DISK) throw new Error('Couldn’t save synced passwords to disk (is the disk full?)');
+    return r;
+  }
+  function syncMergeMem(list, deleted) {
     let n = 0;
     const d = pwLoad();
     for (const t of Array.isArray(deleted) ? deleted : []) {
@@ -76,29 +103,35 @@ module.exports = function createPasswords(ctx) {
       if (tomb && tomb.at >= (r.up || 0)) continue; // deleted after this copy was saved
       const ex = pwFind(r.o, u);
       if (ex && (ex.updated || 0) >= (r.up || 0)) continue;
-      const res = pwUpsert(r.o, u, r.p, r.up);
+      const res = upsertMem(r.o, u, r.p, r.up);
       if (res === 'saved' || res === 'updated') n++;
     }
-    pwSave();
     return n;
   }
   function pwFind(origin, username) { return pwLoad().entries.find((e) => e.origin === origin && e.username === username); }
   // `at`: when this version was saved (sync passes the other device's time, so the newest edit keeps winning).
-  function pwUpsert(origin, username, password, at) {
+  // In memory only; callers save through pwTx.
+  function upsertMem(origin, username, password, at) {
     const d = pwLoad();
     const now = at > 0 && at <= Date.now() + 60e3 ? at : Date.now();
     const ex = pwFind(origin, username);
-    if (ex && pwDec(ex) === password) { ex.lastUsed = now; pwSave(); return 'same'; }
+    if (ex && pwDec(ex) === password) { ex.lastUsed = Math.max(ex.lastUsed || 0, now); return 'same'; }
     const sealed = pwEnc(password);
     if (!sealed) return 'noenc';
     if (ex) {
       delete ex.enc; delete ex.plain;
       Object.assign(ex, sealed, { updated: now, lastUsed: now });
-      pwSave(); return 'updated';
+      return 'updated';
     }
     d.deleted = pwTombs().filter((t) => !(t.o === origin && t.u === username)); // saved again: no longer deleted
     d.entries.push({ id: `pw${now.toString(36)}${crypto.randomBytes(4).toString('hex')}`, origin, username, ...sealed, created: now, updated: now, lastUsed: now });
-    pwSave(); return 'saved';
+    return 'saved';
+  }
+  // `at`: when this version was saved (sync passes the other device's time, so the newest edit keeps winning).
+  // Returns 'saved' | 'updated' | 'same' | 'noenc' (Windows can't encrypt) | 'diskerror' (couldn't write the file).
+  function pwUpsert(origin, username, password, at) {
+    const r = pwTx(() => upsertMem(origin, username, password, at));
+    return r === DISK ? 'diskerror' : r;
   }
   function csvParse(text) {
     const rows = []; let row = []; let f = ''; let q = false;
@@ -127,7 +160,7 @@ module.exports = function createPasswords(ctx) {
     return { user: !!user, pass: !!pass };
   })(${JSON.stringify(u)}, ${JSON.stringify(p)})`;
   function setupPasswordIPC() {
-    ipcMain.handle('pw:status', () => ({ encrypted: pwCanEncrypt(), count: pwLoad().entries.length, unprotected: pwLoad().entries.filter((e) => e.plain && !e.enc).length }));
+    ipcMain.handle('pw:status', () => ({ encrypted: pwCanEncrypt(), count: pwLoad().entries.length, unprotected: pwLoad().entries.filter((e) => e.plain && !e.enc).length, damaged: pwDamaged }));
     ipcMain.handle('pw:list', () => pwOk() !== true ? [] : pwLoad().entries.map(pwPublic).sort((a, b) => a.site.localeCompare(b.site) || a.username.localeCompare(b.username)));
     ipcMain.handle('pw:forOrigin', (_e, url) => { if (pwOk() !== true) return []; const o = pwOrigin(url); return o ? pwLoad().entries.filter((e) => e.origin === o).sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0)).map(pwPublic) : []; });
     ipcMain.handle('pw:check', (_e, url, username, password) => {
@@ -148,10 +181,13 @@ module.exports = function createPasswords(ctx) {
       let sealed = null;
       if (typeof patch.password === 'string' && patch.password) { if (patch.password.length > 4096) return false; sealed = pwEnc(patch.password); if (!sealed) return false; }
       if ((origin !== e.origin || username !== e.username) && pwFind(origin, username)) return false; // would duplicate another login
-      if (origin !== e.origin || username !== e.username) pwTomb(e.origin, e.username); // the old site/username is gone
-      e.origin = origin; e.username = username;
-      if (sealed) { delete e.enc; delete e.plain; Object.assign(e, sealed); }
-      e.updated = Date.now(); pwSave(); return true;
+      const r = pwTx(() => {
+        if (origin !== e.origin || username !== e.username) pwTomb(e.origin, e.username); // the old site/username is gone
+        e.origin = origin; e.username = username;
+        if (sealed) { delete e.enc; delete e.plain; Object.assign(e, sealed); }
+        e.updated = Date.now(); return true;
+      });
+      return r === DISK ? { ok: false, error: 'Couldn’t save to disk — nothing was changed.' } : r;
     });
     // Password helpers run in a hidden world of the page (world 1077): page scripts can't see or fake them.
     const PW_WORLD = 1077;
@@ -183,29 +219,39 @@ module.exports = function createPasswords(ctx) {
       return { ok: true, user: !!(r && r.user), pass: !!(r && r.pass) };
     });
     ipcMain.handle('pw:delete', (_e, id) => {
-      const d = pwLoad(); const e = d.entries.find((x) => x.id === id);
-      if (!e) return false;
-      d.entries = d.entries.filter((x) => x !== e); pwTomb(e.origin, e.username); pwSave(); return true;
+      if (!pwLoad().entries.some((x) => x.id === id)) return false;
+      const r = pwTx(() => { const d = pwLoad(); const e = d.entries.find((x) => x.id === id); d.entries = d.entries.filter((x) => x !== e); pwTomb(e.origin, e.username); return true; });
+      return r === DISK ? { ok: false, error: 'Couldn’t save to disk — the login is still there.' } : r;
     });
     ipcMain.handle('pw:import', async () => {
       const r = await dialog.showOpenDialog(ctx.win, { title: 'Import passwords (CSV from Chrome, Edge, Brave, Opera or Firefox)', filters: [{ name: 'CSV', extensions: ['csv'] }], properties: ['openFile'] });
       if (r.canceled || !r.filePaths[0]) return null;
-      const rows = csvParse(fs.readFileSync(r.filePaths[0], 'utf8').replace(/^﻿/, ''));
+      let text;
+      try {
+        if (fs.statSync(r.filePaths[0]).size > 20 * 1024 * 1024) return { error: 'That file is too big to be a password export (over 20 MB).' };
+        text = await fs.promises.readFile(r.filePaths[0], 'utf8');
+      } catch (e) { return { error: `Couldn’t read that file (${e.code || e.message}).` }; }
+      const rows = csvParse(text.replace(/^\uFEFF/, ''));
+      if (rows.length > 100001) return { error: 'That file has more than 100,000 logins — split it and import the parts.' };
       if (!rows.length) return { added: 0, updated: 0 };
       const head = rows[0].map((x) => x.trim().toLowerCase());
       const col = (...names) => head.findIndex((h) => names.includes(h));
       const iu = col('url', 'origin', 'login_uri', 'website'), iuser = col('username', 'login_username', 'login', 'user'), ip = col('password', 'login_password');
       if (iu < 0 || ip < 0) return { error: 'This file doesn’t look like a password export (it needs url and password columns).' };
       if (!pwCanEncrypt()) return { error: 'Windows can’t encrypt passwords right now, so Oto won’t import them (it never stores passwords unencrypted).' };
-      let added = 0, updated = 0, insecure = 0;
-      for (const row of rows.slice(1)) {
-        const o = pwOrigin(row[iu]); const pass = row[ip];
-        if (!o || !pass) continue;
-        const res = pwUpsert(o, iuser >= 0 ? row[iuser] || '' : '', pass);
-        if (res === 'saved') added++; else if (res === 'updated') updated++;
-        if ((res === 'saved' || res === 'updated') && !pwSecure(o)) insecure++;
-      }
-      return { added, updated, insecure }; // imported http logins are kept (they're yours), but the UI says so
+      let added = 0, updated = 0, insecure = 0, skipped = 0;
+      const r2 = pwTx(() => { // all rows in one save: either the whole import lands on disk or none of it
+        for (const row of rows.slice(1)) {
+          const o = pwOrigin(row[iu]); const pass = row[ip];
+          if (!o || !pass || pass.length > 4096) { skipped++; continue; }
+          const res = upsertMem(o, String(iuser >= 0 ? row[iuser] || '' : '').slice(0, 512), pass);
+          if (res === 'saved') added++; else if (res === 'updated') updated++;
+          if ((res === 'saved' || res === 'updated') && !pwSecure(o)) insecure++;
+        }
+        return true;
+      });
+      if (r2 === DISK) return { error: 'Couldn’t save the imported passwords to disk (is it full?). Nothing was imported.' };
+      return { added, updated, insecure, skipped }; // imported http logins are kept (they're yours), but the UI says so
     });
     ipcMain.handle('pw:export', async () => {
       { const ok = pwOk('reveal'); if (ok === 'pin') return { needPin: true }; if (ok !== true) return false; }

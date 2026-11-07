@@ -238,7 +238,8 @@ function openGlance(url) {
   closeGlance(true);
   const host = $('#content');
   const wvEl = document.createElement('webview');
-  wvEl.setAttribute('partition', 'persist:oto');
+  // Same cookie jar as the tab it was opened from: private windows stay private, a Space's own logins stay in that Space.
+  wvEl.setAttribute('partition', typeof v1PartitionFor === 'function' ? v1PartitionFor(activeTab()) : 'persist:oto');
   wvEl.setAttribute('allowpopups', '');
   wvEl.setAttribute('plugins', '');
   wvEl.setAttribute('src', url);

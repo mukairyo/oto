@@ -17,6 +17,9 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      skip: ${{ steps.check.outputs.skip }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -112,6 +115,30 @@ jobs:
           else
             gh release create "v$v" "${files[@]}" "${pre[@]}" --title "Oto $v" --notes-file notes.md --target "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY"
           fi
+
+  # Downloads the installer exactly as the public gets it from the release page and checks it two ways:
+  # its SHA-256 matches SHA256SUMS.txt, and GitHub's signed build record says this workflow built it from this
+  # commit. If either fails, the run goes red so it's noticed right away.
+  verify:
+    needs: release
+    if: needs.release.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - name: Check the published installer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          V: ${{ needs.release.outputs.version }}
+        run: |
+          mkdir pub && cd pub
+          gh release download "v$V" --repo "$GITHUB_REPOSITORY" -p "Oto-Setup-$V.exe" -p "Oto-Setup-$V.exe.blockmap" -p "SHA256SUMS.txt" -p "latest*.yml"
+          sha256sum -c SHA256SUMS.txt
+          gh attestation verify "Oto-Setup-$V.exe" --repo "$GITHUB_REPOSITORY" --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
+          # latest.yml (what the updater trusts) must describe this exact installer
+          want=$(openssl dgst -sha512 -binary "Oto-Setup-$V.exe" | base64 -w0)
+          grep -q "$want" latest.yml && echo "latest.yml matches the installer"
 
   # Keeps every release's notes in step with CHANGELOG.md (so fixing a typo there fixes the release page).
   notes:

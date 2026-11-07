@@ -15,10 +15,10 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 
 const OPEN = /^(oto:page$|crx-|@ghostery\/|chromeWebstore\.|chrome\.)/;
-// Size limits per message: 1 MB normally; only the channels that carry Oto's whole saved state (or an image) may
-// send more. Strings are measured directly; objects are measured only up to the limit.
-const LIMIT = 1024 * 1024;
-const BIG = { 'state:save': 64, 'state:save-sync': 64, 'backup:save': 64, 'account:push': 32, 'settings:sync': 8, 'clipboard:image': 32, 'app:icon': 8, 'diag:save': 8 };
+// Size limits per message (counted like memory: 2 bytes per character): 1 MB normally; only the channels that carry
+// Oto's whole saved state (or an image) may send more.
+const LIMIT = 2 * 1024 * 1024;
+const BIG = { 'state:save': 128, 'state:save-sync': 128, 'backup:save': 128, 'account:push': 64, 'settings:sync': 16, 'clipboard:image': 64, 'shot:save': 128, 'app:icon': 16, 'app:install': 16, 'diag:save': 16, 'shield:filters': 16, 'devices:beat': 8 };
 
 module.exports = function guardIPC(ipcMain, appDir) {
   const UI = pathToFileURL(path.join(appDir, 'src', 'index.html')).href;
@@ -32,21 +32,28 @@ module.exports = function guardIPC(ipcMain, appDir) {
       return String(f.url || '').split(/[?#]/)[0] === UI;
     } catch { return false; }
   }
+  // Measures the whole message, however deeply nested, without re-serializing it, and stops as soon as it is over the
+  // limit (so a huge message costs no more to refuse than a small one). Also refuses very deep nesting and odd types.
   function tooBig(channel, args) {
     const max = (BIG[channel] || 0) * 1024 * 1024 || LIMIT;
-    let n = 0;
-    for (const a of args) {
-      if (typeof a === 'string') n += a.length;
-      else if (a && typeof a === 'object') {
-        if (!BIG[channel]) { try { n += JSON.stringify(a).length; } catch { return true; } } // small channels: cheap
-        else if (Array.isArray(a) ? a.length > 1e6 : Object.keys(a).length > 1e5) return true; // big ones: no full re-serialization
-      }
+    let n = 0, seen = 0;
+    const stack = args.map((v) => [v, 0]);
+    while (stack.length) {
+      const [v, depth] = stack.pop();
+      if (++seen > 2e6 || depth > 64) return true;
+      if (v == null || typeof v === 'boolean') n += 4;
+      else if (typeof v === 'number') n += 8;
+      else if (typeof v === 'string') n += v.length * 2;
+      else if (Buffer.isBuffer(v) || ArrayBuffer.isView(v)) n += v.byteLength;
+      else if (Array.isArray(v)) { n += 8; for (let i = v.length - 1; i >= 0; i--) stack.push([v[i], depth + 1]); }
+      else if (typeof v === 'object') { n += 8; for (const k of Object.keys(v)) { n += k.length * 2; stack.push([v[k], depth + 1]); } }
+      else return true; // functions, symbols, bigints never come from Oto's window
       if (n > max) return true;
     }
     return false;
   }
   const refuse = (ch, e) => {
-    if (!refused.has(ch)) { refused.add(ch); console.warn(`[oto] refused "${ch}" from ${(() => { try { return e.sender.getType() + ' ' + e.senderFrame.url; } catch { return 'unknown'; } })()}`); }
+    if (!refused.has(ch)) { refused.add(ch); console.warn(`[oto] refused "${ch}" from ${(() => { try { return `${e.sender.getType()} ${new URL(e.senderFrame.url).origin}`; } catch { return 'unknown'; } })()}`); } // origin only: full addresses can hold tokens
   };
   // The ad blocker registers the same two handlers once per session it protects. Electron allows only one
   // handler per channel, so the second session's setup threw halfway (that session got no network blocking),
