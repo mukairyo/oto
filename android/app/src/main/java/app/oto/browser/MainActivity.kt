@@ -1,6 +1,9 @@
 package app.oto.browser
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
+import android.content.pm.PackageManager
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
@@ -28,6 +31,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.appcompat.app.AppCompatActivity
 import org.json.JSONArray
 import org.json.JSONObject
@@ -39,6 +44,7 @@ import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
+import org.mozilla.geckoview.WebRequestError
 import org.mozilla.geckoview.WebResponse
 import java.net.HttpURLConnection
 import java.net.URL
@@ -50,6 +56,8 @@ class Tab(var url: String, var title: String = "") {
     var canBack = false
     var canForward = false
     var progress = 100
+    /** the dangerous page Oto just stopped in this tab (only that one can be opened with "Continue anyway") */
+    var blocked: String? = null
 }
 
 class MainActivity : AppCompatActivity() {
@@ -94,9 +102,10 @@ class MainActivity : AppCompatActivity() {
             applicationContext,
             GeckoRuntimeSettings.Builder()
                 .contentBlocking(shieldSettings(prefs.getBoolean("shield", true)))
+                .globalPrivacyControlEnabled(true) // ask sites not to sell or share your data, like Oto for Windows
                 .consoleOutput(false)
                 .build()
-        )
+        ).also { rt -> try { rt.settings.setFingerprintingProtection(prefs.getBoolean("fp", true)) } catch (e: Throwable) {} }
         buildUi()
         restoreTabs()
         intent?.dataString?.let { if (it.startsWith("http")) openTab(it) }
@@ -105,6 +114,7 @@ class MainActivity : AppCompatActivity() {
             override fun handleOnBackPressed() = goBack()
         })
         thread { checkForUpdate(false) }
+        thread { try { Danger.refresh(applicationContext) } catch (e: Throwable) {} }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -217,12 +227,176 @@ class MainActivity : AppCompatActivity() {
         sheetFrame(scroll)
     }
 
-    // Oto Shield = GeckoView's built-in blocking of ads, trackers, social trackers, fingerprinting and cryptominers
+    // Oto Shield = GeckoView's built-in blocking of ads, trackers, social trackers, fingerprinting and cryptominers,
+    // plus cookies kept per site and tracking bits stripped from links. Dangerous-site warnings (Google Safe
+    // Browsing, the same lists Firefox uses) are separate and stay on even with the Shield off.
     private fun shieldSettings(on: Boolean): ContentBlocking.Settings =
         ContentBlocking.Settings.Builder()
             .antiTracking(if (on) ContentBlocking.AntiTracking.STRICT else ContentBlocking.AntiTracking.NONE)
             .enhancedTrackingProtectionLevel(if (on) ContentBlocking.EtpLevel.STRICT else ContentBlocking.EtpLevel.NONE)
+            .cookieBehavior(if (on) ContentBlocking.CookieBehavior.ACCEPT_FIRST_PARTY_AND_ISOLATE_OTHERS else ContentBlocking.CookieBehavior.ACCEPT_NON_TRACKERS)
+            .queryParameterStrippingEnabled(on)
+            .safeBrowsing(if (prefs.getBoolean("danger", true)) ContentBlocking.SafeBrowsing.DEFAULT else ContentBlocking.SafeBrowsing.NONE)
             .build()
+
+    private fun setDanger(on: Boolean) {
+        prefs.edit().putBoolean("danger", on).apply()
+        if (on) thread { try { Danger.refresh(applicationContext) } catch (e: Throwable) {} }
+        runtime?.settings?.contentBlocking?.setSafeBrowsing(if (on) ContentBlocking.SafeBrowsing.DEFAULT else ContentBlocking.SafeBrowsing.NONE)
+        toast(if (on) "Dangerous-site warnings on" else "Dangerous-site warnings off")
+    }
+
+    private fun setFingerprint(on: Boolean) {
+        prefs.edit().putBoolean("fp", on).apply()
+        try { runtime?.settings?.setFingerprintingProtection(on) } catch (e: Throwable) {}
+        current()?.session?.reload()
+        toast(if (on) "Fingerprint protection on" else "Fingerprint protection off")
+    }
+
+    // ------------------------------------------------------------------ site permissions (camera, mic, location…)
+    private fun hostOf(u: String?): String = try { Uri.parse(u ?: "").host?.removePrefix("www.") ?: "" } catch (e: Exception) { "" }
+
+    /** Android's own permission (camera, mic, location) for Oto itself, asked when a site you allowed needs it */
+    private var androidPermCallback: GeckoSession.PermissionDelegate.Callback? = null
+    private val askAndroid = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
+        val cb = androidPermCallback; androidPermCallback = null
+        if (res.isNotEmpty() && res.values.all { it }) cb?.grant() else cb?.reject()
+    }
+
+    /** One question at a time: "<site> wants to use your camera" — Block / Allow, remembered for that site. */
+    private val askQueue = ArrayDeque<Triple<String, String, (Boolean) -> Unit>>()
+    private var asking: ((Boolean) -> Unit)? = null
+    private fun askSite(host: String, what: String, done: (Boolean) -> Unit) {
+        askQueue.addLast(Triple(host, what, done))
+        if (asking == null) nextAsk()
+    }
+    private fun nextAsk() {
+        val (host, what, done) = askQueue.removeFirstOrNull() ?: return
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(px(16), px(18), px(16), px(16)); background = box(BG, LINE2, 10) }
+        panel.addView(label("—  音  OTO // PERMISSION"))
+        panel.addView(TextView(this).apply { text = host.ifBlank { "This site" }; textSize = 28f; setTextColor(FG); typeface = Typeface.SERIF; setPadding(px(4), 0, 0, px(4)); maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
+        panel.addView(TextView(this).apply { text = "wants to $what. Oto remembers your answer for this site; change it any time in the menu → Site permissions."; textSize = 13.5f; setTextColor(FG2); setPadding(px(4), 0, px(4), px(14)) })
+        val finish = { ok: Boolean -> asking = null; closeSheet(); done(ok); root.post { nextAsk() } }
+        val btns = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        btns.addView(blockBtn("Block", false) { finish(false) }, LinearLayout.LayoutParams(0, px(44), 1f).apply { setMargins(0, 0, px(6), 0) })
+        btns.addView(blockBtn("Allow", true) { finish(true) }, LinearLayout.LayoutParams(0, px(44), 1f))
+        panel.addView(btns)
+        closeSheet()
+        sheetFrame(panel)
+        asking = done
+    }
+
+    private fun decide(host: String, kind: String, what: String): GeckoResult<Int> {
+        val P = GeckoSession.PermissionDelegate.ContentPermission.Companion
+        when (SitePerms.get(this, host, kind)) {
+            SitePerms.ALLOW -> return GeckoResult.fromValue(GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW)
+            SitePerms.BLOCK -> return GeckoResult.fromValue(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY)
+        }
+        val r = GeckoResult<Int>()
+        askSite(host, what) { ok ->
+            SitePerms.set(this, host, kind, ok)
+            r.complete(if (ok) GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW else GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY)
+        }
+        return r
+    }
+
+    private val permissionDelegate = object : GeckoSession.PermissionDelegate {
+        override fun onAndroidPermissionsRequest(session: GeckoSession, permissions: Array<out String>?, callback: GeckoSession.PermissionDelegate.Callback) {
+            val need = (permissions ?: emptyArray()).filter { ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED }
+            if (need.isEmpty()) { callback.grant(); return }
+            androidPermCallback?.reject()
+            androidPermCallback = callback
+            askAndroid.launch(need.toTypedArray())
+        }
+
+        override fun onContentPermissionRequest(session: GeckoSession, perm: GeckoSession.PermissionDelegate.ContentPermission): GeckoResult<Int>? {
+            val D = GeckoSession.PermissionDelegate
+            val allow = GeckoResult.fromValue(GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW)
+            val deny = GeckoResult.fromValue(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY)
+            val host = hostOf(perm.uri)
+            return when (perm.permission) {
+                D.PERMISSION_AUTOPLAY_INAUDIBLE, D.PERMISSION_MEDIA_KEY_SYSTEM_ACCESS, D.PERMISSION_PERSISTENT_STORAGE -> allow
+                D.PERMISSION_AUTOPLAY_AUDIBLE -> if (SitePerms.get(this@MainActivity, host, "autoplay") == SitePerms.BLOCK) deny else allow
+                // Oto for Android doesn't show web notifications, so sites aren't asked to annoy you with the question
+                D.PERMISSION_DESKTOP_NOTIFICATION -> deny
+                D.PERMISSION_GEOLOCATION -> decide(host, "location", "know your location")
+                D.PERMISSION_XR -> decide(host, "xr", "use virtual reality")
+                D.PERMISSION_STORAGE_ACCESS -> decide(host, "storage:" + hostOf(perm.thirdPartyOrigin), "use its cookies inside ${hostOf(perm.thirdPartyOrigin).ifBlank { "another site" }}")
+                else -> GeckoResult.fromValue(GeckoSession.PermissionDelegate.ContentPermission.VALUE_PROMPT)
+            }
+        }
+
+        override fun onMediaPermissionRequest(session: GeckoSession, uri: String, video: Array<out GeckoSession.PermissionDelegate.MediaSource>?, audio: Array<out GeckoSession.PermissionDelegate.MediaSource>?, callback: GeckoSession.PermissionDelegate.MediaCallback) {
+            val M = GeckoSession.PermissionDelegate.MediaSource
+            val host = hostOf(uri)
+            val kinds = listOfNotNull(if (!video.isNullOrEmpty()) "camera" else null, if (!audio.isNullOrEmpty()) "mic" else null)
+            if (kinds.isEmpty()) { callback.reject(); return }
+            val finish = { ok: Boolean ->
+                if (!ok) callback.reject()
+                else {
+                    val v = video?.firstOrNull { it.source == M.SOURCE_CAMERA } ?: video?.firstOrNull()
+                    val a = audio?.firstOrNull { it.source == M.SOURCE_MICROPHONE } ?: audio?.firstOrNull()
+                    callback.grant(v?.id, a?.id)
+                }
+            }
+            val saved = kinds.map { SitePerms.get(this@MainActivity, host, it) }
+            if (saved.any { it == SitePerms.BLOCK }) { callback.reject(); return }
+            if (saved.all { it == SitePerms.ALLOW }) { finish(true); return }
+            val what = when { kinds.size == 2 -> "use your camera and microphone"; kinds[0] == "camera" -> "use your camera"; else -> "use your microphone" }
+            askSite(host, what) { ok -> kinds.forEach { SitePerms.set(this@MainActivity, host, it, ok) }; finish(ok) }
+        }
+    }
+
+    /** Menu → Site permissions: this site's choices (tap to change), then every site you've answered for. */
+    private fun showSitePermissions() {
+        val host = current()?.url?.takeIf { it.startsWith("http") }?.let { hostOf(it) } ?: ""
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(px(14), px(18), px(14), px(10)); background = box(BG, LINE2, 10) }
+        panel.addView(label("—  音  OTO // SITE PERMISSIONS"))
+        val kinds = listOf("camera" to "Camera", "mic" to "Microphone", "location" to "Location", "autoplay" to "Autoplay with sound")
+        fun word(v: Int?, kind: String) = when (v) { SitePerms.ALLOW -> "ALLOW"; SitePerms.BLOCK -> "BLOCK"; else -> if (kind == "autoplay") "ALLOW" else "ASK" }
+        if (host.isNotEmpty()) {
+            panel.addView(TextView(this).apply { text = host; textSize = 26f; setTextColor(FG); typeface = Typeface.SERIF; setPadding(px(6), 0, 0, px(8)); maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
+            kinds.forEach { (k, name) ->
+                val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(px(6), px(13), px(6), px(13)) }
+                val v = mono(word(SitePerms.get(this, host, k), k), 10f, CREAM, 0.2f)
+                r.addView(mono(name, 11f, FG, 0.16f), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)); r.addView(v)
+                r.setOnClickListener {
+                    // Ask → Allow → Block → Ask (autoplay: Allow ⇄ Block)
+                    val now = SitePerms.get(this, host, k)
+                    val next: Boolean? = if (k == "autoplay") (if (now == SitePerms.BLOCK) null else false) else when (now) { null -> true; SitePerms.ALLOW -> false; else -> null }
+                    SitePerms.set(this, host, k, next); v.text = word(SitePerms.get(this, host, k), k)
+                }
+                panel.addView(r)
+                panel.addView(View(this).apply { setBackgroundColor(LINE) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, maxOf(1, dp.toInt())))
+            }
+        }
+        val others = SitePerms.all(this).filterKeys { it != host }
+        panel.addView(mono(if (others.isEmpty()) "No other sites yet" else "Other sites", 9f, FG3, 0.2f).apply { setPadding(px(6), px(16), 0, px(6)) })
+        others.forEach { (h, m) ->
+            val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(px(6), px(8), 0, px(8)) }
+            val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            col.addView(TextView(this).apply { text = h; textSize = 14f; setTextColor(FG); maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
+            col.addView(mono(m.entries.joinToString(" · ") { (k, v) -> (kinds.firstOrNull { it.first == k }?.second ?: k.substringBefore(':')) + " " + (if (v == SitePerms.ALLOW) "allowed" else "blocked") }, 8.5f, FG3, 0.1f).apply { isAllCaps = false })
+            r.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            r.addView(TextView(this).apply { text = "×"; textSize = 18f; setTextColor(FG2); gravity = Gravity.CENTER; setOnClickListener { SitePerms.forget(this@MainActivity, h); showSitePermissions() } }, LinearLayout.LayoutParams(px(40), px(36)))
+            panel.addView(r)
+        }
+        val scroll = ScrollView(this).apply { addView(panel) }
+        sheetFrame(scroll)
+    }
+
+    /** A web page wants to open another app (tel:, mailto:, intent:…) without you tapping: ask first. */
+    private fun confirmOpenApp(target: String, go: () -> Unit) {
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(px(16), px(18), px(16), px(16)); background = box(BG, LINE2, 10) }
+        panel.addView(label("—  音  OTO // OPEN APP"))
+        panel.addView(TextView(this).apply { text = "Open another app?"; textSize = 26f; setTextColor(FG); typeface = Typeface.SERIF; setPadding(px(4), 0, 0, px(4)) })
+        panel.addView(TextView(this).apply { text = "This page wants to open $target. Only continue if you expected that."; textSize = 13.5f; setTextColor(FG2); setPadding(px(4), 0, px(4), px(14)) })
+        val btns = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        btns.addView(blockBtn("Stay here", false) { closeSheet() }, LinearLayout.LayoutParams(0, px(44), 1f).apply { setMargins(0, 0, px(6), 0) })
+        btns.addView(blockBtn("Open", true) { closeSheet(); go() }, LinearLayout.LayoutParams(0, px(44), 1f))
+        panel.addView(btns)
+        sheetFrame(panel)
+    }
 
     private fun setShield(on: Boolean) {
         prefs.edit().putBoolean("shield", on).apply()
@@ -368,15 +542,49 @@ class MainActivity : AppCompatActivity() {
             }
             override fun onLoadRequest(session: GeckoSession, request: GeckoSession.NavigationDelegate.LoadRequest): GeckoResult<AllowOrDeny>? {
                 val scheme = Uri.parse(request.uri).scheme?.lowercase() ?: return null
+                // the buttons on Oto's warning page
+                if (scheme == "oto-back") { if (tabFor(session)?.canBack == true) session.goBack() else tabFor(session)?.let { navigate("about:blank"); it.blocked = null }; return GeckoResult.fromValue(AllowOrDeny.DENY) }
+                if (scheme == "oto-continue") {
+                    val t = tabFor(session); val u = t?.blocked
+                    if (u != null && request.hasUserGesture) { t.blocked = null; Danger.allow(Uri.parse(u).host ?: ""); session.load(GeckoSession.Loader().uri(u).flags(GeckoSession.LOAD_FLAGS_BYPASS_CLASSIFIER)) }
+                    return GeckoResult.fromValue(AllowOrDeny.DENY)
+                }
+                // Oto's own dangerous-site lists (Google Safe Browsing is checked by the engine itself, see onLoadError)
+                if ((scheme == "http" || scheme == "https") && prefs.getBoolean("danger", true)) {
+                    Danger.check(Uri.parse(request.uri).host)?.let { kind ->
+                        tabFor(session)?.blocked = request.uri
+                        session.loadUri(ErrorPage.dataUri(kind, hostOf(request.uri), "oto"))
+                        return GeckoResult.fromValue(AllowOrDeny.DENY)
+                    }
+                }
                 if (scheme in listOf("http", "https", "about", "data", "blob", "file", "resource", "javascript", "moz-extension")) return null
-                // tel:, mailto:, intent:, app links → the right app
-                return try {
-                    val i = if (scheme == "intent") Intent.parseUri(request.uri, Intent.URI_INTENT_SCHEME) else Intent(Intent.ACTION_VIEW, Uri.parse(request.uri))
-                    i.addCategory(Intent.CATEGORY_BROWSABLE); startActivity(i)
-                    GeckoResult.fromValue(AllowOrDeny.DENY)
-                } catch (e: Exception) { GeckoResult.fromValue(AllowOrDeny.DENY) }
+                // tel:, mailto:, intent:, app links → the right app. Never another app's private screens, never Oto itself,
+                // and a page that tries it without you tapping gets asked about first.
+                val i = try {
+                    (if (scheme == "intent") Intent.parseUri(request.uri, Intent.URI_INTENT_SCHEME) else Intent(Intent.ACTION_VIEW, Uri.parse(request.uri))).apply {
+                        component = null; selector = null; addCategory(Intent.CATEGORY_BROWSABLE)
+                    }
+                } catch (e: Exception) { null } ?: return GeckoResult.fromValue(AllowOrDeny.DENY)
+                if (i.`package` == packageName) return GeckoResult.fromValue(AllowOrDeny.DENY)
+                val fallback = i.getStringExtra("browser_fallback_url")?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                val launch = {
+                    try { startActivity(i) } catch (e: ActivityNotFoundException) { if (fallback != null) session.loadUri(fallback) else toast("No app can open this link") } catch (e: Exception) {}
+                }
+                if (request.hasUserGesture || request.isDirectNavigation) launch()
+                else runOnUiThread { confirmOpenApp(i.`package` ?: scheme + ": link") { launch() } }
+                return GeckoResult.fromValue(AllowOrDeny.DENY)
+            }
+            override fun onLoadError(session: GeckoSession, uri: String?, error: WebRequestError): GeckoResult<String>? {
+                val kind = when {
+                    error.category == WebRequestError.ERROR_CATEGORY_SAFEBROWSING -> if (error.code == WebRequestError.ERROR_SAFEBROWSING_PHISHING_URI) "phishing" else "malware"
+                    error.category == WebRequestError.ERROR_CATEGORY_SECURITY || error.code == WebRequestError.ERROR_BAD_HSTS_CERT -> "cert"
+                    else -> return null // other errors: the engine's own page
+                }
+                tabFor(session)?.blocked = if (kind == "cert") null else uri
+                return GeckoResult.fromValue(ErrorPage.dataUri(kind, hostOf(uri)))
             }
         }
+        s.permissionDelegate = permissionDelegate
         s.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onProgressChange(session: GeckoSession, progress: Int) { tabFor(session)?.progress = progress; if (tabFor(session) === current()) refreshBar() }
             override fun onPageStart(session: GeckoSession, url: String) { tabFor(session)?.progress = 5; refreshBar() }
@@ -469,7 +677,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ------------------------------------------------------------------ sheets (tabs, menu, update)
-    private fun closeSheet() { sheet?.let { root.removeView(it) }; sheet = null }
+    private fun closeSheet() {
+        sheet?.let { root.removeView(it) }; sheet = null
+        asking?.let { a -> asking = null; a(false); root.post { nextAsk() } }
+    }
 
     private fun sheetFrame(content: View, fromBottom: Boolean = true): FrameLayout {
         closeSheet()
@@ -561,6 +772,9 @@ class MainActivity : AppCompatActivity() {
         if (linked && t != null && t.url.startsWith("http")) pcs().forEach { d -> row("Send to ${d.name}", ago(d.seen).let { if (it == "ONLINE") "ON" else "" }) { sendToPc(d) } }
         row("Oto account", if (linked) "LINKED" else "SIGN IN") { if (linked) linkBeat { showAccount() } else showAccount() }
         row("Oto Shield", if (shieldOn) "ON" else "OFF") { setShield(!shieldOn) }
+        row("Dangerous-site warnings", if (prefs.getBoolean("danger", true)) "ON" else "OFF") { setDanger(!prefs.getBoolean("danger", true)) }
+        row("Fingerprint protection", if (prefs.getBoolean("fp", true)) "ON" else "OFF") { setFingerprint(!prefs.getBoolean("fp", true)) }
+        row("Site permissions") { showSitePermissions() }
         row("Desktop site", if (prefs.getBoolean("desktop", false)) "ON" else "OFF") { setDesktop(!prefs.getBoolean("desktop", false)) }
         row("Startup sound", if (soundOn) "ON" else "OFF") { prefs.edit().putBoolean("sound", !soundOn).apply() }
         row("Check for updates") { thread { checkForUpdate(true) } }

@@ -1,12 +1,19 @@
 # Oto for Android — builds an arm64 APK on every push to the "android" branch. The version is in android/VERSION;
 # the APK (Oto-Android-<VERSION>-arm64.apk) is added to the current Oto for Windows release when that number
 # changes, and only when it's signed with the Oto key (so phones can always update over it).
+# Engine updates: a daily job on main (android-engine.yml) starts this with engine=true. If GeckoView has a newer
+# version than the one in the last Oto for Android (android/GECKO), the version goes up by one and a new APK ships.
 name: Android build
 
 on:
   push:
     branches: [android, android-dev]
   workflow_dispatch:
+    inputs:
+      engine:
+        description: 'Only build if there is a newer GeckoView (daily engine check)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -32,7 +39,20 @@ jobs:
           echo "GeckoView $V"
           echo "GECKO=$V" >> "$GITHUB_ENV"
 
+      - name: Newer engine? (daily check)
+        if: inputs.engine
+        run: |
+          OLD=$(tr -d ' \n\r' < android/GECKO 2>/dev/null || true)
+          if [ -z "$GECKO" ] || [ "$OLD" = "$GECKO" ]; then echo "Oto for Android already has GeckoView ${OLD:-?}"; echo "STOP=1" >> "$GITHUB_ENV"; exit 0; fi
+          V=$(tr -d ' \n\r' < android/VERSION)
+          NEW=$(echo "$V" | awk -F. '{ printf "%d.%d.%d", $1, $2, ($3 == "" ? 0 : $3) + 1 }')
+          echo "$NEW" > android/VERSION
+          echo "GeckoView $OLD -> $GECKO: Oto for Android $V -> $NEW"
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/VERSION && git commit -m "Oto for Android $NEW: newer engine (GeckoView $GECKO)" && git push
+
       - name: Signing key
+        if: env.STOP != '1'
         env:
           KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
         run: |
@@ -40,6 +60,7 @@ jobs:
           else echo "::warning::No ANDROID_KEYSTORE_B64 secret yet — this build uses a temporary key"; fi
 
       - name: Version
+        if: env.STOP != '1'
         id: ver
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -52,6 +73,7 @@ jobs:
           fi
 
       - name: Build APK
+        if: env.STOP != '1'
         working-directory: android
         env:
           OTO_KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
@@ -60,7 +82,7 @@ jobs:
 
       # android-dev: just check that it builds (no release)
       - name: Keep the APK (dev build)
-        if: github.ref != 'refs/heads/android' || steps.ver.outputs.skip == 'true'
+        if: env.STOP != '1' && (github.ref != 'refs/heads/android' || steps.ver.outputs.skip == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: oto-android-dev
@@ -68,13 +90,19 @@ jobs:
           retention-days: 3
 
       - name: Put the APK on the Oto release
-        if: github.ref == 'refs/heads/android' && steps.ver.outputs.skip != 'true' && env.OTO_KS_FILE != ''
+        if: env.STOP != '1' && github.ref == 'refs/heads/android' && steps.ver.outputs.skip != 'true' && env.OTO_KS_FILE != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           V=${{ steps.ver.outputs.v }}
           cp "$(ls android/app/build/outputs/apk/release/*.apk | head -1)" "Oto-Android-$V-arm64.apk"
           gh release upload "${{ steps.ver.outputs.w }}" "Oto-Android-$V-arm64.apk" --clobber --repo "$GITHUB_REPOSITORY"
+          # remember which engine this version has, for the daily engine check
+          if [ "$(tr -d ' \n\r' < android/GECKO 2>/dev/null)" != "$GECKO" ]; then
+            echo "$GECKO" > android/GECKO
+            git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add android/GECKO && git commit -m "Oto for Android $V has GeckoView $GECKO" && git pull --rebase -q && git push || echo "::warning::couldn't save android/GECKO"
+          fi
 
       # A commit message with [replace-apk] rebuilds the same version and swaps the APK on the Oto release.
       # Only with the real Oto key, so a temporary key never replaces it.
