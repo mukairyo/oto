@@ -33,6 +33,8 @@ async function phBeat(force) {
     const key = `${m.u}|${m.at}`;
     if (PH.seenInbox.has(key)) continue;
     PH.seenInbox.add(key);
+    // Only ordinary web links are opened from another device (never file:, javascript:, data: …).
+    if (typeof m.u !== 'string' || m.u.length > 8192 || !/^https?:\/\//i.test(m.u)) continue;
     openUrl(m.u, { newTabForce: true, background: true });
     toast(`From ${m.from || 'your phone'}: ${m.t || phHost(m.u)}`, { icon: 'phone', timeout: 4200 });
   }

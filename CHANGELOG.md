@@ -17,6 +17,7 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 **Oto itself**
 - One gatekeeper now guards every channel between Oto's window and its core: only Oto's own window gets answers. Web pages, frames, extension pages and app windows are refused before anything runs.
 - Sign-in tokens and the sync key are never stored readable. If Windows can't encrypt, you stay signed in until Oto closes, and nothing readable is left on disk.
+- Tabs sent from your phone only open if they're normal web links (http/https).
 - Websites can't send you to local files or browser-internal pages (`file:`, `view-source:` …). Only you can open those, by typing them.
 - Oto-app windows only stay in the window for the app's own site and real sign-in pages (Google, Microsoft, Apple, GitHub …). Every other link opens in Oto.
 - Screen sharing: the picker is tied to the page that asked. If that page navigates away or closes, the picker closes and nothing is shared. Pressing Cancel now gives the site a clear "no". Before, Electron threw an error there, so the site kept waiting and the picker could stay open.
