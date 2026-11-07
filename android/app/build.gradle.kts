@@ -14,7 +14,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "app.oto.browser.test"
+        applicationId = "app.oto.browser"
         minSdk = 26
         targetSdk = 34
         versionCode = vCode
