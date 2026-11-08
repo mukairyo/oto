@@ -4,6 +4,7 @@
 const { ipcMain, net, webContents } = require('electron');
 const fs = require('fs');
 
+const { normHost, hostAndParents, parseHostList } = require('./hostnorm.js');
 module.exports = function createShield(ctx) {
   const { readJSON, writeJSON, userFile, sendVia } = ctx;
 
@@ -133,7 +134,7 @@ module.exports = function createShield(ctx) {
     malware: ['https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-domains.txt', 'https://curbengh.github.io/malware-filter/urlhaus-filter-domains.txt', 'https://malware-filter.pages.dev/urlhaus-filter-domains.txt'],
     phishing: ['https://malware-filter.gitlab.io/malware-filter/phishing-filter-domains.txt', 'https://curbengh.github.io/malware-filter/phishing-filter-domains.txt', 'https://malware-filter.pages.dev/phishing-filter-domains.txt'],
   };
-  (() => { const d = readJSON('danger-lists.json', null); if (d) { DANGER.malware = new Set(d.malware || []); DANGER.phishing = new Set(d.phishing || []); DANGER.at = d.at || 0; } })();
+  (() => { const d = readJSON('danger-lists.json', null); if (d) { const clean = (a) => new Set((Array.isArray(a) ? a : []).map(normHost).filter(Boolean)); DANGER.malware = clean(d.malware); DANGER.phishing = clean(d.phishing); DANGER.at = d.at || 0; } })();
   async function dangerUpdate(force) {
     if (!force && Date.now() - DANGER.at < 12 * 3600e3) return false;
     const out = {};
@@ -141,9 +142,11 @@ module.exports = function createShield(ctx) {
       for (const u of urls) {
         try {
           const r = await net.fetch(u, { cache: 'no-store' });
-          if (!r.ok) continue;
-          const list = (await r.text()).split(/\r?\n/).map((l) => l.trim().toLowerCase()).filter((l) => l && !l.startsWith('#') && !l.startsWith('!') && /^[a-z0-9.:\[\]-]+$/.test(l));
-          if (list.length > 100) { out[kind] = list; break; }
+          if (!r.ok || Number(r.headers.get('content-length') || 0) > 64 * 1024 * 1024) continue;
+          const list = parseHostList(await r.text()); // clean hosts only; null if it doesn't look like a real list
+          // A list that suddenly shrank to a fraction of the one Oto has is treated as broken or tampered: keep the old one.
+          const prev = DANGER[kind] ? DANGER[kind].size : 0;
+          if (list && !(prev > 1000 && list.length < prev * 0.25)) { out[kind] = list; break; }
         } catch {}
       }
     }
@@ -151,18 +154,15 @@ module.exports = function createShield(ctx) {
     if (out.malware) DANGER.malware = new Set(out.malware);
     if (out.phishing) DANGER.phishing = new Set(out.phishing);
     DANGER.at = Date.now();
-    try { writeJSON('danger-lists.json', { at: DANGER.at, malware: [...DANGER.malware], phishing: [...DANGER.phishing] }); } catch {}
+    try { writeJSON('danger-lists.json', { at: DANGER.at, malware: [...DANGER.malware], phishing: [...DANGER.phishing] }); } catch (e) { console.warn('[oto] could not cache dangerous-site lists:', e && e.code); } // a cache: Oto re-downloads it
     return true;
   }
   function dangerOf(host) {
-    // "evil.example." (trailing dot) and "EVIL.example" open the same site, so they must match the same list entry.
-    let h = String(host || '').toLowerCase().replace(/\.+$/, '').replace(/^\[|\]$/g, '');
-    if (!h || DANGER.allow.has(h)) return '';
-    while (h.includes('.')) {
-      if (DANGER.phishing.has(h)) return 'phishing';
-      if (DANGER.malware.has(h)) return 'malware';
-      h = h.slice(h.indexOf('.') + 1);
-    }
+    // One normal form for every way of writing the same host (main/hostnorm.js): case, trailing dots, international
+    // names, other IPv4 spellings, IPv6. Then the host and each parent domain are checked (IPs only exactly).
+    const all = hostAndParents(host);
+    if (!all.length || DANGER.allow.has(all[0])) return '';
+    for (const h of all) { if (DANGER.phishing.has(h)) return 'phishing'; if (DANGER.malware.has(h)) return 'malware'; }
     return '';
   }
   // true = cancel this request. A page that is itself dangerous gets Oto's warning page instead.
@@ -280,7 +280,7 @@ module.exports = function createShield(ctx) {
       return { ok, listsAt: shieldListsAt(), mode: blockingMode };
     });
     ipcMain.handle('shield:danger', (_e, on) => { SHIELD.conf.danger = !!on; (ctx.saveOrWarn || writeJSON)('shield.json', SHIELD.conf, 'Oto Shield settings'); return SHIELD.conf.danger; });
-    ipcMain.handle('shield:dangerAllow', (_e, host) => { const h = String(host || '').toLowerCase(); if (h) DANGER.allow.add(h); return true; }); // until Oto restarts
+    ipcMain.handle('shield:dangerAllow', (_e, host) => { const h = normHost(host); if (h) DANGER.allow.add(h); return true; }); // until Oto restarts
     ipcMain.handle('shield:dangerUpdate', async () => { const ok = await dangerUpdate(true); return { ok, dangerAt: DANGER.at, dangerCount: DANGER.malware.size + DANGER.phishing.size }; });
     ipcMain.handle('shield:fp', (_e, on) => { SHIELD.conf.fp = !!on; (ctx.saveOrWarn || writeJSON)('shield.json', SHIELD.conf, 'Oto Shield settings'); return SHIELD.conf.fp; });
     ipcMain.handle('shield:stats', () => pstatsView());
