@@ -81,6 +81,9 @@ jobs:
         # GitHub sometimes answers the castlabs Electron download with 504, and Electron's installer then fails without an
         # error: done only when Electron is really there. Up to 3 tries.
         run: n=0; until npm ci && node -e "require('fs').accessSync(require('electron'))"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
+      # the unit tests on Windows too (line endings, paths and DPAPI behave differently there)
+      - name: Unit tests (Windows)
+        run: npm test
       # uses the Electron npm ci just installed instead of downloading it a second time
       - name: Build the unpacked Windows app
         shell: bash
