@@ -237,7 +237,7 @@ module.exports = function createShield(ctx) {
       if (!host) return false;
       if (allow) SHIELD.allow.add(host);
       else { let h = host; while (h) { SHIELD.allow.delete(h); const i = h.indexOf('.'); if (i < 0) break; h = h.slice(i + 1); } }
-      try { writeJSON('shield-allow.json', [...SHIELD.allow]); } catch {}
+      (ctx.saveOrWarn || writeJSON)('shield-allow.json', [...SHIELD.allow], 'Oto Shield site exceptions');
       return shieldAllowed(host);
     });
     ipcMain.handle('shield:filters', (_e, text) => {
@@ -260,7 +260,7 @@ module.exports = function createShield(ctx) {
       if (!SHIELD_LEVELS[lvl]) lvl = 'balanced';
       const changed = lvl !== shieldLevel();
       SHIELD.conf.level = lvl; SHIELD.conf.annoy = lvl === 'strict';
-      try { writeJSON('shield.json', SHIELD.conf); } catch {}
+      (ctx.saveOrWarn || writeJSON)('shield.json', SHIELD.conf, 'Oto Shield settings');
       if (changed && blocker) await shieldRebuild();
       return { annoy: lvl === 'strict', level: shieldLevel(), mode: blockingMode, listsAt: shieldListsAt() };
     };
@@ -276,10 +276,10 @@ module.exports = function createShield(ctx) {
       if (ok) { try { fs.unlinkSync(bak); } catch {} } else { try { fs.renameSync(bak, f); } catch {} await shieldRebuild(); }
       return { ok, listsAt: shieldListsAt(), mode: blockingMode };
     });
-    ipcMain.handle('shield:danger', (_e, on) => { SHIELD.conf.danger = !!on; try { writeJSON('shield.json', SHIELD.conf); } catch {} return SHIELD.conf.danger; });
+    ipcMain.handle('shield:danger', (_e, on) => { SHIELD.conf.danger = !!on; (ctx.saveOrWarn || writeJSON)('shield.json', SHIELD.conf, 'Oto Shield settings'); return SHIELD.conf.danger; });
     ipcMain.handle('shield:dangerAllow', (_e, host) => { const h = String(host || '').toLowerCase(); if (h) DANGER.allow.add(h); return true; }); // until Oto restarts
     ipcMain.handle('shield:dangerUpdate', async () => { const ok = await dangerUpdate(true); return { ok, dangerAt: DANGER.at, dangerCount: DANGER.malware.size + DANGER.phishing.size }; });
-    ipcMain.handle('shield:fp', (_e, on) => { SHIELD.conf.fp = !!on; try { writeJSON('shield.json', SHIELD.conf); } catch {} return SHIELD.conf.fp; });
+    ipcMain.handle('shield:fp', (_e, on) => { SHIELD.conf.fp = !!on; (ctx.saveOrWarn || writeJSON)('shield.json', SHIELD.conf, 'Oto Shield settings'); return SHIELD.conf.fp; });
     ipcMain.handle('shield:stats', () => pstatsView());
     ipcMain.handle('shield:statsReset', () => { PSTATS.days = {}; PSTATS.sites = {}; PSTATS.total = 0; PSTATS.since = Date.now(); pstatsSave(); return pstatsView(); });
   }

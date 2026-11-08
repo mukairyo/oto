@@ -16,6 +16,8 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 - Saving, editing, deleting or importing passwords is all-or-nothing on disk. If the file can't be written (disk full, no permission), Oto says so and nothing changes. Before, it could say "saved" when it wasn't.
 - A saved-passwords file that can't be read is set aside under a new name, never overwritten, and the Library tells you.
 - CSV import: files over 20 MB or 100,000 rows are refused with a clear message, and read errors are explained.
+- Your account sign-in data (`account.json`) is no longer saved silently. A password change refuses to start unless its recovery data (new key, old key, encrypted by Windows) is safely on disk, or when Windows can't encrypt. Then nothing changes on the server or in the cloud. Tested with a full disk.
+- Other important saves (your tabs and settings, site permissions, Oto Shield settings and exceptions) now tell you once if the disk is full or not writable, instead of failing silently. A full disk can also no longer stop Oto from starting.
 
 **Oto Shield**
 - **Fixed a bypass:** an address with a trailing dot (`evil.example.`) opens the same site, but slipped past the dangerous-site check. Now blocked. Tested against redirects, double redirects, uppercase, subdomains, phishing and dangerous content inside normal pages (all blocked). Tracker blocking also holds against trailing-dot, uppercase, port and encoded-path tricks.

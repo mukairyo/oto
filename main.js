@@ -60,6 +60,17 @@ function send(channel, ...args) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, ...args);
 }
 
+// Saving something that matters (your settings, site permissions, Shield choices, your account): if the disk write
+// fails (disk full, no permission), the change still works until Oto closes, and you're told once — never silently.
+const saveWarned = new Set();
+function saveOrWarn(name, data, what) {
+  try { writeJSON(name, data); saveWarned.delete(name); return true; } catch (e) {
+    console.warn(`[oto] could not save ${name}:`, e && e.code ? e.code : e && e.message);
+    if (!saveWarned.has(name)) { saveWarned.add(name); try { send('save-failed', { what: what || name, code: (e && e.code) || '' }); } catch {} }
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------- keyboard
 const DEFAULT_KEYS = {
   'Shift+Escape': 'health', 'Ctrl+Shift+ ': 'overview', 'Ctrl+Shift+N': 'avocado', 'Ctrl+Shift+X': 'screenshot', 'Ctrl+Shift+H': 'hub',
@@ -414,7 +425,7 @@ const OTO_VERSION = (() => { try { return require('./package.json').otoVersion |
 // ---------------------------------------------------------------- auto-update (main/updates.js)
 // Things the main/*.js parts share with main.js (live values through getters).
 const CTX = {
-  readJSON, writeJSON, userFile, send, sendVia: (...a) => sendVia(...a), OTO_VERSION, displayVersion,
+  readJSON, writeJSON, saveOrWarn, userFile, send, sendVia: (...a) => sendVia(...a), OTO_VERSION, displayVersion,
   get win() { return win; }, get prefs() { return prefs; }, get account() { return ACCOUNT; },
 };
 const UPDATES = require('./main/updates.js')(CTX);
@@ -583,7 +594,7 @@ const mediaParts = (types) => (types && types.length ? [...new Set(types.map((t)
 let cookieBlockHosts = [];
 const bareHost = (h) => String(h || '').replace(/^\./, '').replace(/^www\./, '').toLowerCase();
 function savePerms() {
-  try { writeJSON('permissions.json', perms); } catch {}
+  saveOrWarn('permissions.json', perms, 'site permissions');
   cookieBlockHosts = Object.keys(perms).filter((k) => k.endsWith('|cookies') && perms[k] === false).map((k) => { try { return bareHost(new URL(k.split('|')[0]).hostname); } catch { return ''; } }).filter(Boolean);
 }
 const cookieBlocked = (domain) => { const d = bareHost(domain); return !!d && cookieBlockHosts.some((h) => d === h || d.endsWith(`.${h}`) || h.endsWith(`.${d}`)); };
@@ -725,8 +736,8 @@ function setupSession(part = PARTITION) {
   if (wantBlock) enableBlocking(ses); else disableBlocking(ses);
   if (part === PARTITION) {
     // Last time Oto didn't get to finish "Clear when Oto closes" (crash, forced close, power cut): do it now.
-    if (exitClearWanted() && readJSON('exit-clear.json', { done: true }).done === false) runExitClear().then((f) => { if (!f.length) writeJSON('exit-clear.json', { done: false }); }).catch(() => {});
-    writeJSON('exit-clear.json', { done: false });
+    if (exitClearWanted() && readJSON('exit-clear.json', { done: true }).done === false) runExitClear().then((f) => { if (!f.length) saveOrWarn('exit-clear.json', { done: false }); }).catch(() => {});
+    saveOrWarn('exit-clear.json', { done: false }, '“Clear when Oto closes” status'); // a full disk must never stop Oto from starting
   }
   return ses;
 }
@@ -788,8 +799,8 @@ function setupIPC(ses) {
   });
   ipcMain.handle('state:load', () => readJSON('state.json', null));
   ipcMain.handle('app:changelog', () => { try { return fs.readFileSync(path.join(__dirname, 'CHANGELOG.md'), 'utf8'); } catch { return ''; } });
-  ipcMain.on('state:save', (e, s) => { if (restoringBackup || isAvocadoUi(e.sender)) return; try { writeJSON('state.json', s); } catch {} });
-  ipcMain.on('state:save-sync', (e, s) => { if (!restoringBackup && !isAvocadoUi(e.sender)) { try { writeJSON('state.json', s); } catch {} } e.returnValue = true; });
+  ipcMain.on('state:save', (e, s) => { if (restoringBackup || isAvocadoUi(e.sender)) return; saveOrWarn('state.json', s, 'your tabs and settings'); });
+  ipcMain.on('state:save-sync', (e, s) => { e.returnValue = restoringBackup || isAvocadoUi(e.sender) ? true : saveOrWarn('state.json', s, 'your tabs and settings'); });
   ipcMain.handle('app:mode', (e) => (isAvocadoUi(e.sender) ? 'avocado' : 'main'));
   // v1 screenshots: whole long pages (via the DevTools protocol) and saving to Pictures\Oto Screenshots
   ipcMain.handle('shot:full', async (_e, wcId) => {
@@ -1218,7 +1229,7 @@ if (!app.requestSingleInstanceLock()) {
     setupExtensionIPC(ses);
     setupBookmarkIPC();
     setupPasswordIPC();
-    ACCOUNT = require('./account.js')({ ipcMain, app, safeStorage, net, readJSON, writeJSON, send, pwSyncExport, pwSyncMerge, OTO_VERSION });
+    ACCOUNT = require('./account.js')({ ipcMain, app, safeStorage, net, readJSON, writeJSON, saveOrWarn, send, pwSyncExport, pwSyncMerge, OTO_VERSION });
     setupWindowIPC();
     initExtensionAPI(ses);
     createWindow();
@@ -1236,13 +1247,13 @@ if (!app.requestSingleInstanceLock()) {
   let cleared = false;
   app.on('before-quit', (e) => {
     // sites set to "Clear when Oto closes" in Site permissions
-    if (!exitClearWanted() || cleared) { if (!exitClearWanted()) writeJSON('exit-clear.json', { done: true }); return; }
+    if (!exitClearWanted() || cleared) { if (!exitClearWanted()) { try { writeJSON('exit-clear.json', { done: true }); } catch {} } return; }
     e.preventDefault();
     cleared = true;
     SH.flushStats();
     // Up to 5 seconds; if it doesn't finish (or Oto is killed/crashes), the marker stays and the next start clears.
     Promise.race([
-      runExitClear().then((failed) => { if (!failed.length) writeJSON('exit-clear.json', { done: true, at: Date.now() }); }),
+      runExitClear().then((failed) => { if (!failed.length) { try { writeJSON('exit-clear.json', { done: true, at: Date.now() }); } catch {} } }),
       new Promise((r) => setTimeout(r, 5000)),
     ]).finally(() => app.quit());
   });
