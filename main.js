@@ -182,10 +182,10 @@ function createWindow() {
     // Oto draws its own minimise / maximise / close buttons, so the whole top can hide.
     titleBarStyle: 'hidden',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      // The UI only ever loads Oto's own local files; the preload needs Node to host
-      // the extension toolbar (<browser-action-list>). Web pages stay sandboxed.
-      sandbox: false,
+      preload: path.join(__dirname, 'preload.bundle.js'),
+      // Sandboxed like web pages (since 1.3.3): the extension toolbar module is built into preload.bundle.js
+      // (scripts/build-preload.js), so the preload needs nothing but require('electron').
+      sandbox: true,
       webviewTag: true,
       contextIsolation: true,
       nodeIntegration: false,
@@ -332,7 +332,7 @@ function createAvocadoWindow() {
   const w = new BrowserWindow({
     width: 1240, height: 800, minWidth: 720, minHeight: 480, show: false, backgroundColor: '#0e110b', title: 'Oto — Avocado', icon: ICON,
     titleBarStyle: 'hidden',
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), sandbox: false, webviewTag: true, contextIsolation: true, nodeIntegration: false, spellcheck: false },
+    webPreferences: { preload: path.join(__dirname, 'preload.bundle.js'), sandbox: true, webviewTag: true, contextIsolation: true, nodeIntegration: false, spellcheck: false },
   });
   avocadoWins.add(w);
   w.removeMenu();

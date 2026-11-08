@@ -23,8 +23,9 @@ all you need.
 
 ## How Oto protects you (and what it doesn't)
 
-**Pages are kept away from Oto itself.** Every website runs in Chromium's sandbox with no access to Node.js. Oto's own
-window only accepts messages from itself: one gatekeeper (`main/ipc-guard.js`) refuses messages from web pages, frames,
+**Pages are kept away from Oto itself.** Every website runs in Chromium's sandbox with no access to Node.js. Since
+1.3.3, so do Oto's own windows: the extension toolbar module is built into the window's preload
+(`scripts/build-preload.js`), so no window runs unsandboxed. Oto's core only accepts messages from Oto's own window: one gatekeeper (`main/ipc-guard.js`) refuses messages from web pages, frames,
 extension pages and app windows before any handler runs.
 
 **Saved passwords** are encrypted with Windows' own data protection (DPAPI, the same thing Chrome uses). If Windows
@@ -43,10 +44,19 @@ yourself:
 
 - **Automatic (every update):** Oto's updater (electron-updater) downloads only from `github.com/mukairyo/oto` releases
   over HTTPS, and refuses an installer whose SHA-512 doesn't match the one in that release's `latest.yml`.
-  Both files come from the same release, so this catches broken or swapped downloads, not a compromised GitHub account.
-- **Not automatic:** the GitHub build attestation and `SHA256SUMS.txt`. They are for people to check by hand, and the
-  updater does not verify them. There is no Windows code signature yet (Authenticode needs a paid or sponsored
-  certificate).
+  Both files come from the same release, so this alone catches broken downloads but not swapped release files.
+- **Automatic, since 1.3.3 (every update):** before an update may install, Oto checks its GitHub build record itself
+  (`main/attest.js`).
+  - The record must be signed through Sigstore's public CA. Its root certificates are built into Oto.
+  - It must name Oto's own release workflow (`release.yml` on `main` or `v1`), authenticated by GitHub Actions.
+  - It must describe exactly the downloaded file's SHA-256.
+  - It must be vouched for by Sigstore's public transparency log.
+
+  A file that fails is deleted and not installed. If GitHub can't be reached, Oto waits and tries again. It never
+  installs unchecked. Only a run of Oto's own release workflow can produce a record that passes, so uploading a changed
+  installer to a release isn't enough.
+- **Not automatic:** `SHA256SUMS.txt` (for people to check by hand). There is no Windows code signature yet
+  (Authenticode needs a paid or sponsored certificate).
 - **By hand:** check a download came from this repository's own build. In PowerShell, in the folder with the file
   (replace `X.Y.Z` with the version you downloaded):
 
@@ -70,7 +80,6 @@ from the Web Store, checking each update's signature. Private windows run no ext
 
 - **The installer is not code-signed yet**, so Windows SmartScreen warns the first time. Use the checksums or the
   attestation above to check your download.
-- Oto's own window UI runs without Chromium's sandbox (websites are sandboxed). It needs that for the extension toolbar.
 - The PC lock was removed in owner.16. Oto doesn't lock itself — use Windows sign-in to keep other people out of your PC.
 - Oto Shield's dangerous-site warnings use public malware and phishing lists. That helps, but it isn't the same as
   Google Safe Browsing.

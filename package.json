@@ -7,9 +7,9 @@
   "author": "Ryo",
   "license": "MIT",
   "scripts": {
-    "start": "electron .",
-    "dist": "electron-builder --win",
-    "pack": "electron-builder --win dir",
+    "start": "node scripts/build-preload.js && electron .",
+    "dist": "node scripts/build-preload.js && electron-builder --win",
+    "pack": "node scripts/build-preload.js && electron-builder --win dir",
     "test": "node --test --test-force-exit \"test/*.test.js\"",
     "lint": "node scripts/lint.js"
   },
@@ -40,6 +40,7 @@
       "main.js",
       "account.js",
       "preload.js",
+      "preload.bundle.js",
       "page-preload.js",
       "blocklist.js",
       "trackers.js",

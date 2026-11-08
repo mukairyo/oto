@@ -355,10 +355,11 @@ function updateText(u = UPD) {
   switch (u.state) {
     case 'checking': return 'Checking for updates…';
     case 'downloading': return `Downloading Oto ${u.version || ''}… ${u.percent ? `${u.percent}%` : ''}`;
-    case 'ready': return `Oto ${u.version} is ready — restart to finish updating`;
+    case 'verifying': return `Checking Oto ${u.version || ''} is genuine (GitHub build record)…`;
+    case 'ready': return `Oto ${u.version} is ready${u.verified ? ' and checked' : ''} — restart to finish updating`;
     case 'latest': return 'Oto is up to date';
     case 'none-published': return 'No updates published yet';
-    case 'error': return `Couldn’t check for updates${u.message ? ` (${u.message})` : ''}`;
+    case 'error': return u.message && /^Update /.test(u.message) ? u.message : `Couldn’t check for updates${u.message ? ` (${u.message})` : ''}`;
     case 'dev': return 'Updates are off when running from source';
     default: return 'Oto checks for updates automatically';
   }
@@ -374,7 +375,7 @@ function onUpdate(u) {
   const el = document.getElementById('updLine');
   if (el) el.textContent = updateText();
   const b = document.getElementById('updBtn');
-  if (b) { b.textContent = UPD.state === 'ready' ? 'Restart now' : 'Check now'; b.disabled = ['checking', 'downloading'].includes(UPD.state); }
+  if (b) { b.textContent = UPD.state === 'ready' ? 'Restart now' : 'Check now'; b.disabled = ['checking', 'downloading', 'verifying'].includes(UPD.state); }
 }
 // Owner channel: tap "Oto version" 7 times to show the owner-key box.
 let ownerTaps = 0, ownerTapT = 0, ownerKeyOpen = false;
