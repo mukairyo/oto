@@ -13,7 +13,7 @@
 1.4.0 fixes **8 confirmed problems** (2 high, 4 medium, 2 low), adds an **end-to-end test system that runs the real
 app on Linux and Windows** on every change, and makes every release depend on all checks passing.
 
-- **Tests:** 130 unit tests (was 63 in 1.3.3, 111 at the start of this work). The end-to-end suites run 70 checks on Linux
+- **Tests:** 136 unit tests (was 63 in 1.3.3, 111 at the start of this work), also run on Windows. The end-to-end suites run 71 checks on Linux
   and the same plus the Windows-only checks on Windows. All pass.
 - **Shipped dependencies:** 0 known vulnerabilities. 6 moderate advisories remain in a build-only tool, documented (§6).
 - **Pending (needs Ryo):** two test accounts for the cross-account database check, hands-on tests on a Windows 10/11
@@ -141,7 +141,7 @@ repeating 401 doesn't loop.
 
 ## 5. Test results
 
-### 5.1 Unit tests (`npm test`, Node 22): 130 pass, 0 fail
+### 5.1 Unit tests (`npm test`, Node 22, Linux and Windows): 136 pass, 0 fail
 
 New in 1.4.0: `store`, `shield`, `updates`, `extensions`, `hostnorm`, `workflows`, plus additions to `account`,
 `passwords`, `ipc-guard` and `storage`.
@@ -157,9 +157,10 @@ New in 1.4.0: `store`, `shield`, `updates`, `extensions`, `hostnorm`, `workflows
 | https | certificate warning; dangerous sites (direct, trailing dot, uppercase, redirect, Shield off) | ✅ | ✅ |
 | passwords | http refused, encrypted at rest, disk failure; **DPAPI** (Windows) | ✅ | ✅ |
 | shield | blocking in main, Space and private sessions; off/on everywhere; with a control | ✅ | ✅ |
-| extensions | not in private/Spaces, can't list those tabs, no Oto API | ✅ | runs with this push |
+| extensions | not in private/Spaces, can't list those tabs, no Oto API | ✅ | ✅ |
+| performance | page open, saves, IPC round trip, memory | ✅ | ✅ |
 
-Linux: 66/66. Windows (previous push, before the extensions suite and the new private checks): 55/55. Every
+Linux: 71/71. Windows: 73/73 (the same plus DPAPI and Mark of the Web). Every
 "can't" check has a matching "can" control, so a broken probe can't pass by accident (this caught one: real tracker
 hosts are HTTPS-only in Chromium, so the first Shield probe failed for the wrong reason).
 
@@ -234,10 +235,17 @@ plus automatic limits so a slowdown is caught later. Measured on Linux with cast
 | Memory, all processes | ~635 MB | ~632 MB (same) |
 | IPC checks per message | – | 0.5 ms for the full state save, <1 µs typical |
 | Saving a 390 KB profile | 1.5 ms (not flushed) | 2.0 ms (flushed, crash-safe) |
+| Same save on Windows (CI), main thread | – | immediate: 12–15 ms median, up to 87 ms → background: **~1 ms** |
 
 The faster restored tab comes from A1's fix: Shield attached its request hook only once its engine was built, and
 attaching a hook restarts page loads already in progress, so the first page loaded twice. Confirmed by applying only
 that fix to 1.3.4 (same ~0.5 s).
+
+Found by the Windows numbers: the flushed save of tabs and history (several times a minute) blocked Oto's main process
+for up to 87 ms. It now flushes in the background (`writeJSONAsync` in `main/store.js`); only the instant swap runs on
+the main thread, writes are numbered so an older background save can never replace newer data (such as the save when
+Oto closes; tested, and the test fails without the guard), and piled-up saves are merged. The save on close stays
+immediate.
 
 New `performance` end-to-end suite (Linux and Windows, every push and before every release): opening a page (limit 2 s
 median; measured ~0.1 s), a flushed save of a big profile on the real disk (limit 60 ms; ~2.4 ms on Linux), a message to
