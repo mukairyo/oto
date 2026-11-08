@@ -40,7 +40,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: sudo apt-get update -q && sudo apt-get install -y -q xvfb
-      - run: npm ci
+      - name: Install (with Electron)
+        shell: bash
+        # GitHub sometimes answers the castlabs Electron download with 504: try up to 3 times
+        run: n=0; until npm ci; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
       - name: End-to-end tests (Linux)
         run: npm run test:e2e
 
@@ -54,9 +57,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - name: Install (with Electron)
+        shell: bash
+        # GitHub sometimes answers the castlabs Electron download with 504: try up to 3 times
+        run: n=0; until npm ci; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
       - name: Build the unpacked Windows app
-        run: npm run pack
+        shell: bash
+        # GitHub sometimes answers the castlabs Electron download with 504: try up to 3 times
+        run: n=0; until npm run pack; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
       - name: Check what's packaged
         shell: bash
         run: |

@@ -49,7 +49,7 @@ module.exports = function setupAccount(ctx) {
   const tell = () => send('account:status', status());
 
   // ------------------------------------------------------------ HTTP
-  async function api(method, path, { body, token, headers = {} } = {}) {
+  async function api(method, path, { body, token, headers = {}, retried = false } = {}) {
     if (!configured()) throw Object.assign(new Error('Oto Accounts aren’t set up yet.'), { code: 'config' });
     const h = { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', ...headers };
     if (token) h.Authorization = `Bearer ${token}`;
@@ -58,6 +58,12 @@ module.exports = function setupAccount(ctx) {
     catch { throw Object.assign(new Error('Can’t reach Oto Accounts — check your internet.'), { code: 'net' }); }
     const txt = await res.text();
     let data = null; try { data = txt ? JSON.parse(txt) : null; } catch { data = txt; }
+    // The server stopped accepting the sign-in before Oto expected (revoked or rotated): refresh it once and retry.
+    // A refused request changed nothing on the server, so the retry is safe. A refused refresh signs out (token()).
+    if (res.status === 401 && token && !retried && path.startsWith('/rest/')) {
+      A.expires = 0;
+      return api(method, path, { body, token: await tokenFn(), headers, retried: true });
+    }
     if (!res.ok) {
       const msg = (data && (data.msg || data.error_description || data.message || data.error)) || `Error ${res.status}`;
       const pg = data && data.code;
@@ -90,6 +96,7 @@ module.exports = function setupAccount(ctx) {
     return unseal(A.access);
   }
   let refreshing = null;
+  const tokenFn = () => token();
   // Signing out (or a sign-in that expired) keeps an unfinished password change: its recovery keys are the only way to
   // re-encrypt the cloud copy, so they're never thrown away early. Signing in to the same account finishes it.
   function signOutLocal() { A = { email: A.email, deviceId: A.deviceId, ...(A.rotation ? { rotation: A.rotation } : {}) }; saveA(); }

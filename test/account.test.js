@@ -42,6 +42,8 @@ function fakeCloud() {
   const json = (status, body) => ({ ok: status < 300, status, text: async () => (body == null ? '' : JSON.stringify(body)) });
   db.fetch = async (url, o) => {
     const u = new URL(url);
+    if (u.pathname.startsWith('/rest/v1/') && db.forbid) return json(403, { code: '42501', message: 'new row violates row-level security policy for table "oto_sync"' });
+    if (u.pathname.startsWith('/rest/v1/') && db.unauthorized) { db.unauthorized--; return json(401, { code: 'PGRST301', message: 'JWT expired' }); }
     if (u.pathname === '/rest/v1/oto_sync' && o.method === 'GET') return json(200, db.row ? [db.row] : []);
     if (u.pathname === '/rest/v1/oto_sync' && o.method === 'POST') { if (db.row) return json(409, { code: '23505' }); db.row = JSON.parse(o.body); db.writes++; return json(201, [db.row]); }
     if (u.pathname === '/rest/v1/oto_sync' && o.method === 'PATCH' && db.failPatch) { db.failPatch--; return json(500, { message: 'server error' }); }
@@ -252,4 +254,38 @@ test('an unfinished password change survives an expired sign-in and finishes aft
   assert.strictEqual(s.ok, true, JSON.stringify(s));
   assert.ok(!mem.files['account.json'].rotation, 'job finished');
   assert.strictEqual(readRow(db.row, keyFor('new-password-9', db.row.salt)).sections.s.data, 'mine');
+});
+
+test('the server refusing access (RLS / permission denied) is reported; nothing local is lost, nothing crashes (#16)', async () => {
+  const { db, pc } = await seeded();
+  const before = JSON.stringify(db.row);
+  db.forbid = true;
+  const push = await pc.invoke('account:push', {}, { s: { data: 'newer', at: 2 } }, {});
+  assert.strictEqual(push.ok, false);
+  assert.ok(push.error && !/ENC:|access_token|Bearer/.test(push.error), 'a readable reason, no tokens in it');
+  const pull = await pc.invoke('account:pull', {}, {});
+  assert.strictEqual(pull.ok, false);
+  assert.strictEqual(JSON.stringify(db.row), before, 'cloud copy untouched');
+  const acc = pc.mem.files['account.json'];
+  assert.ok(acc.userId && acc.key && acc.refresh, 'still signed in, sync key kept: it is a server problem, not a reason to drop the account');
+  db.forbid = false;
+  assert.strictEqual((await pc.invoke('account:push', {}, { s: { data: 'newer', at: 2 } }, {})).ok, true, 'works again once the server allows it');
+});
+
+test('a sign-in the server no longer accepts (401 on sync) is refreshed and the sync goes through (#15/#16)', async () => {
+  const { db, pc } = await seeded();
+  db.unauthorized = 1;
+  const r = await pc.invoke('account:push', {}, { s: { data: 'after-401', at: 3 } }, {});
+  assert.strictEqual(r.ok, true, JSON.stringify(r));
+  assert.strictEqual(readRow(db.row, Buffer.alloc(32, 7)).sections.s.data, 'after-401');
+});
+
+test('a 401 that keeps coming back is retried only once (no loop) and reported', async () => {
+  const { db, pc } = await seeded();
+  const tokensBefore = db.tokens || 0;
+  db.unauthorized = 10;
+  const r = await pc.invoke('account:push', {}, { s: { data: 'x', at: 4 } }, {});
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual((db.tokens || 0) - tokensBefore, 1, 'one refresh');
+  assert.ok(db.unauthorized >= 7, 'no retry loop');
 });
