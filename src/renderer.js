@@ -496,7 +496,7 @@ function bindView(tab, v) {
     if (isActive()) updateChrome();
   });
   el.addEventListener('did-start-loading', () => { v.loading = true; v.error = null; refresh(); });
-  el.addEventListener('did-stop-loading', () => { v.loading = false; refresh(); });
+  el.addEventListener('did-stop-loading', () => { v.loading = false; if (!v.error) dangerShow(tab, v, ''); refresh(); });
   el.addEventListener('did-start-navigation', (e) => {
     if (e.isMainFrame && !e.isInPlace) {
       v.blocked = 0;
@@ -504,6 +504,7 @@ function bindView(tab, v) {
     }
   });
   el.addEventListener('did-navigate', (e) => {
+    if (v.wcId && typeof SHP_DANGER !== 'undefined') SHP_DANGER.delete(v.wcId); // a page loaded: the old warning is over
     tab.url = e.url;
     addHistory(e.url, tab.title);
     save(); refresh();
@@ -525,6 +526,7 @@ function bindView(tab, v) {
     if (f && f !== tab.favicon) { tab.favicon = f; save(); render(); }
   });
   el.addEventListener('did-fail-load', (e) => {
+    if (e.isMainFrame && dangerShow(tab, v, e.validatedURL || '')) { if (isActive()) updateChrome(); return; }
     if (!e.isMainFrame || e.errorCode === -3) return; // -3 = aborted (user navigated away)
     v.error = { code: e.errorCode, desc: e.errorDescription, url: e.validatedURL || tab.url };
     if (isActive()) updateChrome();
@@ -540,6 +542,19 @@ function bindView(tab, v) {
   el.addEventListener('enter-html-full-screen', () => document.body.classList.add('fs'));
   el.addEventListener('leave-html-full-screen', () => document.body.classList.remove('fs'));
   el.addEventListener('close', () => closeTab(tab.id));
+}
+
+// A page Oto's dangerous-site check stopped shows the warning page. Also done here, when the stopped load ends, because
+// a brand-new tab may not be linked to its page yet when the warning message arrives (1.4.0: the warning sometimes
+// didn't appear and the tab stayed blank). `url` = the address that failed, '' if unknown.
+function dangerShow(tab, v, url) {
+  mapWebContents(tab, v);
+  const d = typeof SHP_DANGER !== 'undefined' && v.wcId && SHP_DANGER.get(v.wcId);
+  if (!d) return false;
+  if (url ? hostOf(url) !== hostOf(d.url) : (hostOf(tab.url) !== hostOf(d.url) && Date.now() - (d.at || 0) > 3000)) return false;
+  v.error = { code: 'danger', desc: d.kind, url: d.url }; v.loading = false;
+  tab.url = d.url; tab.title = hostOf(d.url);
+  return true;
 }
 
 function loadIn(tab, url) {

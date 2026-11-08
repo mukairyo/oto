@@ -181,6 +181,9 @@ module.exports = function createShield(ctx) {
   let blockerP = null;
   async function enableBlocking(ses) {
     blockerSessions.add(ses);
+    // While the full engine starts (it may download its lists first), the session isn't left without a request hook:
+    // the built-in list and the dangerous-site check run until the engine takes over (1.4.0 fix).
+    if (!blocker && !fallbackSessions.has(ses)) enableFallback(ses);
     if (!blocker && blockerP) { try { await blockerP; } catch {} }
     if (blocker) { if (fallbackSessions.has(ses)) { ses.webRequest.onBeforeRequest(null); fallbackSessions.delete(ses); } if (!blocker.isBlockingEnabled(ses)) blocker.enableBlockingInSession(ses); return (blockingMode = 'full'); }
     try {

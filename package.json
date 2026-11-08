@@ -11,6 +11,7 @@
     "dist": "node scripts/build-preload.js && electron-builder --win",
     "pack": "node scripts/build-preload.js && electron-builder --win dir",
     "test": "node --test --test-force-exit \"test/*.test.js\"",
+    "test:e2e": "node scripts/build-preload.js --check && node test/e2e/run.js",
     "lint": "node scripts/lint.js"
   },
   "dependencies": {
