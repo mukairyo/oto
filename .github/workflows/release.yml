@@ -49,14 +49,22 @@ jobs:
 
       - name: Install
         if: steps.check.outputs.skip != 'true'
-        run: npm ci
+        shell: bash
+        # GitHub sometimes answers the castlabs Electron download with 504: try up to 3 times
+        run: n=0; until npm ci; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
 
-      # Red tests or a broken security rule stop the release before anything is built.
+      # Red tests, a broken security rule, a known high-severity vulnerability in what Oto ships, or a failed
+      # end-to-end check of the real app (on Windows: DPAPI, Mark of the Web…) stop the release before anything is built.
       - name: Tests and checks
         if: steps.check.outputs.skip != 'true'
         run: |
           npm test
           npm run lint
+          npm audit --omit=dev --audit-level=high
+
+      - name: End-to-end tests (Windows)
+        if: steps.check.outputs.skip != 'true'
+        run: npm run test:e2e
 
       # Production Widevine (VMP) signing for Netflix & co. — castlabs EVS, free account.
       # Set the repo secrets EVS_ACCOUNT_NAME and EVS_PASSWD to turn it on (build/vmp-sign.js).

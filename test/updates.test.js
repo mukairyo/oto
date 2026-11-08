@@ -142,3 +142,11 @@ test('GitHub unreachable during the check: kept, not installable yet, checked ag
     assert.strictEqual(s.updater.autoInstallOnAppQuit, false);
   } finally { s.done(); }
 });
+
+test('the update source can’t be redirected: no feed overrides anywhere in Oto', () => {
+  const src = ['main/updates.js', 'main.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
+  assert.doesNotMatch(src, /setFeedURL|updateConfigPath|forceDevUpdateConfig/, 'the GitHub release feed is the only source');
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+  assert.deepStrictEqual(pkg.build.publish, [{ provider: 'github', owner: 'mukairyo', repo: 'oto' }].map((p) => ({ ...p, ...Object.fromEntries(Object.entries(pkg.build.publish[0]).filter(([k]) => !['provider', 'owner', 'repo'].includes(k))) })));
+  assert.ok(!pkg.build.publish.some((p) => p.url || p.provider === 'generic'), 'no generic/custom update server');
+});
