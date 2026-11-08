@@ -85,8 +85,10 @@ jobs:
           EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
           EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
         shell: bash
-        # Builds with the Electron npm ci installed (no second download); retried up to 3 times (each try from scratch)
-        run: n=0; until npx electron-builder --win nsis --x64 --publish never "-c.electronDist=$(node -p "require('path').dirname(require('electron'))")"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; rm -rf dist; sleep 30; done
+        # Builds with the Electron npm ci installed (no second download); retried up to 3 times (each try from scratch).
+        # If GitHub won't serve the NSIS tools, retries use the npm mirror: electron-builder pins their SHA-256, so a
+        # changed file is refused.
+        run: n=0; until npx electron-builder --win nsis --x64 --publish never "-c.electronDist=$(node -p "require('path').dirname(require('electron'))")"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s (build tools from the npm mirror; electron-builder checks their SHA-256)"; export ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/; rm -rf dist; sleep 30; done
 
       - name: Check the Widevine signature
         if: steps.check.outputs.skip != 'true'
