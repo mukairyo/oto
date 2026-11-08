@@ -84,3 +84,55 @@ test('writes are flushed to disk before the swap (durability)', () => {
   patch(fs, 'fsyncSync', (fd) => { synced++; return fs.fstatSync(fd); }, () => store.writeJSON('a.json', { x: 1 }));
   assert.strictEqual(synced, 1);
 });
+
+// Background saves (1.4.0 performance): the flush runs off the main thread, with the same guarantees.
+const leftovers = (dir) => fs.readdirSync(dir).filter((f) => /\.tmp/.test(f));
+
+test('a background save writes the data, flushed, and leaves no temporary file', async () => {
+  const { dir, store, file } = setup();
+  assert.strictEqual(await store.writeJSONAsync('state.json', { tabs: [1, 2, 3] }), true);
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(file('state.json'), 'utf8')), { tabs: [1, 2, 3] });
+  assert.deepStrictEqual(leftovers(dir), []);
+});
+
+test('background saves that pile up are merged: the newest wins and every caller hears back', async () => {
+  const { dir, store, file } = setup();
+  let opens = 0;
+  const orig = fs.promises.open;
+  fs.promises.open = function (...a) { opens++; return orig.apply(this, a); };
+  try {
+    const all = await Promise.all([1, 2, 3, 4, 5].map((n) => store.writeJSONAsync('state.json', { n })));
+    assert.deepStrictEqual(all, [true, true, true, true, true]);
+  } finally { fs.promises.open = orig; }
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(file('state.json'), 'utf8')), { n: 5 });
+  assert.ok(opens <= 2, `merged (${opens} writes for 5 saves)`);
+  assert.deepStrictEqual(leftovers(dir), []);
+});
+
+test('an older background save never replaces a newer immediate save (e.g. the save when Oto closes)', async () => {
+  const { dir, store, file } = setup();
+  const slow = store.writeJSONAsync('state.json', { from: 'background, older' }); // its flush is still running…
+  store.writeJSON('state.json', { from: 'on close, newer' }); // …when the immediate save happens
+  await slow;
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(file('state.json'), 'utf8')), { from: 'on close, newer' });
+  assert.deepStrictEqual(leftovers(dir), []);
+});
+
+test('a background save that fails (disk full) is reported and leaves the old file intact', async () => {
+  const { dir, store, file } = setup();
+  store.writeJSON('state.json', { old: 1 });
+  const orig = fs.promises.open;
+  fs.promises.open = async (p, ...a) => { const fh = await orig(p, ...a); const w = fh.writeFile.bind(fh); fh.writeFile = async () => { await w('{"half'); throw Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' }); }; return fh; };
+  try { await assert.rejects(store.writeJSONAsync('state.json', { new: 1 }), /ENOSPC/); } finally { fs.promises.open = orig; }
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(file('state.json'), 'utf8')), { old: 1 });
+  assert.deepStrictEqual(leftovers(dir), []);
+});
+
+test('a background save never writes over a damaged file that couldn’t be set aside', async () => {
+  const { store, file } = setup();
+  fs.writeFileSync(file('state.json'), '{broken');
+  quiet(() => patch(fs, 'renameSync', () => { throw new Error('EPERM'); }, () => store.readJSON('state.json', {})));
+  await assert.rejects(store.writeJSONAsync('state.json', { x: 1 }), (e) => e.code === 'EDAMAGED');
+  assert.strictEqual(fs.readFileSync(file('state.json'), 'utf8'), '{broken');
+  await assert.rejects(store.writeJSONAsync('state.json', () => {}), (e) => e.code === 'EINVAL', 'nothing to save is refused before the disk');
+});

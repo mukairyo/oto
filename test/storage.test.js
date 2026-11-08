@@ -34,6 +34,25 @@ test('saveOrWarn tells the window once when a save fails, and recovers', () => {
   } finally { console.warn = warn; }
 });
 
+test('background saves (tabs and history) report failures the same way, once', async () => {
+  const main = fs.readFileSync(path.join(ROOT, 'main.js'), 'utf8');
+  const src = main.slice(main.indexOf('const saveWarned'), main.indexOf('\n}\n', main.indexOf('function saveOrWarnAsync')) + 3);
+  const sent = [];
+  let fail = true;
+  const STORE = { writeJSONAsync: async () => { if (fail) throw Object.assign(new Error('ENOSPC'), { code: 'ENOSPC' }); return true; } };
+  const fn = new Function('writeJSON', 'send', 'STORE', `${src}; return saveOrWarnAsync;`)(() => {}, (ch, d) => sent.push([ch, d]), STORE); // eslint-disable-line no-new-func
+  const warn = console.warn; console.warn = () => {};
+  try {
+    assert.strictEqual(await fn('state.json', {}, 'your tabs'), false);
+    assert.strictEqual(await fn('state.json', {}, 'your tabs'), false);
+    assert.deepStrictEqual(sent, [['save-failed', { what: 'your tabs', code: 'ENOSPC' }]], 'told once');
+    fail = false;
+    assert.strictEqual(await fn('state.json', {}, 'your tabs'), true);
+  } finally { console.warn = warn; }
+  assert.match(main, /ipcMain\.on\('state:save', [^\n]*saveOrWarnAsync\('state\.json'/, 'the frequent state save uses the background save');
+  assert.match(main, /state:save-sync[\s\S]{0,400}saveOrWarn\('state\.json'/, 'the save on close stays immediate');
+});
+
 test('starting Oto can’t crash on a full disk (clear-on-close marker)', () => {
   const main = fs.readFileSync(path.join(ROOT, 'main.js'), 'utf8');
   const setup = main.slice(main.indexOf('function setupSession('), main.indexOf('// ---------------------------------------------------------------- IPC'));

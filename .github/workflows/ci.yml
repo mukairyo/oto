@@ -52,8 +52,8 @@ jobs:
       - name: Install (with Electron)
         shell: bash
         # GitHub sometimes answers the castlabs Electron download with 504, and Electron's installer then fails without an
-        # error: done only when Electron is really there. Up to 3 tries.
-        run: n=0; until npm ci && node -e "require('fs').accessSync(require('electron'))"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
+        # error: done only when Electron is really there. Up to 5 tries, waiting longer each time.
+        run: n=0; until npm ci && node -e "require('fs').accessSync(require('electron'))"; do n=$((n+1)); [ $n -ge 5 ] && exit 1; echo "retrying in $((n*30)) s"; sleep $((n*30)); done
       - name: End-to-end tests (Linux)
         run: npm run test:e2e
 
@@ -79,8 +79,8 @@ jobs:
       - name: Install (with Electron)
         shell: bash
         # GitHub sometimes answers the castlabs Electron download with 504, and Electron's installer then fails without an
-        # error: done only when Electron is really there. Up to 3 tries.
-        run: n=0; until npm ci && node -e "require('fs').accessSync(require('electron'))"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
+        # error: done only when Electron is really there. Up to 5 tries, waiting longer each time.
+        run: n=0; until npm ci && node -e "require('fs').accessSync(require('electron'))"; do n=$((n+1)); [ $n -ge 5 ] && exit 1; echo "retrying in $((n*30)) s"; sleep $((n*30)); done
       # the unit tests on Windows too (line endings, paths and DPAPI behave differently there)
       - name: Unit tests (Windows)
         run: npm test
@@ -88,7 +88,7 @@ jobs:
       - name: Build the unpacked Windows app
         shell: bash
         # GitHub sometimes answers the castlabs Electron download with 504, and Electron's installer then fails without an
-        # error: done only when Electron is really there. Up to 3 tries.
+        # error: done only when Electron is really there. Up to 5 tries, waiting longer each time.
         run: n=0; until npm run pack -- "-c.electronDist=$(node -p "require('path').dirname(require('electron'))")"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
       - name: Check what's packaged
         shell: bash
