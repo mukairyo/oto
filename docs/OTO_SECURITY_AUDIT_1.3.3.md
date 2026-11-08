@@ -1,6 +1,6 @@
 # Oto 1.3.3 — Security Audit Report
 
-**Version:** 1.3.3 (from 1.3.2) · **Date:** 2026-11-08 · **Branch:** `oto-1.3.3` · **Electron:** 45.2.1+wvcus (castlabs) · **Electron Builder:** 26.18.0
+**Version:** 1.3.3 (from 1.3.2). The follow-up items F1–F3 in §2b were finished after 1.3.3 was published and ship in **1.3.4** · **Date:** 2026-11-08 · **Branch:** `oto-1.3.3` · **Electron:** 45.2.1+wvcus (castlabs) · **Electron Builder:** 26.18.0
 
 **Scope:** the 12 tasks in the 1.3.3 security hardening brief, the 1.3.2 code review, and Oto's own testing in eight
 areas: passwords, IPC/sandbox, extensions, Oto Shield, downloads, updates, automated tests and privacy.
