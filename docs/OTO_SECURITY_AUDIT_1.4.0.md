@@ -5,7 +5,7 @@
 | Version | 1.3.4 → **1.4.0** |
 | Date | 2026-11-08 |
 | Branch | `oto-1.4.0` |
-| Scope | Aegis phases 1–12 (the spec arrived cut off at Phase 13, Performance; see §9) |
+| Scope | Aegis phases 1–13 (the spec arrived cut off at the Phase 13 heading; see §9) |
 | Method | Every finding verified against the code; every confirmed bug has a test that fails without the fix |
 
 ## 1. Summary
@@ -13,11 +13,11 @@
 1.4.0 fixes **8 confirmed problems** (2 high, 4 medium, 2 low), adds an **end-to-end test system that runs the real
 app on Linux and Windows** on every change, and makes every release depend on all checks passing.
 
-- **Tests:** 130 unit tests (was 63 in 1.3.3, 111 at the start of this work). The end-to-end suites run 66 checks on Linux
+- **Tests:** 130 unit tests (was 63 in 1.3.3, 111 at the start of this work). The end-to-end suites run 70 checks on Linux
   and the same plus the Windows-only checks on Windows. All pass.
 - **Shipped dependencies:** 0 known vulnerabilities. 6 moderate advisories remain in a build-only tool, documented (§6).
 - **Pending (needs Ryo):** two test accounts for the cross-account database check, hands-on tests on a Windows 10/11
-  desktop, the SignPath application, and the rest of the spec (§8).
+  desktop, and the SignPath application (§8).
 
 ## 2. Confirmed problems fixed in 1.4.0
 
@@ -137,7 +137,7 @@ repeating 401 doesn't loop.
 | 10 Maintenance | ✅ Dependabot, CI on every push, end-to-end on Linux + Windows, release gate, `SECURITY_MAINTENANCE.md`. |
 | 11 Regression list | ✅ All 20 covered (§5.3) plus log privacy. |
 | 12 Windows release | ⚠️ Automated parts done on GitHub's Windows machines. Hands-on desktop items pending (§8). |
-| 13 Performance | ❓ Spec cut off (§9). |
+| 13 Performance | ✅ Measured, no slowdown; restored tab faster; automatic limits (§9). The spec text for this phase was cut off. |
 
 ## 5. Test results
 
@@ -221,11 +221,27 @@ including adding a LICENSE file and a code signing policy section, and the open 
 4. **SignPath:** LICENSE file and policy section first (Ryo's decision), then apply.
 5. **Repository settings:** branch protection on `main`/`v1` requiring Checks; Dependabot security updates; 2FA.
 
-## 9. Spec cut off
+## 9. Performance (Phase 13)
 
-The Aegis attachment ended at "PHASE 13 — PERFORMANCE AND COMPATIBILITY" with no content. Nothing was done for Phase 13
-beyond keeping performance unchanged: the new checks add no work to page loads, except a one-time signature check per
-extension download.
+The spec arrived cut off at the Phase 13 heading, so this phase was done as a measured check that 1.4.0 isn't slower,
+plus automatic limits so a slowdown is caught later. Measured on Linux with castlabs Electron 45.2.1, 1.3.4 vs 1.4.0
+(same profile: 30 tabs, 3,000 history entries; median of 4–5 starts):
+
+| | 1.3.4 | 1.4.0 |
+| --- | --- | --- |
+| Window ready after start | ~360 ms | ~370 ms (same) |
+| Restored tab shown | 1.5–2.5 s | **~0.5 s** |
+| Memory, all processes | ~635 MB | ~632 MB (same) |
+| IPC checks per message | – | 0.5 ms for the full state save, <1 µs typical |
+| Saving a 390 KB profile | 1.5 ms (not flushed) | 2.0 ms (flushed, crash-safe) |
+
+The faster restored tab comes from A1's fix: Shield attached its request hook only once its engine was built, and
+attaching a hook restarts page loads already in progress, so the first page loaded twice. Confirmed by applying only
+that fix to 1.3.4 (same ~0.5 s).
+
+New `performance` end-to-end suite (Linux and Windows, every push and before every release): opening a page (limit 2 s
+median; measured ~0.1 s), a flushed save of a big profile on the real disk (limit 60 ms; ~2.4 ms on Linux), a message to
+Oto's core and back (limit 25 ms; ~0.2 ms), memory with 5 tabs (limit 2 GB). The numbers are in every run's report.
 
 ## 10. Files changed (1.3.4 → 1.4.0)
 

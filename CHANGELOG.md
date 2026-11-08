@@ -34,8 +34,11 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 **Updates**
 - Tested: corrupted release metadata, damaged or interrupted downloads, a full disk, a failed build record and GitHub being unreachable. In none of these does anything install. The update source can't be redirected.
 
+**Faster first page after starting**
+- A restored tab shows up to several times faster at startup when Oto Shield's lists are slow to load (about 0.5 s instead of 1.5–2.5 s in tests). Shield used to attach to your pages only once its engine was ready, which restarted pages that were already loading. Startup time and memory are otherwise unchanged; Oto's new checks cost under 1 ms.
+
 **Automatic checks**
-- New end-to-end tests run the real Oto against local test sites on every change, on Linux and on Windows (including Windows' password encryption and the "downloaded from the internet" mark). A release is only built if all checks pass, including a known-vulnerability check of what Oto ships.
+- New end-to-end tests run the real Oto against local test sites on every change, on Linux and on Windows (including Windows' password encryption and the "downloaded from the internet" mark). A release is only built if all checks pass, including a known-vulnerability check of what Oto ships, and performance limits (opening a page, saving, Oto's internal messages, memory).
 - Weekly checks of Oto's account server (strangers can't read or change sync data), weekly dependency updates (never merged automatically), daily Chromium security updates.
 - New: `SECURITY_MAINTENANCE.md` (how Oto stays patched) and `docs/UPDATE_TRUST.md` (what each update check proves, and the plan for free Windows code signing).
 
