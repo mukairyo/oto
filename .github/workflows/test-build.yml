@@ -46,7 +46,7 @@ jobs:
           v="$base-test.$GITHUB_RUN_NUMBER"
           echo "version=$v" >> "$GITHUB_OUTPUT"
           export OTO_VERSION="$v"
-          n=0; until npx electron-builder --win nsis --x64 --publish never -c.extraMetadata.version="$v" -c.extraMetadata.otoVersion="$v"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; rm -rf dist; sleep 30; done
+          n=0; until npx electron-builder --win nsis --x64 --publish never "-c.electronDist=$(node -p "require('path').dirname(require('electron'))")" -c.extraMetadata.version="$v" -c.extraMetadata.otoVersion="$v"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; rm -rf dist; sleep 30; done
           ls dist/*.exe
           cd dist && sha256sum Oto-Setup-*.exe | tee SHA256SUMS-test.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
