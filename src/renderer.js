@@ -1746,6 +1746,7 @@ function wire() {
   });
   oto.on('ext:select-tab', (wcId) => { const id = wcToTab.get(wcId); if (id) activate(id); });
   oto.on('ext:remove-tab', (wcId) => { const id = wcToTab.get(wcId); if (id) closeTab(id); });
+  oto.on('ext:refused', (why) => toast(`Extension not installed: its package failed Oto’s signature check (${String(why || '').slice(0, 120)})`, { icon: 'shield', timeout: 6000 }));
   oto.on('ext:changed', () => { mountExtensionBar(); if (!$('#settings').hidden && settingsTab === 'extensions') renderSettings(); });
 
   $('#btnCompact').innerHTML = icon('sidebar');

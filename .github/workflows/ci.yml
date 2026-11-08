@@ -71,7 +71,7 @@ jobs:
           test -f dist/win-unpacked/Oto.exe
           node -e "
             const files = require('@electron/asar').listPackage('dist/win-unpacked/resources/app.asar').map((f) => f.replace(/\\\\/g, '/'));
-            const must = ['/main.js', '/preload.bundle.js', '/page-preload.js', '/main/attest.js', '/main/ipc-guard.js', '/main/passwords.js', '/src/index.html'];
+            const must = ['/main.js', '/preload.bundle.js', '/page-preload.js', '/main/attest.js', '/main/crx-verify.js', '/main/ipc-guard.js', '/main/passwords.js', '/src/index.html'];
             const never = /^\/(test|scripts|\.github|docs)\/|\.(pem|key|jks|p12|pfx|env|oto|csv)$|SHA256SUMS/i;
             const missing = must.filter((f) => !files.includes(f));
             const leaked = files.filter((f) => never.test(f));
