@@ -83,7 +83,9 @@ jobs:
           OTO_VERSION: ${{ steps.check.outputs.version }}
           EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
           EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
-        run: npx electron-builder --win nsis --x64 --publish never
+        shell: bash
+        # GitHub sometimes answers the Electron download with 504: try up to 3 times (each try builds from scratch)
+        run: n=0; until npx electron-builder --win nsis --x64 --publish never; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; rm -rf dist; sleep 30; done
 
       - name: Check the Widevine signature
         if: steps.check.outputs.skip != 'true'
