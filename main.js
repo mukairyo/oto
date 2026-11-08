@@ -72,6 +72,10 @@ function saveOrWarn(name, data, what, write = () => writeJSON(name, data)) {
     return false;
   }
 }
+// Same as saveOrWarn, for frequent background saves: the disk flush runs off the main thread (main/store.js).
+function saveOrWarnAsync(name, data, what) {
+  return STORE.writeJSONAsync(name, data).then(() => { saveWarned.delete(name); return true; }, (e) => saveOrWarn(name, data, what, () => { throw e; }));
+}
 
 // ---------------------------------------------------------------- keyboard
 const DEFAULT_KEYS = {
@@ -802,7 +806,7 @@ function setupIPC(ses) {
   });
   ipcMain.handle('state:load', () => readJSON('state.json', null));
   ipcMain.handle('app:changelog', () => { try { return fs.readFileSync(path.join(__dirname, 'CHANGELOG.md'), 'utf8'); } catch { return ''; } });
-  ipcMain.on('state:save', (e, s) => { if (restoringBackup || isAvocadoUi(e.sender) || !s || typeof s !== 'object' || Array.isArray(s)) return; saveOrWarn('state.json', s, 'your tabs and settings'); });
+  ipcMain.on('state:save', (e, s) => { if (restoringBackup || isAvocadoUi(e.sender) || !s || typeof s !== 'object' || Array.isArray(s)) return; saveOrWarnAsync('state.json', s, 'your tabs and settings'); });
   // Structured result: { ok: true } or { ok: false, code } (never "true" when nothing reached the disk).
   ipcMain.on('state:save-sync', (e, s) => {
     if (restoringBackup || isAvocadoUi(e.sender)) { e.returnValue = { ok: true }; return; }

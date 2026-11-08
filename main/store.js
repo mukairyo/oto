@@ -37,6 +37,7 @@ module.exports = function createStore(fileFor, onDamaged = () => {}) {
   }
   // Same all-or-nothing, flushed write for plain text files (e.g. your own Oto Shield filter rules).
   function writeText(name, text) {
+    bump(name);
     const d = DAMAGED.get(name);
     if (d && d.readOnly) { const e = new Error(`${name} is damaged and could not be set aside, so Oto won't overwrite it`); e.code = 'EDAMAGED'; throw e; }
     if (typeof text !== 'string') { const e = new Error('nothing to save'); e.code = 'EINVAL'; throw e; }
@@ -47,5 +48,48 @@ module.exports = function createStore(fileFor, onDamaged = () => {}) {
     fs.closeSync(fd);
     fs.renameSync(tmp, p);
   }
-  return { readJSON, writeJSON, writeText, damagedFile: (name) => DAMAGED.get(name) || null, damagedList: () => [...DAMAGED] };
+  // Background saves (e.g. your tabs and history, several times a minute): the slow part, flushing to disk, runs off
+  // the main thread so Oto doesn't stutter (Windows measured up to ~90 ms per flushed save). Same guarantees: a
+  // temporary file is flushed, then swapped in. The swap itself is instant and done on the main thread, and every write
+  // (background or immediate) gets a number, so an older background save can never replace newer data (for example
+  // the immediate save when Oto closes). Saves that pile up while one is being written are merged into the newest.
+  const GEN = new Map(), QUEUED = new Map(), RUNNING = new Set();
+  function bump(name) { const g = (GEN.get(name) || 0) + 1; GEN.set(name, g); return g; }
+  function writeJSONAsync(name, data) {
+    let json;
+    try {
+      json = JSON.stringify(data);
+      if (typeof json !== 'string') { const e = new Error('nothing to save'); e.code = 'EINVAL'; throw e; }
+      const d = DAMAGED.get(name);
+      if (d && d.readOnly) { const e = new Error(`${name} is damaged and could not be set aside, so Oto won't overwrite it`); e.code = 'EDAMAGED'; throw e; }
+    } catch (e) { return Promise.reject(e); }
+    const g = bump(name);
+    return new Promise((resolve, reject) => {
+      const prev = QUEUED.get(name);
+      QUEUED.set(name, { json, g, waiters: [...(prev ? prev.waiters : []), { resolve, reject }] });
+      pump(name);
+    });
+  }
+  async function pump(name) {
+    if (RUNNING.has(name)) return;
+    RUNNING.add(name);
+    try {
+      let job;
+      while ((job = QUEUED.get(name))) {
+        QUEUED.delete(name);
+        try { await writeOne(name, job); for (const w of job.waiters) w.resolve(true); } catch (e) { for (const w of job.waiters) w.reject(e); }
+      }
+    } finally { RUNNING.delete(name); }
+  }
+  async function writeOne(name, { json, g }) {
+    const p = fileFor(name), tmp = `${p}.tmp-${g}`;
+    const fh = await fs.promises.open(tmp, 'w');
+    try { await fh.writeFile(json); await fh.sync(); } catch (e) { try { await fh.close(); } catch {} try { await fs.promises.unlink(tmp); } catch {} throw e; }
+    await fh.close();
+    const d = DAMAGED.get(name);
+    if (GEN.get(name) !== g || (d && d.readOnly)) { try { await fs.promises.unlink(tmp); } catch {} return; } // newer data already saved or on its way
+    try { fs.renameSync(tmp, p); } catch (e) { try { fs.unlinkSync(tmp); } catch {} throw e; } // instant, and can't interleave with an immediate save
+  }
+
+  return { readJSON, writeJSON, writeJSONAsync, writeText, damagedFile: (name) => DAMAGED.get(name) || null, damagedList: () => [...DAMAGED] };
 };
