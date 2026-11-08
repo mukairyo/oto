@@ -52,7 +52,9 @@ function fakeCloud() {
     }
     if (u.pathname === '/auth/v1/token') {
       const b = JSON.parse(o.body);
+      if (b.refresh_token !== undefined && db.refreshFails) return json(400, { error_description: 'Invalid Refresh Token' });
       if (b.password !== undefined && b.password !== db.password) return json(400, { error_description: 'Invalid login credentials' });
+      db.tokens = (db.tokens || 0) + 1;
       return json(200, { access_token: 'a', refresh_token: 'r', expires_in: 3600, user: { id: 'u1', email: 'a@b.c' } });
     }
     if (u.pathname === '/auth/v1/user' && o.method === 'PUT') {
@@ -196,4 +198,58 @@ test('a failed everyday save (sign-in, sync time) is reported, never thrown', as
   pc.mem.failWrites = true;
   // the cloud write still happens; only the local note of it couldn't be saved (and Oto says so via saveOrWarn)
   assert.strictEqual((await pc.invoke('account:push', {}, { s: { data: 'y', at: 5 } }, {})).ok, true);
+});
+
+test('an expired sign-in is refreshed once, transparently (#15)', async () => {
+  const { db, pc } = await seeded();
+  pc.mem.files['account.json'].expires = 0; // reload with an expired access token
+  const before = db.tokens || 0;
+  // simulate restart with expired token: a fresh instance reading the saved account
+  const m = install({ canEncrypt: true });
+  const files = JSON.parse(JSON.stringify(pc.mem.files)); files['account.json'].expires = Date.now() - 1000;
+  const mem = memFiles(files);
+  delete require.cache[require.resolve('../account.js')];
+  require('../account.js')({ ...m.electron, net: { fetch: (...a) => db.fetch(...a) }, readJSON: mem.readJSON, writeJSON: mem.writeJSON, send: () => {}, pwSyncExport: () => ({ entries: [], deleted: [] }), pwSyncMerge: () => 0, OTO_VERSION: 'test' });
+  m.restore();
+  assert.strictEqual((await m.electron.ipcMain.invoke('account:pull', {}, {})).ok, true);
+  assert.strictEqual((db.tokens || 0) - before, 1, 'one refresh');
+});
+
+test('a refused refresh signs out cleanly: tokens and sync key removed, nothing readable left', async () => {
+  const { db, pc } = await seeded();
+  db.refreshFails = true;
+  pc.mem.files['account.json'].expires = 0;
+  const m = install({ canEncrypt: true });
+  const files = JSON.parse(JSON.stringify(pc.mem.files)); files['account.json'].expires = Date.now() - 1000;
+  const mem = memFiles(files);
+  delete require.cache[require.resolve('../account.js')];
+  require('../account.js')({ ...m.electron, net: { fetch: (...a) => db.fetch(...a) }, readJSON: mem.readJSON, writeJSON: mem.writeJSON, send: () => {}, pwSyncExport: () => ({ entries: [], deleted: [] }), pwSyncMerge: () => 0, OTO_VERSION: 'test' });
+  m.restore();
+  const r = await m.electron.ipcMain.invoke('account:pull', {}, {});
+  assert.strictEqual(r.ok, false);
+  const a = mem.files['account.json'];
+  for (const k of ['access', 'refresh', 'key', 'userId']) assert.ok(!(k in a), `${k} removed`);
+  assert.strictEqual((await m.electron.ipcMain.invoke('account:status', {})).signedIn, false);
+});
+
+test('an unfinished password change survives an expired sign-in and finishes after signing in again (#20)', async () => {
+  const { db, pc } = await seeded();
+  db.failPatch = 1; // the re-encryption upload fails …
+  const r = await pc.invoke('account:changePassword', {}, 'old-password', 'new-password-9');
+  assert.strictEqual(r.pending, true);
+  // … then the sign-in expires and is refused (Oto signs out locally) — and Oto restarts
+  db.refreshFails = true;
+  const files = JSON.parse(JSON.stringify(pc.mem.files)); files['account.json'].expires = Date.now() - 1000;
+  let m = install({ canEncrypt: true }); let mem = memFiles(files);
+  delete require.cache[require.resolve('../account.js')];
+  require('../account.js')({ ...m.electron, net: { fetch: (...a) => db.fetch(...a) }, readJSON: mem.readJSON, writeJSON: mem.writeJSON, send: () => {}, pwSyncExport: () => ({ entries: [], deleted: [] }), pwSyncMerge: () => 0, OTO_VERSION: 'test' });
+  m.restore();
+  assert.strictEqual((await m.electron.ipcMain.invoke('account:pull', {}, {})).ok, false, 'signed out');
+  assert.ok(mem.files['account.json'].rotation, 'recovery keys kept');
+  // sign in again with the new password: the change finishes and the data is readable with it
+  db.refreshFails = false;
+  const s = await m.electron.ipcMain.invoke('account:signin', {}, 'a@b.c', 'new-password-9');
+  assert.strictEqual(s.ok, true, JSON.stringify(s));
+  assert.ok(!mem.files['account.json'].rotation, 'job finished');
+  assert.strictEqual(readRow(db.row, keyFor('new-password-9', db.row.salt)).sections.s.data, 'mine');
 });

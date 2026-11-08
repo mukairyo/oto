@@ -13,6 +13,7 @@
 // cosmetic filters for the URL of the frame that asks. None of them read or change Oto's own data.
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { checkArgs } = require('./ipc-schema.js');
 
 const OPEN = /^(oto:page$|crx-|@ghostery\/|chromeWebstore\.|chrome\.)/;
 // Size limits per message (counted like memory: 2 bytes per character): 1 MB normally; only the channels that carry
@@ -77,9 +78,11 @@ module.exports = function guardIPC(ipcMain, appDir) {
       return orig.call(ipcMain, channel, fn);
     }
     if (OPEN.test(channel) || typeof fn !== 'function') return orig.call(ipcMain, channel, fn);
+    // sender -> size -> shape (main/ipc-schema.js: per-channel argument rules + no prototype keys)
+    const ok = (e, args) => trusted(e) && !tooBig(channel, args) && !checkArgs(channel, args);
     const guarded = kind === 'handle'
-      ? (e, ...args) => { if (!trusted(e) || tooBig(channel, args)) { refuse(channel, e); throw new Error('Not allowed'); } return fn(e, ...args); }
-      : (e, ...args) => { if (!trusted(e) || tooBig(channel, args)) { refuse(channel, e); e.returnValue = null; return; } return fn(e, ...args); };
+      ? (e, ...args) => { if (!ok(e, args)) { refuse(channel, e); throw new Error('Not allowed'); } return fn(e, ...args); }
+      : (e, ...args) => { if (!ok(e, args)) { refuse(channel, e); e.returnValue = null; return; } return fn(e, ...args); };
     return orig.call(ipcMain, channel, guarded);
   };
   ipcMain.handle = wrap('handle', ipcMain.handle);

@@ -36,8 +36,9 @@ happens **on your PC** against the downloaded list. No website addresses are sen
   with a key made from your account password. The server stores only the encrypted blob, your email address, the device
   name and when it last synced. **The server can't read your data.** Not even Oto's developer can.
 - Deleted passwords leave a small marker (site and username, never the password) so a deletion reaches your other
-  devices. Markers don't expire; Oto keeps the newest 5,000. Only a device that stayed offline while more than 5,000
-  other logins were deleted could bring back one of the oldest.
+  devices. Markers don't expire; Oto keeps the newest 20,000. Only a device that stayed offline while more than
+  20,000 other logins were deleted could bring back one of the oldest. Times from a device whose clock is wrong are
+  capped, so it can't make deletions win over later saves.
 - If you reset your account password by email, data encrypted with the old password can't be read any more.
 - Sending a tab to your phone stores the link (encrypted) until the phone picks it up.
 - To delete your cloud data: Settings → Account & sync → **Delete cloud data**. This PC keeps its own copy.

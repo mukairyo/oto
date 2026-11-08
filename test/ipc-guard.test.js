@@ -91,3 +91,47 @@ test('large screenshots, images and saved state still get through (1.3.2 regress
   assert.strictEqual(ipc.invoke('clipboard:image', ev('window', UI), png), 'ok');
   assert.strictEqual(ipc.invoke('app:install', ev('window', UI), 'https://e.com/', 'App', 'data:image/png;base64,' + 'A'.repeat(2e6)), 'ok');
 });
+
+test('sensitive channels only accept the expected kinds of values (Aegis 2.2)', () => {
+  const { ipc } = setup();
+  const ran = [];
+  ipc.handle('pw:get', (_e, ...a) => { ran.push(a); return 'ok'; });
+  ipc.handle('perm:set', () => 'ok'); ipc.handle('owner:unlock', () => 'ok'); ipc.handle('site:clear', () => 'ok');
+  const silence = console.warn; console.warn = () => {};
+  try {
+    assert.strictEqual(ipc.invoke('pw:get', ev('window', UI), 'pw123', 'reveal'), 'ok', 'normal call works');
+    assert.throws(() => ipc.invoke('pw:get', ev('window', UI), { id: 'pw123' }, 'reveal'), /Not allowed/, 'object instead of id');
+    assert.throws(() => ipc.invoke('pw:get', ev('window', UI), 'pw123', 'reveal', 'extra'), /Not allowed/, 'extra argument');
+    assert.throws(() => ipc.invoke('site:clear', ev('window', UI), 42), /Not allowed/, 'number instead of address');
+    assert.throws(() => ipc.invoke('owner:unlock', ev('window', UI), 'x'.repeat(65)), /Not allowed/, 'too long');
+    assert.throws(() => ipc.invoke('perm:set', ev('window', UI), 'https://a.example|camera', { allow: true }), /Not allowed/, 'object where a flag belongs');
+    assert.strictEqual(ipc.invoke('perm:set', ev('window', UI), 'https://a.example|camera', false), 'ok');
+    assert.strictEqual(ipc.invoke('perm:set', ev('window', UI), 'https://a.example|cookies', 'session'), 'ok');
+  } finally { console.warn = silence; }
+  assert.strictEqual(ran.length, 1, 'handler only ran for the valid call');
+});
+
+test('prototype pollution keys are refused on every channel', () => {
+  const { ipc } = setup();
+  ipc.handle('pw:update', () => 'ok'); ipc.handle('ui:anything', () => 'ok');
+  const silence = console.warn; console.warn = () => {};
+  try {
+    for (const bad of [JSON.parse('{"__proto__":{"admin":true}}'), { constructor: { prototype: { x: 1 } } }, { a: [{ b: JSON.parse('{"__proto__":{}}') }] }]) {
+      assert.throws(() => ipc.invoke('pw:update', ev('window', UI), 'pw1', bad), /Not allowed/);
+      assert.throws(() => ipc.invoke('ui:anything', ev('window', UI), bad), /Not allowed/, 'also on channels without a schema');
+    }
+    assert.strictEqual(ipc.invoke('pw:update', ev('window', UI), 'pw1', { username: 'me', url: 'https://a.example' }), 'ok');
+  } finally { console.warn = silence; }
+  assert.strictEqual({}.admin, undefined, 'nothing polluted');
+});
+
+test('every channel with rules exists in the preload with a matching number of arguments', () => {
+  const { SCHEMAS } = require('../main/ipc-schema.js');
+  const pre = require('fs').readFileSync(require('path').join(__dirname, '..', 'preload.js'), 'utf8');
+  for (const [ch, schema] of Object.entries(SCHEMAS)) {
+    const m = pre.match(new RegExp(`ipcRenderer\\.(invoke|send|sendSync)\\('${ch}'((?:, \\w+)*)\\)`));
+    assert.ok(m, `${ch} is used by the preload`);
+    const n = m[2] ? m[2].split(',').filter((x) => x.trim()).length : 0;
+    assert.strictEqual(n, schema.length, `${ch}: preload sends ${n}, rules expect ${schema.length}`);
+  }
+});

@@ -67,6 +67,8 @@ module.exports = function setupAccount(ctx) {
     return data;
   }
   function takeSession(s) {
+    // an unfinished password change belongs to one account: signing in as someone else drops it
+    if (A.rotation && A.rotation.user && s.user && s.user.id !== A.rotation.user) delete A.rotation;
     A.userId = s.user && s.user.id; A.email = (s.user && s.user.email) || A.email;
     A.access = seal(s.access_token); A.refresh = seal(s.refresh_token);
     A.expires = Date.now() + (s.expires_in || 3600) * 1000 - 60000;
@@ -88,7 +90,9 @@ module.exports = function setupAccount(ctx) {
     return unseal(A.access);
   }
   let refreshing = null;
-  function signOutLocal() { A = { email: A.email, deviceId: A.deviceId }; saveA(); }
+  // Signing out (or a sign-in that expired) keeps an unfinished password change: its recovery keys are the only way to
+  // re-encrypt the cloud copy, so they're never thrown away early. Signing in to the same account finishes it.
+  function signOutLocal() { A = { email: A.email, deviceId: A.deviceId, ...(A.rotation ? { rotation: A.rotation } : {}) }; saveA(); }
 
   // ------------------------------------------------------------ encryption
   const deriveKey = (password, salt) => crypto.scryptSync(String(password), Buffer.from(salt, 'base64'), 32, { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
@@ -137,6 +141,7 @@ module.exports = function setupAccount(ctx) {
   // Passwords (and markers for deleted ones) are packed and merged by main/passwords.js.
   // ------------------------------------------------------------ sign up / in / out
   async function afterAuth(password) {
+    if (A.rotation) { try { await finishRotation(); } catch (e) { console.warn('[oto] password change not finished yet:', e && e.code ? e.code : 'later'); } }
     const row = await getRow();
     if (row) {
       const key = deriveKey(password, row.salt);
@@ -296,7 +301,7 @@ module.exports = function setupAccount(ctx) {
       const salt = crypto.randomBytes(16).toString('base64');
       // Everything needed to finish (or safely undo) is saved BEFORE the server password changes: the new key, the old
       // key, and — until the server confirms — the new password, all encrypted by Windows.
-      A.rotation = { salt, key: seal(deriveKey(next, salt).toString('base64')), oldKey: A.key, pw: seal(String(next)), at: Date.now() };
+      A.rotation = { salt, key: seal(deriveKey(next, salt).toString('base64')), oldKey: A.key, pw: seal(String(next)), at: Date.now(), user: A.userId };
       if (!saveA()) { delete A.rotation; return { ok: false, error: 'Oto couldn’t save to disk (is it full?), so your password was not changed.' }; }
       try { await api('PUT', '/auth/v1/user', { token: await token(), body: { password: String(next) } }); }
       catch (e) {
