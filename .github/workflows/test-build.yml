@@ -1,0 +1,59 @@
+# A private test installer for Ryo: Actions → Test build → Run workflow, or push a branch named test-build/<name>. Nothing is published:
+# the installer is a workflow artifact, kept 7 days. It's versioned <version>-test.<run>, which counts as OLDER than the
+# real release, so a test install updates itself to the real version once that's published.
+# No build record (attestation) is made for test builds: only real releases get one.
+name: Test build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['test-build/**'] # push a branch named test-build/<anything> to get a test installer from it
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install (with Electron)
+        shell: bash
+        # GitHub sometimes answers the castlabs Electron download with 504, and Electron's installer then fails without an
+        # error: done only when Electron is really there. Up to 3 tries.
+        run: n=0; until npm ci && node -e "require('fs').accessSync(require('electron'))"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
+      - name: Tests
+        run: |
+          npm test
+          npm run lint
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.12'
+      - name: Install the VMP signing tool
+        run: python -m pip install --upgrade castlabs-evs
+      - name: Build the test installer
+        id: build
+        shell: bash
+        env:
+          EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
+          EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
+        run: |
+          base=$(node -p "require('./package.json').otoVersion")
+          v="$base-test.$GITHUB_RUN_NUMBER"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          export OTO_VERSION="$v"
+          n=0; until npx electron-builder --win nsis --x64 --publish never -c.extraMetadata.version="$v" -c.extraMetadata.otoVersion="$v"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; rm -rf dist; sleep 30; done
+          ls dist/*.exe
+          cd dist && sha256sum Oto-Setup-*.exe | tee SHA256SUMS-test.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: Oto-${{ steps.build.outputs.version }}
+          path: |
+            dist/Oto-Setup-*.exe
+            dist/SHA256SUMS-test.txt
+          retention-days: 7
+          if-no-files-found: error
