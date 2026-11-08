@@ -13,6 +13,33 @@ module.exports = function createExtensions(ctx) {
   const MANUAL_EXT_FILE = 'extensions-manual.json';
 
   function extApi(ses) { return ses.extensions || ses; }
+  // true if `p` is inside folder `dir` (not just a name that starts the same: "Extensions-files" isn't in "Extensions")
+  const inside = (dir, p) => { const r = path.relative(dir, String(p || '')); return !!r && !r.startsWith('..') && !path.isAbsolute(r); };
+
+  // The Web Store library downloads extensions (installs and updates) with the global fetch and doesn't check their
+  // signatures. Every extension package it receives is checked here first (main/crx-verify.js): CRX3 only, signed by
+  // the extension's own key AND by the Chrome Web Store, every signature valid. Anything else never reaches the disk.
+  function guardCrxDownloads() {
+    if (typeof globalThis.fetch !== 'function' || globalThis.fetch.otoCrxGuard) return;
+    const { verifyCrx } = require('./crx-verify.js');
+    const orig = globalThis.fetch;
+    const guarded = async (input, init) => {
+      const res = await orig(input, init);
+      const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+      if (method !== 'GET' || !res.ok || res.status === 204 || !res.body) return res;
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length >= 4 && buf.toString('latin1', 0, 4) === 'Cr24') {
+        try { verifyCrx(buf, { requireWebStore: true }); } catch (err) {
+          console.warn('[oto] extension package refused:', err.message);
+          send('ext:refused', err.message);
+          return new Response(null, { status: 403, statusText: 'Refused by Oto' });
+        }
+      }
+      return new Response(buf, { status: res.status, statusText: res.statusText, headers: res.headers });
+    };
+    guarded.otoCrxGuard = true;
+    globalThis.fetch = guarded;
+  }
 
   // Part 1 — runs before the window opens, so the extension toolbar finds its handlers right away.
   function initExtensionAPI(ses) {
@@ -51,6 +78,7 @@ module.exports = function createExtensions(ctx) {
       }
     }
     try {
+      guardCrxDownloads();
       const { installChromeWebStore } = require('electron-chrome-web-store');
       await installChromeWebStore({
         session: ses,
@@ -59,7 +87,7 @@ module.exports = function createExtensions(ctx) {
           const r = await dialog.showMessageBox(ctx.win, {
             type: 'question', buttons: ['Add extension', 'Cancel'], defaultId: 0, cancelId: 1, noLink: true,
             title: 'Add extension', message: `Add “${details.localizedName}” to Oto?`,
-            detail: `From the Chrome Web Store. It asks to:\n${manifestPermissions(details.manifest).text}\n\nOto keeps it updated from the Web Store (each update's signature is checked).`,
+            detail: `From the Chrome Web Store. It asks to:\n${manifestPermissions(details.manifest).text}\n\nOto keeps it updated from the Web Store, and checks every download is signed by its developer and by the Chrome Web Store.`,
             icon: details.icon,
           });
           if (r.response === 0) setTimeout(() => send('ext:changed'), 1500);
@@ -153,7 +181,7 @@ module.exports = function createExtensions(ctx) {
         id: x.id, name: x.name, version: x.version, path: x.path, icon: iconOf(x),
         description: (x.manifest && x.manifest.description) || '',
         options: (x.manifest && ((x.manifest.options_ui && x.manifest.options_ui.page) || x.manifest.options_page)) || '',
-        source: x.path.startsWith(storeDir) ? 'store' : 'file',
+        source: inside(storeDir, x.path) ? 'store' : 'file',
       }));
     });
     ipcMain.handle('ext:install-file', async () => {
@@ -188,18 +216,18 @@ module.exports = function createExtensions(ctx) {
       if (!ext) return false;
       const storeDir = userFile('Extensions');
       try {
-        if (ext.path.startsWith(storeDir)) {
+        if (inside(storeDir, ext.path)) {
           const { uninstallExtension } = require('electron-chrome-web-store');
           await uninstallExtension(id, { session: ses, extensionsPath: storeDir });
         } else {
           extApi(ses).removeExtension(id);
           writeJSON(MANUAL_EXT_FILE, readJSON(MANUAL_EXT_FILE, []).filter((d) => d !== ext.path));
-          if (ext.path.startsWith(userFile('Extensions-files'))) fs.rmSync(ext.path, { recursive: true, force: true });
+          if (inside(userFile('Extensions-files'), ext.path)) fs.rmSync(ext.path, { recursive: true, force: true });
         }
         return true;
       } catch { return false; }
     });
   }
 
-  return { get extensions() { return extensions; }, initExtensionAPI, setupExtensions, setupExtensionIPC };
+  return { get extensions() { return extensions; }, initExtensionAPI, setupExtensions, setupExtensionIPC, guardCrxDownloads, _inside: inside };
 };

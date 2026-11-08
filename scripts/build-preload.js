@@ -12,9 +12,10 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 function build() {
-  const pre = fs.readFileSync(path.join(ROOT, 'preload.js'), 'utf8');
+  const lf = (t) => t.replace(/\r\n/g, '\n'); // Windows checkouts can have CRLF; the bundle is always LF
+  const pre = lf(fs.readFileSync(path.join(ROOT, 'preload.js'), 'utf8'));
   const baFile = require.resolve('electron-chrome-extensions/browser-action', { paths: [ROOT] });
-  const ba = fs.readFileSync(baFile, 'utf8').replace(/\n\/\/# sourceMappingURL=.*\s*$/, '\n');
+  const ba = lf(fs.readFileSync(baFile, 'utf8')).replace(/\n\/\/# sourceMappingURL=.*\s*$/, '\n');
   const ver = JSON.parse(fs.readFileSync(path.join(path.dirname(baFile), '..', '..', 'package.json'), 'utf8')).version;
   const call = "require('electron-chrome-extensions/browser-action')";
   if (!pre.includes(call)) throw new Error(`preload.js no longer contains ${call}`);
@@ -39,7 +40,7 @@ if (require.main === module) {
   const out = path.join(ROOT, 'preload.bundle.js');
   const next = build();
   if (process.argv.includes('--check')) {
-    const cur = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
+    const cur = fs.existsSync(out) ? fs.readFileSync(out, 'utf8').replace(/\r\n/g, '\n') : '';
     if (cur !== next) { console.error('preload.bundle.js is out of date: run node scripts/build-preload.js'); process.exit(1); }
     console.log('preload.bundle.js is up to date');
   } else { fs.writeFileSync(out, next); console.log('wrote preload.bundle.js'); }

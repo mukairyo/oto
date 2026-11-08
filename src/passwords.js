@@ -21,7 +21,7 @@ function pwWhy(r, isEdit) {
   if (r === true || r === 'saved' || r === 'updated' || r === 'same') return '';
   if (r && r.error) return r.error;
   if (r === 'noenc') return 'Not saved: Windows can’t encrypt passwords right now, and Oto never stores them unencrypted';
-  if (r === 'diskerror') return 'Not saved: Oto couldn’t write to disk (is it full?)';
+  if (r === 'diskerror') return PWS.status && PWS.status.readOnly ? 'Not saved: passwords are read-only because the passwords file is damaged (restart Oto)' : 'Not saved: Oto couldn’t write to disk (is it full?)';
   if (r === 'invalid') return 'Not saved: Oto only saves passwords for secure (https) sites';
   return isEdit ? 'Couldn’t save — another saved login already uses that site and username' : 'Couldn’t save that password';
 }
@@ -173,6 +173,7 @@ LIB_RENDER.passwords = function passwords() {
   const intro = h('p', { class: 'lib-intro' }, PWS.status && !PWS.status.encrypted
     ? '⚠ Windows can’t encrypt passwords right now, so Oto won’t save new ones until it can (it never stores them unencrypted).'
     : 'Saved on this PC and encrypted with Windows’ own protection. When you click a login box, Oto shows your accounts for that site.',
+    PWS.status && PWS.status.readOnly ? h('b', { style: 'display:block;margin-top:6px;color:#f87171' }, '⚠ Your saved-passwords file is damaged and Oto couldn’t set it aside, so passwords are read-only until you restart Oto: nothing will be saved over it. Your other devices still have your synced passwords.') :
     PWS.status && PWS.status.damaged ? h('b', { style: 'display:block;margin-top:6px;color:#f59e0b' }, `⚠ Your saved-passwords file couldn’t be read, so Oto set it aside as “${PWS.status.damaged}” in Oto’s folder instead of overwriting it. Your other devices still have your synced passwords.`) : null);
   const out = [intro, tools];
   if (PWS.adding) out.push(pwForm(null, () => { PWS.adding = false; renderLibrary(); }));

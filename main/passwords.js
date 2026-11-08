@@ -18,16 +18,23 @@ module.exports = function createPasswords(ctx) {
   let PW = null;
   const pwCanEncrypt = () => { try { return safeStorage.isEncryptionAvailable(); } catch { return false; } };
   let pwDamaged = '';
+  let pwReadOnly = false; // damaged file that couldn't be set aside: Oto must not write over it
   function pwLoad() {
     if (PW) return PW;
     const d = readJSON(PW_FILE, null);
-    // A file that exists but can't be read is never overwritten: it's moved aside (so nothing is lost) and Oto says so.
+    // A file that exists but can't be read is never overwritten. It's moved aside (so nothing is lost) and Oto says so.
+    // If it can't be moved aside, passwords become READ-ONLY for this session: nothing is saved over the damaged file.
+    const dmg = ctx.damagedFile ? ctx.damagedFile(PW_FILE) : null; // main.js already moved it (or couldn't)
     const file = ctx.userFile ? ctx.userFile(PW_FILE) : null;
-    if (!(d && Array.isArray(d.entries)) && file && fs.existsSync(file)) {
+    if (dmg) { pwDamaged = dmg.aside || PW_FILE; pwReadOnly = !!dmg.readOnly; }
+    else if (d !== null && !(d && Array.isArray(d.entries)) && file && fs.existsSync(file)) { // valid JSON, wrong shape
       const aside = `${file}.damaged-${Date.now()}`;
-      try { fs.renameSync(file, aside); pwDamaged = path.basename(aside); } catch { pwDamaged = PW_FILE; }
-      console.warn('[oto] passwords.json could not be read; kept as', pwDamaged);
+      try { fs.renameSync(file, aside); pwDamaged = path.basename(aside); } catch { pwDamaged = PW_FILE; pwReadOnly = true; }
+    } else if (d === null && file && fs.existsSync(file)) { // reader that doesn't move files (tests, tools)
+      const aside = `${file}.damaged-${Date.now()}`;
+      try { fs.renameSync(file, aside); pwDamaged = path.basename(aside); } catch { pwDamaged = PW_FILE; pwReadOnly = true; }
     }
+    if (pwDamaged) console.warn(`[oto] passwords.json could not be read; ${pwReadOnly ? 'passwords are read-only this session' : `kept as ${pwDamaged}`}`);
     PW = d && Array.isArray(d.entries) ? d : { v: 1, entries: [] };
     // Older versions saved a readable copy (Base64) when Windows encryption was unavailable. Encrypt those now.
     if (pwCanEncrypt()) {
@@ -39,7 +46,10 @@ module.exports = function createPasswords(ctx) {
   }
   // Saving is all-or-nothing: the file is written to a temporary copy and swapped in (writeJSON), and if that fails the
   // change is undone in memory too, so Oto never says "saved" for something that isn't on disk.
-  function pwSave() { try { writeJSON(PW_FILE, PW); return true; } catch (e) { console.warn('[oto] could not save passwords:', e && e.message); return false; } }
+  function pwSave() {
+    if (pwReadOnly) return false; // never write over a damaged file we couldn't keep
+    try { writeJSON(PW_FILE, PW); return true; } catch (e) { console.warn('[oto] could not save passwords:', e && e.code ? e.code : 'error'); return false; }
+  }
   const DISK = Symbol('disk');
   function pwTx(fn) {
     const before = JSON.stringify(pwLoad());
@@ -69,16 +79,21 @@ module.exports = function createPasswords(ctx) {
   // Deleted logins leave a small marker (site + username + time, never the password), so sync can
   // delete them on your other devices too instead of bringing them back.
   // Kept for good (newest 5,000), so even a device that was offline for years can't bring a deleted login back.
-  const TOMB_MAX = 5000;
+  // Newest 20,000 markers kept (about 2 MB). Only a device that stayed offline while more than 20,000 other logins
+  // were deleted could bring back one of the oldest; see test "deletion markers: the documented limit".
+  const TOMB_MAX = 20000;
   function pwTombs() { const d = pwLoad(); d.deleted = (Array.isArray(d.deleted) ? d.deleted : []).filter((t) => t && t.o); if (d.deleted.length > TOMB_MAX) d.deleted = d.deleted.sort((x, y) => (y.at || 0) - (x.at || 0)).slice(0, TOMB_MAX); return d.deleted; }
-  function pwTomb(o, u, at = Date.now()) {
+  // `src`: the other device's original (future) time when it had to be capped; seeing that same marker again never
+  // moves its time forward, so a wrong clock can't keep deleting your new saves.
+  function pwTomb(o, u, at = Date.now(), src) {
     const list = pwTombs(); const t = list.find((x) => x.o === o && x.u === u);
-    if (t) t.at = Math.max(t.at || 0, at); else list.push({ o, u, at });
+    if (t) { if (src && t.src === src) return t; t.at = Math.max(t.at || 0, at); if (src) t.src = src; return t; }
+    const n = { o, u, at, ...(src ? { src } : {}) }; list.push(n); return n;
   }
   function pwSyncExport() {
     return {
       entries: pwLoad().entries.map((e) => ({ o: e.origin, u: e.username, p: pwDec(e), up: e.updated || e.created || 0 })).filter((e) => e.p),
-      deleted: pwTombs().map((t) => ({ o: t.o, u: t.u, at: t.at })),
+      deleted: pwTombs().filter((t) => { const e = pwFind(t.o, t.u); return !e || (e.updated || e.created || 0) <= t.at; }).map((t) => ({ o: t.o, u: t.u, at: t.at })), // markers a newer save replaced stay local
     };
   }
   function pwSyncMerge(list, deleted) {
@@ -86,24 +101,27 @@ module.exports = function createPasswords(ctx) {
     if (r === DISK) throw new Error('Couldn’t save synced passwords to disk (is the disk full?)');
     return r;
   }
+  // Another device's clock can be wrong. Times from it are capped at "now" here (+1 min), so a device whose clock runs
+  // ahead can't make its deletions or edits beat every later change forever.
+  const syncTime = (t) => { const n = Number(t); return n > 0 ? Math.min(n, Date.now() + 60e3) : 0; };
   function syncMergeMem(list, deleted) {
     let n = 0;
     const d = pwLoad();
     for (const t of Array.isArray(deleted) ? deleted : []) {
       if (!t || typeof t.o !== 'string' || !pwOrigin(t.o) || !(t.at > 0)) continue;
-      const u = String(t.u || '');
-      pwTomb(t.o, u, t.at);
+      const raw = Number(t.at), u = String(t.u || '').slice(0, 512);
+      const at = pwTomb(t.o, u, syncTime(raw), raw > syncTime(raw) ? raw : undefined).at;
       const i = d.entries.findIndex((e) => e.origin === t.o && e.username === u);
-      if (i >= 0 && (d.entries[i].updated || d.entries[i].created || 0) <= t.at) { d.entries.splice(i, 1); n++; }
+      if (i >= 0 && (d.entries[i].updated || d.entries[i].created || 0) <= at) { d.entries.splice(i, 1); n++; }
     }
     for (const r of Array.isArray(list) ? list : []) {
-      if (!r || typeof r.o !== 'string' || !pwOrigin(r.o) || typeof r.p !== 'string' || !r.p) continue;
-      const u = String(r.u || '');
+      if (!r || typeof r.o !== 'string' || !pwOrigin(r.o) || typeof r.p !== 'string' || !r.p || r.p.length > 4096) continue;
+      const u = String(r.u || '').slice(0, 512), up = syncTime(r.up);
       const tomb = pwTombs().find((t) => t.o === r.o && t.u === u);
-      if (tomb && tomb.at >= (r.up || 0)) continue; // deleted after this copy was saved
+      if (tomb && tomb.at >= up) continue; // deleted after this copy was saved
       const ex = pwFind(r.o, u);
-      if (ex && (ex.updated || 0) >= (r.up || 0)) continue;
-      const res = upsertMem(r.o, u, r.p, r.up);
+      if (ex && (ex.updated || 0) >= up) continue;
+      const res = upsertMem(r.o, u, r.p, up);
       if (res === 'saved' || res === 'updated') n++;
     }
     return n;
@@ -113,7 +131,9 @@ module.exports = function createPasswords(ctx) {
   // In memory only; callers save through pwTx.
   function upsertMem(origin, username, password, at) {
     const d = pwLoad();
-    const now = at > 0 && at <= Date.now() + 60e3 ? at : Date.now();
+    let now = at > 0 && at <= Date.now() + 60e3 ? at : Date.now();
+    const tomb = pwTombs().find((t) => t.o === origin && t.u === username);
+    if (tomb && now <= tomb.at && !(at > 0)) now = tomb.at + 1; // a save on this PC always beats an older deletion marker
     const ex = pwFind(origin, username);
     if (ex && pwDec(ex) === password) { ex.lastUsed = Math.max(ex.lastUsed || 0, now); return 'same'; }
     const sealed = pwEnc(password);
@@ -123,7 +143,8 @@ module.exports = function createPasswords(ctx) {
       Object.assign(ex, sealed, { updated: now, lastUsed: now });
       return 'updated';
     }
-    d.deleted = pwTombs().filter((t) => !(t.o === origin && t.u === username)); // saved again: no longer deleted
+    // saved again: the old deletion marker stays (now older than this save, so it no longer deletes anything) so a
+    // capped wrong-clock marker keeps its fixed time
     d.entries.push({ id: `pw${now.toString(36)}${crypto.randomBytes(4).toString('hex')}`, origin, username, ...sealed, created: now, updated: now, lastUsed: now });
     return 'saved';
   }
@@ -160,7 +181,7 @@ module.exports = function createPasswords(ctx) {
     return { user: !!user, pass: !!pass };
   })(${JSON.stringify(u)}, ${JSON.stringify(p)})`;
   function setupPasswordIPC() {
-    ipcMain.handle('pw:status', () => ({ encrypted: pwCanEncrypt(), count: pwLoad().entries.length, unprotected: pwLoad().entries.filter((e) => e.plain && !e.enc).length, damaged: pwDamaged }));
+    ipcMain.handle('pw:status', () => ({ encrypted: pwCanEncrypt(), count: pwLoad().entries.length, unprotected: pwLoad().entries.filter((e) => e.plain && !e.enc).length, damaged: pwDamaged, readOnly: pwReadOnly }));
     ipcMain.handle('pw:list', () => pwOk() !== true ? [] : pwLoad().entries.map(pwPublic).sort((a, b) => a.site.localeCompare(b.site) || a.username.localeCompare(b.username)));
     ipcMain.handle('pw:forOrigin', (_e, url) => { if (pwOk() !== true) return []; const o = pwOrigin(url); return o ? pwLoad().entries.filter((e) => e.origin === o).sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0)).map(pwPublic) : []; });
     ipcMain.handle('pw:check', (_e, url, username, password) => {

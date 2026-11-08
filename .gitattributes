@@ -1,0 +1,6 @@
+# Same line endings on every machine (Windows included), so generated files and their up-to-date checks match.
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.crx3 binary
+*.crx2 binary

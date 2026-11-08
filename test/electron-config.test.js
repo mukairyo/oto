@@ -55,7 +55,11 @@ test('every window is sandboxed, Oto’s own UI included (1.3.3: no sandbox exce
 
 test('the sandboxed preload bundle is up to date with preload.js and needs only electron', () => {
   const { build } = require('../scripts/build-preload.js');
-  assert.strictEqual(read('preload.bundle.js'), build(), 'run: node scripts/build-preload.js');
+  assert.strictEqual(read('preload.bundle.js').replace(/\r\n/g, '\n'), build(), 'run: node scripts/build-preload.js');
+  // a Windows checkout (CRLF) builds the same bundle
+  const fsm = require('fs'), orig = fsm.readFileSync;
+  fsm.readFileSync = function (f, enc) { const r = orig.apply(this, arguments); return typeof r === 'string' && /preload\.js$|browser-action/.test(String(f)) ? r.replace(/\n/g, '\r\n') : r; };
+  try { assert.strictEqual(build(), read('preload.bundle.js'), 'CRLF input gives the same bundle'); } finally { fsm.readFileSync = orig; }
   const reqs = [...read('preload.bundle.js').matchAll(/require\((["'])([^"']+)\1\)/g)].map((m) => m[2]);
   assert.deepStrictEqual([...new Set(reqs)], ['electron'], 'a sandboxed preload can only require electron');
   assert.ok(JSON.parse(read('package.json')).build.files.includes('preload.bundle.js'), 'packaged');

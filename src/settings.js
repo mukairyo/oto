@@ -740,7 +740,7 @@ const PAGE_RENDER = {
       section('Engine (restart needed)',
         row('Use hardware acceleration', 'Uses your graphics card for smoother video and scrolling. Turn off if you see glitches or black screens.', sw(st.hwAccel !== false, (on) => { setPref('hwAccel', on); needsRestart = true; })),
         row('Smooth scrolling', 'Off makes scrolling snap instantly and uses slightly less CPU.', sw(st.smoothScroll !== false, (on) => { setPref('smoothScroll', on); needsRestart = true; })),
-        needsRestart ? h('div', { class: 'restart-bar' }, h('span', {}, 'Restart Oto to apply these changes.'), h('button', { class: 'btn primary', onclick: () => { save(); oto.saveStateSync(persistable()); oto.relaunch(); } }, 'Restart now')) : null),
+        needsRestart ? h('div', { class: 'restart-bar' }, h('span', {}, 'Restart Oto to apply these changes.'), h('button', { class: 'btn primary', onclick: () => { save(); const r = oto.saveStateSync(persistable()); if (r && r.ok === false) { toast('Oto couldn’t save your settings to disk, so it didn’t restart (your changes would be lost). Free some space and try again.', { icon: 'x', timeout: 6000 }); return; } oto.relaunch(); } }, 'Restart now')) : null),
       section('Task manager', tm),
     ];
   },

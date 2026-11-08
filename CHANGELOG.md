@@ -3,6 +3,45 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.4.0 — 2026-11-08
+
+*Project Aegis: a security and reliability release. No new features. Nothing to do: it updates itself.*
+
+**Dangerous-site protection**
+- **While Oto Shield was starting up, the dangerous-site check was off.** Shield downloads its filter lists when it starts (and when you change the protection level), and until it finished, pages loaded with no check at all, so a tab restored at startup could open a known malware or phishing site. Oto's built-in list and the dangerous-site check now run from the first moment until the full engine takes over. Found by the new end-to-end tests.
+- The red warning page sometimes didn't appear in a brand-new tab (the site was blocked, but the tab stayed blank). It now always shows.
+- Hosts are compared in one normal form everywhere: uppercase, trailing dots, international names, and other ways of writing an IP address (like `0x7f.1` or `2130706433`) can't slip past the lists. Downloaded lists are checked, and a new list that suddenly shrank is refused (the old one is kept).
+- Tested: dangerous sites are blocked directly, with a trailing dot, in uppercase, after a redirect, and with ad blocking turned off.
+
+**Extensions**
+- **Chrome Web Store extensions are now checked for genuine signatures.** The library Oto uses only checked that an extension's public key matched its ID, never the signatures, so a changed package with a copied key would have been accepted. Every package (install and update) must now be signed by its developer and by the Chrome Web Store, the way Chrome checks it, before it reaches the disk. Tested with Chromium's own test packages and with forged ones.
+- **Removing an extension added from a file didn't really remove it.** Oto took it for a Web Store extension, so it came back at the next start (and was listed as from the Web Store). Fixed.
+- Tested: extensions never run in private windows or in Spaces with their own logins, and can't see those tabs.
+
+**Your data on disk**
+- A damaged settings or passwords file is set aside (or, if that fails, left alone and read-only) and never overwritten. Before, an unreadable file could be replaced by an empty one.
+- Saves go through a temporary file that's flushed to disk before it replaces the old one, so a crash or power cut mid-save can't leave a half-written file.
+- Oto tells you when a save fails or a file was damaged, instead of failing silently.
+
+**Accounts and sync**
+- An unfinished account password change survives signing out, an expired sign-in and a restart, and finishes when you sign in again.
+- If the server stops accepting your sign-in early, Oto refreshes it once and retries, instead of failing every sync for up to an hour.
+- A device whose clock is far ahead can no longer make its deletions win over later edits. Deletion markers kept: up to 20,000.
+
+**Oto's core**
+- Every message from Oto's window to its core is checked against rules for that message (the kinds of values, sizes inside nested data, no `__proto__`-style keys) before anything runs.
+
+**Updates**
+- Tested: corrupted release metadata, damaged or interrupted downloads, a full disk, a failed build record and GitHub being unreachable. In none of these does anything install. The update source can't be redirected.
+
+**Faster first page after starting**
+- A restored tab shows up to several times faster at startup when Oto Shield's lists are slow to load (about 0.5 s instead of 1.5–2.5 s in tests). Shield used to attach to your pages only once its engine was ready, which restarted pages that were already loading. Startup time and memory are otherwise unchanged; Oto's new checks cost under 1 ms.
+
+**Automatic checks**
+- New end-to-end tests run the real Oto against local test sites on every change, on Linux and on Windows (including Windows' password encryption and the "downloaded from the internet" mark). A release is only built if all checks pass, including a known-vulnerability check of what Oto ships, and performance limits (opening a page, saving, Oto's internal messages, memory).
+- Weekly checks of Oto's account server (strangers can't read or change sync data), weekly dependency updates (never merged automatically), daily Chromium security updates.
+- New: `SECURITY_MAINTENANCE.md` (how Oto stays patched) and `docs/UPDATE_TRUST.md` (what each update check proves, and the plan for free Windows code signing).
+
 ## 1.3.4 — 2026-11-08
 
 *Security release: the last part of the 1.3.3 security work, finished after 1.3.3 was published. Nothing to do: it updates itself.*

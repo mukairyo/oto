@@ -1,13 +1,24 @@
-# Weekly pull requests for outdated or vulnerable packages and GitHub Actions (each one runs the Checks workflow).
+# Weekly pull requests for outdated or vulnerable packages and GitHub Actions. Each one runs the Checks workflow
+# (unit tests, security rules, audit, Windows build); nothing is merged automatically.
+# Security fixes come as their own pull requests as soon as an advisory is published (Dependabot security updates).
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
-    schedule: { interval: weekly }
+    schedule: { interval: weekly, day: monday }
     open-pull-requests-limit: 5
+    groups:
+      # small, safe updates in one PR a week; major versions always get their own PR to review
+      minor-and-patch:
+        update-types: [minor, patch]
     ignore:
-      # castlabs Electron (Widevine build) is updated by hand / chromium-update.yml, not from npm
+      # castlabs Electron (Widevine build) is updated by chromium-update.yml, not from npm
       - dependency-name: electron
+    commit-message: { prefix: deps }
   - package-ecosystem: github-actions
     directory: /
-    schedule: { interval: weekly }
+    schedule: { interval: weekly, day: monday }
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message: { prefix: ci }

@@ -915,6 +915,10 @@ function initLibrary() {
   }
   // A save that didn't reach the disk (disk full, no permission): say so once instead of failing silently.
   oto.on('save-failed', (d) => toast(`Oto couldn’t save ${(d && d.what) || 'a change'} to disk${d && d.code === 'ENOSPC' ? ' — the disk is full' : d && /EACCES|EPERM/.test(d.code || '') ? ' — no permission' : ''}. It still works until you close Oto.`, { icon: 'x', timeout: 7000 }));
+  // A file Oto couldn't read was kept (never overwritten): say where, or that it's read-only for now.
+  oto.on('data-damaged', (d) => toast(d && d.readOnly
+    ? `Oto couldn’t read ${d.name} and couldn’t set it aside, so it won’t overwrite it. Changes to it won’t be saved until Oto restarts.`
+    : `Oto couldn’t read ${d && d.name}, so it started fresh and kept the old file as “${d && d.aside}” in Oto’s folder.`, { icon: 'x', timeout: 9000 }));
   oto.on('download', (d) => { if (d && d.reason === 'danger') toast(`Download blocked: ${d.name} comes from a site known for ${d.kind === 'phishing' ? 'phishing' : 'harmful software'}`, { icon: 'shield', timeout: 5000 }); onDownload(d); });
   oto.on('blocked', (_wc, n) => bumpStat('blocked', n || 1));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && LIB.open && $('#wsDialog').hidden && $('#menuLayer').hidden) { e.stopPropagation(); closeLibrary(); } }, true);

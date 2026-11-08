@@ -1,5 +1,6 @@
 # Checks every pull request and EVERY push to every branch, main included, whether or not the version changed:
-# unit tests, the security rules in scripts/lint.js, and known-vulnerability check of the shipped packages.
+# unit tests, the security rules in scripts/lint.js, known-vulnerability check of the shipped packages, and end-to-end
+# tests of the real app on Linux and Windows.
 # (The release workflow runs the same tests again before it builds an installer.)
 name: Checks
 
@@ -17,8 +18,8 @@ jobs:
     env:
       ELECTRON_SKIP_BINARY_DOWNLOAD: '1' # the tests don't need Electron itself
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: npm
@@ -28,26 +29,74 @@ jobs:
       - name: Known vulnerabilities in what Oto ships
         run: npm audit --omit=dev --audit-level=high
 
+  # End-to-end: starts the real Oto (Electron) against local test sites and checks isolation, private windows, Spaces,
+  # downloads, certificate and dangerous-site warnings, passwords and Shield. No outside network is used by the tests.
+  e2e-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get update -q && sudo apt-get install -y -q xvfb
+      # Electron download cache (CI only; release builds always download fresh)
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install (with Electron)
+        shell: bash
+        # GitHub sometimes answers the castlabs Electron download with 504, and Electron's installer then fails without an
+        # error: done only when Electron is really there. Up to 3 tries.
+        run: n=0; until npm ci && node -e "require('fs').accessSync(require('electron'))"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
+      - name: End-to-end tests (Linux)
+        run: npm run test:e2e
+
   # Windows packaging check on every push: builds the unpacked Windows app (no installer, no publishing) and checks
   # what's inside the app archive: Oto's code is there, and tests, scripts, keys or exports never are.
   windows-build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # Electron download cache (CI only; release builds always download fresh)
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install (with Electron)
+        shell: bash
+        # GitHub sometimes answers the castlabs Electron download with 504, and Electron's installer then fails without an
+        # error: done only when Electron is really there. Up to 3 tries.
+        run: n=0; until npm ci && node -e "require('fs').accessSync(require('electron'))"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
+      # the unit tests on Windows too (line endings, paths and DPAPI behave differently there)
+      - name: Unit tests (Windows)
+        run: npm test
+      # uses the Electron npm ci just installed instead of downloading it a second time
       - name: Build the unpacked Windows app
-        run: npm run pack
+        shell: bash
+        # GitHub sometimes answers the castlabs Electron download with 504, and Electron's installer then fails without an
+        # error: done only when Electron is really there. Up to 3 tries.
+        run: n=0; until npm run pack -- "-c.electronDist=$(node -p "require('path').dirname(require('electron'))")"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
       - name: Check what's packaged
         shell: bash
         run: |
           test -f dist/win-unpacked/Oto.exe
           node -e "
             const files = require('@electron/asar').listPackage('dist/win-unpacked/resources/app.asar').map((f) => f.replace(/\\\\/g, '/'));
-            const must = ['/main.js', '/preload.bundle.js', '/page-preload.js', '/main/attest.js', '/main/ipc-guard.js', '/main/passwords.js', '/src/index.html'];
+            const must = ['/main.js', '/preload.bundle.js', '/page-preload.js', '/main/attest.js', '/main/crx-verify.js', '/main/ipc-guard.js', '/main/passwords.js', '/src/index.html'];
             const never = /^\/(test|scripts|\.github|docs)\/|\.(pem|key|jks|p12|pfx|env|oto|csv)$|SHA256SUMS/i;
             const missing = must.filter((f) => !files.includes(f));
             const leaked = files.filter((f) => never.test(f));
@@ -56,3 +105,6 @@ jobs:
             if (leaked.length) { console.error('should not be packaged:', leaked); process.exit(1); }
             console.log('packaged contents OK');
           "
+      # same end-to-end suites on Windows, plus the Windows-only checks: DPAPI encryption and Mark of the Web
+      - name: End-to-end tests (Windows)
+        run: npm run test:e2e

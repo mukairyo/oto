@@ -86,7 +86,9 @@ test('saving a login again after deleting it brings it back', async () => {
   A.pw.pwUpsert('https://a.example', 'me', 'one');
   await A.ipc.invoke('pw:delete', UI, A.pw.pwLoad().entries[0].id);
   A.pw.pwUpsert('https://a.example', 'me', 'two');
-  assert.strictEqual(A.pw.pwSyncExport().deleted.length, 0);
+  assert.strictEqual(A.pw.pwSyncExport().deleted.length, 0, 'other devices aren’t told to delete it');
+  assert.strictEqual(A.pw.pwLoad().entries.length, 1);
+  A.pw.pwSyncMerge([], A.pw.pwLoad().deleted); // the old marker coming back doesn't delete the new save
   assert.strictEqual(A.pw.pwLoad().entries.length, 1);
 });
 
@@ -175,4 +177,47 @@ test('CSV import refuses huge files and reports read errors', async () => {
   assert.match((await A.ipc.invoke('pw:import', UI)).error, /too big/);
   A.electron.dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path.join(os.tmpdir(), 'does-not-exist.csv')] });
   assert.match((await A.ipc.invoke('pw:import', UI)).error, /Couldn’t read/);
+});
+
+test('damaged passwords file that can’t be moved aside: read-only, nothing written over it (Aegis 1.2)', async () => {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oto-pwro-'));
+  const file = path.join(dir, 'passwords.json');
+  fs.writeFileSync(file, '{"v":1,"entries":[{"id":"x","enc":"RU5DOnNlY3JldA=="'); // damaged
+  const A = load({ userFile: (n) => path.join(dir, n) });
+  const orig = fs.renameSync;
+  const warn = console.warn; console.warn = () => {};
+  fs.renameSync = () => { const e = new Error('EPERM'); e.code = 'EPERM'; throw e; };
+  try { A.pw.pwLoad(); } finally { fs.renameSync = orig; console.warn = warn; }
+  const st = await A.ipc.invoke('pw:status', UI);
+  assert.strictEqual(st.readOnly, true);
+  assert.strictEqual(A.pw.pwUpsert('https://a.example', 'me', 'one'), 'diskerror', 'never reports success');
+  assert.strictEqual(fs.readFileSync(file, 'utf8').includes('RU5DOnNlY3JldA=='), true, 'damaged data untouched');
+  assert.ok(!('passwords.json' in A.mem.files), 'no empty replacement written');
+});
+
+test('a device with its clock far ahead can’t make its deletions beat later edits (clock differences)', () => {
+  const A = load();
+  const future = Date.now() + 365 * 864e5;
+  A.pw.pwSyncMerge([], [{ o: 'https://a.example', u: 'me', at: future }]); // deleted "next year" by a wrong clock
+  assert.ok(A.pw.pwSyncExport().deleted[0].at <= Date.now() + 60e3, 'stored as at most now');
+  A.pw.pwUpsert('https://a.example', 'me', 'saved-again'); // you save it again on this PC
+  A.pw.pwSyncMerge([], [{ o: 'https://a.example', u: 'me', at: future }]); // the same wrong-clock marker comes back
+  assert.strictEqual(A.pw.pwLoad().entries.length, 1, 'the later save survives');
+});
+
+test('deletion markers: the documented limit (old offline device, more than 20,000 deletions)', () => {
+  const A = load();
+  const t0 = Date.now() - 864e5;
+  const many = Array.from({ length: 20001 }, (_, i) => ({ o: `https://s${i}.example`, u: 'u', at: t0 + i }));
+  A.pw.pwSyncMerge([], many);
+  const kept = A.pw.pwSyncExport().deleted;
+  assert.strictEqual(kept.length, 20000, 'capped at the newest 20,000');
+  assert.ok(!kept.some((t) => t.o === 'https://s0.example'), 'the oldest marker was dropped');
+  // an old device still holding s0 (saved before its deletion) can bring it back — the known, documented limit
+  A.pw.pwSyncMerge([{ o: 'https://s0.example', u: 'u', p: 'old', up: t0 - 1 }], []);
+  assert.ok(A.pw.pwLoad().entries.some((e) => e.origin === 'https://s0.example'), 'documented in PRIVACY.md');
+  // while anything inside the cap stays deleted
+  A.pw.pwSyncMerge([{ o: 'https://s20000.example', u: 'u', p: 'old', up: t0 - 1 }], []);
+  assert.ok(!A.pw.pwLoad().entries.some((e) => e.origin === 'https://s20000.example'));
 });

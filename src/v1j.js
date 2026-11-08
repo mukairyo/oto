@@ -391,6 +391,7 @@ function initV1j() {
   // A stopped page load looks like "cancelled" to the tab, so show the warning page ourselves.
   oto.on('danger', (d) => {
     if (!d || !d.wcId) return;
+    d.at = Date.now();
     SHP_DANGER.set(d.wcId, d);
     const show = () => {
       if (SHP_DANGER.get(d.wcId) !== d) return;

@@ -419,7 +419,7 @@ async function v1OwnerPanel() {
       h('div', { class: 'flags' }, ...flags.map(([k, label]) => h('label', {}, h('button', { class: `switch${S.settings[k] !== false ? ' on' : ''}`, role: 'switch', onclick: (e) => { S.settings[k] = S.settings[k] === false; save(); if (k === 'v1Menu') syncMainSettings(); e.currentTarget.classList.toggle('on', S.settings[k] !== false); } }), h('span', {}, label))))),
     h('div', { class: 'osec' }, h('div', { class: 'ot' }, 'INFO'),
       h('p', { class: 'mono' }, `Tabs ${S.tabs.length} · open ${V.size} · spaces ${S.workspaces.length} · history ${(S.history || []).length} · since ${new Date(S.since || Date.now()).toLocaleDateString()}`),
-      h('div', { class: 'og' }, tool('Save problem report', () => { v1ClosePop(); openSettings('about'); }), tool('Lock owner (this PC)', () => { oto.ownerLock().then(() => { UPD.owner = false; V1D.founder = null; v1ClosePop(); toast('Owner locked on this PC', { timeout: 1600 }); }); }, 'danger'))));
+      h('div', { class: 'og' }, tool('Save problem report', () => { v1ClosePop(); openSettings('about'); }), tool('Lock owner (this PC)', () => { oto.ownerLock().then((ok) => { UPD.owner = false; V1D.founder = null; v1ClosePop(); toast(ok === false ? 'Owner mode is off for now, but Oto couldn’t remove the saved key — delete owner.json in Oto’s folder' : 'Owner locked on this PC', { timeout: ok === false ? 6000 : 1600 }); }); }, 'danger'))));
   layer.append(panel);
 }
 

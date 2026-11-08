@@ -9,19 +9,22 @@ on:
     branches: [main, v1]
   workflow_dispatch:
 
+# Least privilege: nothing by default; each job asks only for what it needs.
 permissions:
-  contents: write
-  id-token: write      # signed build provenance (who built this installer, from which commit)
-  attestations: write
+  contents: read
 
 jobs:
   release:
     runs-on: windows-latest
+    permissions:
+      contents: write      # publish the release
+      id-token: write      # signed build provenance (who built this installer, from which commit)
+      attestations: write
     outputs:
       version: ${{ steps.check.outputs.version }}
       skip: ${{ steps.check.outputs.skip }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Is this version already released?
         id: check
@@ -38,7 +41,7 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         if: steps.check.outputs.skip != 'true'
         with:
           node-version: 22
@@ -46,18 +49,27 @@ jobs:
 
       - name: Install
         if: steps.check.outputs.skip != 'true'
-        run: npm ci
+        shell: bash
+        # GitHub sometimes answers the castlabs Electron download with 504, and Electron's installer then fails without an
+        # error: done only when Electron is really there. Up to 3 tries.
+        run: n=0; until npm ci && node -e "require('fs').accessSync(require('electron'))"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
 
-      # Red tests or a broken security rule stop the release before anything is built.
+      # Red tests, a broken security rule, a known high-severity vulnerability in what Oto ships, or a failed
+      # end-to-end check of the real app (on Windows: DPAPI, Mark of the Web…) stop the release before anything is built.
       - name: Tests and checks
         if: steps.check.outputs.skip != 'true'
         run: |
           npm test
           npm run lint
+          npm audit --omit=dev --audit-level=high
+
+      - name: End-to-end tests (Windows)
+        if: steps.check.outputs.skip != 'true'
+        run: npm run test:e2e
 
       # Production Widevine (VMP) signing for Netflix & co. — castlabs EVS, free account.
       # Set the repo secrets EVS_ACCOUNT_NAME and EVS_PASSWD to turn it on (build/vmp-sign.js).
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         if: steps.check.outputs.skip != 'true'
         with:
           python-version: '3.12'
@@ -72,7 +84,9 @@ jobs:
           OTO_VERSION: ${{ steps.check.outputs.version }}
           EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
           EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
-        run: npx electron-builder --win nsis --x64 --publish never
+        shell: bash
+        # Builds with the Electron npm ci installed (no second download); retried up to 3 times (each try from scratch)
+        run: n=0; until npx electron-builder --win nsis --x64 --publish never "-c.electronDist=$(node -p "require('path').dirname(require('electron'))")"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; rm -rf dist; sleep 30; done
 
       - name: Check the Widevine signature
         if: steps.check.outputs.skip != 'true'
@@ -92,7 +106,7 @@ jobs:
 
       - name: Build provenance
         if: steps.check.outputs.skip != 'true'
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        uses: actions/attest-build-provenance@62fc1d596301d0ab9914e1fec14dc5c8d93f65cd # v3.2.0
         with:
           subject-path: dist/Oto-Setup-${{ steps.check.outputs.version }}.exe
 
@@ -143,10 +157,12 @@ jobs:
   # Keeps every release's notes in step with CHANGELOG.md (so fixing a typo there fixes the release page).
   notes:
     needs: release
+    permissions:
+      contents: write      # edit the release notes
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: Sync release notes from CHANGELOG.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -39,3 +39,13 @@ test('starting Oto can’t crash on a full disk (clear-on-close marker)', () => 
   const setup = main.slice(main.indexOf('function setupSession('), main.indexOf('// ---------------------------------------------------------------- IPC'));
   assert.doesNotMatch(setup, /^\s*writeJSON\('exit-clear\.json'/m, 'unguarded write at startup');
 });
+
+test('your own filter rules and the owner key are handled safely (Aegis 1.4 audit)', () => {
+  const shield = fs.readFileSync(path.join(ROOT, 'main', 'shield.js'), 'utf8');
+  assert.doesNotMatch(shield, /try \{ fs\.writeFileSync\(userFile\('shield-filters\.txt'\)[^}]*\} catch \{\}/, 'filter rules never written with errors ignored');
+  assert.match(shield, /ctx\.saveTextOrWarn\('shield-filters\.txt'/);
+  const upd = fs.readFileSync(path.join(ROOT, 'main', 'updates.js'), 'utf8');
+  const lock = upd.slice(upd.indexOf("ipcMain.handle('owner:lock'"), upd.indexOf("ipcMain.handle('owner:status'"));
+  assert.doesNotMatch(lock, /catch \{\}\s*\n\s*return true/, 'owner lock can’t claim success when the key file is still there');
+  assert.match(lock, /writeJSON\('owner\.json', \{\}\)/, 'falls back to overwriting the key');
+});

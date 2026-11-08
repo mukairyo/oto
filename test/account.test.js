@@ -42,6 +42,8 @@ function fakeCloud() {
   const json = (status, body) => ({ ok: status < 300, status, text: async () => (body == null ? '' : JSON.stringify(body)) });
   db.fetch = async (url, o) => {
     const u = new URL(url);
+    if (u.pathname.startsWith('/rest/v1/') && db.forbid) return json(403, { code: '42501', message: 'new row violates row-level security policy for table "oto_sync"' });
+    if (u.pathname.startsWith('/rest/v1/') && db.unauthorized) { db.unauthorized--; return json(401, { code: 'PGRST301', message: 'JWT expired' }); }
     if (u.pathname === '/rest/v1/oto_sync' && o.method === 'GET') return json(200, db.row ? [db.row] : []);
     if (u.pathname === '/rest/v1/oto_sync' && o.method === 'POST') { if (db.row) return json(409, { code: '23505' }); db.row = JSON.parse(o.body); db.writes++; return json(201, [db.row]); }
     if (u.pathname === '/rest/v1/oto_sync' && o.method === 'PATCH' && db.failPatch) { db.failPatch--; return json(500, { message: 'server error' }); }
@@ -52,7 +54,9 @@ function fakeCloud() {
     }
     if (u.pathname === '/auth/v1/token') {
       const b = JSON.parse(o.body);
+      if (b.refresh_token !== undefined && db.refreshFails) return json(400, { error_description: 'Invalid Refresh Token' });
       if (b.password !== undefined && b.password !== db.password) return json(400, { error_description: 'Invalid login credentials' });
+      db.tokens = (db.tokens || 0) + 1;
       return json(200, { access_token: 'a', refresh_token: 'r', expires_in: 3600, user: { id: 'u1', email: 'a@b.c' } });
     }
     if (u.pathname === '/auth/v1/user' && o.method === 'PUT') {
@@ -196,4 +200,92 @@ test('a failed everyday save (sign-in, sync time) is reported, never thrown', as
   pc.mem.failWrites = true;
   // the cloud write still happens; only the local note of it couldn't be saved (and Oto says so via saveOrWarn)
   assert.strictEqual((await pc.invoke('account:push', {}, { s: { data: 'y', at: 5 } }, {})).ok, true);
+});
+
+test('an expired sign-in is refreshed once, transparently (#15)', async () => {
+  const { db, pc } = await seeded();
+  pc.mem.files['account.json'].expires = 0; // reload with an expired access token
+  const before = db.tokens || 0;
+  // simulate restart with expired token: a fresh instance reading the saved account
+  const m = install({ canEncrypt: true });
+  const files = JSON.parse(JSON.stringify(pc.mem.files)); files['account.json'].expires = Date.now() - 1000;
+  const mem = memFiles(files);
+  delete require.cache[require.resolve('../account.js')];
+  require('../account.js')({ ...m.electron, net: { fetch: (...a) => db.fetch(...a) }, readJSON: mem.readJSON, writeJSON: mem.writeJSON, send: () => {}, pwSyncExport: () => ({ entries: [], deleted: [] }), pwSyncMerge: () => 0, OTO_VERSION: 'test' });
+  m.restore();
+  assert.strictEqual((await m.electron.ipcMain.invoke('account:pull', {}, {})).ok, true);
+  assert.strictEqual((db.tokens || 0) - before, 1, 'one refresh');
+});
+
+test('a refused refresh signs out cleanly: tokens and sync key removed, nothing readable left', async () => {
+  const { db, pc } = await seeded();
+  db.refreshFails = true;
+  pc.mem.files['account.json'].expires = 0;
+  const m = install({ canEncrypt: true });
+  const files = JSON.parse(JSON.stringify(pc.mem.files)); files['account.json'].expires = Date.now() - 1000;
+  const mem = memFiles(files);
+  delete require.cache[require.resolve('../account.js')];
+  require('../account.js')({ ...m.electron, net: { fetch: (...a) => db.fetch(...a) }, readJSON: mem.readJSON, writeJSON: mem.writeJSON, send: () => {}, pwSyncExport: () => ({ entries: [], deleted: [] }), pwSyncMerge: () => 0, OTO_VERSION: 'test' });
+  m.restore();
+  const r = await m.electron.ipcMain.invoke('account:pull', {}, {});
+  assert.strictEqual(r.ok, false);
+  const a = mem.files['account.json'];
+  for (const k of ['access', 'refresh', 'key', 'userId']) assert.ok(!(k in a), `${k} removed`);
+  assert.strictEqual((await m.electron.ipcMain.invoke('account:status', {})).signedIn, false);
+});
+
+test('an unfinished password change survives an expired sign-in and finishes after signing in again (#20)', async () => {
+  const { db, pc } = await seeded();
+  db.failPatch = 1; // the re-encryption upload fails …
+  const r = await pc.invoke('account:changePassword', {}, 'old-password', 'new-password-9');
+  assert.strictEqual(r.pending, true);
+  // … then the sign-in expires and is refused (Oto signs out locally) — and Oto restarts
+  db.refreshFails = true;
+  const files = JSON.parse(JSON.stringify(pc.mem.files)); files['account.json'].expires = Date.now() - 1000;
+  let m = install({ canEncrypt: true }); let mem = memFiles(files);
+  delete require.cache[require.resolve('../account.js')];
+  require('../account.js')({ ...m.electron, net: { fetch: (...a) => db.fetch(...a) }, readJSON: mem.readJSON, writeJSON: mem.writeJSON, send: () => {}, pwSyncExport: () => ({ entries: [], deleted: [] }), pwSyncMerge: () => 0, OTO_VERSION: 'test' });
+  m.restore();
+  assert.strictEqual((await m.electron.ipcMain.invoke('account:pull', {}, {})).ok, false, 'signed out');
+  assert.ok(mem.files['account.json'].rotation, 'recovery keys kept');
+  // sign in again with the new password: the change finishes and the data is readable with it
+  db.refreshFails = false;
+  const s = await m.electron.ipcMain.invoke('account:signin', {}, 'a@b.c', 'new-password-9');
+  assert.strictEqual(s.ok, true, JSON.stringify(s));
+  assert.ok(!mem.files['account.json'].rotation, 'job finished');
+  assert.strictEqual(readRow(db.row, keyFor('new-password-9', db.row.salt)).sections.s.data, 'mine');
+});
+
+test('the server refusing access (RLS / permission denied) is reported; nothing local is lost, nothing crashes (#16)', async () => {
+  const { db, pc } = await seeded();
+  const before = JSON.stringify(db.row);
+  db.forbid = true;
+  const push = await pc.invoke('account:push', {}, { s: { data: 'newer', at: 2 } }, {});
+  assert.strictEqual(push.ok, false);
+  assert.ok(push.error && !/ENC:|access_token|Bearer/.test(push.error), 'a readable reason, no tokens in it');
+  const pull = await pc.invoke('account:pull', {}, {});
+  assert.strictEqual(pull.ok, false);
+  assert.strictEqual(JSON.stringify(db.row), before, 'cloud copy untouched');
+  const acc = pc.mem.files['account.json'];
+  assert.ok(acc.userId && acc.key && acc.refresh, 'still signed in, sync key kept: it is a server problem, not a reason to drop the account');
+  db.forbid = false;
+  assert.strictEqual((await pc.invoke('account:push', {}, { s: { data: 'newer', at: 2 } }, {})).ok, true, 'works again once the server allows it');
+});
+
+test('a sign-in the server no longer accepts (401 on sync) is refreshed and the sync goes through (#15/#16)', async () => {
+  const { db, pc } = await seeded();
+  db.unauthorized = 1;
+  const r = await pc.invoke('account:push', {}, { s: { data: 'after-401', at: 3 } }, {});
+  assert.strictEqual(r.ok, true, JSON.stringify(r));
+  assert.strictEqual(readRow(db.row, Buffer.alloc(32, 7)).sections.s.data, 'after-401');
+});
+
+test('a 401 that keeps coming back is retried only once (no loop) and reported', async () => {
+  const { db, pc } = await seeded();
+  const tokensBefore = db.tokens || 0;
+  db.unauthorized = 10;
+  const r = await pc.invoke('account:push', {}, { s: { data: 'x', at: 4 } }, {});
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual((db.tokens || 0) - tokensBefore, 1, 'one refresh');
+  assert.ok(db.unauthorized >= 7, 'no retry loop');
 });

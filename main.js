@@ -31,15 +31,11 @@ let launchUrl = urlFromArgv(process.argv);
 
 // ---------------------------------------------------------------- storage
 const userFile = (n) => path.join(app.getPath('userData'), n);
-function readJSON(name, fallback) {
-  try { return JSON.parse(fs.readFileSync(userFile(name), 'utf8')); } catch { return fallback; }
-}
-function writeJSON(name, data) {
-  const p = userFile(name);
-  const tmp = `${p}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(data));
-  fs.renameSync(tmp, p);
-}
+// Oto's own files: damaged files are kept (never silently replaced), writes are atomic and flushed (main/store.js).
+const STORE = require('./main/store.js')((name) => userFile(name), () => { try { flushDataNotices(); } catch {} });
+const { readJSON, writeJSON, damagedFile } = STORE;
+// Text-file version of saveOrWarn (defined below), for files like your Oto Shield filter rules.
+const saveTextOrWarn = (name, text, what) => saveOrWarn(name, null, what, () => STORE.writeText(name, text));
 
 // URLs or local files (.html, .pdf…) passed on the command line, e.g. when Oto is the default browser.
 function urlFromArgv(argv) {
@@ -62,9 +58,15 @@ function send(channel, ...args) {
 
 // Saving something that matters (your settings, site permissions, Shield choices, your account): if the disk write
 // fails (disk full, no permission), the change still works until Oto closes, and you're told once — never silently.
+// Damaged-file notices wait until the window can show them.
+let noticesSent = new Set();
+function flushDataNotices() {
+  if (!win || win.isDestroyed() || win.webContents.isLoading()) return;
+  for (const [name, d] of STORE.damagedList()) if (!noticesSent.has(name)) { noticesSent.add(name); send('data-damaged', { name, aside: d.aside, readOnly: d.readOnly }); }
+}
 const saveWarned = new Set();
-function saveOrWarn(name, data, what) {
-  try { writeJSON(name, data); saveWarned.delete(name); return true; } catch (e) {
+function saveOrWarn(name, data, what, write = () => writeJSON(name, data)) {
+  try { write(); saveWarned.delete(name); return true; } catch (e) {
     console.warn(`[oto] could not save ${name}:`, e && e.code ? e.code : e && e.message);
     if (!saveWarned.has(name)) { saveWarned.add(name); try { send('save-failed', { what: what || name, code: (e && e.code) || '' }); } catch {} }
     return false;
@@ -213,6 +215,7 @@ function createWindow() {
   win.on('maximize', sendWinState);
   win.on('unmaximize', sendWinState);
   win.webContents.on('did-finish-load', sendWinState);
+  win.webContents.on('did-finish-load', () => { noticesSent = new Set(); setTimeout(flushDataNotices, 1500); }); // damaged-file notices
   // Oto's own interface always stays at 100% (Interface size in Settings handles scaling) —
   // Ctrl+scroll over the sidebar used to zoom the whole UI and threw off the hover maths.
   win.webContents.on('did-finish-load', () => {
@@ -425,7 +428,7 @@ const OTO_VERSION = (() => { try { return require('./package.json').otoVersion |
 // ---------------------------------------------------------------- auto-update (main/updates.js)
 // Things the main/*.js parts share with main.js (live values through getters).
 const CTX = {
-  readJSON, writeJSON, saveOrWarn, userFile, send, sendVia: (...a) => sendVia(...a), OTO_VERSION, displayVersion,
+  readJSON, writeJSON, saveOrWarn, saveTextOrWarn, damagedFile, userFile, send, sendVia: (...a) => sendVia(...a), OTO_VERSION, displayVersion,
   get win() { return win; }, get prefs() { return prefs; }, get account() { return ACCOUNT; },
 };
 const UPDATES = require('./main/updates.js')(CTX);
@@ -568,7 +571,7 @@ function rememberFile(p) {
   if (!p) return;
   KNOWN_FILES.delete(path.resolve(p)); KNOWN_FILES.add(path.resolve(p));
   while (KNOWN_FILES.size > 1000) KNOWN_FILES.delete(KNOWN_FILES.values().next().value);
-  clearTimeout(knownTimer); knownTimer = setTimeout(() => { try { writeJSON('known-files.json', [...KNOWN_FILES]); } catch {} }, 1000);
+  clearTimeout(knownTimer); knownTimer = setTimeout(() => saveOrWarn('known-files.json', [...KNOWN_FILES], 'the list of files you downloaded'), 1000);
 }
 function fileAllowed(p) {
   if (typeof p !== 'string' || !p) return false;
@@ -799,8 +802,13 @@ function setupIPC(ses) {
   });
   ipcMain.handle('state:load', () => readJSON('state.json', null));
   ipcMain.handle('app:changelog', () => { try { return fs.readFileSync(path.join(__dirname, 'CHANGELOG.md'), 'utf8'); } catch { return ''; } });
-  ipcMain.on('state:save', (e, s) => { if (restoringBackup || isAvocadoUi(e.sender)) return; saveOrWarn('state.json', s, 'your tabs and settings'); });
-  ipcMain.on('state:save-sync', (e, s) => { e.returnValue = restoringBackup || isAvocadoUi(e.sender) ? true : saveOrWarn('state.json', s, 'your tabs and settings'); });
+  ipcMain.on('state:save', (e, s) => { if (restoringBackup || isAvocadoUi(e.sender) || !s || typeof s !== 'object' || Array.isArray(s)) return; saveOrWarn('state.json', s, 'your tabs and settings'); });
+  // Structured result: { ok: true } or { ok: false, code } (never "true" when nothing reached the disk).
+  ipcMain.on('state:save-sync', (e, s) => {
+    if (restoringBackup || isAvocadoUi(e.sender)) { e.returnValue = { ok: true }; return; }
+    if (!s || typeof s !== 'object' || Array.isArray(s)) { e.returnValue = { ok: false, code: 'invalid' }; return; }
+    e.returnValue = saveOrWarn('state.json', s, 'your tabs and settings') ? { ok: true } : { ok: false, code: (damagedFile('state.json') || {}).readOnly ? 'damaged' : 'disk' };
+  });
   ipcMain.handle('app:mode', (e) => (isAvocadoUi(e.sender) ? 'avocado' : 'main'));
   // v1 screenshots: whole long pages (via the DevTools protocol) and saving to Pictures\Oto Screenshots
   ipcMain.handle('shot:full', async (_e, wcId) => {
@@ -845,7 +853,7 @@ function setupIPC(ses) {
     } catch (err) { return { ok: false, error: err.message }; }
   });
   ipcMain.handle('phone:model', () => { try { return fs.readFileSync(userFile('phone-model.glb')); } catch { return null; } });
-  ipcMain.handle('phone:clearModel', () => { try { fs.unlinkSync(userFile('phone-model.glb')); } catch {} return true; });
+  ipcMain.handle('phone:clearModel', () => { try { fs.unlinkSync(userFile('phone-model.glb')); return true; } catch (e) { return !!(e && e.code === 'ENOENT'); } });
   ipcMain.on('app:open', (_e, url) => openAppWindow(url));
   ipcMain.handle('app:install', async (_e, url, title, iconDataUrl) => {
     let u; try { u = new URL(url); } catch { return { ok: false }; }
