@@ -240,20 +240,23 @@ module.exports = function createShield(ctx) {
       (ctx.saveOrWarn || writeJSON)('shield-allow.json', [...SHIELD.allow], 'Oto Shield site exceptions');
       return shieldAllowed(host);
     });
+    // Your own filter rules (and elements you hid with the picker): saved all-or-nothing; a failure is reported.
+    const saveFilters = () => (ctx.saveTextOrWarn ? ctx.saveTextOrWarn('shield-filters.txt', SHIELD.custom, 'your Oto Shield filter rules') : (() => { try { fs.writeFileSync(userFile('shield-filters.txt'), SHIELD.custom); return true; } catch { return false; } })());
     ipcMain.handle('shield:filters', (_e, text) => {
+      let saved = true;
       if (typeof text === 'string') {
         SHIELD.custom = text.slice(0, 200000);
-        try { fs.writeFileSync(userFile('shield-filters.txt'), SHIELD.custom); } catch {}
+        saved = saveFilters();
         shieldApplyCustom();
       }
-      return { text: SHIELD.custom, count: shieldLines().length, allow: [...SHIELD.allow] };
+      return { text: SHIELD.custom, count: shieldLines().length, allow: [...SHIELD.allow], saved };
     });
     ipcMain.handle('shield:pick', (_e, url, selector) => {
       const host = shieldHost(url);
       const sel = String(selector || '').replace(/[\r\n]/g, '').slice(0, 500);
       if (!host || !sel) return false;
       const line = `${host}##${sel}`;
-      if (!shieldLines().includes(line)) { SHIELD.custom = `${SHIELD.custom.replace(/\s*$/, '')}\n${line}\n`.replace(/^\n/, ''); try { fs.writeFileSync(userFile('shield-filters.txt'), SHIELD.custom); } catch {} shieldApplyCustom(); }
+      if (!shieldLines().includes(line)) { SHIELD.custom = `${SHIELD.custom.replace(/\s*$/, '')}\n${line}\n`.replace(/^\n/, ''); saveFilters(); shieldApplyCustom(); }
       return true;
     });
     const setLevel = async (lvl) => {

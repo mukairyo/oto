@@ -18,16 +18,23 @@ module.exports = function createPasswords(ctx) {
   let PW = null;
   const pwCanEncrypt = () => { try { return safeStorage.isEncryptionAvailable(); } catch { return false; } };
   let pwDamaged = '';
+  let pwReadOnly = false; // damaged file that couldn't be set aside: Oto must not write over it
   function pwLoad() {
     if (PW) return PW;
     const d = readJSON(PW_FILE, null);
-    // A file that exists but can't be read is never overwritten: it's moved aside (so nothing is lost) and Oto says so.
+    // A file that exists but can't be read is never overwritten. It's moved aside (so nothing is lost) and Oto says so.
+    // If it can't be moved aside, passwords become READ-ONLY for this session: nothing is saved over the damaged file.
+    const dmg = ctx.damagedFile ? ctx.damagedFile(PW_FILE) : null; // main.js already moved it (or couldn't)
     const file = ctx.userFile ? ctx.userFile(PW_FILE) : null;
-    if (!(d && Array.isArray(d.entries)) && file && fs.existsSync(file)) {
+    if (dmg) { pwDamaged = dmg.aside || PW_FILE; pwReadOnly = !!dmg.readOnly; }
+    else if (d !== null && !(d && Array.isArray(d.entries)) && file && fs.existsSync(file)) { // valid JSON, wrong shape
       const aside = `${file}.damaged-${Date.now()}`;
-      try { fs.renameSync(file, aside); pwDamaged = path.basename(aside); } catch { pwDamaged = PW_FILE; }
-      console.warn('[oto] passwords.json could not be read; kept as', pwDamaged);
+      try { fs.renameSync(file, aside); pwDamaged = path.basename(aside); } catch { pwDamaged = PW_FILE; pwReadOnly = true; }
+    } else if (d === null && file && fs.existsSync(file)) { // reader that doesn't move files (tests, tools)
+      const aside = `${file}.damaged-${Date.now()}`;
+      try { fs.renameSync(file, aside); pwDamaged = path.basename(aside); } catch { pwDamaged = PW_FILE; pwReadOnly = true; }
     }
+    if (pwDamaged) console.warn(`[oto] passwords.json could not be read; ${pwReadOnly ? 'passwords are read-only this session' : `kept as ${pwDamaged}`}`);
     PW = d && Array.isArray(d.entries) ? d : { v: 1, entries: [] };
     // Older versions saved a readable copy (Base64) when Windows encryption was unavailable. Encrypt those now.
     if (pwCanEncrypt()) {
@@ -39,7 +46,10 @@ module.exports = function createPasswords(ctx) {
   }
   // Saving is all-or-nothing: the file is written to a temporary copy and swapped in (writeJSON), and if that fails the
   // change is undone in memory too, so Oto never says "saved" for something that isn't on disk.
-  function pwSave() { try { writeJSON(PW_FILE, PW); return true; } catch (e) { console.warn('[oto] could not save passwords:', e && e.message); return false; } }
+  function pwSave() {
+    if (pwReadOnly) return false; // never write over a damaged file we couldn't keep
+    try { writeJSON(PW_FILE, PW); return true; } catch (e) { console.warn('[oto] could not save passwords:', e && e.code ? e.code : 'error'); return false; }
+  }
   const DISK = Symbol('disk');
   function pwTx(fn) {
     const before = JSON.stringify(pwLoad());
@@ -160,7 +170,7 @@ module.exports = function createPasswords(ctx) {
     return { user: !!user, pass: !!pass };
   })(${JSON.stringify(u)}, ${JSON.stringify(p)})`;
   function setupPasswordIPC() {
-    ipcMain.handle('pw:status', () => ({ encrypted: pwCanEncrypt(), count: pwLoad().entries.length, unprotected: pwLoad().entries.filter((e) => e.plain && !e.enc).length, damaged: pwDamaged }));
+    ipcMain.handle('pw:status', () => ({ encrypted: pwCanEncrypt(), count: pwLoad().entries.length, unprotected: pwLoad().entries.filter((e) => e.plain && !e.enc).length, damaged: pwDamaged, readOnly: pwReadOnly }));
     ipcMain.handle('pw:list', () => pwOk() !== true ? [] : pwLoad().entries.map(pwPublic).sort((a, b) => a.site.localeCompare(b.site) || a.username.localeCompare(b.username)));
     ipcMain.handle('pw:forOrigin', (_e, url) => { if (pwOk() !== true) return []; const o = pwOrigin(url); return o ? pwLoad().entries.filter((e) => e.origin === o).sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0)).map(pwPublic) : []; });
     ipcMain.handle('pw:check', (_e, url, username, password) => {

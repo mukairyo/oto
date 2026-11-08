@@ -176,3 +176,20 @@ test('CSV import refuses huge files and reports read errors', async () => {
   A.electron.dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path.join(os.tmpdir(), 'does-not-exist.csv')] });
   assert.match((await A.ipc.invoke('pw:import', UI)).error, /Couldn’t read/);
 });
+
+test('damaged passwords file that can’t be moved aside: read-only, nothing written over it (Aegis 1.2)', async () => {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oto-pwro-'));
+  const file = path.join(dir, 'passwords.json');
+  fs.writeFileSync(file, '{"v":1,"entries":[{"id":"x","enc":"RU5DOnNlY3JldA=="'); // damaged
+  const A = load({ userFile: (n) => path.join(dir, n) });
+  const orig = fs.renameSync;
+  const warn = console.warn; console.warn = () => {};
+  fs.renameSync = () => { const e = new Error('EPERM'); e.code = 'EPERM'; throw e; };
+  try { A.pw.pwLoad(); } finally { fs.renameSync = orig; console.warn = warn; }
+  const st = await A.ipc.invoke('pw:status', UI);
+  assert.strictEqual(st.readOnly, true);
+  assert.strictEqual(A.pw.pwUpsert('https://a.example', 'me', 'one'), 'diskerror', 'never reports success');
+  assert.strictEqual(fs.readFileSync(file, 'utf8').includes('RU5DOnNlY3JldA=='), true, 'damaged data untouched');
+  assert.ok(!('passwords.json' in A.mem.files), 'no empty replacement written');
+});

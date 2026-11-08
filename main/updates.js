@@ -18,10 +18,15 @@ module.exports = function createUpdates(ctx) {
   function setupUpdates() {
     ipcMain.handle('update:status', () => ({ ...updateState, packaged: app.isPackaged, version: OTO_VERSION, channel: updateChannel(), owner: ownerOn }));
     ipcMain.handle('owner:unlock', (_e, key) => ownerUnlock(key));
+    // Locking must really remove the saved key: if the file can't be deleted, it's overwritten; if neither works,
+    // the UI is told (owner mode is off for this session either way).
     ipcMain.handle('owner:lock', () => {
       ownerOn = false; ownerKey = null;
-      try { fs.unlinkSync(userFile('owner.json')); } catch {}
-      return true;
+      const f = userFile('owner.json');
+      try { fs.unlinkSync(f); return true; } catch (e) {
+        if (e && e.code === 'ENOENT') return true;
+        try { writeJSON('owner.json', {}); return true; } catch { return false; }
+      }
     });
     // The UI asks the main process every time — a page or the UI itself can't just say "I'm the owner".
     ipcMain.handle('owner:status', () => ({ owner: ownerOn }));
