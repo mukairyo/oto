@@ -40,6 +40,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: sudo apt-get update -q && sudo apt-get install -y -q xvfb
+      # Electron download cache (CI only; release builds always download fresh)
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install (with Electron)
         shell: bash
         # GitHub sometimes answers the castlabs Electron download with 504: try up to 3 times
@@ -57,14 +66,24 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # Electron download cache (CI only; release builds always download fresh)
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install (with Electron)
         shell: bash
         # GitHub sometimes answers the castlabs Electron download with 504: try up to 3 times
         run: n=0; until npm ci; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
+      # uses the Electron npm ci just installed instead of downloading it a second time
       - name: Build the unpacked Windows app
         shell: bash
         # GitHub sometimes answers the castlabs Electron download with 504: try up to 3 times
-        run: n=0; until npm run pack; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
+        run: n=0; until npm run pack -- -c.electronDist=node_modules/electron/dist; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s"; sleep 30; done
       - name: Check what's packaged
         shell: bash
         run: |
