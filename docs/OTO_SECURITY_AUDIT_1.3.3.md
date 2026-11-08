@@ -24,13 +24,14 @@ code to confirm the issue really existed there.
 |---|---|
 | Confirmed vulnerabilities fixed | **6** (1 critical, 2 high, 2 medium, 1 low/regression) |
 | Reliability/safety defects fixed | 7 |
-| Unit tests | **63 pass, 0 fail** (35 in 1.3.2) |
-| Lint / security rules | 47 files pass |
+| Unit tests | **81 pass, 0 fail** (35 in 1.3.2) |
+| Lint / security rules | 52 files pass |
 | `npm audit --omit=dev` (what Oto ships) | **0 vulnerabilities** |
 | `npm audit` (incl. build tools) | 6 moderate, all one build-time-only library. See §6 |
 | Windows x64 unpacked build (GitHub Actions, `windows-latest`) | **Success**: 1,482 files in `app.asar`, contents check passed |
 | End-to-end runs on the Widevine Electron build | all pass (§5.2) |
-| Code signing | not configured (budget). Checksums and build attestations are kept |
+| Code signing | not configured (budget). Checksums and build attestations are kept, **and since this update the in-app updater verifies the attestation itself** (§7) |
+| Sandboxing | **every window sandboxed**, Oto's own UI included (was the main open architectural risk, R2) |
 
 ---
 
@@ -163,6 +164,16 @@ refused. **Reproduced** with 1.3.2's gatekeeper: a 4 MB screenshot was `REFUSED`
 
 ---
 
+## 2b. Follow-up items (added 2026-11-08)
+
+| # | Item | Result |
+|---|---|---|
+| F1 | `account.js` persistence: `saveA()` ignored write errors | **Fixed.** `saveA()` reports failures through `saveOrWarn`. The password change refuses to start unless its recovery data (new key, old key and, until the server confirms, the new password, all DPAPI-sealed) is on disk, and refuses without DPAPI. The same pattern was found and fixed for state, permissions and Shield saves, and an unguarded startup write that a full disk could crash. Tests: disk full means nothing changes on the server or in the cloud; no DPAPI is refused; the job holds the new password only sealed; important files are never written silently (`test/storage.test.js`). |
+| F2 | UI sandbox isolation (was R2) | **Fixed, not just planned.** `scripts/build-preload.js` combines `preload.js` with `electron-chrome-extensions/browser-action`, which only needs `contextBridge`, `ipcRenderer`, `webFrame` and `process.contextIsolated`, into `preload.bundle.js`, which only requires `electron`. Both UI windows now run `sandbox: true`. Verified live: `sandbox=true` in the window's web preferences, the `oto` API works, `require` is not reachable, and a test extension's toolbar button renders. All 20 end-to-end suites pass. Tests: no `sandbox: false` anywhere (test and lint); the bundle must equal a fresh build and only require `electron`. |
+| F3 | Updater verifies attestations (was R3) | **Fixed.** `main/attest.js`: Sigstore bundle verification with Node's crypto (no new dependency), using Sigstore's built-in public trust root (Fulcio CA chain, Rekor key). It checks the Fulcio chain, the certificate identity (`https://github.com/mukairyo/oto/.github/workflows/release.yml@refs/heads/main` or `v1`, GitHub Actions issuer), the DSSE signature, that the in-toto subject matches the downloaded file's SHA-256, the SLSA workflow fields, the Rekor signed entry timestamp, the signing time inside the certificate's lifetime, and that the Rekor body matches this payload, signature and certificate. The updater no longer installs on quit until verified, never re-downloads a refused version, deletes failed files and retries if GitHub is unreachable. Tests: the real 1.3.2 record passes; 8 kinds of tampering are refused. Live inside Electron: real installer verified, a tampered copy refused. |
+| F4 | Supabase RLS (R6) | Needs two test accounts. Asked Ryo. |
+| F5 | Windows testing | The PC was linked to the session but offline. Asked Ryo to open the Claude desktop app so the checks in §9 can run there. |
+
 ## 3. Other hardening in 1.3.3
 
 These are verified improvements without a confirmed exploit behind them.
@@ -279,7 +290,7 @@ automatically). The one override Oto does have, `adm-zip ^0.6.1`, fixes a *shipp
 |---|---|
 | Only authorised sources | electron-updater `provider: github`, owner `mukairyo`, repo `oto` (a test enforces this). HTTPS only. |
 | Integrity | electron-updater refuses an installer whose SHA-512 doesn't match `latest.yml`. The new release `verify` job checks the published files, the attestation and `latest.yml` after every release. |
-| Corrupted or modified files | Rejected by the SHA-512 check. A **compromised GitHub account** could replace both files; only code signing or an attestation check inside the updater would catch that (§8). |
+| Corrupted or modified files | Rejected by the SHA-512 check, **and by the in-app attestation check (F3)**: a file not produced by Oto's own release workflow has no valid build record and is deleted, never installed. |
 | Insecure redirects | GitHub downloads redirect to `objects.githubusercontent.com` over HTTPS. electron-updater doesn't follow redirects to plain HTTP. |
 | Downgrades | `allowDowngrade = false` on every channel (test). |
 | Failed updates | NSIS installs only after a full, verified download, at quit or restart. A failed or corrupted download leaves the current version untouched. There's no automatic rollback if a *verified* new version crashes on start; recovery is reinstalling the previous release from GitHub. |
@@ -292,8 +303,8 @@ automatically). The one override Oto does have, `adm-zip ^0.6.1`, fixes a *shipp
 | # | Issue | Severity | Why it isn't fixed in 1.3.3 |
 |---|---|---|---|
 | R1 | **Installer not Authenticode-signed.** SmartScreen warns, and the updater trusts GitHub as the only root. | High for a broad launch | Budget. Free option: SignPath Foundation (open-source program, application needed). |
-| R2 | **Oto's own UI windows run `sandbox: false`.** | Medium | Needed by the extension toolbar's preload (`electron-chrome-extensions/browser-action`). Mitigations: strict CSP (`script-src 'self'`), local files only, no navigation or popups, `contextIsolation`, IPC gatekeeper, HTML escaping audit. Proper fix: move the toolbar into its own isolated view so the UI can be sandboxed. That's a larger refactor, planned separately. |
-| R3 | Updater doesn't verify attestations itself | Medium | Needs signing (R1) or a custom check against GitHub's attestation API at update time. |
+| R2 | ~~Oto's own UI windows run `sandbox: false`~~ | — | **Fixed** (F2). |
+| R3 | ~~Updater doesn't verify attestations itself~~ | — | **Fixed** (F3). Remaining trust root: GitHub Actions plus Sigstore. Someone who controls the repository could still run the release workflow, which only code signing with a separately held key would stop (R1). |
 | R4 | Sync conflicts merge by section and per password; the same setting edited on two offline devices goes to whichever section is newer. | Low | Fine-grained, per-field merging is a design change. Nothing is overwritten silently (compare-and-swap). |
 | R5 | Deletion markers are capped at the newest 5,000. | Low | Documented in PRIVACY.md. |
 | R6 | Supabase row-level security not independently tested | Unknown | Needs two test accounts (offered). |
@@ -330,7 +341,7 @@ These can't be proven by unit tests or by this Linux environment:
 
 ## 10. Recommendations before a public release
 
-1. Release 1.3.3 (it fixes V1, the critical private-window leak).
+1. Release 1.3.3 (it fixes V1, the critical private-window leak, sandboxes every window, and verifies updates in the app).
 2. Apply for SignPath Foundation code signing (R1), free for open source.
 3. Run the Windows checklist in §9 on a clean Windows 10 and 11 PC.
 4. Test RLS with two throwaway accounts (R6).
@@ -352,6 +363,10 @@ These can't be proven by unit tests or by this Linux environment:
 | `src/passwords.js` | Result checking and messages for save, edit, delete and import; accurate encryption notice; damaged-file notice |
 | `main/ipc-guard.js` | Full nested measurement (V5); per-channel limits (V6); origin-only refusal log |
 | `main/download-name.js` | **new**: download filename and path checks |
+| `main/attest.js` | **new**: in-app Sigstore and GitHub build-record verification for updates (F3) |
+| `main/updates.js` | Updates install only after the attestation check; refused versions are never re-downloaded (F3) |
+| `scripts/build-preload.js`, `preload.bundle.js` | **new**: sandbox-ready window preload (F2) |
+| `test/attest.test.js`, `test/storage.test.js`, `test/fixtures/attestation-1.3.2.json` | **new** tests and a real public build-record fixture |
 | `main/extensions.js` | Web Store permission summary |
 | `main/safe-unzip.js` | BOM written as an explicit escape (no behaviour change) |
 | `src/library.js` | Message for downloads blocked as dangerous |

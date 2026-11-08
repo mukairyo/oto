@@ -72,7 +72,9 @@ function loadWithCloud(db) {
   delete require.cache[require.resolve('../account.js')];
   require('../account.js')({ ...m.electron, net: { fetch: (...a) => db.fetch(...a) }, readJSON: mem.readJSON, writeJSON: mem.writeJSON, send: () => {}, pwSyncExport: () => ({ entries: [], deleted: [] }), pwSyncMerge: () => 0, OTO_VERSION: 'test' });
   m.restore();
-  return m.electron.ipcMain;
+  const ipc = m.electron.ipcMain;
+  ipc.mem = mem; ipc.state = m.state;
+  return ipc;
 }
 
 test('sync never overwrites another device’s newer cloud copy (N04)', async () => {
@@ -155,4 +157,43 @@ test('a password change waits for a running sync instead of overlapping it (P2-1
   const firstAuth = order.findIndex((x) => x.includes('/auth/v1/token'));
   const pushWrite = order.findIndex((x) => x.startsWith('PATCH'));
   assert.ok(pushWrite < firstAuth, `push finished before the password change started: ${order.join(', ')}`);
+});
+
+test('the password change refuses to start if its job can’t be saved to disk (nothing changes)', async () => {
+  const { db, pc } = await seeded();
+  const salt = db.row.salt;
+  pc.mem.failWrites = true;
+  const r = await pc.invoke('account:changePassword', {}, 'old-password', 'new-password-6');
+  assert.strictEqual(r.ok, false); assert.match(r.error, /disk/);
+  assert.strictEqual(db.password, 'old-password', 'server password untouched');
+  assert.strictEqual(db.row.salt, salt, 'cloud data untouched');
+  pc.mem.failWrites = false;
+  assert.strictEqual((await pc.invoke('account:pull', {}, {})).ok, true, 'still syncs with the old key');
+});
+
+test('the password change refuses without Windows encryption (it couldn’t resume after a restart)', async () => {
+  const { db, pc } = await seeded();
+  pc.state.canEncrypt = false;
+  const r = await pc.invoke('account:changePassword', {}, 'old-password', 'new-password-7');
+  assert.strictEqual(r.ok, false); assert.match(r.error, /encrypt/);
+  assert.strictEqual(db.password, 'old-password');
+});
+
+test('the in-progress job holds the new password only encrypted, and drops it once the server confirms', async () => {
+  const { db, pc } = await seeded();
+  db.netDown = true;
+  await pc.invoke('account:changePassword', {}, 'old-password', 'new-password-8');
+  const saved = JSON.stringify(pc.mem.files['account.json']);
+  assert.ok(pc.mem.files['account.json'].rotation.pw.e, 'sealed by Windows');
+  assert.ok(!saved.includes('new-password-8') && !saved.includes(Buffer.from('new-password-8').toString('base64')), 'never readable on disk');
+  db.netDown = false;
+  await pc.invoke('account:pull', {}, {});
+  assert.ok(!pc.mem.files['account.json'].rotation, 'job finished and removed');
+});
+
+test('a failed everyday save (sign-in, sync time) is reported, never thrown', async () => {
+  const { pc } = await seeded();
+  pc.mem.failWrites = true;
+  // the cloud write still happens; only the local note of it couldn't be saved (and Oto says so via saveOrWarn)
+  assert.strictEqual((await pc.invoke('account:push', {}, { s: { data: 'y', at: 5 } }, {})).ok, true);
 });

@@ -15,6 +15,7 @@ const SUPABASE_KEY = process.env.OTO_SUPABASE_KEY || 'sb_publishable__7WNQA_K0zO
 
 module.exports = function setupAccount(ctx) {
   const { ipcMain, app, safeStorage, net, readJSON, writeJSON, send, pwSyncExport, pwSyncMerge, OTO_VERSION } = ctx;
+  const saveOrWarn = ctx.saveOrWarn || ((n, d) => { try { writeJSON(n, d); return true; } catch { return false; } });
   const configured = () => !!(SUPABASE_URL && SUPABASE_KEY);
   const canSeal = () => { try { return safeStorage.isEncryptionAvailable(); } catch { return false; } };
   // Login tokens, the sync key and a pending password are only written to disk encrypted by Windows (DPAPI).
@@ -30,7 +31,9 @@ module.exports = function setupAccount(ctx) {
 
   // ------------------------------------------------------------ account file
   let A = readJSON('account.json', null) || {};
-  const saveA = () => { try { writeJSON('account.json', A); } catch {} };
+  // Returns whether account.json really reached the disk. Everyday saves (sign-in tokens, sync times) tell you once if
+  // they fail and keep working until Oto closes; the password change refuses to start unless its save succeeds.
+  const saveA = () => saveOrWarn('account.json', A, 'your Oto account sign-in');
   // Older versions could save these readable (Base64) when encryption was unavailable: re-protect them now.
   { let moved = false; for (const k of ['access', 'refresh', 'key', 'pendingPw']) if (A[k] && A[k].p) { const v = unseal(A[k]); if (v == null) delete A[k]; else A[k] = seal(v); moved = true; } if (moved) saveA(); }
   // Signed in = tokens AND the data key (the key comes from your password; without it sync can't work).
@@ -287,16 +290,20 @@ module.exports = function setupAccount(ctx) {
     try {
       if (String(next || '').length < 8) return { ok: false, error: 'Use at least 8 characters.' };
       if (A.rotation) await finishRotation(); // an earlier change still finishing
+      // The job must survive a restart, so it needs Windows encryption (DPAPI) and a successful save to disk.
+      if (!canSeal()) return { ok: false, error: 'Windows can’t encrypt right now, so Oto won’t change your password (it couldn’t finish safely if interrupted). Try again after restarting Oto.' };
       await api('POST', '/auth/v1/token?grant_type=password', { body: { email: A.email, password: String(current) } }).then(takeSession);
       const salt = crypto.randomBytes(16).toString('base64');
-      A.rotation = { salt, key: seal(deriveKey(next, salt).toString('base64')), oldKey: A.key, at: Date.now() };
-      saveA();
+      // Everything needed to finish (or safely undo) is saved BEFORE the server password changes: the new key, the old
+      // key, and — until the server confirms — the new password, all encrypted by Windows.
+      A.rotation = { salt, key: seal(deriveKey(next, salt).toString('base64')), oldKey: A.key, pw: seal(String(next)), at: Date.now() };
+      if (!saveA()) { delete A.rotation; return { ok: false, error: 'Oto couldn’t save to disk (is it full?), so your password was not changed.' }; }
       try { await api('PUT', '/auth/v1/user', { token: await token(), body: { password: String(next) } }); }
       catch (e) {
         if (e.status) { delete A.rotation; saveA(); throw e; } // the server said no: nothing changed
-        A.rotation.pw = seal(String(next)); saveA(); // no answer: find out on the next sync
-        return { ok: false, pending: true, error: 'No answer from Oto Accounts — Oto will finish this when you’re back online.' };
+        return { ok: false, pending: true, error: 'No answer from Oto Accounts — Oto will finish this when you’re back online.' }; // next sync checks which password is real
       }
+      delete A.rotation.pw; saveA(); // confirmed (if this save fails, the next start re-checks with the saved password — still safe)
       try { await finishRotation(); } catch (e) { return { ok: true, pending: true, note: 'Password changed. Your synced data finishes re-encrypting on the next sync.' }; }
       return { ok: true };
     } catch (e) { return { ok: false, error: /invalid/i.test(e.message) ? 'Your current password is wrong.' : e.message }; }

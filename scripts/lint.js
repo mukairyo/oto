@@ -39,7 +39,7 @@ const RULES = [
   [/extractAllTo\(/, /./, 'unpack archives with main/safe-unzip.js (audit 13)'],
   [/\beval\(|new Function\(/, /^(main|src|account\.js|preload\.js|page-preload\.js|main\.js)/, 'no eval / new Function in Oto’s own code'],
   [/shell\.openExternal\((?!['"`])/, /./, 'shell.openExternal only with a fixed address (anything else goes through Oto’s checked helpers)'],
-  [/sandbox:\s*false/, /^(?!main\.js$)/, 'only Oto’s own window may run unsandboxed (audit 06, documented in SECURITY.md)'],
+  [/sandbox:\s*false/, /./, 'every window runs sandboxed, Oto’s own UI included (since 1.3.3)'],
   [/callback\(\{\}\)/, /^main\.js$/, 'screen-share refusals use callback(null) (Electron 45 throws on {})'],
   [/ignore-certificate-errors|setCertificateVerifyProc\([^)]*callback\(0\)/, /^(?!test[\\/])/, 'never turn off certificate checks'],
 ];

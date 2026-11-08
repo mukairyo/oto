@@ -32,16 +32,52 @@ module.exports = function createUpdates(ctx) {
       setImmediate(() => updater.quitAndInstall(true, true));
     });
     if (!app.isPackaged) { updateState = { state: 'dev' }; return; }
+    // Before an update may install, its GitHub build record is checked here (main/attest.js): signed by Sigstore for
+    // Oto's own release workflow, about exactly this file, and in Sigstore's public log. If GitHub can't be reached
+    // it waits and tries again; if the check fails, the download is deleted and nothing is installed.
+    const { verifyInstaller } = require('./attest.js');
+    const fetchJson = async (url) => {
+      const r = await net.fetch(url, { headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': `Oto/${OTO_VERSION}` }, redirect: 'error' });
+      if (!r.ok) { const e = new Error(`HTTP ${r.status}`); e.status = r.status; throw e; }
+      return r.json();
+    };
+    let verifyTimer = null;
+    const refused = new Set(); // versions whose file failed the check: never downloaded again this session
+    async function verifyDownloaded(i) {
+      clearTimeout(verifyTimer);
+      const version = displayVersion(i.version), file = i.downloadedFile;
+      setUpdate({ state: 'verifying', version });
+      try {
+        await verifyInstaller(file, fetchJson);
+        updater.autoInstallOnAppQuit = true;
+        setUpdate({ state: 'ready', version, verified: true });
+      } catch (err) {
+        updater.autoInstallOnAppQuit = false;
+        if (err && err.transient) {
+          setUpdate({ state: 'error', version, message: `Update ${version} is downloaded but not checked yet (${err.message}). Oto tries again in 10 minutes.` });
+          verifyTimer = setTimeout(() => verifyDownloaded(i), 10 * 60 * 1000);
+        } else {
+          refused.add(i.version);
+          try { fs.unlinkSync(file); } catch {}
+          setUpdate({ state: 'error', version, message: `Update ${version} failed Oto’s security check and was not installed (${err && err.message}).` });
+        }
+      }
+    }
     try { updater = require('electron-updater').autoUpdater; } catch (err) { updateState = { state: 'error', message: err.message }; return; }
-    updater.autoDownload = true;
-    updater.autoInstallOnAppQuit = true;
+    updater.autoDownload = false; // downloaded below, unless this exact version already failed the security check
+    // Nothing installs (not even when you quit) until the downloaded file passes the build-record check below.
+    updater.autoInstallOnAppQuit = false;
     updater.logger = null;
     configureChannel(updateChannel());
     updater.on('checking-for-update', () => setUpdate({ state: 'checking' }));
-    updater.on('update-available', (i) => setUpdate({ state: 'downloading', version: displayVersion(i.version), percent: 0 }));
+    updater.on('update-available', (i) => {
+      if (refused.has(i.version)) { setUpdate({ state: 'error', version: displayVersion(i.version), message: `Update ${displayVersion(i.version)} failed Oto’s security check and was not installed. Oto waits for a newer one.` }); return; }
+      setUpdate({ state: 'downloading', version: displayVersion(i.version), percent: 0 });
+      updater.downloadUpdate().catch(() => {});
+    });
     updater.on('update-not-available', () => setUpdate({ state: 'latest' }));
     updater.on('download-progress', (p) => setUpdate({ state: 'downloading', version: updateState.version, percent: Math.round(p.percent || 0) }));
-    updater.on('update-downloaded', (i) => setUpdate({ state: 'ready', version: displayVersion(i.version) }));
+    updater.on('update-downloaded', (i) => verifyDownloaded(i));
     updater.on('error', (err) => {
       const m = String((err && err.message) || err);
       // No releases yet / repo not created yet: not worth bothering anyone about.
@@ -57,7 +93,7 @@ module.exports = function createUpdates(ctx) {
     const peekEvery = () => (updateChannel() === 'stable' ? 600 : 30) * 1000;
     let lastPeek = 0, peeking = false;
     const peek = async () => {
-      if (peeking || ctx.prefs.autoUpdate === false || ['checking', 'downloading', 'ready'].includes(updateState.state)) return;
+      if (peeking || ctx.prefs.autoUpdate === false || ['checking', 'downloading', 'verifying', 'ready'].includes(updateState.state)) return;
       peeking = true; lastPeek = Date.now();
       try {
         const res = await net.fetch(`https://github.com/mukairyo/oto/releases.atom?t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache', Accept: 'application/atom+xml' } });
@@ -158,7 +194,7 @@ module.exports = function createUpdates(ctx) {
   async function checkForUpdates(manual) {
     if (!updater) return updateState;
     if (!manual && ctx.prefs.autoUpdate === false) return updateState;
-    if (['checking', 'downloading', 'ready'].includes(updateState.state)) return updateState;
+    if (['checking', 'downloading', 'verifying', 'ready'].includes(updateState.state)) return updateState;
     lastUpdateCheck = Date.now();
     const ch = updateChannel();
     let found = false;

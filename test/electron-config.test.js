@@ -41,17 +41,24 @@ test('no window turns on Node in web content or turns off isolation / web securi
   }
 });
 
-test('only Oto’s own UI windows run unsandboxed, and only they get the preload with Oto’s API', () => {
+test('every window is sandboxed, Oto’s own UI included (1.3.3: no sandbox exceptions left)', () => {
   for (const b of webPrefBlocks()) {
-    const unsandboxed = /sandbox:\s*false/.test(b.text);
-    const hasPreload = /preload:/.test(b.text);
-    if (unsandboxed || hasPreload) assert.match(b.text, /preload\.js/, `${b.f}: an unsandboxed window must be Oto's own UI`);
-    if (!hasPreload) assert.match(b.text, /sandbox:\s*true/, `${b.f}: windows that show websites are sandboxed`);
+    assert.doesNotMatch(b.text, /sandbox:\s*false/, `${b.f}: unsandboxed window`);
+    assert.match(b.text, /sandbox:\s*true/, `${b.f}: sandbox must be set explicitly`);
+    if (/preload:/.test(b.text)) assert.match(b.text, /preload\.bundle\.js/, `${b.f}: Oto's windows use the sandbox-ready preload bundle`);
   }
-  // and those UI windows only ever load Oto's local page
-  const uiLoads = main.match(/win\.loadFile\(|w\.loadFile\(/g) || [];
-  assert.ok(uiLoads.length >= 2);
+  for (const [f, src] of allMain) assert.doesNotMatch(src, /sandbox\s*[:=]\s*false/, `${f}: no sandbox exceptions anywhere`);
+  // and Oto's UI windows only ever load Oto's local page
+  assert.ok((main.match(/win\.loadFile\(|w\.loadFile\(/g) || []).length >= 2);
   assert.doesNotMatch(main, /win\.loadURL\(/, 'the main UI window never loads a web address');
+});
+
+test('the sandboxed preload bundle is up to date with preload.js and needs only electron', () => {
+  const { build } = require('../scripts/build-preload.js');
+  assert.strictEqual(read('preload.bundle.js'), build(), 'run: node scripts/build-preload.js');
+  const reqs = [...read('preload.bundle.js').matchAll(/require\((["'])([^"']+)\1\)/g)].map((m) => m[2]);
+  assert.deepStrictEqual([...new Set(reqs)], ['electron'], 'a sandboxed preload can only require electron');
+  assert.ok(JSON.parse(read('package.json')).build.files.includes('preload.bundle.js'), 'packaged');
 });
 
 test('every web page (webview) is forced into the sandbox with no preload and no Node', () => {
@@ -131,4 +138,17 @@ test('private (Avocado) pages only ever run in the in-memory session (1.3.3 fix)
   const v1c = read('src/v1c.js');
   assert.match(v1c, /function v1PartitionFor\(tab\) \{\n {2}if \(AVOCADO_MODE\) return 'avocado';/);
   assert.match(read('src/extras.js'), /wvEl\.setAttribute\('partition', typeof v1PartitionFor === 'function' \? v1PartitionFor\(activeTab\(\)\)/, 'Glance uses the tab’s own session');
+});
+
+test('an update only installs after its GitHub build record is verified (item 5)', () => {
+  const u = read('main/updates.js');
+  assert.match(u, /updater\.autoInstallOnAppQuit = false;/, 'nothing installs on quit before the check');
+  assert.match(u, /updater\.autoDownload = false;/, 'a refused version is never downloaded again');
+  assert.match(u, /updater\.on\('update-downloaded', \(i\) => verifyDownloaded\(i\)\)/);
+  const v = u.slice(u.indexOf('async function verifyDownloaded'), u.indexOf('async function verifyDownloaded') + 1600);
+  assert.ok(v.indexOf('await verifyInstaller(') < v.indexOf("state: 'ready'"), '"ready" only after verification');
+  assert.ok(v.indexOf('await verifyInstaller(') < v.indexOf('autoInstallOnAppQuit = true'));
+  assert.match(v, /fs\.unlinkSync\(file\)/, 'a failed file is deleted');
+  assert.match(u, /redirect: 'error'/, 'the GitHub API answer is not followed through redirects');
+  assert.match(u, /if \(!updater \|\| updateState\.state !== 'ready'\) return;/, 'install button only works when ready (= verified)');
 });
