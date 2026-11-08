@@ -1,0 +1,31 @@
+# Oto Accounts (Supabase) access check: every account's rows must stay private (Row-Level Security).
+# Weekly, on demand, and whenever the check itself changes. See scripts/rls-check.js.
+# Two-account checks run when the dedicated TEST account secrets are set (never use a real account):
+#   OTO_RLS_A_EMAIL, OTO_RLS_A_PASSWORD, OTO_RLS_B_EMAIL, OTO_RLS_B_PASSWORD
+name: Backend access check
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1'
+  push:
+    paths: ['scripts/rls-check.js', '.github/workflows/backend-check.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  rls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Check that accounts can't see each other's data
+        env:
+          OTO_RLS_A_EMAIL: ${{ secrets.OTO_RLS_A_EMAIL }}
+          OTO_RLS_A_PASSWORD: ${{ secrets.OTO_RLS_A_PASSWORD }}
+          OTO_RLS_B_EMAIL: ${{ secrets.OTO_RLS_B_EMAIL }}
+          OTO_RLS_B_PASSWORD: ${{ secrets.OTO_RLS_B_PASSWORD }}
+        run: node scripts/rls-check.js
