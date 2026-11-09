@@ -308,10 +308,12 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
 @media (prefers-reduced-motion: reduce) { ::view-transition-old(root), ::view-transition-new(root) { animation: none; } }
 
 /* About opens over the home page (the space and the sound keep going); about.html still works on its own */
-#aboutView { position: fixed; inset: 0; z-index: 40; overflow-y: auto; overscroll-behavior: contain; background: #030304 url(img/space.webp) 0 0 / 1200px 1200px repeat; opacity: 0; transition: opacity .45s ease; }
-#aboutView.on { opacity: 1; }
+#aboutView { position: fixed; inset: 0; z-index: 40; overflow-y: auto; overscroll-behavior: contain; background: #030304 url(img/space.webp) 0 0 / 1200px 1200px repeat; }
 #aboutView:focus { outline: none; }
 #aboutView[hidden] { display: none !important; }
+.flying-kanji { position: fixed; z-index: 50; left: 0; top: 0; margin: 0; font-family: var(--serif); font-weight: 400; line-height: 1; color: var(--cream); pointer-events: none; transform-origin: 0 0; text-shadow: 0 0 40px rgba(255, 244, 222, .35); }
+.btn-kanji.land { animation: land .7s cubic-bezier(.2, .9, .2, 1); }
+@keyframes land { 0% { scale: 1.9; text-shadow: 0 0 18px rgba(255, 244, 222, .9); } 100% { scale: 1; text-shadow: none; } }
 </style>
 </head>
 <body>
@@ -757,22 +759,60 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
     }
     const dl = document.querySelector('#dl'); if (dl) root.querySelectorAll('.dl').forEach((a) => (a.href = dl.href));
   }
+  // The portal: About opens out of the 音 on the button that was clicked (an expanding circle, with the small 音
+  // flying up to become the big one) and closes back into it the same way.
+  let origin = null; // the 音 (or link) About came from
+  const EASE = 'cubic-bezier(.7, 0, .2, 1)';
+  const centre = (el) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+  const reach = (x, y) => Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) + 20;
+  function fly(from, to, text, back) {
+    // a copy of 音 moves from one glyph's box to the other's
+    const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
+    if (!a.width || !b.width || b.bottom < 0 || b.top > innerHeight) return null;
+    const k = document.createElement('div'); k.className = 'flying-kanji'; k.textContent = text;
+    const big = parseFloat(getComputedStyle(back ? from : to).fontSize) || 200;
+    k.style.fontSize = big + 'px';
+    document.body.append(k);
+    const kr = k.getBoundingClientRect(), place = (r) => `translate(${r.left + r.width / 2 - kr.width * (r.height / kr.height) / 2}px, ${r.top}px) scale(${r.height / kr.height})`;
+    const anim = k.animate([{ transform: place(a) }, { transform: place(b) }], { duration: 760, easing: EASE });
+    anim.onfinish = () => k.remove();
+    return anim;
+  }
   async function open() {
     if (!host) { opening = opening || build(); await opening; }
     lastFocus = document.activeElement;
     host.hidden = false; host.scrollTop = 0; document.documentElement.style.overflow = 'hidden';
-    requestAnimationFrame(() => host.classList.add('on'));
     host.tabIndex = -1; host.focus({ preventScroll: true }); // keyboard users continue from here (Tab reaches the links)
+    if (reduce) return;
+    const src = origin && origin.isConnected ? origin : null;
+    const [x, y] = src ? centre(src) : [innerWidth / 2, innerHeight / 2];
+    host.animate([{ clipPath: `circle(0px at ${x}px ${y}px)` }, { clipPath: `circle(${reach(x, y)}px at ${x}px ${y}px)` }], { duration: 760, easing: EASE });
+    const big = root.querySelector('.kanji');
+    if (src && src.classList.contains('btn-kanji') && big) {
+      big.style.visibility = 'hidden'; big.style.animation = 'none';
+      const f = fly(src, big, '音', false);
+      const show = () => { big.style.visibility = ''; };
+      if (f) f.finished.then(show, show); else show();
+    }
   }
   function close() {
     if (!host || host.hidden) return;
-    host.classList.remove('on'); document.documentElement.style.overflow = '';
-    setTimeout(() => { if (!host.classList.contains('on')) host.hidden = true; }, reduce ? 0 : 450);
-    if (lastFocus) lastFocus.focus({ preventScroll: true });
+    const done = () => { host.hidden = true; document.documentElement.style.overflow = ''; if (lastFocus) lastFocus.focus({ preventScroll: true }); };
+    if (reduce) return done();
+    const dst = origin && origin.isConnected ? origin : null;
+    const [x, y] = dst ? centre(dst) : [innerWidth / 2, innerHeight / 2];
+    const big = root.querySelector('.kanji');
+    if (dst && dst.classList.contains('btn-kanji') && big) {
+      const f = fly(big, dst, '音', true);
+      if (f) { big.style.visibility = 'hidden'; f.finished.then(() => { big.style.visibility = ''; dst.classList.remove('land'); void dst.offsetWidth; dst.classList.add('land'); }, () => {}); }
+    }
+    const a = host.animate([{ clipPath: `circle(${reach(x, y)}px at ${x}px ${y}px)` }, { clipPath: `circle(0px at ${x}px ${y}px)` }], { duration: 680, easing: EASE });
+    a.finished.then(done, done);
   }
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a[href="about.html"]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
     e.preventDefault();
+    origin = a.querySelector('.btn-kanji') || a;
     history.pushState({ about: 1 }, '', '#about');
     open().catch(() => { location.href = 'about.html'; });
   });
