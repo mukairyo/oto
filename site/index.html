@@ -306,6 +306,12 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
 .stagger > * { transition: opacity .8s ease, translate .8s cubic-bezier(.2, .8, .2, 1); transition-delay: calc(var(--i, 0) * 110ms); }
 .js .stagger:not(.in) > * { opacity: .15; translate: 0 18px; }
 @media (prefers-reduced-motion: reduce) { ::view-transition-old(root), ::view-transition-new(root) { animation: none; } }
+
+/* About opens over the home page (the space and the sound keep going); about.html still works on its own */
+#aboutView { position: fixed; inset: 0; z-index: 40; overflow-y: auto; overscroll-behavior: contain; background: #030304 url(img/space.webp) 0 0 / 1200px 1200px repeat; opacity: 0; transition: opacity .45s ease; }
+#aboutView.on { opacity: 1; }
+#aboutView:focus { outline: none; }
+#aboutView[hidden] { display: none !important; }
 </style>
 </head>
 <body>
@@ -718,6 +724,60 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
       document.querySelectorAll('#dl, #dl2, .dl').forEach((a) => (a.href = exe.browser_download_url));
     })
     .catch(() => {});
+})();
+</script>
+<script>
+(() => {
+  // "What is Oto?" and the About links open About over this page, so the space sound never stops.
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let host = null, root = null, opening = null, lastFocus = null;
+  async function build() {
+    const html = await fetch('about.html').then((r) => (r.ok ? r.text() : Promise.reject(new Error(r.status))));
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    let css = [...doc.querySelectorAll('style')].map((x) => x.textContent).join('\n');
+    css = css.replace(/:root\s*\{/g, ':host {').replace(/(^|[\s}])html\s*\{[^}]*\}/g, '$1').replace(/(^|[\s}])body\s*\{/g, '$1.page {')
+      .replace(/@view-transition\s*\{[^}]*\}/g, '').replace(/::view-transition[^{]*\{[^}]*\}/g, '').replace(/\.spacebg\s*\{[^}]*\}/g, '');
+    host = document.createElement('div'); host.id = 'aboutView'; host.hidden = true;
+    host.setAttribute('role', 'dialog'); host.setAttribute('aria-modal', 'true'); host.setAttribute('aria-label', 'About Oto');
+    root = host.attachShadow({ mode: 'open' });
+    const page = document.createElement('div'); page.className = 'page' + (reduce ? '' : ' js');
+    for (const el of doc.body.querySelectorAll(':scope > .wrap, :scope > footer')) page.append(document.importNode(el, true));
+    const style = document.createElement('style'); style.textContent = css + '\n.page { background: transparent; min-height: 100%; }';
+    root.append(style, page);
+    document.body.append(host);
+    // links back home close it; everything else behaves normally
+    root.addEventListener('click', (e) => { const a = e.target.closest('a'); if (a && /(^|\/)index\.html(#.*)?$/.test(a.getAttribute('href') || '')) { e.preventDefault(); history.back(); } });
+    host.addEventListener('keydown', (e) => { if (e.key === 'Escape') history.back(); });
+    // the same reveals as the About page itself, scrolling inside this view
+    if (!reduce && 'IntersectionObserver' in window) {
+      root.querySelectorAll('.stagger').forEach((ul) => [...ul.children].forEach((li, i) => li.style.setProperty('--i', i)));
+      root.querySelectorAll('.note .line').forEach((x, i) => x.style.setProperty('--i', i));
+      const io = new IntersectionObserver((es) => es.forEach((e) => { if (!e.isIntersecting) return; e.target.classList.add('in'); e.target.querySelectorAll('.stagger').forEach((x) => x.classList.add('in')); if (e.target.classList.contains('logo-row')) e.target.classList.add('play'); io.unobserve(e.target); }), { root: host, rootMargin: '0px 0px -12% 0px' });
+      root.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+    }
+    const dl = document.querySelector('#dl'); if (dl) root.querySelectorAll('.dl').forEach((a) => (a.href = dl.href));
+  }
+  async function open() {
+    if (!host) { opening = opening || build(); await opening; }
+    lastFocus = document.activeElement;
+    host.hidden = false; host.scrollTop = 0; document.documentElement.style.overflow = 'hidden';
+    requestAnimationFrame(() => host.classList.add('on'));
+    host.tabIndex = -1; host.focus({ preventScroll: true }); // keyboard users continue from here (Tab reaches the links)
+  }
+  function close() {
+    if (!host || host.hidden) return;
+    host.classList.remove('on'); document.documentElement.style.overflow = '';
+    setTimeout(() => { if (!host.classList.contains('on')) host.hidden = true; }, reduce ? 0 : 450);
+    if (lastFocus) lastFocus.focus({ preventScroll: true });
+  }
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href="about.html"]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+    e.preventDefault();
+    history.pushState({ about: 1 }, '', '#about');
+    open().catch(() => { location.href = 'about.html'; });
+  });
+  addEventListener('popstate', () => { if (location.hash === '#about') open().catch(() => {}); else close(); });
+  if (location.hash === '#about') { history.replaceState({ about: 1 }, '', '#about'); open().catch(() => { location.href = 'about.html'; }); }
 })();
 </script>
 <script src="space.js"></script>

@@ -66,9 +66,10 @@
     lowpass = ctx.createBiquadFilter(); lowpass.type = 'lowpass'; lowpass.frequency.value = 650; lowpass.Q.value = 0.5;
     const dry = ctx.createGain(); dry.gain.value = 0.55; lowpass.connect(dry); dry.connect(master); lowpass.connect(verb);
     // the drone: A–E–A–E–B, each voice swelling on its own slow cycle
-    [55, 82.41, 110, 164.81, 246.94].forEach((f, i) => {
-      const o = ctx.createOscillator(); o.type = i < 2 ? 'sine' : 'triangle'; o.frequency.value = f; o.detune.value = (Math.random() - 0.5) * 10;
-      const g = ctx.createGain(); const level = i < 2 ? 0.17 : 0.045; g.gain.value = level;
+    // low voices for headphones and speakers with bass, softer mid voices that laptop and phone speakers can play
+    [[55, 0.15, 'sine'], [82.41, 0.13, 'sine'], [110, 0.05, 'triangle'], [164.81, 0.045, 'triangle'], [220, 0.05, 'sine'], [329.63, 0.035, 'sine'], [493.88, 0.016, 'triangle']].forEach(([f, level, type]) => {
+      const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = (Math.random() - 0.5) * 10;
+      const g = ctx.createGain(); g.gain.value = level;
       const lfo = ctx.createOscillator(); lfo.frequency.value = 0.025 + Math.random() * 0.05;
       const depth = ctx.createGain(); depth.gain.value = level * 0.85; lfo.connect(depth); depth.connect(g.gain);
       o.connect(g); g.connect(lowpass); o.start(); lfo.start();
@@ -108,8 +109,8 @@
       if (!ctx) build();
       ctx.resume();
       master.gain.cancelScheduledValues(ctx.currentTime);
-      master.gain.setTargetAtTime(0.5, ctx.currentTime, 1.2);
-      pingTimer = setTimeout(ping, 2500);
+      master.gain.setTargetAtTime(0.55, ctx.currentTime, 0.3);
+      pingTimer = setTimeout(ping, 400);
     } else if (ctx) {
       master.gain.cancelScheduledValues(ctx.currentTime);
       master.gain.setTargetAtTime(0, ctx.currentTime, 0.35);
@@ -123,6 +124,11 @@
     if (load() !== 'off') set(true);
   };
   for (const t of ['pointerdown', 'keydown', 'touchend']) addEventListener(t, first, true);
+  if (load() !== 'off') {
+    try { build(); if (ctx.state === 'running') { for (const t of ['pointerdown', 'keydown', 'touchend']) removeEventListener(t, first, true); set(true); } } catch {}
+  }
+  // coming back with the browser's Back button: pick up where it was
+  addEventListener('pageshow', (e) => { if (e.persisted && on && ctx) ctx.resume(); });
   const toggle = () => { set(!on); keep(on ? 'on' : 'off'); label(); };
   if (btn) btn.addEventListener('click', toggle);
   addEventListener('keydown', (e) => { if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey) toggle(); });
