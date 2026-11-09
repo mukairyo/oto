@@ -749,7 +749,7 @@ html { scrollbar-gutter: stable; } /* opening About doesn't shift the page sidew
     root.append(style, page);
     document.body.append(host);
     // links back home close it; everything else behaves normally
-    root.addEventListener('click', (e) => { const a = e.target.closest('a'); if (a && /(^|\/)index\.html(#.*)?$/.test(a.getAttribute('href') || '')) { e.preventDefault(); home(); } });
+    root.addEventListener('click', (e) => { const a = e.target.closest('a'); if (a && /(^|\/)index\.html(#.*)?$/.test(a.getAttribute('href') || '')) { e.preventDefault(); home(a); } });
     host.addEventListener('keydown', (e) => { if (e.key === 'Escape') home(); });
     // the same reveals as the About page itself, scrolling inside this view
     if (!reduce && 'IntersectionObserver' in window) {
@@ -774,6 +774,19 @@ html { scrollbar-gutter: stable; } /* opening About doesn't shift the page sidew
     ring.style.width = ring.style.height = `${R0 * 2}px`; ring.style.translate = `${x - R0}px ${y - R0}px`;
     document.body.append(ring);
     const ringA = ring.animate([{ scale: from / R0, opacity: opening ? 1 : .2 }, { scale: Math.max(.001, to / R0), opacity: opening ? .15 : 1 }], { duration: DUR, easing: EASE, fill: 'forwards' });
+    ringA.finished.then(() => ring.remove(), () => ring.remove());
+    running.push(clip, ringA);
+    return clip;
+  }
+  // going back: the home page opens through a growing hole in About, from where you clicked (or the 音 button)
+  const hole = (x, y, r) => { const W = innerWidth, H = innerHeight; r = Math.max(.01, r); return `path(evenodd, "M0 0H${W}V${H}H0Z M${x - r} ${y}A${r} ${r} 0 1 0 ${x + r} ${y}A${r} ${r} 0 1 0 ${x - r} ${y}Z")`; };
+  function reveal(x, y) {
+    const R0 = reach(x, y);
+    const clip = host.animate([{ clipPath: hole(x, y, 0) }, { clipPath: hole(x, y, R0) }], { duration: DUR, easing: EASE, fill: 'forwards' });
+    const ring = document.createElement('div'); ring.className = 'portal-ring';
+    ring.style.width = ring.style.height = `${R0 * 2}px`; ring.style.translate = `${x - R0}px ${y - R0}px`;
+    document.body.append(ring);
+    const ringA = ring.animate([{ scale: 0, opacity: 1 }, { scale: 1, opacity: .15 }], { duration: DUR, easing: EASE, fill: 'forwards' });
     ringA.finished.then(() => ring.remove(), () => ring.remove());
     running.push(clip, ringA);
     return clip;
@@ -803,7 +816,7 @@ html { scrollbar-gutter: stable; } /* opening About doesn't shift the page sidew
     portal(x, y, true);
     if (src && src.classList.contains('btn-kanji') && big) grow(big, src, true);
   }
-  function close() {
+  function close(from) {
     if (!host || host.hidden) return;
     stop();
     host.style.pointerEvents = 'none'; // while it closes, clicks reach the page underneath
@@ -814,19 +827,17 @@ html { scrollbar-gutter: stable; } /* opening About doesn't shift the page sidew
       if (lastFocus) lastFocus.focus({ preventScroll: true });
     };
     if (reduce) return done();
-    const dst = origin && origin.isConnected ? origin : null;
-    const [x, y] = dst ? centre(dst) : [innerWidth / 2, innerHeight / 2];
-    const big = root.querySelector('.kanji');
-    if (dst && dst.classList.contains('btn-kanji') && big) grow(big, dst, false);
-    const clip = portal(x, y, false);
-    clip.finished.then(() => {
+    const btn = origin && origin.isConnected ? origin : null;
+    const at = from && from.isConnected ? from : btn;
+    const [x, y] = at ? centre(at) : [innerWidth / 2, innerHeight / 2];
+    reveal(x, y).finished.then(() => {
       done();
-      if (dst && dst.classList.contains('btn-kanji')) { dst.classList.remove('land'); void dst.offsetWidth; dst.classList.add('land'); }
+      if (btn && btn.classList.contains('btn-kanji')) { btn.classList.remove('land'); void btn.offsetWidth; btn.classList.add('land'); }
     }, () => {});
   }
   // back home from inside About (link, logo, Esc): close it right here and drop #about from the address,
   // without stepping through history (that could reload the page with About open again)
-  function home() { if (location.hash === '#about') history.replaceState(null, '', location.pathname + location.search); close(); }
+  function home(from) { if (location.hash === '#about') history.replaceState(null, '', location.pathname + location.search); close(from); }
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a[href="about.html"]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
     e.preventDefault();
