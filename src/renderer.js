@@ -589,9 +589,11 @@ function insertTab(tab, after) {
 }
 
 let justOpened = null;
+const openerOf = new Map(); // tab id → id of the tab it was opened from (this session only)
 function newTab(url, { background = false, opener = null } = {}) {
   const tab = { id: uid(), url, title: prettyUrl(url), favicon: '', ws: S.activeWs, pinned: false, essential: false, lastActive: Date.now() };
   insertTab(tab, opener);
+  if (opener && opener.id) openerOf.set(tab.id, opener.id);
   justOpened = tab.id;
   if (background) {
     ensureView(tab);
@@ -672,6 +674,29 @@ function closeTabNow(id) {
   for (const k of Object.keys(S.active)) if (S.active[k] === id) delete S.active[k];
   if (wasActive) {
     const next = pickNextAfterClose(order, idx);
+    if (next) activate(next.id); else showNothing();
+  } else render();
+  save();
+}
+
+// A link that opened a new tab but turned out to be a file download leaves a tab with no page (just white). Main tells
+// us which one (main/download-tab.js); it is closed quietly and you're back on the tab you clicked the link in. It
+// doesn't go into "reopen closed tab" (that would only start the download again). The download itself keeps going.
+function closeBlankTab(id) {
+  const tab = tabById(id);
+  if (!tab || tab.essential) return;
+  const row = document.querySelector(`.tab[data-id="${id}"]`);
+  if (row && animOn() && !row.classList.contains('leaving')) { row.classList.add('leaving'); setTimeout(() => closeBlankTab(id), animMs() * 0.6); return; }
+  const order = navOrder();
+  const idx = order.findIndex((t) => t.id === id);
+  const wasActive = S.active[S.activeWs] === id;
+  const back = tabById(openerOf.get(id));
+  openerOf.delete(id);
+  S.tabs = S.tabs.filter((t) => t.id !== id);
+  destroyView(id);
+  for (const k of Object.keys(S.active)) if (S.active[k] === id) delete S.active[k];
+  if (wasActive) {
+    const next = back && back.ws === tab.ws ? back : pickNextAfterClose(order, idx);
     if (next) activate(next.id); else showNothing();
   } else render();
   save();
@@ -1965,6 +1990,11 @@ function wire() {
     routedOpen(url, { background, opener: activeTab() });
   });
   oto.on('search', (text) => newTab(searchUrl(text), { opener: activeTab() }));
+  oto.on('download-tab', (wcId) => {
+    let id = wcToTab.get(wcId);
+    if (!id) for (const [tid, v] of V) { if (!v.wcId && wv(v, (w) => w.getWebContentsId(), null) === wcId) { id = tid; break; } }
+    if (id) closeBlankTab(id);
+  });
   oto.on('blocked', (wcId, n) => {
     const id = wcToTab.get(wcId);
     const v = id && V.get(id);

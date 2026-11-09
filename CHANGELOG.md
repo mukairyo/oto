@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.4.1 — 2026-11-09
+
+*A small fix. Nothing to do: it updates itself.*
+
+- **Downloads no longer leave a white, empty tab behind.** When a download link opened in a new tab, the file downloaded but the new tab stayed open with nothing in it — just a white page. Oto now closes that tab by itself, the way Chrome does, and takes you back to the tab you clicked from. The download keeps going in the Downloads panel. If Oto asks where to save, the tab closes once you've picked a place (or cancelled). Normal download links on a page you're reading never close that page, and the empty tab isn't offered in "Reopen closed tab" (that would only start the download again).
+- Tested: a download link that opens a new tab, a download that's still running when its tab closes, and a normal download link.
+
 ## 1.4.0 — 2026-11-08
 
 *Project Aegis: a security and reliability release. No new features. Nothing to do: it updates itself.*

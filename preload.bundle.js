@@ -423,7 +423,7 @@ var injectBrowserAction = () => {
 const { contextBridge, ipcRenderer } = require('electron');
 
 const CHANNELS = new Set([
-  'cmd', 'tab:open', 'search', 'blocked', 'download', 'perm:ask', 'perm:cancel', 'screen:pick', 'screen:cancel', 'danger', 'window-fullscreen', 'overlay-sampled',
+  'cmd', 'tab:open', 'search', 'blocked', 'download', 'download-tab', 'perm:ask', 'perm:cancel', 'screen:pick', 'screen:cancel', 'danger', 'window-fullscreen', 'overlay-sampled',
   'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'ext:refused', 'glance', 'update', 'ctx:show', 'ctrl-hold', 'quick:open', 'account:status', 'drm:ready', 'save-failed', 'data-damaged',
 ]);
 
