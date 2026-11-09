@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>About Oto</title>
+<meta name="description" content="What Oto is, what it does, what the name and the logo mean, and why Ryo made it.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single reading column, like a short essay. One huge 音 opens it; each part has a mono label in the
+   margin (what / does / name / logo / from Ryo), ending in a signed note. Same night palette as the home page. */
+:root {
+  --night: #09090a; --night-2: #111113; --cream: #efe7d8; --ink: #e9e4da; --dim: #8e897f;
+  --line: rgba(239, 231, 216, .12); --line-2: rgba(239, 231, 216, .22); --ember: #d98a4e;
+  --serif: 'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --sans: 'Geist', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--night); }
+body { margin: 0; background: var(--night); color: var(--ink); font: 400 17px/1.7 var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; border-radius: 6px; }
+.wrap { max-width: 980px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 18px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 13px var(--mono); letter-spacing: .14em; color: var(--cream); }
+.brand img { width: 26px; height: 26px; }
+.back { font-size: 14px; color: var(--dim); text-decoration: none; }
+.back:hover { color: var(--cream); }
+
+.open { position: relative; display: grid; place-items: center; text-align: center; padding-block: 56px 72px; }
+.kanji { font: 400 clamp(150px, 30vw, 280px)/.9 var(--serif); color: var(--cream); text-shadow: 0 0 80px rgba(255, 244, 222, .18); animation: breathe 7s ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { text-shadow: 0 0 60px rgba(255, 244, 222, .12); } 50% { text-shadow: 0 0 110px rgba(255, 244, 222, .28); } }
+.say { margin-top: 18px; font: 12px var(--mono); letter-spacing: .3em; color: var(--dim); }
+h1 { font: 400 clamp(40px, 6.4vw, 68px)/1.04 var(--serif); color: var(--cream); margin: 22px 0 0; text-wrap: balance; }
+.open p { max-width: 32em; margin: 16px auto 0; opacity: .82; text-wrap: balance; }
+
+.part { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 32px; padding-block: 48px; border-top: 1px solid var(--line); }
+.label { font: 12px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); padding-top: 10px; }
+.part h2 { font: 400 clamp(30px, 4vw, 42px)/1.1 var(--serif); color: var(--cream); margin: 0 0 14px; text-wrap: balance; }
+.part p { margin: 0 0 14px; max-width: 38em; opacity: .86; }
+.does { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 28px; }
+.does li { border-top: 1px solid var(--line-2); padding-top: 14px; }
+.does strong { display: block; font: 400 22px/1.2 var(--serif); color: var(--cream); margin-bottom: 4px; }
+.does span { color: var(--dim); font-size: 15px; }
+
+.logo-row { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 28px; align-items: center; }
+.logo-row svg { width: 100%; height: auto; overflow: visible; }
+.formula { display: inline-block; margin-top: 6px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; font: 14px var(--mono); color: var(--cream); background: var(--night-2); }
+
+.note { position: relative; padding: 34px 34px 30px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(180deg, #131315, #0e0e10); }
+.note p { font: 400 22px/1.5 var(--serif); color: var(--ink); opacity: 1; max-width: 34em; }
+.sign { margin-top: 18px; font: 400 34px var(--serif); font-style: italic; color: var(--cream); }
+.sign small { display: block; font: 12px var(--mono); font-style: normal; letter-spacing: .16em; color: var(--dim); margin-top: 2px; }
+
+.end { text-align: center; padding-block: 72px 90px; border-top: 1px solid var(--line); }
+.end h2 { font: 400 clamp(32px, 4.6vw, 48px)/1.06 var(--serif); color: var(--cream); margin: 0 0 22px; }
+.ctas { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 20px; border-radius: 999px; font: 500 14px var(--sans); text-decoration: none; transition: transform .15s ease, background .15s ease; }
+.btn:hover { transform: translateY(-1px); }
+.btn svg { width: 16px; height: 16px; }
+.btn-primary { background: var(--cream); color: #17140f; }
+.btn-primary:hover { background: #fff6e6; }
+.btn-ghost { border: 1px solid var(--line-2); color: var(--cream); }
+footer { border-top: 1px solid var(--line); }
+footer .wrap { padding-block: 26px 36px; font-size: 14px; color: var(--dim); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
+
+@media (max-width: 720px) {
+  .part { grid-template-columns: minmax(0, 1fr); gap: 10px; padding-block: 36px; }
+  .label { padding-top: 0; }
+  .does { grid-template-columns: minmax(0, 1fr); }
+  .logo-row { grid-template-columns: minmax(0, 1fr); }
+  .logo-row svg { max-width: 200px; }
+  .note { padding: 24px 20px; }
+  .note p { font-size: 19px; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="index.html"><img src="favicon.svg" alt="">OTO</a>
+    <a class="back" href="index.html">← Back to the home page</a>
+  </header>
+
+  <div class="open">
+    <div class="kanji" aria-hidden="true">音</div>
+    <div class="say">O · TO</div>
+    <h1>Oto means sound.</h1>
+    <p>A browser named after something you hear, made to feel quiet. Here's what Oto is, what it does, and why it exists.</p>
+  </div>
+
+  <div class="part">
+    <div class="label">What it is</div>
+    <div>
+      <h2>A calm browser for Windows, with your phone along for the ride.</h2>
+      <p>Oto is a free web browser built on Chromium, so websites, Chrome extensions and streaming services work the way you expect. Around that engine, everything is Oto's own: the sidebar, the spaces, the look, the blocker, the sync.</p>
+      <p>It's made by one person, in the open. All the code is public on GitHub, and every update is built and published there, so anyone can see exactly what they're installing.</p>
+    </div>
+  </div>
+
+  <div class="part">
+    <div class="label">What it does</div>
+    <div>
+      <h2>The everyday things, done quietly.</h2>
+      <ul class="does">
+        <li><strong>Tabs on the side</strong><span>A vertical sidebar with Essentials, pinned tabs and folders, so long titles still fit.</span></li>
+        <li><strong>Spaces</strong><span>Work, school and music each get their own tabs, icon and even their own logins.</span></li>
+        <li><strong>Oto Shield</strong><span>Ads, trackers and known scam sites are stopped before a page loads.</span></li>
+        <li><strong>Avocado</strong><span>A private window that keeps nothing once you close it.</span></li>
+        <li><strong>Your things, everywhere</strong><span>Settings, bookmarks and passwords sync, encrypted on your PC with your password.</span></li>
+        <li><strong>My phone</strong><span>Oto for Android links to your PC: see your phone's tabs and battery, send tabs both ways.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="part">
+    <div class="label">The name</div>
+    <div>
+      <h2>音, said “oto”.</h2>
+      <p>In Japanese, 音 means sound. It's Oto's symbol, at the top of the sidebar and on every page Oto makes. It's also why Oto can play its own small sounds, and why the idea underneath everything is the opposite of noise: a browser you can barely hear.</p>
+    </div>
+  </div>
+
+  <div class="part">
+    <div class="label">The logo</div>
+    <div class="logo-row">
+      <svg aria-hidden="true" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><defs>
+    <radialGradient id="vxb1" cx=".5" cy=".5" r=".75"><stop offset="0" stop-color="#161618"/><stop offset="1" stop-color="#0b0b0c"/></radialGradient>
+    <radialGradient id="vxg1" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff"/><stop offset=".25" stop-color="#fff6e8" stop-opacity=".95"/><stop offset=".6" stop-color="#e7dfd1" stop-opacity=".35"/><stop offset="1" stop-color="#e7dfd1" stop-opacity="0"/></radialGradient>
+    <clipPath id="vxc1"><rect width="64" height="64" rx="15"/></clipPath>
+    <radialGradient id="vxs1" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff"/><stop offset=".16" stop-color="#fff6e0"/><stop offset=".3" stop-color="#ffe2a4" stop-opacity=".85"/><stop offset=".55" stop-color="#ffbe6e" stop-opacity=".32"/><stop offset=".8" stop-color="#ff9a4a" stop-opacity=".08"/><stop offset="1" stop-color="#ff9a4a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="vxd1" cx=".45" cy=".42" r=".6"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#fff3d2"/><stop offset=".85" stop-color="#ffd58a"/><stop offset="1" stop-color="#ffb35a"/></radialGradient>
+    <filter id="vxh1" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="1.4"/></filter>
+    <filter id="vxf1" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation=".5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    
+    <g><g class="vss"><path class="vs" style="--i:0" d="M11.49 13.60 L6.36 9.25" stroke="rgb(229,215,192)" stroke-opacity="0.34" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:1" d="M35.99 9.44 L36.57 6.32" stroke="rgb(229,215,192)" stroke-opacity="0.40" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:2" d="M41.12 52.24 L44.79 60.79" stroke="rgb(230,217,195)" stroke-opacity="0.32" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:3" d="M47.75 10.57 L52.76 4.08" stroke="rgb(232,219,198)" stroke-opacity="0.36" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:4" d="M34.40 52.41 L35.41 61.39" stroke="rgb(228,214,190)" stroke-opacity="0.47" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:5" d="M7.20 41.53 L1.02 44.15" stroke="rgb(227,213,189)" stroke-opacity="0.26" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:6" d="M38.33 7.79 L39.00 5.32" stroke="rgb(227,213,189)" stroke-opacity="0.44" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:7" d="M13.18 17.78 L5.21 12.18" stroke="rgb(225,210,185)" stroke-opacity="0.61" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:8" d="M32.26 51.81 L32.32 56.85" stroke="rgb(230,216,194)" stroke-opacity="0.65" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:0" d="M32.24 8.75 L32.28 5.02" stroke="rgb(229,215,192)" stroke-opacity="0.49" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:1" d="M58.86 30.08 L62.62 29.95" stroke="rgb(230,216,194)" stroke-opacity="0.63" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:2" d="M44.62 13.34 L48.69 7.64" stroke="rgb(227,213,190)" stroke-opacity="0.59" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:3" d="M4.82 31.20 L0.18 31.23" stroke="rgb(226,211,186)" stroke-opacity="0.51" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:4" d="M50.36 48.26 L54.31 51.97" stroke="rgb(228,214,191)" stroke-opacity="0.59" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:5" d="M59.96 34.86 L70.65 36.34" stroke="rgb(227,212,188)" stroke-opacity="0.56" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:6" d="M46.23 48.66 L51.49 55.19" stroke="rgb(227,213,189)" stroke-opacity="0.29" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:7" d="M25.83 7.44 L24.52 2.43" stroke="rgb(231,218,196)" stroke-opacity="0.45" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:8" d="M40.62 50.20 L43.23 56.01" stroke="rgb(227,213,188)" stroke-opacity="0.64" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:0" d="M1.86 26.22 L-8.87 24.52" stroke="rgb(231,218,195)" stroke-opacity="0.61" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:1" d="M3.45 34.90 L-5.69 36.15" stroke="rgb(226,212,188)" stroke-opacity="0.31" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:2" d="M49.54 16.64 L53.69 13.24" stroke="rgb(225,210,185)" stroke-opacity="0.53" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:3" d="M59.27 21.62 L62.08 20.65" stroke="rgb(234,222,201)" stroke-opacity="0.45" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:4" d="M60.07 31.10 L68.42 31.13" stroke="rgb(229,216,193)" stroke-opacity="0.44" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:5" d="M30.70 51.94 L30.20 60.07" stroke="rgb(233,221,200)" stroke-opacity="0.27" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:6" d="M54.10 18.01 L63.22 12.64" stroke="rgb(231,218,196)" stroke-opacity="0.39" stroke-width=".55" stroke-linecap="round"/><path class="vs" style="--i:7" d="M52.72 17.58 L58.37 13.92" stroke="rgb(230,217,195)" stroke-opacity="0.37" stroke-width=".55" stroke-linecap="round"/></g><g transform="rotate(-6 32 31)"><g fill="none" filter="url(#vxf1)" class="vrs"><ellipse class="vr" style="--i:0;--c:30.84;--o:15.96" cx="32" cy="31" rx="6.50" ry="2.99" stroke="rgb(255,250,240)" stroke-opacity="0.95" stroke-width="1.05" stroke-linecap="round" stroke-dasharray="5.55 1.61 7.47 0.99 10.86 1.56" stroke-dashoffset="15.96"/><ellipse class="vr" style="--i:1;--c:40.81;--o:30.00" cx="32" cy="31" rx="8.60" ry="3.96" stroke="rgb(252,246,235)" stroke-opacity="0.90" stroke-width="0.99" stroke-linecap="round" stroke-dasharray="10.45 2.42 14.09 2.00 8.04 1.67" stroke-dashoffset="30.00"/><ellipse class="vr" style="--i:2;--c:50.77;--o:45.03" cx="32" cy="31" rx="10.70" ry="4.92" stroke="rgb(249,242,229)" stroke-opacity="0.86" stroke-width="0.94" stroke-linecap="round" stroke-dasharray="9.26 2.01 14.99 3.33 9.28 2.50" stroke-dashoffset="45.03"/><ellipse class="vr" style="--i:3;--c:60.74;--o:48.56" cx="32" cy="31" rx="12.80" ry="5.89" stroke="rgb(246,238,224)" stroke-opacity="0.81" stroke-width="0.89" stroke-linecap="round" stroke-dasharray="11.16 4.00 20.75 4.70 14.42 2.33" stroke-dashoffset="48.56"/><ellipse class="vr" style="--i:4;--c:70.70;--o:0.09" cx="32" cy="31" rx="14.90" ry="6.85" stroke="rgb(243,234,218)" stroke-opacity="0.77" stroke-width="0.83" stroke-linecap="round" stroke-dasharray="21.43 2.21 26.19 5.06 17.70 5.21" stroke-dashoffset="0.09"/><ellipse class="vr" style="--i:5;--c:80.66;--o:18.19" cx="32" cy="31" rx="17.00" ry="7.82" stroke="rgb(240,230,213)" stroke-opacity="0.72" stroke-width="0.78" stroke-linecap="round" stroke-dasharray="21.52 6.16 30.62 4.14 27.61 4.47" stroke-dashoffset="18.19"/><ellipse class="vr" style="--i:6;--c:90.63;--o:49.91" cx="32" cy="31" rx="19.10" ry="8.79" stroke="rgb(237,226,207)" stroke-opacity="0.68" stroke-width="0.72" stroke-linecap="round" stroke-dasharray="23.14 4.86 18.23 4.44 19.48 5.32" stroke-dashoffset="49.91"/><ellipse class="vr" style="--i:7;--c:100.59;--o:25.81" cx="32" cy="31" rx="21.20" ry="9.75" stroke="rgb(234,222,202)" stroke-opacity="0.64" stroke-width="0.67" stroke-linecap="round" stroke-dasharray="25.54 7.35 31.10 5.54 24.26 5.70" stroke-dashoffset="25.81"/><ellipse class="vr" style="--i:8;--c:110.56;--o:56.27" cx="32" cy="31" rx="23.30" ry="10.72" stroke="rgb(231,218,196)" stroke-opacity="0.59" stroke-width="0.61" stroke-linecap="round" stroke-dasharray="35.18 4.91 38.17 5.33 39.34 5.99" stroke-dashoffset="56.27"/><ellipse class="vr" style="--i:9;--c:120.52;--o:67.16" cx="32" cy="31" rx="25.40" ry="11.68" stroke="rgb(228,214,191)" stroke-opacity="0.54" stroke-width="0.55" stroke-linecap="round" stroke-dasharray="29.90 8.81 32.17 3.62 22.19 3.81" stroke-dashoffset="67.16"/><ellipse class="vr" style="--i:10;--c:130.49;--o:64.87" cx="32" cy="31" rx="27.50" ry="12.65" stroke="rgb(225,210,185)" stroke-opacity="0.50" stroke-width="0.50" stroke-linecap="round" stroke-dasharray="43.24 5.04 40.55 7.14 29.85 5.64" stroke-dashoffset="64.87"/></g><circle class="vd" cx="25.63" cy="31.61" r="0.42" fill="#fff" opacity="0.57"/><circle class="vd" cx="33.28" cy="33.93" r="0.50" fill="#fff" opacity="0.48"/><circle class="vd" cx="24.81" cy="28.83" r="0.44" fill="#fff" opacity="0.69"/><circle class="vd" cx="32.82" cy="34.94" r="0.36" fill="#fff" opacity="0.88"/><circle class="vd" cx="21.40" cy="30.32" r="0.28" fill="#fff" opacity="0.77"/><circle class="vd" cx="42.35" cy="29.75" r="0.36" fill="#fff" opacity="0.94"/><circle class="vd" cx="44.12" cy="29.11" r="0.51" fill="#fff" opacity="1.00"/><circle class="vd" cx="36.00" cy="25.41" r="0.40" fill="#fff" opacity="0.55"/><circle class="vd" cx="24.51" cy="25.07" r="0.58" fill="#fff" opacity="0.73"/><circle class="vd" cx="25.59" cy="24.81" r="0.43" fill="#fff" opacity="0.91"/><circle class="vd" cx="48.24" cy="33.32" r="0.27" fill="#fff" opacity="0.90"/><circle class="vd" cx="45.17" cy="35.94" r="0.37" fill="#fff" opacity="0.73"/><circle class="vd" cx="49.02" cy="27.01" r="0.28" fill="#fff" opacity="0.99"/><circle class="vd" cx="51.09" cy="30.67" r="0.52" fill="#fff" opacity="0.74"/><circle class="vd" cx="52.61" cy="28.72" r="0.45" fill="#fff" opacity="0.95"/><circle class="vd" cx="44.77" cy="38.78" r="0.31" fill="#fff" opacity="0.98"/><circle class="vd" cx="34.74" cy="41.64" r="0.29" fill="#fff" opacity="0.88"/><circle class="vd" cx="48.30" cy="23.34" r="0.34" fill="#fff" opacity="0.85"/><circle class="vd" cx="24.82" cy="42.21" r="0.53" fill="#fff" opacity="0.59"/><circle class="vd" cx="15.69" cy="22.04" r="0.60" fill="#fff" opacity="0.70"/><circle class="vd" cx="12.30" cy="22.18" r="0.41" fill="#fff" opacity="0.58"/><circle class="vd" cx="4.54" cy="31.70" r="0.43" fill="#fff" opacity="0.47"/>
+    <ellipse class="vcore" cx="32" cy="31" rx="10" ry="6.5" fill="url(#vxg1)"/><circle class="vdot" cx="32" cy="31" r="1.8" fill="#fff"/></g></g></svg>
+      <div>
+        <h2>A white hole, drawn like a graph.</h2>
+        <p>Oto's logo is the Vortex: rings of light spinning around a white hole. A black hole pulls everything in; a white hole only gives light out. Each ring is drawn from the same simple equation, so the logo looks like something plotted on paper.</p>
+        <span class="formula">x = r·cos t &nbsp;·&nbsp; y = k·r·sin t</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="part">
+    <div class="label">From Ryo</div>
+    <div class="note">
+      <p>I wanted a browser that runs fast, looks calm, and lets me change almost everything about it. I couldn't find one that did all three, so I started making my own.</p>
+      <p>Oto is that browser. I use it every day, and every version is something I'd want on my own PC: no tracking, nothing hidden, and the whole thing out in the open where you can check it.</p>
+      <div class="sign">Ryo<small>MAKER OF OTO</small></div>
+    </div>
+  </div>
+
+  <div class="end">
+    <h2>Give it a listen.</h2>
+    <div class="ctas">
+      <a class="btn btn-primary dl" href="https://github.com/mukairyo/oto/releases/latest"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8M4.5 6.8 8 10.3l3.5-3.5M3 13.5h10"/></svg>Download for Windows</a>
+      <a class="btn btn-ghost" href="index.html">Back to the home page</a>
+    </div>
+  </div>
+</div>
+<footer>
+  <div class="wrap">
+    <span>音 Oto, made by Ryo. Built on Chromium.</span>
+    <span><a href="https://github.com/mukairyo/oto">GitHub</a> · <a href="https://github.com/mukairyo/oto/blob/main/PRIVACY.md">Privacy</a> · <a href="https://github.com/mukairyo/oto/blob/main/SECURITY.md">Security</a></span>
+  </div>
+</footer>
+<script>
+fetch('https://api.github.com/repos/mukairyo/oto/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+  .then((r) => (r.ok ? r.json() : Promise.reject()))
+  .then((rel) => { const exe = (rel.assets || []).find((a) => /^Oto-Setup-.*\.exe$/.test(a.name)); if (exe) document.querySelectorAll('.dl').forEach((a) => (a.href = exe.browser_download_url)); })
+  .catch(() => {});
+</script>
+</body>
+</html>

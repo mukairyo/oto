@@ -82,6 +82,7 @@ h1 { font: 400 clamp(44px, 7.4vw, 76px)/1.02 var(--serif); letter-spacing: -.01e
 .btn-primary:hover { background: #fff6e6; }
 .btn-ghost { border: 1px solid var(--line-2); color: var(--cream); background: rgba(9, 9, 10, .4); }
 .btn-ghost:hover { border-color: rgba(239, 231, 216, .45); }
+.btn-kanji { font: 400 17px/1 var(--serif); }
 .fine { margin-top: 14px; font-size: 13px; color: var(--dim); }
 
 .hero > * { animation: rise .8s cubic-bezier(.2, .8, .2, 1) backwards; }
@@ -293,7 +294,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
 
 <div class="fbar" id="fbar">
   <a class="name" href="#top">Oto</a>
-  <nav aria-label="Sections"><a href="#look">Features</a><a href="#privacy">Privacy</a><a href="#android">Android</a><a href="#install">Install</a></nav>
+  <nav aria-label="Sections"><a href="about.html">About</a><a href="#look">Features</a><a href="#privacy">Privacy</a><a href="#android">Android</a><a href="#install">Install</a></nav>
   <a class="btn btn-primary dl" href="https://github.com/mukairyo/oto/releases/latest">Download</a>
 </div>
 
@@ -302,6 +303,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
     <header class="top">
       <a class="brand" href="#top" aria-label="Oto home"><img src="favicon.svg" alt="">OTO</a>
       <nav aria-label="Sections">
+        <a href="about.html">About</a>
         <a href="#look">Features</a>
         <a href="#privacy">Privacy</a>
         <a href="#android">Android</a>
@@ -350,6 +352,10 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
         <a class="btn btn-ghost" href="https://github.com/mukairyo/oto">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5"/></svg>
           View on GitHub
+        </a>
+        <a class="btn btn-ghost" href="about.html">
+          <span class="btn-kanji" aria-hidden="true">音</span>
+          What is Oto?
         </a>
       </div>
       <p class="fine">Free · Windows 10 and 11 · Updates itself</p>
@@ -518,6 +524,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
   <div class="wrap">
     <span>音 Oto, made by Ryo. Built on Chromium.</span>
     <nav aria-label="Footer">
+      <a href="about.html">About Oto</a>
       <a href="https://github.com/mukairyo/oto">GitHub</a>
       <a href="https://github.com/mukairyo/oto/blob/main/CHANGELOG.md">Changelog</a>
       <a href="https://github.com/mukairyo/oto/blob/main/PRIVACY.md">Privacy</a>
