@@ -824,9 +824,9 @@ html { scrollbar-gutter: stable; } /* opening About doesn't shift the page sidew
       if (dst && dst.classList.contains('btn-kanji')) { dst.classList.remove('land'); void dst.offsetWidth; dst.classList.add('land'); }
     }, () => {});
   }
-  // back home from inside About: if About was opened by a click here, step back in history; if the visitor
-  // arrived on #about directly, just close it (never leave the site)
-  function home() { if (pushed) history.back(); else { history.replaceState(null, '', location.pathname + location.search); close(); } }
+  // back home from inside About (link, logo, Esc): close it right here and drop #about from the address,
+  // without stepping through history (that could reload the page with About open again)
+  function home() { if (location.hash === '#about') history.replaceState(null, '', location.pathname + location.search); close(); }
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a[href="about.html"]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
     e.preventDefault();
