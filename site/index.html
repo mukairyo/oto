@@ -84,7 +84,7 @@ h1 { font: 400 clamp(44px, 7.4vw, 76px)/1.02 var(--serif); letter-spacing: -.01e
 .btn-ghost:hover { border-color: rgba(239, 231, 216, .45); }
 .fine { margin-top: 14px; font-size: 13px; color: var(--dim); }
 
-.hero > * { animation: rise .8s cubic-bezier(.2, .8, .2, 1) both; }
+.hero > * { animation: rise .8s cubic-bezier(.2, .8, .2, 1) backwards; }
 .hero > .eyebrow { animation-delay: .55s; } .hero > h1 { animation-delay: .65s; } .hero > .lede { animation-delay: .75s; }
 .hero > .ctas { animation-delay: .85s; } .hero > .fine { animation-delay: .9s; } .hero > .stage { animation-delay: 1s; }
 @keyframes rise { from { opacity: .3; translate: 0 10px; } to { opacity: 1; translate: 0 0; } }
@@ -206,7 +206,7 @@ kbd { font: 12px var(--mono); padding: 1px 6px; border: 1px solid var(--line-2);
 .zoom .gal .vrs { opacity: .3; } .zoom .gal .vs { opacity: .5; }
 .zoom .gal .vcore { transform-box: fill-box; transform-origin: center; animation: vxBreathe 4.2s ease-in-out infinite; }
 @keyframes vxGal { to { rotate: -360deg; } }
-.zoom .shade { position: absolute; inset: 0; background: radial-gradient(60% 50% at 50% 50%, rgba(9, 9, 10, .78), rgba(9, 9, 10, .35) 70%, transparent); opacity: 0; pointer-events: none; }
+.zoom .shade { position: absolute; inset: 0; background: radial-gradient(62% 52% at 50% 50%, rgba(9, 9, 10, .88), rgba(9, 9, 10, .45) 70%, rgba(9, 9, 10, .1)); opacity: 0; pointer-events: none; }
 .zoom .flash { position: absolute; inset: 0; background: radial-gradient(closest-side, #fff6e8, rgba(255, 246, 232, .6) 40%, transparent 75%); opacity: 0; pointer-events: none; }
 .zoom .words { position: relative; z-index: 2; text-align: center; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .zoom .words .mono { color: var(--ink); opacity: .7; }
@@ -613,33 +613,43 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
 
   // Scroll scenes.
   const zoom = document.querySelector('[data-scene="zoom"]'), tilt = document.querySelector('[data-scene="tilt"]');
-  const intro = zoom.querySelector('.intro'), mark = zoom.querySelector('.mark'), cue = zoom.querySelector('.cue'), hint = tilt.querySelector('.hint'), shade = zoom.querySelector('.shade');
+  const intro = zoom.querySelector('.intro'), mark = zoom.querySelector('.mark'), introText = [...zoom.querySelectorAll('.intro > :not(.mark)')], cue = zoom.querySelector('.cue'), hint = tilt.querySelector('.hint'), shade = zoom.querySelector('.shade');
   const gal = zoom.querySelector('.gal'), flash = zoom.querySelector('.flash'), words = zoom.querySelector('.words'), warpCv = document.getElementById('warp');
   const frame = tilt.querySelector('.frame'), cap = tilt.querySelector('.cap');
   const warp = vortexWarp(warpCv);
   const prog = (el) => { const r = el.getBoundingClientRect(); return clamp(-r.top / Math.max(1, r.height - innerHeight)); };
-  let lastS = 0, ticking = false, drift = 0;
+  let lastS = 0, ticking = false, drift = 0, markDy = 0, markGrow = 2;
+  function measure() {
+    const keep = mark.style.transform; mark.style.transform = 'none';
+    const pinR = zoom.querySelector('.pin').getBoundingClientRect(), mr = mark.getBoundingClientRect(), gr = gal.offsetWidth || 400;
+    markDy = innerHeight / 2 - ((mr.top - pinR.top) + mr.height / 2); // logo centre -> screen centre once the scene is pinned
+    markGrow = Math.max(.5, gr / Math.max(1, mr.width) - 1);
+    mark.style.transform = keep;
+  }
   function scenes() {
     ticking = false;
     // opening: the hero from the first screen lifts away, then you dive into the vortex, stars streaming past,
     // and the words rise over it
     const p = prog(zoom);
-    const io = ease(span(p, 0, .16));
-    intro.style.opacity = String(1 - io);
-    intro.style.transform = `translateY(${-io * 70}px)`;
-    intro.style.visibility = io >= 1 ? 'hidden' : 'visible';
-    mark.style.transform = `scale(${1 + io * 1.2})`;
+    // the words leave first, quickly
+    const io = ease(span(p, 0, .07));
+    for (const el of introText) { el.style.opacity = String(1 - io); el.style.transform = `translateY(${-io * 40}px)`; el.style.visibility = io >= 1 ? 'hidden' : 'visible'; }
+    // the logo itself glides to the centre and grows: that's what you dive into
+    const mv = ease(span(p, .05, .21));
+    mark.style.transform = `translateY(${markDy * mv}px) scale(${1 + mv * markGrow})`;
+    mark.style.opacity = String(1 - span(p, .17, .27));
     cue.style.opacity = String(1 - span(p, 0, .05));
     fbar.classList.toggle('on', p > .12 || zoom.getBoundingClientRect().bottom < innerHeight * .5);
-    const z = ease(span(p, .04, .85));
-    gal.style.transform = `scale(${.55 + z * z * 6.5})`;
-    gal.style.opacity = String(span(p, .04, .22) * (1 - .7 * span(p, .26, .46) - .3 * span(p, .62, .8)));
-    flash.style.opacity = String(Math.sin(Math.PI * span(p, .12, .4)) * .22);
+    // then the galaxy takes over at the same size and keeps the zoom going
+    const z = ease(span(p, .17, .85));
+    gal.style.transform = `scale(${1 + z * z * 6})`;
+    gal.style.opacity = String(span(p, .15, .27) * (1 - .8 * span(p, .28, .44) - .2 * span(p, .62, .8)));
+    flash.style.opacity = String(Math.sin(Math.PI * span(p, .2, .44)) * .2);
     shade.style.opacity = String(span(p, .26, .44));
     const w = span(p, .32, .5), wOut = span(p, .88, 1);
     words.style.opacity = String(w * (1 - wOut));
     words.style.transform = `translateY(${(1 - ease(w)) * 30}px) scale(${.96 + .04 * ease(w)})`;
-    const s1 = p * 2.2 + drift, env = span(p, .03, .2) * (1 - span(p, .9, 1));
+    const s1 = p * 2.2 + drift, env = span(p, .06, .22) * (1 - span(p, .9, 1));
     warp(s1, Math.min(lastS, s1 - .0001) - .012, env, warpCv.clientWidth / 2, warpCv.clientHeight / 2);
     lastS = s1;
     // tilt: the window lies back, then turns flat to face you
@@ -652,7 +662,8 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
   }
   if (!reduce) {
     const req = () => { if (!ticking) { ticking = true; requestAnimationFrame(scenes); } };
-    addEventListener('scroll', req, { passive: true }); addEventListener('resize', req); scenes();
+    addEventListener('scroll', req, { passive: true }); addEventListener('resize', () => { measure(); req(); });
+    measure(); scenes(); setTimeout(() => { measure(); scenes(); }, 1400); // again once the opening animation has settled
     // while the dive is on screen, the stars keep drifting gently even when you stop scrolling
     let live = false;
     const loop = () => { if (!live) return; drift += .0016; scenes(); requestAnimationFrame(loop); };
