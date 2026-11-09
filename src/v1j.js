@@ -401,7 +401,7 @@ function initV1j() {
       if (t) { t.url = d.url; t.title = hostOf(d.url); }
       render(); if (S.active[S.activeWs] === tabId) updateChrome();
     };
-    setTimeout(show, 150); setTimeout(show, 700);
+    for (const ms of [150, 700, 1500, 3000]) setTimeout(show, ms); // a slow PC can link the tab to its page late
   });
   oto.on('screen:pick', (p) => v1ScreenPick(p));
   oto.on('screen:cancel', (id) => { if (SCR.open && SCR.open.id === id) { SCR.open.layer.remove(); SCR.open = null; } SCR.queue = SCR.queue.filter((x) => x.id !== id); });
