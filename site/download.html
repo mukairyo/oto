@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Download Oto</title>
+<meta name="description" content="Download Oto, the calm browser for Windows, and Oto for Android. Free.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one centred column. The download status is the hero (it changes as the download starts), then the three
+   install steps, then a quiet panel with Android and checking the file. Same night palette as the home page. */
+:root {
+  --night: #040405; --night-2: #111113; --cream: #efe7d8; --ink: #e9e4da; --dim: #8e897f;
+  --line: rgba(239, 231, 216, .12); --line-2: rgba(239, 231, 216, .22); --ember: #d98a4e;
+  --serif: 'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --sans: 'Geist', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--night); scrollbar-gutter: stable; }
+body { margin: 0; background: var(--night); color: var(--ink); font: 400 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; overflow-x: clip; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; border-radius: 6px; }
+.spacebg { position: fixed; left: 0; right: 0; top: 0; height: 140vh; z-index: 0; pointer-events: none; background: #030304 url(img/space.webp) 0 0 / 1200px 1200px repeat; }
+.wrap { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 18px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 13px var(--mono); letter-spacing: .14em; color: var(--cream); view-transition-name: oto-brand; }
+.brand img { width: 26px; height: 26px; }
+.back { font-size: 14px; color: var(--dim); text-decoration: none; }
+.back:hover { color: var(--cream); }
+.mono { font: 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+
+.hero { text-align: center; padding-block: 48px 64px; }
+.ring { position: relative; width: 112px; height: 112px; margin: 0 auto 26px; }
+.ring svg { width: 100%; height: 100%; }
+.ring .track { stroke: rgba(239, 231, 216, .14); }
+.ring .arc { stroke: var(--cream); stroke-dasharray: 60 300; transform-origin: 50% 50%; animation: spin 1.4s linear infinite; }
+.ring .tick { stroke: var(--cream); stroke-dasharray: 40; stroke-dashoffset: 40; }
+.ring .kanji { position: absolute; inset: 0; display: grid; place-items: center; font: 400 40px/1 var(--serif); color: var(--cream); }
+.ring::before { content: ""; position: absolute; inset: -40%; background: radial-gradient(closest-side, rgba(255, 244, 222, .14), transparent 72%); }
+.done .ring .arc { animation: none; stroke-dasharray: 302; stroke-dashoffset: 0; transition: stroke-dashoffset .8s ease; }
+.done .ring .tick { stroke-dashoffset: 0; transition: stroke-dashoffset .5s .4s ease; }
+.done .ring .kanji { opacity: 0; transition: opacity .3s ease; }
+.fail .ring .arc { animation: none; stroke: var(--ember); stroke-dasharray: 302; }
+@keyframes spin { to { rotate: 360deg; } }
+h1 { font: 400 clamp(40px, 6.6vw, 64px)/1.04 var(--serif); color: var(--cream); margin: 0; text-wrap: balance; }
+.hero p { max-width: 34em; margin: 14px auto 0; opacity: .84; text-wrap: balance; }
+.meta { margin-top: 12px; font: 12px var(--mono); letter-spacing: .1em; color: var(--dim); }
+.ctas { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
+.btn { display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 20px; border-radius: 999px; font: 500 14px var(--sans); text-decoration: none; cursor: pointer; border: 0; transition: transform .15s ease, background .15s ease, border-color .15s ease; }
+.btn:hover { transform: translateY(-1px); }
+.btn svg { width: 16px; height: 16px; flex: none; }
+.btn-primary { background: var(--cream); color: #17140f; }
+.btn-primary:hover { background: #fff6e6; }
+.btn-ghost { border: 1px solid var(--line-2); color: var(--cream); background: rgba(9, 9, 10, .4); }
+.btn-ghost:hover { border-color: rgba(239, 231, 216, .45); }
+[hidden] { display: none !important; }
+
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; counter-reset: s; }
+.steps li { counter-increment: s; border-top: 1px solid var(--line-2); padding-top: 18px; }
+.steps li::before { content: "0" counter(s); font: 12px var(--mono); letter-spacing: .16em; color: var(--dim); }
+.steps h2 { margin: 8px 0 6px; font: 400 24px/1.15 var(--serif); color: var(--cream); }
+.steps p { margin: 0; font-size: 15px; color: var(--dim); }
+.steps b { color: var(--ink); font-weight: 500; }
+.fn { font: 13px var(--mono); color: var(--ink); }
+
+.more { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin-top: 64px; }
+.card { padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: rgba(17, 17, 19, .72); }
+.card h2 { margin: 8px 0 8px; font: 400 26px/1.15 var(--serif); color: var(--cream); }
+.card p { margin: 0 0 16px; font-size: 15px; color: var(--dim); }
+.card.lit { border-color: rgba(239, 231, 216, .4); box-shadow: 0 0 0 4px rgba(239, 231, 216, .06); }
+.code { display: flex; align-items: center; gap: 12px; overflow-x: auto; padding: 10px 12px; border-radius: 8px; background: #0c0c0d; border: 1px solid var(--line); margin-bottom: 12px; }
+.code code { font: 12.5px var(--mono); color: var(--ink); white-space: nowrap; }
+.code button { margin-left: auto; flex: none; font: 11px var(--mono); letter-spacing: .1em; color: var(--cream); background: none; border: 1px solid var(--line-2); border-radius: 6px; padding: 5px 9px; cursor: pointer; }
+.small { font-size: 14px; }
+.small a { color: var(--cream); text-underline-offset: 4px; text-decoration-color: var(--line-2); }
+
+footer { position: relative; z-index: 1; border-top: 1px solid var(--line); margin-top: 80px; }
+footer .wrap { padding-block: 26px 36px; font-size: 14px; color: var(--dim); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
+.snd { all: unset; cursor: pointer; color: inherit; font: inherit; }
+.snd:hover { color: var(--cream); }
+
+.hero > *, .steps li, .more > * { animation: rise .8s cubic-bezier(.2, .8, .2, 1) backwards; }
+.hero > :nth-child(2) { animation-delay: .08s; } .hero > :nth-child(3) { animation-delay: .16s; } .hero > :nth-child(4) { animation-delay: .22s; }
+.steps li:nth-child(1) { animation-delay: .3s; } .steps li:nth-child(2) { animation-delay: .38s; } .steps li:nth-child(3) { animation-delay: .46s; }
+.more > :nth-child(1) { animation-delay: .54s; } .more > :nth-child(2) { animation-delay: .6s; }
+@keyframes rise { from { opacity: 0; translate: 0 14px; filter: blur(6px); } }
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: vtOut .4s cubic-bezier(.4, 0, .2, 1) both; }
+::view-transition-new(root) { animation: vtIn .6s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes vtOut { to { opacity: 0; filter: blur(8px); scale: .985; } }
+@keyframes vtIn { from { opacity: 0; filter: blur(8px); scale: 1.015; } }
+
+@media (max-width: 760px) {
+  .steps, .more { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before { animation: none !important; transition: none !important; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}
+</style>
+</head>
+<body>
+<div class="spacebg" aria-hidden="true"></div>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="index.html"><img src="favicon.svg" alt="">OTO</a>
+    <a class="back" href="index.html">← Back to the home page</a>
+  </header>
+
+  <main>
+    <section class="hero" id="status" aria-live="polite">
+      <div class="ring" aria-hidden="true">
+        <svg viewBox="0 0 112 112" fill="none" stroke-width="2" stroke-linecap="round">
+          <circle class="track" cx="56" cy="56" r="48"/>
+          <circle class="arc" cx="56" cy="56" r="48"/>
+          <path class="tick" d="M38 57l12 12 25-26"/>
+        </svg>
+        <span class="kanji">音</span>
+      </div>
+      <h1 id="title">Getting the newest Oto…</h1>
+      <p id="lede">Your download starts in a moment. It's free, and it updates itself from now on.</p>
+      <div class="meta" id="meta">Windows 10 and 11 · 64-bit</div>
+      <div class="ctas">
+        <a class="btn btn-primary" id="get" href="#" hidden>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8M4.5 6.8 8 10.3l3.5-3.5M3 13.5h10"/></svg>
+          <span id="getLabel">Download for Windows</span>
+        </a>
+        <button class="btn btn-ghost" id="retry" type="button" hidden>Try again</button>
+        <a class="btn btn-ghost" id="github" href="https://github.com/mukairyo/oto/releases/latest" hidden>Open the release on GitHub</a>
+      </div>
+    </section>
+
+    <ol class="steps" aria-label="How to install">
+      <li><h2>Open the file</h2><p>When <span class="fn" id="fileName">Oto-Setup.exe</span> finishes downloading, open it from your browser's downloads.</p></li>
+      <li><h2>Click past SmartScreen</h2><p>Oto isn't code-signed yet, so Windows may say it's unrecognised. Choose <b>More info</b>, then <b>Run anyway</b>.</p></li>
+      <li><h2>Make it yours</h2><p>Import bookmarks from your old browser and pick your layout, or sign in to your Oto account.</p></li>
+    </ol>
+
+    <div class="more">
+      <section class="card" id="android" aria-labelledby="androidTitle">
+        <div class="mono">Oto for Android</div>
+        <h2 id="androidTitle">On your phone too</h2>
+        <p>Tabs, Oto Shield and the Oto look on Android 8 or newer. Open this page on your phone and tap the button, then open the file to install.</p>
+        <a class="btn btn-ghost" id="apk" href="https://github.com/mukairyo/oto/releases/latest">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8M4.5 6.8 8 10.3l3.5-3.5M3 13.5h10"/></svg>
+          <span id="apkLabel">Download for Android</span>
+        </a>
+      </section>
+      <section class="card" aria-labelledby="checkTitle">
+        <div class="mono">Check the file</div>
+        <h2 id="checkTitle">Make sure it's the real one</h2>
+        <p>Every installer is built on GitHub from Oto's public code and carries a signed build record. With GitHub's command-line tool:</p>
+        <div class="code"><code id="cmd">gh attestation verify Oto-Setup.exe --repo mukairyo/oto</code><button type="button" id="copy">COPY</button></div>
+        <p class="small" style="margin:0">Or compare it with <a id="sums" href="https://github.com/mukairyo/oto/releases/latest">SHA256SUMS.txt</a>. Oto runs the same check on every update before installing.</p>
+      </section>
+    </div>
+  </main>
+</div>
+<footer>
+  <div class="wrap">
+    <span>音 Oto, made by Aza. Built on Chromium.</span>
+    <span><a href="index.html">Home</a> · <a href="about.html">About</a> · <a href="https://github.com/mukairyo/oto/blob/main/PRIVACY.md">Privacy</a> · <button class="snd" id="sound" type="button" aria-pressed="false">Sound</button></span>
+  </div>
+</footer>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const status = $('status');
+  const phone = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || (navigator.userAgentData && navigator.userAgentData.mobile);
+  const wantsAndroid = location.hash === '#android' || /Android/i.test(navigator.userAgent);
+  const MB = (n) => `${Math.round(n / 1048576)} MB`;
+  if (wantsAndroid) $('android').classList.add('lit');
+
+  function fail() {
+    status.classList.add('fail');
+    $('title').textContent = "Couldn't reach GitHub just now";
+    $('lede').textContent = 'Oto is downloaded from its GitHub releases. Try again in a moment, or open the release page and pick Oto-Setup.exe there.';
+    $('retry').hidden = false; $('github').hidden = false; $('get').hidden = true;
+  }
+  function ready(rel) {
+    const v = String(rel.tag_name || '').replace(/^v/, '');
+    const exe = (rel.assets || []).find((a) => /^Oto-Setup-.*\.exe$/.test(a.name));
+    const apk = (rel.assets || []).find((a) => /^Oto-Android-.*\.apk$/.test(a.name));
+    const sums = (rel.assets || []).find((a) => a.name === 'SHA256SUMS.txt');
+    if (!exe) return fail();
+    $('get').href = exe.browser_download_url; $('get').hidden = false;
+    $('fileName').textContent = exe.name;
+    $('cmd').textContent = `gh attestation verify ${exe.name} --repo mukairyo/oto`;
+    if (sums) $('sums').href = sums.browser_download_url;
+    if (apk) { $('apk').href = apk.browser_download_url; $('apkLabel').textContent = `Download for Android · ${MB(apk.size)}`; }
+    $('meta').textContent = `Oto ${v} · ${MB(exe.size)} · Windows 10 and 11 · 64-bit`;
+    if (phone || wantsAndroid) {
+      // on a phone (or when Android was asked for), don't start the Windows download
+      $('title').textContent = phone ? 'Oto for Windows is ready' : 'Get Oto for Android';
+      $('lede').textContent = phone ? 'Oto for Windows runs on a PC. On this phone, get Oto for Android below, or open this page on your PC.' : 'Tap Download for Android below on your phone, then open the file to install.';
+      $('getLabel').textContent = 'Download for Windows';
+      status.classList.add('done');
+      if (wantsAndroid) setTimeout(() => $('android').scrollIntoView({ behavior: 'smooth', block: 'center' }), 500);
+      return;
+    }
+    $('title').textContent = `Downloading Oto ${v}`;
+    $('lede').textContent = "It's in your browser's downloads. When it finishes, open it and follow the steps below.";
+    $('getLabel').textContent = "Didn't start? Download again";
+    status.classList.add('done');
+    // start the download: the browser keeps this page open (the file is sent as a download, not a page)
+    setTimeout(() => { location.href = exe.browser_download_url; }, 700);
+  }
+  function load() {
+    status.classList.remove('fail', 'done');
+    $('title').textContent = 'Getting the newest Oto…'; $('retry').hidden = true; $('github').hidden = true;
+    let cached = null;
+    try { const c = JSON.parse(sessionStorage.getItem('oto-latest') || 'null'); if (c && Date.now() - c.at < 10 * 60 * 1000) cached = c.rel; } catch {}
+    if (cached) return ready(cached);
+    fetch('https://api.github.com/repos/mukairyo/oto/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
+      .then((rel) => { try { sessionStorage.setItem('oto-latest', JSON.stringify({ at: Date.now(), rel: { tag_name: rel.tag_name, assets: (rel.assets || []).map((a) => ({ name: a.name, size: a.size, browser_download_url: a.browser_download_url })) } })); } catch {} ready(rel); })
+      .catch(fail);
+  }
+  $('retry').addEventListener('click', load);
+  const copy = $('copy');
+  copy.addEventListener('click', () => {
+    const t = $('cmd').textContent, done = () => { copy.textContent = 'COPIED'; setTimeout(() => (copy.textContent = 'COPY'), 1600); };
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(done, () => { const r = document.createRange(); r.selectNodeContents($('cmd')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); });
+  });
+  load();
+})();
+</script>
+<script src="space.js"></script>
+</body>
+</html>

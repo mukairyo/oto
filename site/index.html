@@ -324,7 +324,7 @@ html { scrollbar-gutter: stable; } /* opening About doesn't shift the page sidew
 <div class="fbar" id="fbar">
   <a class="name" href="#top">Oto</a>
   <nav aria-label="Sections"><a href="about.html">About</a><a href="#look">Features</a><a href="#privacy">Privacy</a><a href="#android">Android</a><a href="#install">Install</a></nav>
-  <a class="btn btn-primary dl" href="https://github.com/mukairyo/oto/releases/latest">Download</a>
+  <a class="btn btn-primary dl" href="download.html">Download</a>
 </div>
 
 <main>
@@ -374,7 +374,7 @@ html { scrollbar-gutter: stable; } /* opening About doesn't shift the page sidew
       <h1>A calm browser for Windows.</h1>
       <p class="lede">Vertical tabs, spaces, built-in ad blocking, and your phone linked to your PC.</p>
       <div class="ctas">
-        <a class="btn btn-primary" id="dl" href="https://github.com/mukairyo/oto/releases/latest">
+        <a class="btn btn-primary" id="dl" href="download.html">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8M4.5 6.8 8 10.3l3.5-3.5M3 13.5h10"/></svg>
           Download for Windows
         </a>
@@ -513,7 +513,7 @@ html { scrollbar-gutter: stable; } /* opening About doesn't shift the page sidew
         <h3 style="margin-top:12px">Your phone, linked to your PC.</h3>
         <p style="margin-top:18px">Tabs, Oto Shield, the Oto look and desktop-site mode on your phone. Sign in with the same account and your phone appears in My phone on your PC within seconds. It's new (version 0.1) and updates itself from the app menu.</p>
         <p style="color:var(--dim)">Android 8 or newer. On your phone, download <span class="fn">Oto-Android-…-arm64.apk</span> from the latest release and open it.</p>
-        <div class="links"><a href="https://github.com/mukairyo/oto/releases/latest">Get the Android app</a></div>
+        <div class="links"><a href="download.html#android">Get the Android app</a></div>
       </div>
       <img class="reveal" src="img/android.webp" width="420" height="855" alt="Oto for Android showing a web page" loading="lazy">
     </div>
@@ -539,7 +539,7 @@ html { scrollbar-gutter: stable; } /* opening About doesn't shift the page sidew
     <div class="wrap reveal">
       <h3>Take a quieter route through the web.</h3>
       <div class="ctas">
-        <a class="btn btn-primary dl" href="https://github.com/mukairyo/oto/releases/latest">
+        <a class="btn btn-primary dl" href="download.html">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8M4.5 6.8 8 10.3l3.5-3.5M3 13.5h10"/></svg>
           Download for Windows
         </a>
@@ -724,7 +724,6 @@ html { scrollbar-gutter: stable; } /* opening About doesn't shift the page sidew
       document.getElementById('ver').textContent = v.split('.').slice(0, 2).join('.');
       document.querySelectorAll('.v').forEach((el) => (el.textContent = v));
       document.getElementById('cmd').textContent = `gh attestation verify ${exe.name} --repo mukairyo/oto`;
-      document.querySelectorAll('#dl, #dl2, .dl').forEach((a) => (a.href = exe.browser_download_url));
     })
     .catch(() => {});
 })();
