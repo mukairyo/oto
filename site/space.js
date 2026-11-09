@@ -1,6 +1,8 @@
 // Oto website: the space around the page. A galaxy backdrop that drifts a little as you scroll, and an optional
 // ambient "space" sound made live in the browser (no audio files): a slow drone chord, a soft space wind and a
-// far-off shimmer now and then. Sound starts only when the visitor turns it on (button, bottom right).
+// far-off shimmer now and then. Browsers allow sound only after the visitor interacts, so it starts on the first
+// click, tap or key press. It can be switched off with the small "Sound" link in the footer or the M key, and a
+// visitor who switched it off stays muted (remembered in this browser).
 (() => {
   // backdrop parallax
   const bg = document.querySelector('.spacebg');
@@ -44,10 +46,12 @@
     requestAnimationFrame(frame);
   }
 
-  const btn = document.getElementById('sound');
-  if (!btn) return;
+  const btn = document.getElementById('sound'); // the footer link (optional)
   const AC = window.AudioContext || window.webkitAudioContext;
-  if (!AC) { btn.hidden = true; return; }
+  if (!AC) { if (btn) btn.hidden = true; return; }
+  const KEY = 'oto-site-sound';
+  const load = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
+  const keep = (v) => { try { localStorage.setItem(KEY, v); } catch {} };
   let ctx = null, master, lowpass, wind, verb, on = false, pingTimer = 0, sleepTimer = 0, dive = 0;
 
   function build() {
@@ -91,11 +95,14 @@
     pingTimer = setTimeout(ping, (dive > 0.3 ? 1800 : 3500) + Math.random() * 5000);
   }
 
+  function label() {
+    if (!btn) return;
+    btn.setAttribute('aria-pressed', String(on));
+    btn.textContent = on ? 'Sound: on (M)' : load() === 'off' ? 'Sound: off (M)' : 'Sound: plays on first click';
+  }
   function set(next) {
     on = next;
-    btn.setAttribute('aria-pressed', String(on));
-    btn.setAttribute('aria-label', on ? 'Turn space sound off' : 'Turn space sound on');
-    btn.querySelector('.lbl').textContent = on ? 'Sound on' : 'Sound';
+    label();
     clearTimeout(pingTimer); clearTimeout(sleepTimer);
     if (on) {
       if (!ctx) build();
@@ -109,7 +116,17 @@
       sleepTimer = setTimeout(() => ctx.suspend(), 2000);
     }
   }
-  btn.addEventListener('click', () => set(!on));
+  // start on the first interaction anywhere (unless this visitor switched it off before)
+  const first = (e) => {
+    for (const t of ['pointerdown', 'keydown', 'touchend']) removeEventListener(t, first, true);
+    if (e && e.target === btn) return; // the footer link handles itself
+    if (load() !== 'off') set(true);
+  };
+  for (const t of ['pointerdown', 'keydown', 'touchend']) addEventListener(t, first, true);
+  const toggle = () => { set(!on); keep(on ? 'on' : 'off'); label(); };
+  if (btn) btn.addEventListener('click', toggle);
+  addEventListener('keydown', (e) => { if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey) toggle(); });
+  label();
 
   // the home page's dive into the vortex opens the sound up a little (0 = calm, 1 = deep in)
   window.otoSound = {

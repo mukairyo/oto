@@ -83,16 +83,11 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
-/* space: galaxy backdrop (drifts a little on scroll) and the optional sound button */
+/* space: starfield backdrop (drifts a little on scroll) and the footer sound link */
 .spacebg { position: fixed; left: 0; right: 0; top: 0; height: 140vh; z-index: 0; pointer-events: none; background: #030304 url(img/space.webp) 0 0 / 1200px 1200px repeat; }
-.sound { position: fixed; z-index: 30; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 15px 0 13px; border-radius: 999px; border: 1px solid var(--line-2); background: rgba(14, 14, 16, .72); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); color: var(--cream); font: 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; cursor: pointer; transition: border-color .2s ease, background .2s ease; }
-.sound:hover { border-color: rgba(239, 231, 216, .45); }
-.sound[aria-pressed="true"] { background: rgba(239, 231, 216, .12); }
-.sound .bars { display: flex; gap: 2px; align-items: flex-end; height: 14px; }
-.sound .bars i { width: 2px; height: 4px; border-radius: 1px; background: currentColor; opacity: .55; }
-.sound[aria-pressed="true"] .bars i { opacity: 1; animation: eq 1.3s ease-in-out infinite; }
-.sound .bars i:nth-child(2) { animation-delay: -.4s; } .sound .bars i:nth-child(3) { animation-delay: -.8s; } .sound .bars i:nth-child(4) { animation-delay: -1.1s; }
-@keyframes eq { 0%, 100% { height: 3px; } 50% { height: 14px; } }
+.snd { all: unset; cursor: pointer; color: inherit; font: inherit; }
+.snd:hover { color: var(--cream); }
+.snd:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; border-radius: 4px; }
 
 /* motion: everything flows into the next thing (all off with reduced motion) */
 @view-transition { navigation: auto; }
@@ -223,7 +218,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
 <footer>
   <div class="wrap">
     <span>音 Oto, made by Aza. Built on Chromium.</span>
-    <span><a href="https://github.com/mukairyo/oto">GitHub</a> · <a href="https://github.com/mukairyo/oto/blob/main/PRIVACY.md">Privacy</a> · <a href="https://github.com/mukairyo/oto/blob/main/SECURITY.md">Security</a></span>
+    <span><a href="https://github.com/mukairyo/oto">GitHub</a> · <a href="https://github.com/mukairyo/oto/blob/main/PRIVACY.md">Privacy</a> · <a href="https://github.com/mukairyo/oto/blob/main/SECURITY.md">Security</a> · <button class="snd" id="sound" type="button" aria-pressed="false">Sound</button></span>
   </div>
 </footer>
 <script>
@@ -248,7 +243,6 @@ fetch('https://api.github.com/repos/mukairyo/oto/releases/latest', { headers: { 
   .then((rel) => { const exe = (rel.assets || []).find((a) => /^Oto-Setup-.*\.exe$/.test(a.name)); if (exe) document.querySelectorAll('.dl').forEach((a) => (a.href = exe.browser_download_url)); })
   .catch(() => {});
 </script>
-<button class="sound" id="sound" type="button" aria-pressed="false" aria-label="Turn space sound on"><span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="lbl">Sound</span></button>
 <script src="space.js"></script>
 </body>
 </html>
