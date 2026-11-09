@@ -311,7 +311,8 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
 #aboutView { position: fixed; inset: 0; z-index: 40; overflow-y: auto; overscroll-behavior: contain; background: #030304 url(img/space.webp) 0 0 / 1200px 1200px repeat; }
 #aboutView:focus { outline: none; }
 #aboutView[hidden] { display: none !important; }
-.flying-kanji { position: fixed; z-index: 50; left: 0; top: 0; margin: 0; font-family: var(--serif); font-weight: 400; line-height: 1; color: var(--cream); pointer-events: none; transform-origin: 0 0; text-shadow: 0 0 40px rgba(255, 244, 222, .35); }
+html { scrollbar-gutter: stable; } /* opening About doesn't shift the page sideways */
+.portal-ring { position: fixed; z-index: 41; left: 0; top: 0; border-radius: 50%; pointer-events: none; border: 1px solid rgba(255, 246, 232, .55); box-shadow: 0 0 24px 2px rgba(255, 244, 222, .35), inset 0 0 24px 2px rgba(255, 244, 222, .18); }
 .btn-kanji.land { animation: land .7s cubic-bezier(.2, .9, .2, 1); }
 @keyframes land { 0% { scale: 1.9; text-shadow: 0 0 18px rgba(255, 244, 222, .9); } 100% { scale: 1; text-shadow: none; } }
 </style>
@@ -748,8 +749,8 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
     root.append(style, page);
     document.body.append(host);
     // links back home close it; everything else behaves normally
-    root.addEventListener('click', (e) => { const a = e.target.closest('a'); if (a && /(^|\/)index\.html(#.*)?$/.test(a.getAttribute('href') || '')) { e.preventDefault(); history.back(); } });
-    host.addEventListener('keydown', (e) => { if (e.key === 'Escape') history.back(); });
+    root.addEventListener('click', (e) => { const a = e.target.closest('a'); if (a && /(^|\/)index\.html(#.*)?$/.test(a.getAttribute('href') || '')) { e.preventDefault(); home(); } });
+    host.addEventListener('keydown', (e) => { if (e.key === 'Escape') home(); });
     // the same reveals as the About page itself, scrolling inside this view
     if (!reduce && 'IntersectionObserver' in window) {
       root.querySelectorAll('.stagger').forEach((ul) => [...ul.children].forEach((li, i) => li.style.setProperty('--i', i)));
@@ -759,64 +760,81 @@ footer a { text-decoration: none; } footer a:hover { color: var(--cream); }
     }
     const dl = document.querySelector('#dl'); if (dl) root.querySelectorAll('.dl').forEach((a) => (a.href = dl.href));
   }
-  // The portal: About opens out of the 音 on the button that was clicked (an expanding circle, with the small 音
-  // flying up to become the big one) and closes back into it the same way.
-  let origin = null; // the 音 (or link) About came from
-  const EASE = 'cubic-bezier(.7, 0, .2, 1)';
+  // The portal: About opens out of the 音 on the button that was clicked (an expanding circle with a glowing rim;
+  // the big 音 grows out of the small one) and closes back into it the same way. One animation at a time.
+  let origin = null, pushed = false, running = [];
+  const EASE = 'cubic-bezier(.65, 0, .25, 1)', DUR = 720;
   const centre = (el) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
-  const reach = (x, y) => Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) + 20;
-  function fly(from, to, text, back) {
-    // a copy of 音 moves from one glyph's box to the other's
-    const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
-    if (!a.width || !b.width || b.bottom < 0 || b.top > innerHeight) return null;
-    const k = document.createElement('div'); k.className = 'flying-kanji'; k.textContent = text;
-    const big = parseFloat(getComputedStyle(back ? from : to).fontSize) || 200;
-    k.style.fontSize = big + 'px';
-    document.body.append(k);
-    const kr = k.getBoundingClientRect(), place = (r) => `translate(${r.left + r.width / 2 - kr.width * (r.height / kr.height) / 2}px, ${r.top}px) scale(${r.height / kr.height})`;
-    const anim = k.animate([{ transform: place(a) }, { transform: place(b) }], { duration: 760, easing: EASE });
-    anim.onfinish = () => k.remove();
-    return anim;
+  const reach = (x, y) => Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) + 24;
+  const stop = () => { running.forEach((a) => a.cancel()); running = []; document.querySelectorAll('.portal-ring').forEach((r) => r.remove()); };
+  function portal(x, y, opening) {
+    const R0 = reach(x, y), from = opening ? 0 : R0, to = opening ? R0 : 0;
+    const clip = host.animate([{ clipPath: `circle(${from}px at ${x}px ${y}px)` }, { clipPath: `circle(${to}px at ${x}px ${y}px)` }], { duration: DUR, easing: EASE, fill: 'forwards' });
+    const ring = document.createElement('div'); ring.className = 'portal-ring';
+    ring.style.width = ring.style.height = `${R0 * 2}px`; ring.style.translate = `${x - R0}px ${y - R0}px`;
+    document.body.append(ring);
+    const ringA = ring.animate([{ scale: from / R0, opacity: opening ? 1 : .2 }, { scale: Math.max(.001, to / R0), opacity: opening ? .15 : 1 }], { duration: DUR, easing: EASE, fill: 'forwards' });
+    ringA.finished.then(() => ring.remove(), () => ring.remove());
+    running.push(clip, ringA);
+    return clip;
+  }
+  function grow(big, small, opening) {
+    // the real big 音 moves between its place and the small 音 on the button (measured, so it lands exactly)
+    big.style.animation = 'none'; big.style.transform = 'none';
+    const a = small.getBoundingClientRect(), b = big.getBoundingClientRect();
+    if (!a.width || !b.width || b.bottom < 0 || b.top > innerHeight) return;
+    const k = a.height / b.height;
+    big.style.transformOrigin = `${b.width / 2}px 0`; // top centre, so it lands on the button's 音 exactly
+    const fix = `translate(${(a.left + a.width / 2) - (b.left + b.width / 2)}px, ${a.top - b.top}px) scale(${k})`;
+    const frames = opening ? [{ transform: fix }, { transform: 'none' }] : [{ transform: 'none' }, { transform: fix }];
+    running.push(big.animate(frames, { duration: DUR, easing: EASE, fill: opening ? 'none' : 'forwards' }));
   }
   async function open() {
     if (!host) { opening = opening || build(); await opening; }
-    lastFocus = document.activeElement;
-    host.hidden = false; host.scrollTop = 0; document.documentElement.style.overflow = 'hidden';
+    stop();
+    if (host.hidden) lastFocus = document.activeElement;
+    host.hidden = false; host.style.pointerEvents = ''; host.scrollTop = 0; document.documentElement.style.overflow = 'hidden';
     host.tabIndex = -1; host.focus({ preventScroll: true }); // keyboard users continue from here (Tab reaches the links)
+    const big = root.querySelector('.kanji');
+    if (big) { big.getAnimations().forEach((x) => x.cancel()); big.style.transform = ''; }
     if (reduce) return;
     const src = origin && origin.isConnected ? origin : null;
     const [x, y] = src ? centre(src) : [innerWidth / 2, innerHeight / 2];
-    host.animate([{ clipPath: `circle(0px at ${x}px ${y}px)` }, { clipPath: `circle(${reach(x, y)}px at ${x}px ${y}px)` }], { duration: 760, easing: EASE });
-    const big = root.querySelector('.kanji');
-    if (src && src.classList.contains('btn-kanji') && big) {
-      big.style.visibility = 'hidden'; big.style.animation = 'none';
-      const f = fly(src, big, '音', false);
-      const show = () => { big.style.visibility = ''; };
-      if (f) f.finished.then(show, show); else show();
-    }
+    portal(x, y, true);
+    if (src && src.classList.contains('btn-kanji') && big) grow(big, src, true);
   }
   function close() {
     if (!host || host.hidden) return;
-    const done = () => { host.hidden = true; document.documentElement.style.overflow = ''; if (lastFocus) lastFocus.focus({ preventScroll: true }); };
+    stop();
+    host.style.pointerEvents = 'none'; // while it closes, clicks reach the page underneath
+    const done = () => {
+      host.getAnimations().forEach((x) => x.cancel());
+      const big = root.querySelector('.kanji'); if (big) { big.getAnimations().forEach((x) => x.cancel()); big.style.transform = ''; }
+      host.hidden = true; document.documentElement.style.overflow = '';
+      if (lastFocus) lastFocus.focus({ preventScroll: true });
+    };
     if (reduce) return done();
     const dst = origin && origin.isConnected ? origin : null;
     const [x, y] = dst ? centre(dst) : [innerWidth / 2, innerHeight / 2];
     const big = root.querySelector('.kanji');
-    if (dst && dst.classList.contains('btn-kanji') && big) {
-      const f = fly(big, dst, '音', true);
-      if (f) { big.style.visibility = 'hidden'; f.finished.then(() => { big.style.visibility = ''; dst.classList.remove('land'); void dst.offsetWidth; dst.classList.add('land'); }, () => {}); }
-    }
-    const a = host.animate([{ clipPath: `circle(${reach(x, y)}px at ${x}px ${y}px)` }, { clipPath: `circle(0px at ${x}px ${y}px)` }], { duration: 680, easing: EASE });
-    a.finished.then(done, done);
+    if (dst && dst.classList.contains('btn-kanji') && big) grow(big, dst, false);
+    const clip = portal(x, y, false);
+    clip.finished.then(() => {
+      done();
+      if (dst && dst.classList.contains('btn-kanji')) { dst.classList.remove('land'); void dst.offsetWidth; dst.classList.add('land'); }
+    }, () => {});
   }
+  // back home from inside About: if About was opened by a click here, step back in history; if the visitor
+  // arrived on #about directly, just close it (never leave the site)
+  function home() { if (pushed) history.back(); else { history.replaceState(null, '', location.pathname + location.search); close(); } }
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a[href="about.html"]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
     e.preventDefault();
     origin = a.querySelector('.btn-kanji') || a;
-    history.pushState({ about: 1 }, '', '#about');
+    if (location.hash !== '#about') { history.pushState({ about: 1 }, '', '#about'); pushed = true; }
     open().catch(() => { location.href = 'about.html'; });
   });
-  addEventListener('popstate', () => { if (location.hash === '#about') open().catch(() => {}); else close(); });
+  addEventListener('popstate', () => { if (location.hash === '#about') open().catch(() => {}); else { close(); pushed = false; } });
   if (location.hash === '#about') { history.replaceState({ about: 1 }, '', '#about'); open().catch(() => { location.href = 'about.html'; }); }
 })();
 </script>
