@@ -14,7 +14,7 @@ const page = (title, body) => `<!doctype html><meta charset="utf-8"><title>${tit
 const SITES = {
   'news.site': () => page('News', `<h1>News</h1><p>Normal page with trackers.</p>
     <script src="http://tracker.site/analytics.js"></script><img src="http://tracker.site/collect?v=1">`),
-  'fine.site': () => page('Fine', '<h1>A normal site</h1><a id="dl" href="/report.pdf" download>report</a>'),
+  'fine.site': () => page('Fine', '<h1>A normal site</h1><a id="dl" href="/report.pdf" download>report</a> <a id="nt" href="/slow.bin" target="_blank">get the file</a>'),
   'evil.site': () => page('Evil', '<h1>Pretend malware site</h1>'),
   'login.site': () => page('Login', `<form id="f" method="post" action="/done"><input id="u" name="u" autocomplete="username"><input id="p" name="p" type="password"><button>Sign in</button></form>`),
   'nav.site': () => page('Nav', '<h1>Navigation tests</h1>'),
@@ -24,6 +24,11 @@ function handler(req, res) {
   const url = new URL(req.url, 'http://x');
   if (url.pathname === '/go') { res.writeHead(302, { Location: url.searchParams.get('to') || '/' }); return res.end(); }
   if (url.pathname === '/report.pdf') { res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="report.pdf"' }); return res.end('%PDF-1.4 test'); }
+  if (url.pathname === '/slow.bin') { // a file that takes ~1.5 s, so a tab closed mid-download can be checked
+    const chunk = Buffer.alloc(64 * 1024, 7), n = 8;
+    res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': 'attachment; filename="slow.bin"', 'Content-Length': String(chunk.length * n) });
+    let i = 0; const next = () => { if (i++ >= n) return res.end(); res.write(chunk); setTimeout(next, 180); }; return next();
+  }
   if (url.pathname === '/setup.exe') { res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': 'attachment; filename="setup.exe"' }); return res.end('MZ test'); }
   if (host === 'tracker.site') { res.writeHead(200, { 'Content-Type': 'application/javascript' }); return res.end('window.__trackerLoaded = 1;'); }
   const site = SITES[host] || (host === 'localhost' || host === '127.0.0.1' ? SITES['login.site'] : null);

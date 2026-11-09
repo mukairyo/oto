@@ -125,6 +125,11 @@ function sendVia(wc, ch, ...args) {
   if (host && !host.isDestroyed() && isAvocadoUi(host)) { host.send(ch, ...args); return; }
   send(ch, ...args);
 }
+// A download that opened its own new tab leaves that tab white and empty; the window closes it (main/download-tab.js).
+function blankTabCloser(wc, item) {
+  const host = hostOfWc(wc);
+  return require('./main/download-tab.js').closer(wc, item, (id) => sendVia(host, 'download-tab', id));
+}
 // Finds the window a webContents (or an IPC event) belongs to. Never throws: falls back to the main window.
 function winOfWc(wc) {
   const host = hostOfWc(wc);
@@ -329,9 +334,11 @@ function setupAvocadoSession() {
   if (SH.mode() !== 'off') enableBlocking(s).catch(() => {}); else disableBlocking(s);
   // Downloads from private windows get the same safety: stopped if they come from a dangerous site, and tagged by
   // Windows as "from the internet" when done (Electron asks where to save them).
-  s.on('will-download', (_e, item) => {
-    try { if ((item.getURLChain ? item.getURLChain() : [item.getURL()]).some((u) => { try { return SH.dangerOf(new URL(u).hostname); } catch { return false; } })) { item.cancel(); return; } } catch {}
-    item.once('done', (_ev, st) => { const f = item.getSavePath(); if (st === 'completed' && f) { rememberFile(f); markFromInternet(f, item.getURL(), item.getReferrer ? item.getReferrer() : ''); } });
+  s.on('will-download', (_e, item, wc) => {
+    const closeBlank = blankTabCloser(wc, item);
+    try { if ((item.getURLChain ? item.getURLChain() : [item.getURL()]).some((u) => { try { return SH.dangerOf(new URL(u).hostname); } catch { return false; } })) { item.cancel(); closeBlank(true); return; } } catch {}
+    item.on('updated', () => closeBlank());
+    item.once('done', (_ev, st) => { closeBlank(true); const f = item.getSavePath(); if (st === 'completed' && f) { rememberFile(f); markFromInternet(f, item.getURL(), item.getReferrer ? item.getReferrer() : ''); } });
   });
 }
 function createAvocadoWindow() {
@@ -686,8 +693,9 @@ function setupSession(part = PARTITION) {
 
   // Downloads go straight to the Downloads folder, Chrome-style.
   let dlSeq = 0;
-  ses.on('will-download', (_e, item) => {
+  ses.on('will-download', (_e, item, wc) => {
     const id = ++dlSeq;
+    const closeBlank = blankTabCloser(wc, item);
     const name = item.getFilename() || 'download';
     const url = item.getURL();
     dlItems.set(id, item);
@@ -695,7 +703,7 @@ function setupSession(part = PARTITION) {
     try {
       const chain = item.getURLChain ? item.getURLChain() : [url];
       const bad = chain.map((u) => { try { return SH.dangerOf(new URL(u).hostname); } catch { return ''; } }).find(Boolean);
-      if (bad) { item.cancel(); send('download', { id, name, url, path: '', total: 0, received: 0, startedAt: Date.now(), state: 'cancelled', reason: 'danger', kind: bad }); return; }
+      if (bad) { item.cancel(); closeBlank(true); send('download', { id, name, url, path: '', total: 0, received: 0, startedAt: Date.now(), state: 'cancelled', reason: 'danger', kind: bad }); return; }
     } catch {}
     const base = () => ({ id, name: item.getSavePath() ? path.basename(item.getSavePath()) : name, url, path: item.getSavePath() || '', total: item.getTotalBytes(), received: item.getReceivedBytes(), startedAt: Math.round(item.getStartTime() * 1000) || Date.now() });
     if (!prefs.downloadsAsk) {
@@ -708,7 +716,7 @@ function setupSession(part = PARTITION) {
     // Where the mouse was when the download began — the UI's download animation starts there.
     let cursor = null;
     try { const p = screen.getCursorScreenPoint(); const b = win.getContentBounds(); const z = win.webContents.getZoomFactor() || 1; cursor = { x: (p.x - b.x) / z, y: (p.y - b.y) / z }; } catch {}
-    const announce = () => { if (!announced && item.getSavePath()) { announced = true; send('download', { ...base(), state: 'started', cursor }); } };
+    const announce = () => { if (!announced && item.getSavePath()) { announced = true; send('download', { ...base(), state: 'started', cursor }); closeBlank(); } };
     setImmediate(announce);
     item.on('updated', (_ev, st) => {
       announce();
@@ -719,6 +727,7 @@ function setupSession(part = PARTITION) {
     });
     item.once('done', async (_ev, st) => {
       dlItems.delete(id);
+      closeBlank(true);
       const file = item.getSavePath();
       if (st === 'cancelled' && !file) return;
       let iconUrl = '';
