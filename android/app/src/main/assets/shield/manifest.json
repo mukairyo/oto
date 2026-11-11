@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Oto Shield",
-  "version": "1.193.23.33167",
+  "version": "1.218.23.32087",
   "description": "Oto's own blocker: stops known ad, tracker and telemetry addresses and ad scripts, and hides common ad boxes.",
   "browser_specific_settings": {
     "gecko": {
