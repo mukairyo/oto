@@ -20,7 +20,7 @@ function makeDecide(rules) {
     try { u = new URL(d.url); } catch { return false; }
     if (!/^(https?|wss?):$/.test(u.protocol)) return false;
     const host = u.hostname.toLowerCase().replace(/\.+$/, '');
-    for (const r of scripts) if (u.pathname.includes(r.has) && (!r.site || page === r.site || page.endsWith(`.${r.site}`))) return true;
+    if (d.type === 'script') for (const r of scripts) if (u.pathname.includes(r.has) && (!r.site || page === r.site || page.endsWith(`.${r.site}`))) return true;
     if (host === page) return false; // a site's own address is never cut off from itself
     if (listed(always, host)) return true;
     return siteOf(host) !== siteOf(page) && listed(third, host);
