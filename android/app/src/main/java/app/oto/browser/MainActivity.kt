@@ -252,7 +252,9 @@ class MainActivity : AppCompatActivity() {
         try {
             rt.webExtensionController.ensureBuiltIn("resource://android/assets/shield/", "shield@oto.app").accept({ ext ->
                 shieldExt = ext
-                if (!prefs.getBoolean("shield", true)) switchShieldExt(false) {}
+                // the blocker remembers whether it was on; make it match the Shield switch either way
+                val want = prefs.getBoolean("shield", true)
+                if (ext != null && ext.metaData.enabled != want) switchShieldExt(want) {}
             }, { e -> android.util.Log.w("Oto", "Oto Shield's own blocker could not start", e) })
         } catch (e: Throwable) { android.util.Log.w("Oto", "Oto Shield's own blocker could not start", e) }
     }
