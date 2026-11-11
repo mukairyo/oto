@@ -3,9 +3,9 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
-## 1.5.0 — not released yet
+## 1.5.0 — 2026-11-12
 
-*Privacy upgrade. On the `privacy-upgrade` branch for testing; details and limits in docs/PRIVACY_PROTECTION.md.*
+*Privacy upgrade. Nothing to do: it updates itself. Details and limits are in docs/PRIVACY_PROTECTION.md.*
 
 **Fixed**
 - **Trackers could get past Oto Shield on pages that hide where requests come from.** Most tracker rules only apply when a tracker is loaded by another site. Oto worked out "which site is asking" from a header that a page can switch off, and then those rules never applied. With Oto's real lists, a page like that let 35 of 47 well-known session recorders through; now 5. Oto asks the browser which frame made the request instead.
@@ -25,7 +25,8 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 - Cover Your Tracks will still say "unique fingerprint". It says "randomized" only when 4 of 5 things differ between sites; Oto varies 3 (canvas, WebGL, audio). The other two are the plugin list, which is identical for every Chrome user so varying it hides nothing, and CPU cores, which Oto can't vary without pages seeing two different answers.
 - Some entries on blocker test pages stay "not blocked" in Oto and in Brave: the lists swap those scripts for an empty stand-in so sites don't break. The real tracker never loads.
 - A page with many embedded frames loads a little slower (about 5 ms per frame on the test machine), because protection now runs in each frame.
-- Not tested here: real websites and the real test sites. See the checklist in the test build notes.
+- This release was tested with automated tests (136 checks in the real app on Windows and Linux), not yet on a long list of real websites. If a site misbehaves, switch Shield off for that site (Shield menu) and report it.
+- **Oto for Android 0.2.3** blocks session recorders too, and no longer blocks a company's addresses on its own site. Download **Oto-Android-0.2.3-arm64.apk** below, or update from inside the app. Its blocker is tested in a desktop build of the same engine, not yet on a phone.
 
 ## 1.4.2 — 2026-11-11
 
