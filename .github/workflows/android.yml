@@ -22,14 +22,14 @@ jobs:
   apk:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '9.6.0'
 
@@ -83,7 +83,7 @@ jobs:
       # android-dev: just check that it builds (no release)
       - name: Keep the APK (dev build)
         if: env.STOP != '1' && (github.ref != 'refs/heads/android' || steps.ver.outputs.skip == 'true')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: oto-android-dev
           path: android/app/build/outputs/apk/release/*.apk
