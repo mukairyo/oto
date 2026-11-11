@@ -21,7 +21,7 @@ function run(cmd, args, env, timeout) {
     p.stderr.on('data', (d) => { stderr += d; if (stderr.length > 2e6) stderr = stderr.slice(-1e6); });
     const timer = setTimeout(() => { error = new Error(`timed out after ${timeout / 1000} s`); try { p.kill('SIGKILL'); } catch {} }, timeout);
     p.on('error', (e) => { error = e; });
-    p.on('close', (code) => { clearTimeout(timer); resolve({ code, stdout, stderr, error }); });
+    p.on('close', (code, signal) => { clearTimeout(timer); resolve({ code, signal, stdout, stderr, error }); });
   });
 }
 
@@ -45,6 +45,9 @@ function run(cmd, args, env, timeout) {
     if (process.env.OTO_E2E_VERBOSE) console.log(String(r.stdout || '').split('\n').filter((l) => /\[oto\]|refused|Error|error/.test(l)).slice(0, 30).join('\n'));
     let res = [];
     try { res = JSON.parse(fs.readFileSync(out, 'utf8')); } catch { res = [{ name: 'suite produced results', pass: false, detail: (r.error && r.error.message) || String(r.stderr || '').slice(-400) }]; }
+    // Oto ends a suite itself with exit code 0. Anything else means it crashed or hung part-way: the checks after
+    // that point never ran, so the suite must not count as passed just because the ones before it did.
+    if (r.code !== 0 || r.error) res.push({ name: 'Oto ran to the end of the suite without crashing', pass: false, detail: `${r.error ? r.error.message : `exit code ${r.code}${r.signal ? `, signal ${r.signal}` : ''}`} after ${res.length} check(s). ${String(r.stderr || '').split('\n').filter((l) => /crash|fatal|check failed|segv|signal|error/i.test(l)).slice(-3).join(' | ').slice(0, 240)}` });
     console.log(`\n${suite} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
     for (const x of res) console.log(`  ${x.pass ? 'PASS' : 'FAIL'}  ${x.name}${x.detail ? `  — ${x.detail}` : ''}`);
     all.push(...res.map((x) => ({ suite, ...x })));

@@ -423,17 +423,8 @@ function openAppWindow(url) {
 const appArg = (argv) => { const a = (argv || []).find((x) => /^--oto-app=/.test(x)); return a ? a.slice(10) : null; };
 
 // ---------------------------------------------------------------- version numbers
-// Oto shows versions like 0.9.8 for big updates and 0.9.8.1, 0.9.8.2 … for small ones. The updater
-// needs three-part numbers, so the patch part carries both: 0.9.801 = 0.9.8.1, 0.9.900 = 0.9.9.
-function displayVersion(v) {
-  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(v || ''));
-  if (!m) return String(v || '');
-  if (/-/.test(String(v))) return String(v); // tester builds keep their full name, e.g. 0.10.0-beta.1
-  const p = +m[3];
-  if (p < 100) return `${m[1]}.${m[2]}.${p}`;
-  const base = Math.floor(p / 100), small = p % 100;
-  return small ? `${m[1]}.${m[2]}.${base}.${small}` : `${m[1]}.${m[2]}.${base}`;
-}
+// Version names (1.4.200 is shown as 1.4.2, 1.4.201 as 1.4.2.1): main/version.js
+const displayVersion = require('./main/version.js').display;
 const OTO_VERSION = (() => { try { return require('./package.json').otoVersion || displayVersion(app.getVersion()); } catch { return displayVersion(app.getVersion()); } })();
 
 // ---------------------------------------------------------------- auto-update (main/updates.js)
@@ -639,10 +630,18 @@ function setupSession(part = PARTITION) {
     if (!win) return callback(false);
     const keys = parts.map((p) => `${origin}|${p}`);
     const id = ++permSeq;
+    // The page that asked can go away while the question is open (tab closed, page crashed). The question is then
+    // dropped and never answered: there is nothing left to answer, and answering a mouse-lock or keyboard-lock
+    // request for a page that is gone crashed all of Oto (an Electron bug, fixed upstream in 45.3).
+    const gone = () => { try { return !!wc && wc.isDestroyed(); } catch { return true; } };
+    const drop = () => { const p = pendingPerms.get(id); if (!p) return; pendingPerms.delete(id); clearTimeout(p.timer); send('perm:cancel', id); };
+    const off = () => { try { if (wc && !wc.isDestroyed()) wc.removeListener('destroyed', drop); } catch {} };
     const timer = setTimeout(() => {
-      if (pendingPerms.delete(id)) { callback(false); send('perm:cancel', id); }
+      if (gone()) return drop();
+      if (pendingPerms.delete(id)) { off(); callback(false); send('perm:cancel', id); }
     }, 90000);
-    pendingPerms.set(id, { callback, keys, timer });
+    pendingPerms.set(id, { callback, keys, timer, gone, off });
+    try { if (wc) wc.once('destroyed', drop); } catch {}
     send('perm:ask', {
       id, origin, permission, mediaTypes: details.mediaTypes || [],
       externalURL: details.externalURL || '', wcId: wc ? wc.id : 0,
@@ -1045,6 +1044,8 @@ function setupIPC(ses) {
     if (!p) return;
     pendingPerms.delete(id);
     clearTimeout(p.timer);
+    if (p.gone && p.gone()) return; // the page that asked is gone: nothing to answer, nothing to remember
+    if (p.off) p.off();
     for (const k of p.keys || [p.key]) perms[k] = !!allow;
     savePerms();
     p.callback(!!allow);

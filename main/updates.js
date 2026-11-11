@@ -106,7 +106,8 @@ module.exports = function createUpdates(ctx) {
           const xml = await res.text(), ch = updateChannel();
           const tags = [...xml.matchAll(/\/releases\/tag\/v?([0-9][^"<\s]*)/g)].map((m) => decodeURIComponent(m[1]));
           const mine = (t) => (ch === 'stable' ? !t.includes('-') : t.includes(`-${ch}.`) || !t.includes('-'));
-          const newest = tags.filter(mine).sort((a, b) => verCmpMain(b, a))[0];
+          // tags are the names people see (1.4.2, 1.4.2.1); the running version is the updater's number (1.4.200, 1.4.201)
+          const newest = tags.filter(mine).map(require('./version.js').fromTag).sort((a, b) => verCmpMain(b, a))[0];
           if (newest && verCmpMain(newest, app.getVersion()) > 0) checkForUpdates(false);
         }
       } catch {} finally { peeking = false; }

@@ -7,7 +7,9 @@ policy, not a one-time audit: a serious new browser-engine vulnerability trigger
 
 | What | When | What happens | Workflow |
 | --- | --- | --- | --- |
-| **Chromium/Electron security updates** | daily | A newer castlabs Electron in Oto's major version is applied, the changelog gets an entry, and a release starts. The release only publishes if every check below passes. A new major version opens an issue instead. | `chromium-update.yml` |
+| **Chromium/Electron security updates** | daily | A newer castlabs Electron in Oto's major version is applied, the changelog gets an entry, and a release starts. The release only publishes if every check below passes. A new major version opens an issue instead. Oto can only be as current as castlabs' build: when castlabs is behind the official Electron, so is Oto (see "When an engine vulnerability is announced"). | `chromium-update.yml` |
+| **Unfinished releases** | daily | If the version on `main` has no finished release and none is running (a download failed, a test machine was slow), the release is started again and an issue is opened. | `chromium-update.yml` |
+| **Android engine and libraries** | daily (engine), weekly (libraries) | A newer GeckoView raises Oto for Android's version and ships a new APK. Dependabot opens pull requests on the `android` branch for the build's actions and libraries; each one builds the app. | `android-engine.yml`, `.github/dependabot.yml` |
 | **Unit tests, security rules, audit** | every push and pull request, every branch | `npm test`, `scripts/lint.js` (sandbox, no Node in pages, no unsafe settings), `npm audit --omit=dev --audit-level=high` | `ci.yml` → checks |
 | **End-to-end tests of the real app** | every push and pull request | Oto runs against local test sites on **Linux and Windows**: sandbox, IPC gatekeeper, private windows, Spaces, cookies and storage separation, downloads (Windows: Mark of the Web), certificate and dangerous-site warnings, passwords (Windows: DPAPI), Shield, extensions. | `ci.yml` → e2e-linux, windows-build |
 | **Windows packaging check** | every push | Builds the unpacked app, checks Oto's files are inside and tests, scripts, keys and exports are not. | `ci.yml` → windows-build |
@@ -53,7 +55,11 @@ declared version range.
 ## Releasing
 
 1. Branch, change, push: CI must be green (unit, lint, audit, end-to-end on Linux and Windows, packaging).
-2. Bump `version` and `otoVersion`, add the CHANGELOG section.
+2. Bump `version` and `otoVersion`, add the CHANGELOG section. The updater's number (`version`) is the release
+   times 100: Oto 1.4.2 is `"version": "1.4.200"`, `"otoVersion": "1.4.2"`. That leaves room for the automatic
+   engine updates in between (1.4.201 = Oto 1.4.2.1). A plain `1.4.2` would count as older than `1.4.101` and nobody
+   on that update would get it. `main/version.js` has the rule; `npm test` and the release itself refuse a wrong
+   number.
 3. Fast-forward `main` (and then `v1`). `release.yml` re-runs every check on Windows, builds, publishes, attests, then
    downloads the published installer and verifies its checksum and build record (`verify` job).
 4. A red step anywhere = no release. Fix it; don't skip it. No `continue-on-error` in release or check workflows (a

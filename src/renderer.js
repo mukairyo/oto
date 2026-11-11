@@ -480,6 +480,8 @@ function mapWebContents(tab, v) {
   if (earlyBlocked.has(id)) { v.blocked += earlyBlocked.get(id); earlyBlocked.delete(id); }
   if (tab.extReq) { oto.extTabReady(tab.extReq, id); delete tab.extReq; }
   if (S.active[S.activeWs] === tab.id) oto.extActive(id);
+  // The red warning can arrive before this tab is linked to its page (a new tab on a slow PC): show it now.
+  if (typeof SHP_DANGER !== 'undefined' && SHP_DANGER.has(id) && dangerShow(tab, v, '')) { render(); if (S.active[S.activeWs] === tab.id) updateChrome(); }
 }
 
 function bindView(tab, v) {
@@ -501,6 +503,9 @@ function bindView(tab, v) {
     if (e.isMainFrame && !e.isInPlace) {
       v.blocked = 0;
       if (hostOf(e.url) !== hostOf(tab.url)) tab.favicon = '';
+      // going somewhere else: a late red warning for the old site must not land on the new page
+      const d = v.wcId && typeof SHP_DANGER !== 'undefined' && SHP_DANGER.get(v.wcId);
+      if (d && hostOf(e.url) !== hostOf(d.url)) SHP_DANGER.delete(v.wcId);
     }
   });
   el.addEventListener('did-navigate', (e) => {

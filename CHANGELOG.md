@@ -3,6 +3,24 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.4.2 — 2026-11-11
+
+*A check-up release: everything was gone through again. Nothing to do: it updates itself.*
+
+**Fixed**
+- **Oto could close completely because of a leftover question.** When a site asked to lock your mouse or keyboard (games do this) and you closed that tab while Oto's question was still open, answering the question afterwards — or just waiting 90 seconds — crashed all of Oto. The question now goes away with its tab and is never answered for a page that is gone. Found while checking the fixes in the next engine version; tested.
+- **The red warning for a dangerous site could be missing in a brand-new tab on a slow PC.** The site was blocked, but the tab stayed blank instead of showing the warning. It now always shows, and a late warning can't land on a different page you've moved on to.
+
+**Updates**
+- **Automatic security updates and normal updates can no longer block each other.** Oto gives the small automatic engine updates a fourth number (like 1.4.2.1). The way those were counted, the first one could have had the same number as a later normal update, or made the next normal update look *older* — and then Oto would have stopped updating for everyone on it. It hadn't happened yet. The numbering is fixed, and a release with a number that people wouldn't receive is now refused before it is built.
+- **A release that fails for a passing reason is tried again.** If GitHub doesn't serve a file or a test machine is slow, the daily check starts the release again and reports it, so a security update can't sit unfinished unnoticed.
+- Oto notices a new version sooner after an automatic update (it compared version names the wrong way round in one place).
+
+**Behind the scenes**
+- The build tools on GitHub were updated to their current versions, and the Android build now uses fixed, checked versions of its tools too. Oto for Android's libraries are now watched for updates like the Windows ones.
+- Two tests that sometimes failed for no real reason (one could have stopped a release) were made reliable.
+- Checked again: all libraries Oto ships are on their newest versions with no known vulnerabilities. Oto's engine is the newest one castlabs offers (Electron 45.2.1, Chromium 156); a newer one is installed automatically the day it comes out.
+
 ## 1.4.1 — 2026-11-09
 
 *A small fix. Nothing to do: it updates itself.*

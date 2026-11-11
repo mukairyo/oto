@@ -22,3 +22,21 @@ updates:
       actions:
         patterns: ['*']
     commit-message: { prefix: ci }
+  # Oto for Android lives on the "android" branch: the actions of its build (which signs the APK) and its libraries.
+  # GeckoView itself is updated every day by android-engine.yml.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: android
+    schedule: { interval: weekly, day: monday }
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message: { prefix: ci }
+  - package-ecosystem: gradle
+    directory: /android
+    target-branch: android
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: 'org.mozilla.geckoview:geckoview'
+    commit-message: { prefix: deps }

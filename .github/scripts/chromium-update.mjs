@@ -6,9 +6,10 @@ import fs from 'node:fs';
 
 const out = (k, v) => { if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `${k}=${v}\n`); console.log(`${k}=${v}`); };
 const npm = (args) => JSON.parse(execSync(`npm view ${args} --json`, { encoding: 'utf8' }));
+// Oto's version numbering (1.4.200 = "1.4.2", next small update 1.4.201 = "1.4.2.1") lives in one place.
+import ver from '../../main/version.js';
 const parts = (v) => String(v).replace(/^[^\d]*/, '').split('-')[0].split('.').map(Number);
 const cmp = (a, b) => { const x = parts(a), y = parts(b); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0); return 0; };
-const display = (v) => { const [M, m, p] = parts(v); if (p < 100) return `${M}.${m}.${p}`; const b = Math.floor(p / 100), s = p % 100; return s ? `${M}.${m}.${b}.${s}` : `${M}.${m}.${b}`; };
 
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 // A tester build (e.g. 0.10.0-beta.1) is on main right now — leave it alone; the next stable release picks up Electron fixes.
@@ -41,11 +42,14 @@ if (ECS) {
   execSync(`npm install electron@${sameMajor} --save-dev --save-exact --package-lock-only --ignore-scripts`, { stdio: 'inherit' });
 }
 const p2 = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-const [M, m, p] = parts(p2.version);
-const next = p < 100 ? p * 100 + 1 : p + 1; // small update: 0.9.900 (0.9.9) -> 0.9.901 (0.9.9.1)
-p2.version = `${M}.${m}.${next}`;
-p2.otoVersion = display(p2.version);
+p2.version = ver.nextSmall(p2.version); // small update: 1.4.200 (1.4.2) -> 1.4.201 (1.4.2.1)
+p2.otoVersion = ver.display(p2.version);
 fs.writeFileSync('package.json', `${JSON.stringify(p2, null, 2)}\n`);
+// keep the lockfile's own version line in step
+const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+lock.version = p2.version;
+if (lock.packages && lock.packages['']) lock.packages[''].version = p2.version;
+fs.writeFileSync('package-lock.json', `${JSON.stringify(lock, null, 2)}\n`);
 
 let chrome = '';
 try { const rel = await (await fetch('https://releases.electronjs.org/releases.json')).json(); chrome = (rel.find((r) => r.version === sameMajor) || {}).chrome || ''; } catch {}

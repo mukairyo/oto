@@ -17,9 +17,9 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
 
@@ -50,4 +50,23 @@ jobs:
           title="Electron ${{ steps.bump.outputs.major }} is out — test before switching"
           if ! gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number' | grep -q .; then
             gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "A new major version of Electron (${{ steps.bump.outputs.major }}) is available. Oto keeps getting security fixes on its current version automatically; moving to a new major version can need code changes, so it isn't done automatically. Ask Claude to switch Oto to Electron ${{ steps.bump.outputs.major }} and test it."
+          fi
+
+      # A release can fail for reasons that pass by themselves (GitHub not serving a download, a slow test machine).
+      # Nothing used to try again, so a security update could sit unreleased without anyone noticing. Every day:
+      # if the version on main still has no finished release and none is running, start it again and open an issue.
+      - name: Finish a release that didn't complete
+        if: steps.bump.outputs.changed != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          v=$(node -p "const p=require('./package.json'); p.otoVersion || p.version")
+          if gh release view "v$v" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null | grep -q '\.yml$'; then echo "Oto $v is released."; exit 0; fi
+          running=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml --branch main --limit 10 --json status --jq '[.[] | select(.status != "completed")] | length' || echo unknown)
+          if [ "$running" != "0" ]; then echo "Oto $v: a release is running (or GitHub didn't answer). Checked again tomorrow."; exit 0; fi
+          echo "Oto $v is on main but has no finished release: starting the release again."
+          gh workflow run release.yml --ref main --repo "$GITHUB_REPOSITORY"
+          title="Oto $v was not released — trying again"
+          if ! gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number' | grep -q .; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "The release of Oto $v did not finish (see the Build & release runs under Actions), so people have not received it yet. The daily check has started it again and will keep doing so once a day until it is out. If it keeps failing, ask Claude to look at the failed run."
           fi

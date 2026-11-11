@@ -15,13 +15,15 @@ module.exports = async (t) => {
   // you're back on the tab with the link, and the download still finishes after its tab is gone.
   const tabs0 = await ui.executeJavaScript('S.tabs.length');
   const from = await ui.executeJavaScript('activeTab().id');
+  // count the tabs Oto opens (looking at the tab list from outside can miss a tab that opens and closes quickly)
+  await ui.executeJavaScript('(window.__opened = 0, window.__newTab = newTab, newTab = (...a) => { window.__opened++; return window.__newTab(...a); }, 1)');
   await ui.executeJavaScript(`V.get(activeTab().id).wv.executeJavaScript("document.getElementById('nt').click()", true)`);
-  let peak = tabs0;
-  for (let i = 0; i < 40; i++) { await t.sleep(100); peak = Math.max(peak, await ui.executeJavaScript('S.tabs.length')); }
-  await t.sleep(2000);
+  await t.sleep(6000);
+  const peak = tabs0 + await ui.executeJavaScript('window.__opened');
+  await ui.executeJavaScript('(newTab = window.__newTab, 1)');
   const tabs1 = await ui.executeJavaScript('S.tabs.length');
   const back = await ui.executeJavaScript('activeTab() && activeTab().id');
-  t.check('a download link that opens a new tab opens one', peak === tabs0 + 1, `tabs ${tabs0} → peak ${peak}`);
+  t.check('a download link that opens a new tab opens one', peak === tabs0 + 1, `tabs ${tabs0} → ${peak} at most`);
   t.check('…and that empty tab closes on its own (no white page left)', tabs1 === tabs0, `tabs ${tabs0} → ${tabs1}`);
   t.check('…and you are back on the tab with the link', back === from, `${from} / ${back}`);
   const closedList = await ui.executeJavaScript('closedStack.length ? closedStack[closedStack.length - 1].tab.url : ""');
