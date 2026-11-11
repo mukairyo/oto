@@ -18,7 +18,25 @@ const SITES = {
   'evil.site': () => page('Evil', '<h1>Pretend malware site</h1>'),
   'login.site': () => page('Login', `<form id="f" method="post" action="/done"><input id="u" name="u" autocomplete="username"><input id="p" name="p" type="password"><button>Sign in</button></form>`),
   'nav.site': () => page('Nav', '<h1>Navigation tests</h1>'),
+  // What an ad-block tester checks on its own page (written for these tests, after adblock.turtlecute.org): two
+  // stand-in ad scripts served by the site itself, an ad-shaped box in the page and one added later. Each script sets
+  // a variable when it runs; a box counts as hidden when it has no height. A normal script and box are the controls.
+  'adblock.turtlecute.org': () => adTester(),
+  'adtest.site': () => adTester(), // the same page on another site: the tester-only script rule must not apply here
 };
+const adTester = () => page('Ad-block tester (local)', `<h1>Ad-block tester</h1>
+  <div id="cts_test" class="textads adsbox banner_ads adbox ADBox AdBox adbox-wrapper adSocial ">&nbsp;</div><div id="ctd_test"></div><div id="normal_box" class="article-box">&nbsp;</div>
+  <script defer src="./js/widget/ads.js"></script><script defer src="./js/pagead.js"></script><script defer src="./js/app.js"></script>
+  <script>window.__res = null; addEventListener('DOMContentLoaded', () => {
+    const ad = document.createElement('div'); ad.id = 'ad_ctd'; ad.className = 'textads banner-ads banner_ads ad-unit afs_ads ad-zone ad-space adsbox'; ad.innerHTML = '&nbsp;'; document.querySelector('#ctd_test').appendChild(ad);
+    const pic = new Promise((r) => { const i = new Image(); i.onload = () => r(true); i.onerror = () => r(false); i.src = './widget/ads.png'; });
+    setTimeout(async () => {
+      const h = (id) => { const e = document.getElementById(id); return !e || !(e.clientHeight || e.offsetHeight); };
+      window.__res = { adsBlocked: typeof s_test_ads === 'undefined', pageadBlocked: typeof s_test_pagead === 'undefined', appLoaded: typeof app_ok !== 'undefined',
+        staticHidden: h('cts_test'), dynamicHidden: h('ad_ctd'), normalBoxShown: !h('normal_box'), pictureLoaded: await pic };
+    }, 1500);
+  });</script>`);
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
 function handler(req, res) {
   const host = String(req.headers.host || '').split(':')[0].toLowerCase().replace(/\.$/, '').replace(/\.sec$/, '.site');
   const url = new URL(req.url, 'http://x');
@@ -29,6 +47,10 @@ function handler(req, res) {
     res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': 'attachment; filename="slow.bin"', 'Content-Length': String(chunk.length * n) });
     let i = 0; const next = () => { if (i++ >= n) return res.end(); res.write(chunk); setTimeout(next, 180); }; return next();
   }
+  if (url.pathname === '/js/widget/ads.js') { res.writeHead(200, { 'Content-Type': 'application/javascript' }); return res.end('window.s_test_ads = true'); }
+  if (url.pathname === '/js/pagead.js') { res.writeHead(200, { 'Content-Type': 'application/javascript' }); return res.end('window.s_test_pagead = true'); }
+  if (url.pathname === '/js/app.js') { res.writeHead(200, { 'Content-Type': 'application/javascript' }); return res.end('window.app_ok = true'); }
+  if (url.pathname === '/widget/ads.png') { res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(PNG); }
   if (url.pathname === '/setup.exe') { res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': 'attachment; filename="setup.exe"' }); return res.end('MZ test'); }
   if (host === 'tracker.site') { res.writeHead(200, { 'Content-Type': 'application/javascript' }); return res.end('window.__trackerLoaded = 1;'); }
   const site = SITES[host] || (host === 'localhost' || host === '127.0.0.1' ? SITES['login.site'] : null);
@@ -53,7 +75,7 @@ async function start() {
   const hp = h.address().port, sp = s.address().port;
   return {
     httpPort: hp, httpsPort: sp,
-    rules: `MAP *.site ${'127.0.0.1'}:${hp}, MAP *.site. 127.0.0.1:${hp}, MAP *.sec 127.0.0.1:${sp}`,
+    rules: `MAP *.site ${'127.0.0.1'}:${hp}, MAP *.site. 127.0.0.1:${hp}, MAP *.sec 127.0.0.1:${sp}, MAP adblock.turtlecute.org 127.0.0.1:${hp}`,
     close: () => { h.close(); s.close(); },
   };
 }

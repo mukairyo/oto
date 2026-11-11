@@ -16,6 +16,21 @@ module.exports = async (t) => {
   for (const part of ['persist:oto', 'persist:oto-ws-e2e', 'avocado']) t.check(`Shield off reaches ${part}`, (await inPart(part)) === 'loaded');
   await t.js('oto.setBlocking(true)'); await t.sleep(800);
   for (const part of ['persist:oto', 'persist:oto-ws-e2e', 'avocado']) t.check(`Shield back on reaches ${part}`, (await inPart(part)) === 'blocked');
+  // What an ad-block tester checks on its own page (a local copy, see server.js): Oto stops the two stand-in ad
+  // scripts and hides the ad-shaped boxes, and leaves the page's normal script, box and picture alone.
+  const tester = async (url) => { await t.open(url, 4500); return JSON.parse((await t.page('JSON.stringify(window.__res)')) || '{}'); };
+  const on = await tester('http://adblock.turtlecute.org/');
+  t.check('ad-block tester: the ads.js script is blocked', on.adsBlocked === true, JSON.stringify(on));
+  t.check('ad-block tester: the pagead.js script is blocked', on.pageadBlocked === true);
+  t.check('ad-block tester: the ad box in the page is hidden', on.staticHidden === true);
+  t.check('ad-block tester: an ad box added later is hidden', on.dynamicHidden === true);
+  t.check('…and the page\'s normal script, box and picture are untouched', on.appLoaded === true && on.normalBoxShown === true && on.pictureLoaded === true, JSON.stringify(on));
+  const other = await tester('http://adtest.site/');
+  t.check('on any other site: ad widget scripts are blocked, a file that is only named pagead.js is not', other.adsBlocked === true && other.pageadBlocked === false && other.appLoaded === true, JSON.stringify(other));
+  await t.js('oto.setBlocking(false)'); await t.sleep(800);
+  const off = await tester('http://adblock.turtlecute.org/');
+  t.check('control: with Shield off the same page loads both scripts and shows both boxes', off.adsBlocked === false && off.pageadBlocked === false && off.staticHidden === false && off.dynamicHidden === false, JSON.stringify(off));
+  await t.js('oto.setBlocking(true)'); await t.sleep(800);
   void session;
 };
 

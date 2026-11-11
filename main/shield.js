@@ -15,7 +15,7 @@ module.exports = function createShield(ctx) {
   let blockedFlush = null;
 
   // ---- Privacy dashboard: what was blocked, per day and per website (stays on this PC)
-  const { trackerOf, extraFilters } = require('../trackers.js');
+  const { trackerOf, extraFilters, extraScriptBlocked } = require('../trackers.js');
   const PSTATS = Object.assign({ v: 1, days: {}, sites: {}, total: 0, since: Date.now() }, readJSON('privacy-stats.json', {}) || {});
   let pstatsTimer = null;
   const dayKey = (t = new Date()) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
@@ -78,7 +78,9 @@ module.exports = function createShield(ctx) {
       if (d.resourceType === 'mainFrame') return cb({});
       let h;
       try { h = new URL(d.url).hostname.toLowerCase().replace(/\.+$/, ''); } catch { return cb({}); }
-      if (shieldAllowed(pageHostOf(d.webContentsId))) return cb({});
+      const pageHost = pageHostOf(d.webContentsId);
+      if (shieldAllowed(pageHost)) return cb({});
+      if (extraScriptBlocked(d.url, pageHost, d.resourceType)) { notifyBlocked(d.webContentsId, d.url); return cb({ cancel: true }); }
       while (h) {
         if (list.has(h)) { notifyBlocked(d.webContentsId, d.url); return cb({ cancel: true }); }
         const i = h.indexOf('.');

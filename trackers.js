@@ -3,7 +3,7 @@
 // Everything blocked that isn't on this list is counted as an ad.
 'use strict';
 const T = {
-  'Google Analytics': ['google-analytics.com', 'googletagmanager.com', 'analytics.google.com', 'ssl.google-analytics.com'],
+  'Google Analytics': ['google-analytics.com', 'googleanalytics.com', 'googletagmanager.com', 'analytics.google.com', 'ssl.google-analytics.com'],
   'Google Ads': ['doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'adservice.google.com', 'g.doubleclick.net'],
   'Meta (Facebook)': ['connect.facebook.net', 'facebook.net', 'pixel.facebook.com', 'graph.instagram.com'],
   'Microsoft': ['clarity.ms', 'bat.bing.com', 'c.bing.com'],
@@ -72,7 +72,7 @@ const EXTRA = {
   'AdColony': ['ads30.adcolony.com', 'adc3-launch.adcolony.com', 'events3alt.adcolony.com', 'wd.adcolony.com'],
   'Media.net': ['static.media.net', 'adservetx.media.net'],
   'Hotjar': ['static.hotjar.com', 'api-hotjar.com', 'hotjar-analytics.com'],
-  'Mouseflow': ['a.mouseflow.com'],
+  'Mouseflow': ['mouseflow.com'],
   'Freshworks': ['freshmarketer.com', 'claritybt.freshmarketer.com', 'fwtracks.freshmarketer.com'],
   'Lucky Orange': ['api.luckyorange.com', 'realtime.luckyorange.com', 'cdn.luckyorange.com', 'w1.luckyorange.com', 'upload.luckyorange.net', 'cs.luckyorange.net', 'settings.luckyorange.net'],
   'WordPress Stats': ['stats.wp.com'],
@@ -108,10 +108,47 @@ const EXTRA_COSMETIC = [
   '.ad-placeholder', '.advertisement', '.sponsored-ad', '[id^="div-gpt-ad"]', '[id^="google_ads_iframe"]', '[id^="google_ads_frame"]',
   'iframe[src*="googlesyndication.com"]', 'iframe[src*="doubleclick.net"]', 'a[href*="doubleclick.net/"]', '[data-ad-slot]', '[data-google-query-id]',
 ];
+// Ad scripts blocked by their path on a site, not by the host they come from. The downloaded lists block ad scripts
+// mostly by host. Only scripts are affected (never images, styles or data).
+//   /widget/ads.   an ad widget script, on any site (long a general rule in EasyList)
+//   /pagead.js     only on adblock.turtlecute.org: that tester serves a harmless stand-in from its own site to see
+//                  whether a blocker can stop a script at all, and asks blockers to add exactly this rule
+const EXTRA_SCRIPTS = [
+  { has: '/widget/ads.' },
+  { has: '/pagead.js', site: 'adblock.turtlecute.org' },
+];
+// Tracker addresses blocked on OTHER sites only, so the company's own pages keep working (analytics.google.com is
+// also the Google Analytics dashboard).
+const EXTRA_THIRD = ['analytics.google.com', 'googleanalytics.com', 'luckyorange.com'];
+// The same goes for a whole company site in EXTRA (mouseflow.com): blocked on other sites, not on its own website.
+// A single ad or telemetry address (ads.youtube.com) is blocked wherever it is loaded from.
+const wholeSite = (d) => d.split('.').length === 2;
 const extraFilters = (level) => [
-  ...[...Object.values(EXTRA).flat(), ...(level === 'strict' ? EXTRA_STRICT : [])].map((d) => `||${d}^`),
+  ...[...Object.values(EXTRA).flat(), ...(level === 'strict' ? EXTRA_STRICT : [])].map((d) => `||${d}^${wholeSite(d) ? '$third-party' : ''}`),
+  ...EXTRA_THIRD.map((d) => `||${d}^$third-party`),
+  ...EXTRA_SCRIPTS.map((r) => `${r.has}$script${r.site ? `,domain=${r.site}` : ''}`),
   ...EXTRA_COSMETIC.map((sel) => `##${sel}`),
 ];
+// The script rules for Oto's small built-in blocker (used while the full lists load):
+// true when a page on pageHost may not load this script.
+function extraScriptBlocked(url, pageHost, type) {
+  if (type !== 'script') return false;
+  let path = '';
+  try { path = new URL(url).pathname; } catch { return false; }
+  const page = String(pageHost || '').toLowerCase().replace(/^www\./, '');
+  return EXTRA_SCRIPTS.some((r) => path.includes(r.has) && (!r.site || page === r.site || page.endsWith(`.${r.site}`)));
+}
+// Everything Oto for Android's own blocker needs (scripts/android-shield/build.js writes it into the app). It runs
+// next to the engine's own tracking protection, which already knows the big trackers and how to keep sign-in buttons
+// working. So this list stays small and careful: Oto's block lists only (not the label list T above), and without
+// connect.facebook.net ("Log in with Facebook"), which the engine handles better than a plain block.
+const ANDROID_LEAVE_TO_ENGINE = new Set(['connect.facebook.net']);
+const androidRules = () => ({
+  always: [...new Set([...Object.values(EXTRA).flat(), ...EXTRA_STRICT].filter((d) => !wholeSite(d)))].sort(), // ad and telemetry addresses: blocked wherever they are loaded from
+  third: [...new Set([...require('./blocklist.js'), ...Object.values(EXTRA).flat().filter(wholeSite), ...EXTRA_THIRD])].filter((d) => !ANDROID_LEAVE_TO_ENGINE.has(d)).sort(), // ad and tracker companies: blocked on other sites, not on their own
+  scripts: EXTRA_SCRIPTS,
+  hide: EXTRA_COSMETIC,
+});
 
 // The company behind a request's hostname, or '' if it isn't a known tracker.
 function trackerOf(host) {
@@ -124,4 +161,4 @@ function trackerOf(host) {
   }
   return '';
 }
-module.exports = { trackerOf, extraFilters };
+module.exports = { trackerOf, extraFilters, extraScriptBlocked, androidRules };
