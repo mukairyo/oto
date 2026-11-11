@@ -15,7 +15,7 @@ module.exports = function createShield(ctx) {
   let blockedFlush = null;
 
   // ---- Privacy dashboard: what was blocked, per day and per website (stays on this PC)
-  const { trackerOf, extraFilters, extraScriptBlocked } = require('../trackers.js');
+  const { trackerOf, recorderOf, extraFilters, extraScriptBlocked } = require('../trackers.js');
   const PSTATS = Object.assign({ v: 1, days: {}, sites: {}, total: 0, since: Date.now() }, readJSON('privacy-stats.json', {}) || {});
   let pstatsTimer = null;
   const dayKey = (t = new Date()) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
@@ -32,14 +32,18 @@ module.exports = function createShield(ctx) {
   function recordBlocked(wcId, url, domain) {
     let host = '';
     try { host = new URL(url).hostname; } catch {}
-    const co = trackerOf(host);
+    // a = ads, t = trackers, r = how many of those trackers were session recorders (they record what you do on a page)
+    const rec = recorderOf(url);
+    const co = rec || trackerOf(host);
     const d = PSTATS.days[dayKey()] || (PSTATS.days[dayKey()] = { a: 0, t: 0 });
     if (co) d.t++; else d.a++;
+    if (rec) d.r = (d.r || 0) + 1;
     PSTATS.total++;
     const site = pageHostOf(wcId);
     if (site) {
       const s = PSTATS.sites[site] || (PSTATS.sites[site] = { a: 0, t: 0, last: 0, by: {} });
       if (co) s.t++; else s.a++;
+      if (rec) s.r = (s.r || 0) + 1;
       s.last = Date.now();
       const k = domain || regDomain(host);
       if (k) { s.by[k] = (s.by[k] || 0) + 1; if (co) (s.co || (s.co = {}))[k] = co; }
@@ -49,7 +53,7 @@ module.exports = function createShield(ctx) {
   function pstatsView() {
     const sites = Object.entries(PSTATS.sites).map(([host, s]) => {
       const by = Object.entries(s.by || {}).sort((a, b) => b[1] - a[1]);
-      return { host, a: s.a, t: s.t, last: s.last, by: by.slice(0, 14).map(([d, n]) => ({ d, n, co: (s.co && s.co[d]) || trackerOf(d) })) };
+      return { host, a: s.a, t: s.t, r: s.r || 0, last: s.last, by: by.slice(0, 14).map(([d, n]) => ({ d, n, co: (s.co && s.co[d]) || trackerOf(d) })) };
     }).sort((a, b) => (b.t * 4 + b.a) - (a.t * 4 + a.a));
     const cos = new Map();
     for (const s of sites) for (const b of s.by) if (b.co) { const c = cos.get(b.co) || { name: b.co, n: 0, sites: new Set() }; c.n += b.n; c.sites.add(s.host); cos.set(b.co, c); }
@@ -120,10 +124,13 @@ module.exports = function createShield(ctx) {
     SHIELD.applied = lines;
     return shieldLines().length;
   }
+  const { withSource } = require('./request-source.js');
+  const pageUrlOf = (wcId) => { try { const wc = wcId && webContents.fromId(wcId); return wc ? wc.getURL() : ''; } catch { return ''; } };
   function shieldPatch(b) {
     const ob = b.onBeforeRequest, oh = b.onHeadersReceived, oc = b.onInjectCosmeticFilters;
-    b.onBeforeRequest = (d, cb) => (dangerCheck(d) ? cb({ cancel: true }) : shieldAllowed(pageHostOf(d.webContentsId)) ? cb({}) : ob(d, cb));
-    b.onHeadersReceived = (d, cb) => (shieldAllowed(pageHostOf(d.webContentsId)) ? cb({}) : oh(d, cb));
+    // withSource: the engine learns which page asks from the real frame when the page sends no Referer (request-source.js)
+    b.onBeforeRequest = (d, cb) => (dangerCheck(d) ? cb({ cancel: true }) : shieldAllowed(pageHostOf(d.webContentsId)) ? cb({}) : ob(withSource(d, () => pageUrlOf(d.webContentsId)), cb));
+    b.onHeadersReceived = (d, cb) => (shieldAllowed(pageHostOf(d.webContentsId)) ? cb({}) : oh(withSource(d, () => pageUrlOf(d.webContentsId)), cb));
     b.onInjectCosmeticFilters = async (ev, url, msg) => {
       if (shieldAllowed(shieldHost(ev.sender && ev.sender.getURL ? ev.sender.getURL() : url))) return;
       return oc(ev, url, msg);

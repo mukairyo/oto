@@ -1,12 +1,13 @@
 // Oto — well-known tracking and analytics companies, by the domains they load from.
-// Used only to label what Oto Shield blocked ("Google Analytics tried to track you on example.com").
-// Everything blocked that isn't on this list is counted as an ad.
+// T labels what Oto Shield blocked ("Google Analytics tried to track you on example.com"); everything blocked that
+// isn't on a list here is counted as an ad. RECORDERS (session recorders) and EXTRA (Oto's extra block list) are
+// also blocked by Oto itself, always "on other sites only": a company's own website is never cut off from itself.
 'use strict';
 const T = {
   'Google Analytics': ['google-analytics.com', 'googleanalytics.com', 'googletagmanager.com', 'analytics.google.com', 'ssl.google-analytics.com'],
   'Google Ads': ['doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'adservice.google.com', 'g.doubleclick.net'],
   'Meta (Facebook)': ['connect.facebook.net', 'facebook.net', 'pixel.facebook.com', 'graph.instagram.com'],
-  'Microsoft': ['clarity.ms', 'bat.bing.com', 'c.bing.com'],
+  'Microsoft': ['bat.bing.com', 'c.bing.com'],
   'TikTok': ['analytics.tiktok.com', 'business-api.tiktok.com', 'analytics-sg.tiktok.com'],
   'X (Twitter)': ['analytics.twitter.com', 'static.ads-twitter.com', 'ads-api.twitter.com'],
   'LinkedIn': ['px.ads.linkedin.com', 'snap.licdn.com', 'analytics.pointdrive.linkedin.com'],
@@ -14,16 +15,11 @@ const T = {
   'Pinterest': ['ct.pinterest.com', 'trk.pinterest.com'],
   'Reddit': ['alb.reddit.com', 'events.redditmedia.com'],
   'Amazon': ['amazon-adsystem.com', 'assoc-amazon.com'],
-  'Yandex': ['mc.yandex.com', 'mc.yandex.ru', 'mc.webvisor.org'],
-  'Hotjar': ['hotjar.com', 'hotjar.io'],
+  'Yandex': ['mc.yandex.com', 'mc.yandex.ru'],
   'Segment': ['segment.com', 'segment.io', 'cdn.segment.com'],
   'Mixpanel': ['mixpanel.com', 'mxpnl.com'],
   'Amplitude': ['amplitude.com', 'api2.amplitude.com'],
   'Heap': ['heapanalytics.com', 'heap.io'],
-  'FullStory': ['fullstory.com'],
-  'Mouseflow': ['mouseflow.com'],
-  'Crazy Egg': ['crazyegg.com'],
-  'Lucky Orange': ['luckyorange.com', 'luckyorange.net'],
   'New Relic': ['nr-data.net', 'newrelic.com'],
   'Datadog': ['browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu'],
   'Sentry': ['sentry.io', 'sentry-cdn.com'],
@@ -64,15 +60,47 @@ const T = {
   'Vimeo Analytics': ['fresnel.vimeocdn.com'],
   'Spotify Ads': ['pixel.spotify.com'],
 };
-// Oto's extra block list: ad, tracking and telemetry hosts that uBlock Origin's lists don't cover
-// (the ones adblock testers check). Blocked at every protection level.
+// Session recorders: products that record what a visitor does on a page (mouse movement, scrolling, clicks, typing)
+// so it can be replayed later. By the vendor's own domains. Oto blocks them when ANOTHER site loads them, at the
+// Balanced and Strict levels, and counts them on their own in the privacy dashboard. The downloaded lists block most
+// of these already; this makes sure of it, fills their gaps (OpenReplay, UXCam, LiveSession) and gives them a name.
+// Not here on purpose: products where recording is a side feature of something sites need to work (Sentry and
+// Datadog error reports, Pendo and Userpilot in-app guides, Intercom chat).
+const RECORDERS = {
+  'Hotjar': ['hotjar.com', 'hotjar.io'],
+  'FullStory': ['fullstory.com'],
+  'Microsoft Clarity': ['clarity.ms'],
+  'LogRocket': ['logrocket.com', 'logrocket.io', 'lr-ingest.io', 'lr-ingest.com', 'lr-in.com', 'lr-in-prod.com', 'lr-intake.com', 'intake-lr.com', 'ingest-lr.com', 'logr-ingest.com', 'lrkt-in.com', 'lgrckt-in.com'],
+  'Mouseflow': ['mouseflow.com'],
+  'Smartlook': ['smartlook.com', 'smartlook.cloud'],
+  'Lucky Orange': ['luckyorange.com', 'luckyorange.net'],
+  'Inspectlet': ['inspectlet.com'],
+  'Crazy Egg': ['crazyegg.com'],
+  'Contentsquare': ['contentsquare.net', 'clicktale.net'],
+  'Glassbox': ['glassboxdigital.io', 'glassboxcdn.com'],
+  'Quantum Metric': ['quantummetric.com'],
+  'SessionCam': ['sessioncam.com'],
+  'Medallia (Decibel)': ['decibelinsight.net'],
+  'OpenReplay': ['openreplay.com'],
+  'UXCam': ['uxcam.com'],
+  'LiveSession': ['livesession.io'],
+  'SessionStack': ['sessionstack.com'],
+  'Yandex Webvisor': ['mc.webvisor.org', 'mc.webvisor.com'],
+};
+// The recording part of a product that also does other things: only these addresses are blocked, the rest of the
+// product (PostHog's analytics and feature switches, which sites may need) keeps working.
+const RECORDER_PARTS = [
+  { name: 'PostHog session replay', site: 'posthog.com', rules: ['||posthog.com/static/*recorder*.js', '||posthog.com/s/'], test: /^\/(static\/[^?]*recorder[^?]*\.js|s\/)/ },
+];
+// Oto's extra block list: ad, tracking and telemetry hosts that uBlock Origin's lists don't cover. Blocked at every
+// protection level, on other sites only (ads.tiktok.com and app.bugsnag.com are also the dashboards people log in to).
 const EXTRA = {
   'Amazon': ['adtago.s3.amazonaws.com', 'analyticsengine.s3.amazonaws.com', 'analytics.s3.amazonaws.com', 'advice-ads.s3.amazonaws.com'],
   'Google Ads': ['pagead2.googlesyndication.com', 'adservice.google.com', 'pagead2.googleadservices.com', 'afs.googlesyndication.com', 'stats.g.doubleclick.net', 'ad.doubleclick.net', 'static.doubleclick.net', 'm.doubleclick.net', 'mediavisor.doubleclick.net'],
   'AdColony': ['ads30.adcolony.com', 'adc3-launch.adcolony.com', 'events3alt.adcolony.com', 'wd.adcolony.com'],
   'Media.net': ['static.media.net', 'adservetx.media.net'],
+  'Google Analytics': ['analytics.google.com', 'googleanalytics.com'],
   'Hotjar': ['static.hotjar.com', 'api-hotjar.com', 'hotjar-analytics.com'],
-  'Mouseflow': ['mouseflow.com'],
   'Freshworks': ['freshmarketer.com', 'claritybt.freshmarketer.com', 'fwtracks.freshmarketer.com'],
   'Lucky Orange': ['api.luckyorange.com', 'realtime.luckyorange.com', 'cdn.luckyorange.com', 'w1.luckyorange.com', 'upload.luckyorange.net', 'cs.luckyorange.net', 'settings.luckyorange.net'],
   'WordPress Stats': ['stats.wp.com'],
@@ -101,6 +129,8 @@ const EXTRA_STRICT = ['extmaps-api.yandex.net'];
 const BY = new Map();
 for (const [name, list] of Object.entries(T)) for (const d of list) BY.set(d, name);
 for (const [name, list] of Object.entries(EXTRA)) for (const d of list) if (!BY.has(d)) BY.set(d, name);
+const REC = new Map(); // recorder domain -> product
+for (const [name, list] of Object.entries(RECORDERS)) for (const d of list) { REC.set(d, name); BY.set(d, name); }
 BY.set('extmaps-api.yandex.net', 'Yandex');
 // Common ad boxes that the downloaded lists don't hide on their own (also when a page adds them later).
 const EXTRA_COSMETIC = [
@@ -117,15 +147,12 @@ const EXTRA_SCRIPTS = [
   { has: '/widget/ads.' },
   { has: '/pagead.js', site: 'adblock.turtlecute.org' },
 ];
-// Tracker addresses blocked on OTHER sites only, so the company's own pages keep working (analytics.google.com is
-// also the Google Analytics dashboard).
-const EXTRA_THIRD = ['analytics.google.com', 'googleanalytics.com', 'luckyorange.com'];
-// The same goes for a whole company site in EXTRA (mouseflow.com): blocked on other sites, not on its own website.
-// A single ad or telemetry address (ads.youtube.com) is blocked wherever it is loaded from.
-const wholeSite = (d) => d.split('.').length === 2;
+// Every address rule is "on other sites only" ($third-party): the tracker is blocked when another site loads it and the
+// company's own website and dashboards keep working. Basic is the ads-only level, so recorders start at Balanced.
+const third = (d) => `||${d}^$third-party`;
 const extraFilters = (level) => [
-  ...[...Object.values(EXTRA).flat(), ...(level === 'strict' ? EXTRA_STRICT : [])].map((d) => `||${d}^${wholeSite(d) ? '$third-party' : ''}`),
-  ...EXTRA_THIRD.map((d) => `||${d}^$third-party`),
+  ...[...Object.values(EXTRA).flat(), ...(level === 'strict' ? EXTRA_STRICT : [])].map(third),
+  ...(level === 'basic' ? [] : [...Object.values(RECORDERS).flat().map(third), ...RECORDER_PARTS.flatMap((p) => p.rules.map((r) => `${r}$third-party`))]),
   ...EXTRA_SCRIPTS.map((r) => `${r.has}$script${r.site ? `,domain=${r.site}` : ''}`),
   ...EXTRA_COSMETIC.map((sel) => `##${sel}`),
 ];
@@ -140,15 +167,29 @@ function extraScriptBlocked(url, pageHost, type) {
 }
 // Everything Oto for Android's own blocker needs (scripts/android-shield/build.js writes it into the app). It runs
 // next to the engine's own tracking protection, which already knows the big trackers and how to keep sign-in buttons
-// working. So this list stays small and careful: Oto's block lists only (not the label list T above), and without
-// connect.facebook.net ("Log in with Facebook"), which the engine handles better than a plain block.
+// working. So this list stays small and careful: Oto's block lists only (not the label list T above), on other
+// sites only, and without connect.facebook.net ("Log in with Facebook"), which the engine handles better.
 const ANDROID_LEAVE_TO_ENGINE = new Set(['connect.facebook.net']);
 const androidRules = () => ({
-  always: [...new Set([...Object.values(EXTRA).flat(), ...EXTRA_STRICT].filter((d) => !wholeSite(d)))].sort(), // ad and telemetry addresses: blocked wherever they are loaded from
-  third: [...new Set([...require('./blocklist.js'), ...Object.values(EXTRA).flat().filter(wholeSite), ...EXTRA_THIRD])].filter((d) => !ANDROID_LEAVE_TO_ENGINE.has(d)).sort(), // ad and tracker companies: blocked on other sites, not on their own
+  third: [...new Set([...require('./blocklist.js'), ...Object.values(EXTRA).flat(), ...EXTRA_STRICT, ...Object.values(RECORDERS).flat()])].filter((d) => !ANDROID_LEAVE_TO_ENGINE.has(d)).sort(),
   scripts: EXTRA_SCRIPTS,
   hide: EXTRA_COSMETIC,
 });
+
+// The session recorder behind an address, or '' (by the vendor's domains, or the recording part of a bigger product).
+function recorderOf(url) {
+  let u;
+  try { u = new URL(url); } catch { return ''; }
+  let h = u.hostname.toLowerCase();
+  for (const p of RECORDER_PARTS) if ((h === p.site || h.endsWith(`.${p.site}`)) && p.test.test(u.pathname)) return p.name;
+  while (h) {
+    if (REC.has(h)) return REC.get(h);
+    const i = h.indexOf('.');
+    if (i < 0) break;
+    h = h.slice(i + 1);
+  }
+  return '';
+}
 
 // The company behind a request's hostname, or '' if it isn't a known tracker.
 function trackerOf(host) {
@@ -161,4 +202,4 @@ function trackerOf(host) {
   }
   return '';
 }
-module.exports = { trackerOf, extraFilters, extraScriptBlocked, androidRules };
+module.exports = { trackerOf, recorderOf, extraFilters, extraScriptBlocked, androidRules, RECORDERS };

@@ -23,7 +23,32 @@ const SITES = {
   // a variable when it runs; a box counts as hidden when it has no height. A normal script and box are the controls.
   'adblock.turtlecute.org': () => adTester(),
   'adtest.site': () => adTester(), // the same page on another site: the tester-only script rule must not apply here
+  // Pages that load a session recorder from another site ("recorder.site") in every way a page can ask for something.
+  // quiet.site and private.site tell the browser not to say where requests come from (no Referer header).
+  'open.site': () => recorderUser(),
+  'quiet.site': () => ({ html: recorderUser(), headers: { 'Referrer-Policy': 'no-referrer' } }),
+  'private.site': () => ({ html: recorderUser(), headers: { 'Referrer-Policy': 'same-origin' } }),
+  'recorder.site': () => page('Recorder Inc.', '<h1>The recorder company\'s own website</h1><script src="/rec.js"></script>'),
 };
+// Every way of asking, each to its own address so the server can tell which ones arrived (see /__hits).
+const recorderUser = () => page('A site that records visitors', `<h1>A site that records visitors</h1>
+  <script src="http://recorder.site/rec.js?how=script"></script>
+  <img src="http://recorder.site/pixel.gif?how=img" width="1" height="1">
+  <iframe src="http://recorder.site/frame.html?how=frame" width="10" height="10"></iframe>
+  <script>window.__res = null; addEventListener('load', async () => {
+    const R = 'http://recorder.site/', tried = (p) => p.then(() => 'loaded', () => 'blocked');
+    const out = { script: typeof window.__rec === 'undefined' ? 'blocked' : 'loaded' };
+    out.fetch = await tried(fetch(R + 'collect?how=fetch', { mode: 'no-cors' }));
+    out.fetchNoRef = await tried(fetch(R + 'collect?how=fetch-noref', { mode: 'no-cors', referrerPolicy: 'no-referrer' }));
+    out.xhr = await new Promise((r) => { const x = new XMLHttpRequest(); x.open('GET', R + 'collect?how=xhr'); x.onload = () => r('loaded'); x.onerror = () => r('blocked'); x.send(); });
+    out.image = await new Promise((r) => { const i = new Image(); i.onload = () => r('loaded'); i.onerror = () => r('blocked'); i.src = R + 'pixel.gif?how=image'; });
+    try { navigator.sendBeacon(R + 'collect?how=beacon', 'x'); } catch (e) {}
+    try { const f = document.createElement('iframe'); document.body.appendChild(f); out.blankFrame = await tried(f.contentWindow.fetch(R + 'collect?how=blank-frame', { mode: 'no-cors' })); } catch (e) { out.blankFrame = 'error ' + e.message; }
+    try { out.worker = await new Promise((r) => { const w = new Worker(URL.createObjectURL(new Blob(["fetch('" + R + "collect?how=worker', { mode: 'no-cors' }).then(() => postMessage('loaded'), () => postMessage('blocked'))"]))); w.onmessage = (e) => r(e.data); setTimeout(() => r('timeout'), 3000); }); } catch (e) { out.worker = 'error ' + e.message; }
+    out.own = await tried(fetch('/own-data?how=own'));
+    setTimeout(() => { window.__res = out; }, 700);
+  });</script>`);
+const HITS = {}; // "how" -> how many requests of that kind reached recorder.site
 const adTester = () => page('Ad-block tester (local)', `<h1>Ad-block tester</h1>
   <div id="cts_test" class="textads adsbox banner_ads adbox ADBox AdBox adbox-wrapper adSocial ">&nbsp;</div><div id="ctd_test"></div><div id="normal_box" class="article-box">&nbsp;</div>
   <script defer src="./js/widget/ads.js"></script><script defer src="./js/pagead.js"></script><script defer src="./js/app.js"></script>
@@ -40,6 +65,14 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 function handler(req, res) {
   const host = String(req.headers.host || '').split(':')[0].toLowerCase().replace(/\.$/, '').replace(/\.sec$/, '.site');
   const url = new URL(req.url, 'http://x');
+  if (url.pathname === '/__hits') { const out = JSON.stringify(HITS); if (url.searchParams.get('reset')) for (const k of Object.keys(HITS)) delete HITS[k]; res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(out); }
+  if (host === 'recorder.site' && url.pathname !== '/') {
+    const how = `${url.searchParams.get('how') || 'own'}@${String(req.headers.referer || '').replace(/^https?:\/\//, '').split('/')[0] || 'no-referer'}`;
+    HITS[how] = (HITS[how] || 0) + 1;
+    if (url.pathname === '/rec.js') { res.writeHead(200, { 'Content-Type': 'application/javascript' }); return res.end('window.__rec = 1;'); }
+    if (url.pathname === '/pixel.gif') { res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(PNG); }
+    res.writeHead(200, { 'Content-Type': 'text/html', 'Access-Control-Allow-Origin': '*' }); return res.end('ok');
+  }
   if (url.pathname === '/go') { res.writeHead(302, { Location: url.searchParams.get('to') || '/' }); return res.end(); }
   if (url.pathname === '/report.pdf') { res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="report.pdf"' }); return res.end('%PDF-1.4 test'); }
   if (url.pathname === '/slow.bin') { // a file that takes ~1.5 s, so a tab closed mid-download can be checked
@@ -55,8 +88,9 @@ function handler(req, res) {
   if (host === 'tracker.site') { res.writeHead(200, { 'Content-Type': 'application/javascript' }); return res.end('window.__trackerLoaded = 1;'); }
   const site = SITES[host] || (host === 'localhost' || host === '127.0.0.1' ? SITES['login.site'] : null);
   if (!site) { res.writeHead(404); return res.end('not found'); }
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(site());
+  const made = site(), html = typeof made === 'string' ? made : made.html;
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...(made.headers || {}) });
+  res.end(html);
 }
 function selfSigned() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oto-e2e-cert-'));

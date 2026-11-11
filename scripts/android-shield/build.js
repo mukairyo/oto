@@ -11,7 +11,7 @@ const { androidRules } = require('../../trackers.js');
 function files() {
   const rules = androidRules();
   const out = {
-    'rules.js': `// Written by scripts/android-shield/build.js from Oto's lists (main branch). Don't edit by hand.\nconst OTO_RULES = ${JSON.stringify({ always: rules.always, third: rules.third, scripts: rules.scripts })};\n`,
+    'rules.js': `// Written by scripts/android-shield/build.js from Oto's lists (main branch). Don't edit by hand.\nconst OTO_RULES = ${JSON.stringify({ third: rules.third, scripts: rules.scripts })};\n`,
     'hide.css': `/* Written by scripts/android-shield/build.js. Common ad boxes, hidden. */\n${rules.hide.join(',\n')} { display: none !important; }\n`,
     'background.js': fs.readFileSync(path.join(__dirname, 'background.js'), 'utf8'),
   };
@@ -21,7 +21,7 @@ function files() {
   out['manifest.json'] = `${JSON.stringify({
     manifest_version: 2,
     name: 'Oto Shield',
-    version: `1.${rules.always.length + rules.third.length}.${rules.scripts.length + rules.hide.length}.${sum}`,
+    version: `1.${rules.third.length}.${rules.scripts.length + rules.hide.length}.${sum}`,
     description: 'Oto\'s own blocker: stops known ad, tracker and telemetry addresses and ad scripts, and hides common ad boxes.',
     browser_specific_settings: { gecko: { id: 'shield@oto.app' } },
     permissions: ['webRequest', 'webRequestBlocking', '<all_urls>'],

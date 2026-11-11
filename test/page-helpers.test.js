@@ -14,7 +14,8 @@ test('page helpers compile and embed the nonce', () => {
 test('tracker lookup and the extra block list', () => {
   assert.strictEqual(trackerOf('www.google-analytics.com'), 'Google Analytics');
   assert.strictEqual(trackerOf('example.com'), '');
-  assert.ok(extraFilters('balanced').includes('||adtago.s3.amazonaws.com^'));
-  assert.ok(!extraFilters('balanced').includes('||extmaps-api.yandex.net^'));
-  assert.ok(extraFilters('strict').includes('||extmaps-api.yandex.net^'));
+  assert.strictEqual(trackerOf('www.clarity.ms'), 'Microsoft Clarity');
+  assert.ok(extraFilters('balanced').includes('||adtago.s3.amazonaws.com^$third-party'));
+  assert.ok(!extraFilters('balanced').includes('||extmaps-api.yandex.net^$third-party'));
+  assert.ok(extraFilters('strict').includes('||extmaps-api.yandex.net^$third-party'));
 });
