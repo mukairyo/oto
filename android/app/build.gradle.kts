@@ -66,7 +66,7 @@ android {
 
 dependencies {
     implementation("org.mozilla.geckoview:geckoview:$geckoVersion")
-    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.core:core-ktx:1.19.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     // scrypt, to make the same account key as Oto for Windows
     implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
