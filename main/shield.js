@@ -79,7 +79,7 @@ module.exports = function createShield(ctx) {
     const list = new Set(require('../blocklist.js'));
     ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (d, cb) => {
       if (dangerCheck(d)) return cb({ cancel: true });
-      if (d.resourceType === 'mainFrame') return cb({});
+      if (d.resourceType === 'mainFrame') { const clean = cleanLink(d); return cb(clean ? { redirectURL: clean } : {}); }
       let h;
       try { h = new URL(d.url).hostname.toLowerCase().replace(/\.+$/, ''); } catch { return cb({}); }
       const pageHost = pageHostOf(d.webContentsId);
@@ -128,11 +128,20 @@ module.exports = function createShield(ctx) {
     return shieldLines().length;
   }
   const { withSource } = require('./request-source.js');
+  // Click identifiers (fbclid, gclid, ...) are taken out of the address when you open a page (main/clean-url.js): part
+  // of tracker blocking, so off with the Trackers switch, with Shield off, and for a site that has Shield off.
+  const { cleanNavigation } = require('./clean-url.js');
+  const cleanLink = (d) => (d.resourceType === 'mainFrame' && d.method === 'GET' && features().lists !== 'basic' && !shieldAllowed(shieldHost(d.url)) ? cleanNavigation(d.url) : '');
   const pageUrlOf = (wcId) => { try { const wc = wcId && webContents.fromId(wcId); return wc ? wc.getURL() : ''; } catch { return ''; } };
   function shieldPatch(b) {
     const ob = b.onBeforeRequest, oh = b.onHeadersReceived, oc = b.onInjectCosmeticFilters;
     // withSource: the engine learns which page asks from the real frame when the page sends no Referer (request-source.js)
-    b.onBeforeRequest = (d, cb) => (dangerCheck(d) ? cb({ cancel: true }) : shieldAllowed(pageHostOf(d.webContentsId)) ? cb({}) : ob(withSource(d, () => pageUrlOf(d.webContentsId)), cb));
+    b.onBeforeRequest = (d, cb) => {
+      if (dangerCheck(d)) return cb({ cancel: true });
+      const clean = cleanLink(d);
+      if (clean) return cb({ redirectURL: clean });
+      return shieldAllowed(pageHostOf(d.webContentsId)) ? cb({}) : ob(withSource(d, () => pageUrlOf(d.webContentsId)), cb);
+    };
     b.onHeadersReceived = (d, cb) => (shieldAllowed(pageHostOf(d.webContentsId)) ? cb({}) : oh(withSource(d, () => pageUrlOf(d.webContentsId)), cb));
     b.onInjectCosmeticFilters = async (ev, url, msg) => {
       if (shieldAllowed(shieldHost(ev.sender && ev.sender.getURL ? ev.sender.getURL() : url))) return;

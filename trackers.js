@@ -106,6 +106,7 @@ const EXTRA = {
   'WordPress Stats': ['stats.wp.com'],
   'Bugsnag': ['notify.bugsnag.com', 'sessions.bugsnag.com', 'api.bugsnag.com', 'app.bugsnag.com'],
   'Sentry': ['browser.sentry-cdn.com', 'app.getsentry.com'],
+  'Vercel Analytics': ['va.vercel-scripts.com', 'vitals.vercel-insights.com'],
   'Meta (Facebook)': ['pixel.facebook.com', 'an.facebook.com'],
   'X (Twitter)': ['static.ads-twitter.com', 'ads-api.twitter.com'],
   'LinkedIn': ['ads.linkedin.com', 'analytics.pointdrive.linkedin.com'],

@@ -28,6 +28,8 @@ module.exports = async (t) => {
     t.check('the same embedded frame reads different values on two sites (it can\'t link them)', fsame.length === 0, `still the same: ${fsame.join(', ') || 'none'} | ${show(f1)} | ${show(f2)}`);
     t.check('…and the frame sees what the page around it sees (one consistent answer per site)', noisy.every((k) => f1[k] === a1.page[k]), `${show(f1)} | ${show(a1.page)}`);
     t.check('no Node.js or Electron inside a frame', f1.node === 'undefined/undefined/undefined/undefined/undefined', f1.node);
+    // Chromium keeps a frame's storage apart per site that embeds it; Oto relies on that instead of rules of its own
+    t.check('storage of an embedded frame is not shared between the two sites that embed it (Chromium\'s partitioning is on)', f1.sawStorage === 'empty' && f2.sawStorage === 'empty', `${f1.sawStorage} / ${f2.sawStorage}`);
   }
   t.check('no Node.js or Electron in the page', a1.page.node === 'undefined/undefined/undefined/undefined/undefined', a1.page.node);
   t.check('replaced functions look like the browser\'s own (name, arguments, source)', a1.page.looks === 'toDataURL/0/true/get contentWindow/true', a1.page.looks);

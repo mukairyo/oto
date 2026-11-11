@@ -33,6 +33,16 @@ module.exports = async (t) => {
   await t.js("oto.shield.site('http://quiet.site/', false)"); await t.sleep(500);
   const back = await visit('quiet.site');
   t.check('…and switching it back on protects that site again', ways.every((w) => back.res[w] === 'blocked'), JSON.stringify(back.res));
+
+  // Click identifiers (fbclid, gclid, ...) are removed from the address when a page is opened; the rest is untouched
+  await t.open('http://fine.site/?fbclid=IwAR0abc&page=2&gclid=Cj0K#top', 3000);
+  t.check('opening a link with click identifiers: they are gone, the rest of the address is kept', (await t.page('location.search + location.hash')) === '?page=2#top', await t.page('location.href'));
+  await t.open('http://fine.site/?utm_source=newsletter&ref=friend', 3000);
+  t.check('campaign labels and referral codes are left alone', (await t.page('location.search')) === '?utm_source=newsletter&ref=friend', await t.page('location.href'));
+  await t.js("oto.shield.site('http://nav.site/', true)"); await t.sleep(400);
+  await t.open('http://nav.site/?fbclid=IwAR0abc&page=2', 3000);
+  t.check('a site with Shield off gets the address exactly as it was', (await t.page('location.search')) === '?fbclid=IwAR0abc&page=2', await t.page('location.href'));
+  await t.js("oto.shield.site('http://nav.site/', false)");
 };
 
 // Offline: a small filter engine in the cache file Oto reads. The recorder rule is the usual list form: "on other sites only".

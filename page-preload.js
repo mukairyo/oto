@@ -92,8 +92,9 @@ function otoFarble(seed) {
   // draw a plain test picture, see which pixels moved, and undo the same changes in its real fingerprint picture.
   const noisePixels = (d) => {
     let k = d.length >>> 0;
-    for (let i = 0; i < d.length; i += 4) k = (Math.imul(k ^ d[i] ^ (d[i + 1] << 8) ^ (d[i + 2] << 16) ^ (d[i + 3] << 24), 0x01000193)) >>> 0;
-    k = mix(k);
+    if (d.byteOffset % 4 === 0 && d.length % 4 === 0) { const p = new Uint32Array(d.buffer, d.byteOffset, d.length >>> 2); for (let i = 0; i < p.length; i++) k = Math.imul(k ^ p[i], 0x01000193); } // a whole pixel at a time
+    else for (let i = 0; i + 3 < d.length; i += 4) k = Math.imul(k ^ (d[i] | (d[i + 1] << 8) | (d[i + 2] << 16) | (d[i + 3] << 24)), 0x01000193);
+    k = mix(k >>> 0);
     for (let i = 0; i < d.length; i += 4) { const m = mix(i ^ k); if ((m & 15) === 0) { const c = i + (m >>> 4) % 3; d[c] = d[c] ^ 1; } }
   };
   function patch(w) {
@@ -164,10 +165,21 @@ function otoFarble(seed) {
       if (AB) {
         const seen = new WeakSet();
         const nativeGet = AB.getChannelData;
-        // the changes are made once, in the sound data itself, so every way of reading it gives the same answer
+        // The changes are made once, in the sound data itself, so every way of reading it gives the same answer.
+        // A volume factor between 0.99 and 1 (far too small to hear) gives every site and session its own values;
+        // a few samples also move by about a millionth, so the factor can't simply be divided out again. Silence
+        // stays silence. (Changing only a few samples by less than the data can store gave two sites the same
+        // values far too often; the end-to-end test caught that.)
+        const gain = 1 - (mix(0x9e3779b9) / 4294967296) * 0.01;
         const noised = (buf, ch) => {
           const d = nativeGet.call(buf, ch);
-          try { if (!seen.has(d)) { seen.add(d); for (let i = 0; i < d.length; i += 97) { const m = mix(i); if (m & 1) d[i] += ((m >>> 8) / 4294967296 - 0.5) * 1e-7; } } } catch (e) {}
+          try {
+            if (!seen.has(d)) {
+              seen.add(d);
+              for (let i = 0; i < d.length; i++) d[i] *= gain;
+              for (let i = 0; i < d.length; i += 31) if (d[i] !== 0) d[i] += ((mix(i) >>> 8) / 16777216 - 0.5) * 2e-6;
+            }
+          } catch (e) {}
           return d;
         };
         swap(AB, 'getChannelData', () => function getChannelData(channel) { return arguments.length ? noised(this, channel) : nativeGet.apply(this, arguments); });

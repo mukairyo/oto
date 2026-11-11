@@ -3,6 +3,30 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.5.0 — not released yet
+
+*Privacy upgrade. On the `privacy-upgrade` branch for testing; details and limits in docs/PRIVACY_PROTECTION.md.*
+
+**Fixed**
+- **Trackers could get past Oto Shield on pages that hide where requests come from.** Most tracker rules only apply when a tracker is loaded by another site. Oto worked out "which site is asking" from a header that a page can switch off, and then those rules never applied. With Oto's real lists, a page like that let 35 of 47 well-known session recorders through; now 5. Oto asks the browser which frame made the request instead.
+- **Fingerprint protection did not run inside frames from other sites.** A tracker embedded in a page read the real canvas and audio values. Protection now runs in every frame; a frame gets the changes of the site you are on.
+- **Two ways around fingerprint protection are closed:** drawing on an off-screen canvas, and one way of reading audio.
+- **Oto's own extra rules no longer break the companies' own sites.** Addresses like `ads.tiktok.com` and `app.bugsnag.com` were blocked everywhere, also on the dashboards people log in to. They are now blocked on other sites only.
+
+**New**
+- **Session recorders are blocked and counted on their own.** Products that record your mouse, scrolling, clicks and typing so a visit can be replayed (Hotjar, FullStory, Microsoft Clarity, LogRocket and about 15 more). The privacy dashboard shows how many were stopped this week.
+- **Protection levels: Standard, Strict and Custom.** Standard is what Balanced was, plus the new protections. Strict adds cookie-banner and popup blocking and tells calls less about your network. Custom has a switch for each protection, and Restore defaults. Your old setting keeps its meaning.
+- **Calls can't bypass a VPN.** WebRTC now only uses the connection your traffic really uses (Standard), or only its public address (Strict).
+- **Click identifiers are removed from links** when you open a page (`fbclid`, `gclid`, `msclkid` and similar). Campaign labels and affiliate codes are left alone.
+- **Battery level is no longer readable by sites;** every site gets a desktop PC's answer.
+- The dashboard shows the protection level, what is switched on, and how many sites have Shield off.
+
+**Good to know**
+- Cover Your Tracks will still say "unique fingerprint". It says "randomized" only when 4 of 5 things differ between sites; Oto varies 3 (canvas, WebGL, audio). The other two are the plugin list, which is identical for every Chrome user so varying it hides nothing, and CPU cores, which Oto can't vary without pages seeing two different answers.
+- Some entries on blocker test pages stay "not blocked" in Oto and in Brave: the lists swap those scripts for an empty stand-in so sites don't break. The real tracker never loads.
+- A page with many embedded frames loads a little slower (about 5 ms per frame on the test machine), because protection now runs in each frame.
+- Not tested here: real websites and the real test sites. See the checklist in the test build notes.
+
 ## 1.4.2 — 2026-11-11
 
 *A check-up release: everything was gone through again. Nothing to do: it updates itself.*

@@ -74,6 +74,8 @@ const fpPage = (withFrame) => page('Fingerprint readings', `<h1>Fingerprint read
       out.audioCopy = await mk().then((b) => { const d = new Float32Array(5000); b.copyFromChannel(d, 0); return sum(d); }); // read WITHOUT getChannelData first
       out.audioData = await mk().then((b) => sum(b.getChannelData(0)));
     } catch (e) { out.audio = 'error ' + e.message; }
+    // storage inside a frame from another site: is it shared between the sites that embed the frame?
+    try { out.sawStorage = localStorage.getItem('oto-fp-test') || 'empty'; localStorage.setItem('oto-fp-test', 'written under ' + (document.referrer || location.href)); } catch (e) { out.sawStorage = 'blocked'; }
     out.cores = navigator.hardwareConcurrency; out.plugins = [...navigator.plugins].map((p) => p.name).join('|'); out.agent = navigator.userAgent;
     // no Node.js or Electron in the page, also not inside frames
     out.node = [typeof require, typeof process, typeof module, typeof global, typeof Buffer].join('/');
