@@ -244,6 +244,7 @@ function createWindow() {
     webPreferences.nodeIntegration = false;
     webPreferences.contextIsolation = true;
     webPreferences.sandbox = true;
+    webPreferences.nodeIntegrationInSubFrames = true; // see pagesInFrames below: page protection in every frame, no Node
     // v1: a space can have its own logins (its own cookie jar): persist:oto-ws-<space id>
     const sp = /^persist:oto-ws-[\w-]{1,40}$/.test(params.partition || '') ? params.partition : null;
     if (sp) prepSpaceSession(sp);
@@ -253,10 +254,22 @@ function createWindow() {
   });
 }
 
+// pagesInFrames: "nodeIntegrationInSubFrames" is Electron's name for "also run the session's page scripts in frames
+// inside a page". It gives pages NO Node.js: every page and frame stays sandboxed, context-isolated and without Node
+// (checked by the end-to-end tests). Without it Oto's page protection (fingerprint changes, the ad blocker's hiding
+// rules, YouTube ad removal in embedded players) only ran in the top page, and a tracker inside a frame from another
+// site, which is where trackers usually sit, read the real fingerprint.
+
 // Every page (webview) gets keyboard shortcuts, tab-style popups and a context menu.
 app.on('web-contents-created', (_e, contents) => {
   if (contents.getType() !== 'webview') return;
   contents.on('before-input-event', (e, input) => handleKeys(e, input, contents));
+  // Calls (WebRTC): how much of this PC's network the page may find out follows the Shield level and the site
+  SH.rtcApply(contents);
+  contents.on('did-start-navigation', (ev, url, _inPlace, isMain) => {
+    const main = ev && typeof ev.isMainFrame === 'boolean' ? ev.isMainFrame : isMain, same = ev && ev.isSameDocument;
+    if (main && !same) SH.rtcApply(contents, (ev && ev.url) || url);
+  });
   // Tell the UI when the mouse is moving over a page (throttled): on Windows the UI doesn't get
   // a reliable "mouse left" when you move from the sidebar onto a page.
   let lastMouse = 0;
@@ -359,6 +372,7 @@ function createAvocadoWindow() {
   ui.on('will-attach-webview', (e, webPreferences, params) => {
     delete webPreferences.preload;
     webPreferences.nodeIntegration = false; webPreferences.contextIsolation = true; webPreferences.sandbox = true;
+    webPreferences.nodeIntegrationInSubFrames = true; // page protection in every frame (see the normal window above), no Node
     // Private window: only the in-memory 'avocado' session. Electron 45 ignores changes to params.partition, so a page
     // asking for anything else (like the saved 'persist:oto' jar) is refused, never loaded where it could leave traces.
     if (params.partition !== AVOCADO) { console.warn('[oto] refused a non-private page in a private window:', params.partition); return e.preventDefault(); }
@@ -1029,7 +1043,7 @@ function setupIPC(ses) {
     return [];
   });
   // Shield on/off applies to every session at once (main, every Space, Avocado), not just the main one.
-  ipcMain.handle('blocker:set', async (_e, on) => { let mode = 'off'; for (const x of liveSessions()) mode = on ? await enableBlocking(x) : disableBlocking(x); return mode; });
+  ipcMain.handle('blocker:set', async (_e, on) => { let mode = 'off'; for (const x of liveSessions()) mode = on ? await enableBlocking(x) : disableBlocking(x); SH.rtcRefresh(); return mode; });
   SH.setupShieldIPC();
   ipcMain.on('screen:reply', (_e, id, sourceId, audio) => {
     const p = screenPicks.get(id);
@@ -1119,7 +1133,7 @@ function setupIPC(ses) {
       const fh = (() => { try { return new URL(String(frameOrigin)).hostname; } catch { return ''; } })();
       const humanCheck = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net|arkoselabs\.com|funcaptcha\.com)$/.test(fh)
         || (/(^|\.)google\.com$/.test(fh) && fh !== top);
-      if (top && !humanCheck && SHIELD.conf.fp !== false && SH.mode() !== 'off' && !shieldAllowed(top)) {
+      if (top && !humanCheck && SH.features().fp && SH.mode() !== 'off' && !shieldAllowed(top)) {
         r.fp = require('crypto').createHash('sha256').update(`${FP_SESSION}|${regDomain(top)}`).digest().readUInt32LE(0) || 1;
       }
     } catch {}

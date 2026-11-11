@@ -108,7 +108,10 @@ module.exports = function createShield(ctx) {
   };
   // Protection level: Basic = ads, Balanced = ads + trackers, Strict = everything incl. annoyances & cookie banners.
   const SHIELD_LEVELS = { basic: ['fromPrebuiltAdsOnly', 'adblock-engine-ads.bin'], balanced: ['fromPrebuiltAdsAndTracking', 'adblock-engine.bin'], strict: ['fromPrebuiltFull', 'adblock-engine-full.bin'] };
-  const shieldLevel = () => (SHIELD_LEVELS[SHIELD.conf.level] ? SHIELD.conf.level : SHIELD.conf.annoy ? 'strict' : 'balanced');
+  // Standard / Strict / Custom and what each switches on: main/shield-levels.js
+  const LV = require('./shield-levels.js');
+  const features = () => LV.featuresOf(SHIELD.conf);
+  const shieldLevel = () => features().lists;
   const shieldListsAt = () => { try { return fs.statSync(userFile(SHIELD_LEVELS[shieldLevel()][1])).mtimeMs; } catch { return 0; } };
   const FP_SESSION = require('crypto').randomBytes(16).toString('hex');
   const shieldHost = (u) => { try { return new URL(u).hostname.toLowerCase().replace(/\.+$/, '').replace(/^www\./, ''); } catch { return ''; } };
@@ -117,7 +120,7 @@ module.exports = function createShield(ctx) {
   const shieldLines = () => SHIELD.custom.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('!') && !l.startsWith('#'));
   function shieldApplyCustom() {
     if (!blocker) return 0;
-    const lines = [...new Set([...extraFilters(shieldLevel()), ...shieldLines()])];
+    const lines = [...new Set([...extraFilters(shieldLevel(), { recorders: features().recorders }), ...shieldLines()])];
     const added = lines.filter((l) => !SHIELD.applied.includes(l));
     const removed = SHIELD.applied.filter((l) => !lines.includes(l));
     try { if (added.length || removed.length) blocker.updateFromDiff({ added, removed }); } catch (e) { console.warn('[oto] custom filters:', e && e.message); }
@@ -238,11 +241,20 @@ module.exports = function createShield(ctx) {
     return blockingMode;
   }
 
+  // Calls (WebRTC): how much of this PC's network a page may find out (main/shield-levels.js). Set per tab, again
+  // whenever the tab goes to another site (a site with Shield off gets Chromium's default) or the setting changes.
+  const webrtcPolicy = (host) => LV.webrtcPolicy(features(), blockingMode === 'off' || shieldAllowed(host));
+  function rtcApply(wc, url) {
+    try { if (wc && !wc.isDestroyed() && wc.getType() === 'webview') { const p = webrtcPolicy(shieldHost(url || wc.getURL())); if (wc.getWebRTCIPHandlingPolicy() !== p) wc.setWebRTCIPHandlingPolicy(p); } } catch {}
+  }
+  function rtcRefresh() { try { for (const wc of webContents.getAllWebContents()) rtcApply(wc); } catch {} }
+
   // Oto Shield menu and page (settings, levels, lists, stats)
   function setupShieldIPC() {
     ipcMain.handle('shield:state', (_e, url) => {
       const host = shieldHost(url);
-      return { host, allowed: shieldAllowed(host), fp: SHIELD.conf.fp !== false, danger: SHIELD.conf.danger !== false, dangerAt: DANGER.at, dangerCount: DANGER.malware.size + DANGER.phishing.size, annoy: shieldLevel() === 'strict', level: shieldLevel(), listsAt: shieldListsAt(), mode: blockingMode, filters: shieldLines().length, allow: [...SHIELD.allow].sort() };
+      const ft = features();
+      return { host, allowed: shieldAllowed(host), fp: ft.fp, protection: ft.mode, features: { trackers: ft.lists !== 'basic', annoyances: ft.lists === 'strict', recorders: ft.recorders, fp: ft.fp, webrtc: ft.webrtc }, danger: SHIELD.conf.danger !== false, dangerAt: DANGER.at, dangerCount: DANGER.malware.size + DANGER.phishing.size, annoy: shieldLevel() === 'strict', level: shieldLevel(), listsAt: shieldListsAt(), mode: blockingMode, filters: shieldLines().length, allow: [...SHIELD.allow].sort() };
     });
     ipcMain.handle('shield:site', (_e, url, allow) => {
       const host = shieldHost(url);
@@ -250,6 +262,7 @@ module.exports = function createShield(ctx) {
       if (allow) SHIELD.allow.add(host);
       else { let h = host; while (h) { SHIELD.allow.delete(h); const i = h.indexOf('.'); if (i < 0) break; h = h.slice(i + 1); } }
       (ctx.saveOrWarn || writeJSON)('shield-allow.json', [...SHIELD.allow], 'Oto Shield site exceptions');
+      rtcRefresh();
       return shieldAllowed(host);
     });
     // Your own filter rules (and elements you hid with the picker): saved all-or-nothing; a failure is reported.
@@ -271,16 +284,22 @@ module.exports = function createShield(ctx) {
       if (!shieldLines().includes(line)) { SHIELD.custom = `${SHIELD.custom.replace(/\s*$/, '')}\n${line}\n`.replace(/^\n/, ''); saveFilters(); shieldApplyCustom(); }
       return true;
     });
-    const setLevel = async (lvl) => {
-      if (!SHIELD_LEVELS[lvl]) lvl = 'balanced';
-      const changed = lvl !== shieldLevel();
-      SHIELD.conf.level = lvl; SHIELD.conf.annoy = lvl === 'strict';
+    // Change the level or one protection, save, and make the running blocker and the open pages follow.
+    const change = async (how) => {
+      const before = features();
+      how();
+      const ft = features();
       (ctx.saveOrWarn || writeJSON)('shield.json', SHIELD.conf, 'Oto Shield settings');
-      if (changed && blocker) await shieldRebuild();
-      return { annoy: lvl === 'strict', level: shieldLevel(), mode: blockingMode, listsAt: shieldListsAt() };
+      if (ft.lists !== before.lists && blocker) await shieldRebuild(); // other filter lists
+      else if (ft.recorders !== before.recorders) shieldApplyCustom(); // Oto's own rules only
+      if (ft.webrtc !== before.webrtc) rtcRefresh();
+      return { annoy: ft.lists === 'strict', level: ft.lists, protection: ft.mode, fp: ft.fp, features: { trackers: ft.lists !== 'basic', annoyances: ft.lists === 'strict', recorders: ft.recorders, fp: ft.fp, webrtc: ft.webrtc }, mode: blockingMode, listsAt: shieldListsAt() };
     };
-    ipcMain.handle('shield:annoy', (_e, on) => setLevel(on ? 'strict' : 'balanced'));
+    // 'standard' | 'strict' | 'custom' (the older 'balanced' and 'basic' are still understood)
+    const setLevel = (lvl) => change(() => { if (!LV.setMode(SHIELD.conf, lvl)) LV.setMode(SHIELD.conf, 'standard'); });
+    ipcMain.handle('shield:annoy', (_e, on) => change(() => LV.setFeature(SHIELD.conf, 'annoyances', !!on)));
     ipcMain.handle('shield:level', (_e, lvl) => setLevel(String(lvl || '')));
+    ipcMain.handle('shield:feature', (_e, name, value) => change(() => LV.setFeature(SHIELD.conf, String(name || ''), value)));
     // Download fresh filter lists now (they also refresh by themselves every 7 days). Keeps the old ones if offline.
     ipcMain.handle('shield:update', async () => {
       if (!blocker) return { ok: false, off: true, listsAt: shieldListsAt(), mode: blockingMode };
@@ -294,7 +313,7 @@ module.exports = function createShield(ctx) {
     ipcMain.handle('shield:danger', (_e, on) => { SHIELD.conf.danger = !!on; (ctx.saveOrWarn || writeJSON)('shield.json', SHIELD.conf, 'Oto Shield settings'); return SHIELD.conf.danger; });
     ipcMain.handle('shield:dangerAllow', (_e, host) => { const h = normHost(host); if (h) DANGER.allow.add(h); return true; }); // until Oto restarts
     ipcMain.handle('shield:dangerUpdate', async () => { const ok = await dangerUpdate(true); return { ok, dangerAt: DANGER.at, dangerCount: DANGER.malware.size + DANGER.phishing.size }; });
-    ipcMain.handle('shield:fp', (_e, on) => { SHIELD.conf.fp = !!on; (ctx.saveOrWarn || writeJSON)('shield.json', SHIELD.conf, 'Oto Shield settings'); return SHIELD.conf.fp; });
+    ipcMain.handle('shield:fp', async (_e, on) => (await change(() => LV.setFeature(SHIELD.conf, 'fp', !!on))).fp);
     ipcMain.handle('shield:stats', () => pstatsView());
     ipcMain.handle('shield:statsReset', () => { PSTATS.days = {}; PSTATS.sites = {}; PSTATS.total = 0; PSTATS.since = Date.now(); pstatsSave(); return pstatsView(); });
   }
@@ -302,7 +321,7 @@ module.exports = function createShield(ctx) {
   return {
     enableBlocking, disableBlocking, shieldHost, shieldAllowed, shieldLevel, shieldListsAt, regDomain, dangerUpdate, setupShieldIPC,
     dangerOf: (host) => (SHIELD.conf.danger === false ? '' : dangerOf(host)),
-    SHIELD, DANGER, FP_SESSION,
+    SHIELD, DANGER, FP_SESSION, features, rtcApply, rtcRefresh,
     mode: () => blockingMode,
     flushStats() { if (pstatsTimer) pstatsSave(); },
   };

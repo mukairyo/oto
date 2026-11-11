@@ -73,11 +73,11 @@ function shpDays(days, back) {
     const t = new Date(Date.now() - i * 864e5);
     const k = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
     const d = (days || {})[k] || { a: 0, t: 0 };
-    out.push({ k, t, a: d.a || 0, tr: d.t || 0 });
+    out.push({ k, t, a: d.a || 0, tr: d.t || 0, r: d.r || 0 });
   }
   return out;
 }
-const shpSum = (list) => list.reduce((s, d) => ({ a: s.a + d.a, tr: s.tr + d.tr }), { a: 0, tr: 0 });
+const shpSum = (list) => list.reduce((s, d) => ({ a: s.a + d.a, tr: s.tr + d.tr, r: s.r + (d.r || 0) }), { a: 0, tr: 0, r: 0 });
 function shpAgo(t) {
   if (!t) return 'not yet';
   const s = Math.max(0, (Date.now() - t) / 1000);
@@ -102,6 +102,22 @@ function shpSeg(opts, cur, onpick) {
     await onpick(id);
   } }, label)));
   return box;
+}
+
+// A line of plain facts under the big numbers: session recorders stopped (counted from real blocked requests), the
+// protection level, which protections are on right now, and how many sites have Shield switched off.
+function shpFacts(week, s) {
+  const st = SHP.st || {};
+  const ft = st.features || {};
+  const prot = st.protection || (st.level === 'strict' ? 'strict' : 'standard');
+  const off = S.settings.blockTrackers === false;
+  const recSites = (s.sites || []).filter((x) => x.r > 0).length;
+  const onList = off ? [] : [['Ads', true], ['Trackers', ft.trackers], ['Session recorders', ft.recorders], ['Cookie banners', ft.annoyances], ['Fingerprint protection', ft.fp], ['Calls hide your network', ft.webrtc && ft.webrtc !== 'off']].filter((x) => x[1]).map((x) => x[0]);
+  const fact = (k, v, sub) => h('div', { class: 'fact' }, h('small', {}, k), h('b', {}, v), sub ? h('span', {}, sub) : null);
+  return h('div', { class: 'sh-facts' },
+    fact('SESSION RECORDERS · THIS WEEK', shpN(week.r || 0), week.r ? `stopped from recording you on ${recSites} ${recSites === 1 ? 'site' : 'sites'}` : 'none tried to record you'),
+    fact('PROTECTION', off ? 'Off' : prot[0].toUpperCase() + prot.slice(1), off ? 'Turn it on in Blocking' : onList.join(' · ')),
+    fact('SITE EXCEPTIONS', shpN((st.allow || []).length), (st.allow || []).length ? 'Shield is off on these sites' : 'Shield works on every site'));
 }
 
 // ---------------------------------------------------------------- 01 overview
@@ -137,6 +153,7 @@ function shpOverview() {
       cell('TODAY', today.a + today.tr, `${shpN(today.tr)} trackers · ${shpN(today.a)} ads`),
       cell('THIS WEEK', week.a + week.tr, `${shpN(week.tr)} trackers · ${shpN(week.a)} ads`),
       cell('IN TOTAL', total, `since ${since}`)),
+    shpFacts(week, s),
     shpLbl('LAST 14 DAYS', h('span', { class: 'leg' }, h('i', { class: 't' }), 'TRACKERS', h('i', { class: 'a' }), 'ADS')),
     chart,
     h('div', { class: 'sh-two' },
@@ -153,15 +170,31 @@ function shpOverview() {
 
 // ---------------------------------------------------------------- 02 blocking
 const SHP_LEVELS = [
-  ['basic', 'Basic', 'Ads only. The fewest sites break.'],
-  ['balanced', 'Balanced', 'Ads and trackers. Recommended.'],
-  ['strict', 'Strict', 'Ads, trackers, cookie banners, popups and “turn off your adblocker” walls. A few sites may break.'],
+  ['standard', 'Standard', 'Ads, trackers and session recorders blocked. Fingerprint protection. Recommended.'],
+  ['strict', 'Strict', 'Standard, plus cookie banners, popups and “turn off your adblocker” walls, and calls learn less about your network. A few sites may break.'],
+  ['custom', 'Custom', 'Choose each protection yourself, below.'],
 ];
+// Each protection as a switch. Changing one moves the level to Custom (Oto's main process does that).
+const SHP_FEATURES = [
+  ['trackers', 'Trackers and analytics', 'Scripts that follow you from site to site (Google Analytics, Meta, TikTok and thousands more)'],
+  ['recorders', 'Session recorders', 'Products that record your mouse, scrolling, clicks and typing on a page so it can be replayed (Hotjar, FullStory, Clarity…)'],
+  ['annoyances', 'Cookie banners and popups', 'Also newsletter popups and “turn off your adblocker” walls. A few sites may break'],
+  ['fp', 'Fingerprint protection', 'Each site gets slightly different canvas, WebGL and audio answers every session, so it can’t recognise this PC. Not a full shield: screen size, fonts and time zone stay real'],
+];
+const SHP_RTC = [['off', 'Off'], ['route', 'Standard'], ['public', 'Strict']];
+const SHP_RTC_HELP = {
+  off: 'A call can find every network connection of this PC, also your real address when you use a VPN',
+  route: 'A call only sees the connection your traffic really uses, so a VPN isn’t bypassed',
+  public: 'A call only sees your public address, nothing about your home network. Calls on the same Wi-Fi may connect slower',
+};
 function shpBlocking() {
   const st = SHP.st || {};
   const on = S.settings.blockTrackers !== false;
   const t = activeTab();
   const web = !!(t && /^https?:/.test(t.url || ''));
+  // st.protection and st.features come from Oto's main process (settings from before 1.5 are understood there)
+  const prot = st.protection || (st.level === 'strict' ? 'strict' : 'standard');
+  const ft = st.features || { trackers: st.level !== 'basic', annoyances: st.level === 'strict', recorders: st.level !== 'basic', fp: st.fp !== false, webrtc: 'route' };
   const add = h('input', { class: 'sh-in', placeholder: 'example.com', spellcheck: 'false', onkeydown: (e) => { if (e.key === 'Enter') addSite(); } });
   async function addSite() {
     const host = hostOf(/^https?:/.test(add.value) ? add.value : `https://${add.value.trim()}`);
@@ -177,19 +210,23 @@ function shpBlocking() {
     h('div', { class: 'sh-row big' }, h('span', { class: 'tt' }, h('b', {}, 'Block ads & trackers'), h('small', {}, on ? (st.mode === 'basic' ? 'Using the built-in list until the full lists load' : 'On everywhere, except the sites below') : 'Off everywhere')),
       shpSwitch(on, async (v) => { setPref('blockTrackers', v); INFO.blocking = await oto.setBlocking(v); updateChrome(); SHP.st = await oto.shield.state('https://oto.local/'); shpPaint(); toast(v ? 'Blocking on. Reload pages to apply' : 'Blocking off', { icon: 'shield', timeout: 1800 }); })),
     shpLbl('PROTECTION LEVEL'),
-    h('div', { class: `sh-levels${on ? '' : ' dim'}` }, ...SHP_LEVELS.map(([id, name, desc], i) => h('button', { class: `lv${st.level === id ? ' on' : ''}`, disabled: SHP.busy, onclick: async () => {
-      if (st.level === id || SHP.busy) return;
-      SHP.busy = true; st.level = id; shpPaint();
+    h('div', { class: `sh-levels${on ? '' : ' dim'}` }, ...SHP_LEVELS.map(([id, name, desc], i) => h('button', { class: `lv${prot === id ? ' on' : ''}`, disabled: SHP.busy, onclick: async () => {
+      if (prot === id || SHP.busy) return;
+      SHP.busy = true; st.protection = id; shpPaint();
       const r = await oto.shield.level(id);
       SHP.busy = false; Object.assign(st, r); shpPaint();
-      toast(`${name} protection. Reload pages to apply`, { icon: 'shield', timeout: 2200 });
-    } }, h('small', {}, String(i + 1).padStart(2, '0')), h('b', {}, name), h('span', {}, desc), h('i', { class: 'meter' }, ...[0, 1, 2].map((k) => h('em', { class: k <= i ? 'f' : '' })))))),
+      toast(id === 'custom' ? 'Custom protection. Use the switches below' : `${name} protection. Reload pages to apply`, { icon: 'shield', timeout: 2200 });
+    } }, h('small', {}, String(i + 1).padStart(2, '0')), h('b', {}, name), h('span', {}, desc), h('i', { class: 'meter' }, ...[0, 1, 2].map((k) => h('em', { class: id !== 'custom' && k <= i + 1 ? 'f' : '' })))))),
+    shpLbl('WHAT’S ON', h('span', { class: 'leg' }, prot === 'custom' ? h('button', { class: 'sh-btn', disabled: !!SHP.busy, onclick: async () => { Object.assign(st, await oto.shield.level('standard')); shpPaint(); toast('Back to Standard protection. Reload pages to apply', { icon: 'shield', timeout: 2200 }); } }, 'RESTORE DEFAULTS') : 'CHANGING A SWITCH MAKES IT CUSTOM')),
+    h('div', { class: `sh-feats${on ? '' : ' dim'}` },
+      h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'Ads'), h('small', {}, 'Always blocked while Oto Shield is on')), h('span', { class: 'sh-fixed' }, 'ON')),
+      ...SHP_FEATURES.map(([id, name, desc]) => h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, name), h('small', {}, desc)),
+        shpSwitch(!!ft[id], async (v) => { Object.assign(st, await oto.shield.feature(id, v)); shpPaint(); toast(`${name} ${v ? 'on' : 'off'}. Reload pages to apply`, { icon: 'shield', timeout: 2000 }); }))),
+      h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'Calls and your network (WebRTC)'), h('small', {}, SHP_RTC_HELP[ft.webrtc] || '')),
+        shpSeg(SHP_RTC, ft.webrtc, async (v) => { Object.assign(st, await oto.shield.feature('webrtc', v)); shpPaint(); }))),
     shpLbl('DANGEROUS SITES'),
     h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'Warn me about dangerous sites'), h('small', {}, st.dangerCount ? `${shpN(st.dangerCount)} known malware and phishing sites · list updated ${shpAgo(st.dangerAt)} · checked on this PC, nothing is sent anywhere` : 'Malware and phishing lists from URLhaus (abuse.ch), updated twice a day · checked on this PC')),
       shpSwitch(st.danger !== false, async (v) => { st.danger = await oto.shield.danger(v); toast(v ? 'Dangerous-site warnings on' : 'Dangerous-site warnings off', { icon: 'shield', timeout: 2000 }); })),
-    shpLbl('FINGERPRINTING'),
-    h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'Fingerprint protection'), h('small', {}, 'Each site gets slightly different canvas, WebGL and audio answers every session, so it can’t recognise this PC')),
-      shpSwitch(st.fp !== false, async (v) => { st.fp = await oto.shield.fp(v); toast(v ? 'Fingerprint protection on. Reload pages to apply' : 'Fingerprint protection off', { icon: 'shield', timeout: 2200 }); })),
     shpLbl('FILTER LISTS'),
     h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'uBlock Origin, EasyList, EasyPrivacy + Oto’s extra list'), h('small', {}, SHP.busy === 'upd' ? 'Downloading the newest lists…' : `Updated ${shpAgo(st.listsAt)} · they also update by themselves every week`)),
       h('button', { class: 'sh-btn', disabled: !on || !!SHP.busy, onclick: async () => {
@@ -315,7 +352,7 @@ function shpPaint() {
   o.nav.querySelectorAll('button[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === SHP.tab));
   const st = SHP.st || {};
   const on = S.settings.blockTrackers !== false;
-  o.status.replaceChildren(h('i', { class: on ? 'on' : '' }), h('span', {}, on ? `SHIELD ON · ${(st.level || 'balanced').toUpperCase()}` : 'SHIELD OFF'));
+  o.status.replaceChildren(h('i', { class: on ? 'on' : '' }), h('span', {}, on ? `SHIELD ON · ${(st.protection || (st.level === 'strict' ? 'strict' : 'standard')).toUpperCase()}` : 'SHIELD OFF'));
   const body = { overview: shpOverview, blocking: shpBlocking, youtube: shpYouTube, permissions: shpPermissions }[SHP.tab]();
   o.main.replaceChildren(...body.filter(Boolean));
   o.main.className = `sh-main t-${SHP.tab}`;
@@ -416,7 +453,7 @@ function initV1j() {
   };
   ACTIONS.push(
     { name: 'Privacy dashboard', kw: 'privacy stats trackers blocked today week shield dashboard', icon: 'shield', run: () => v1ShieldPage('overview') },
-    { name: 'Protection level', kw: 'blocking basic balanced strict filter lists update adblock', icon: 'shield', run: () => v1ShieldPage('blocking') },
+    { name: 'Protection level', kw: 'blocking standard strict custom basic balanced filter lists update adblock trackers session recorders fingerprint webrtc', icon: 'shield', run: () => v1ShieldPage('blocking') },
     { name: 'YouTube switches', kw: 'youtube shorts comments suggested end screen distractions', icon: 'ytube', run: () => v1ShieldPage('youtube') },
     { name: 'Site permissions', kw: 'permissions camera microphone location notifications cookies autoplay sites', icon: 'lock', run: () => v1ShieldPage('permissions') });
 }

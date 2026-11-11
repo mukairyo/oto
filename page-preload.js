@@ -5,8 +5,11 @@
 // Also: sites set to "Autoplay: Block" in Site permissions don't start video or sound until you click the page.
 // YouTube: the ads are removed from the player's data before the player reads it (like uBlock Origin does),
 // and if an ad still starts, it is skipped.
-// Fingerprint protection: canvas, WebGL and audio readouts get tiny changes that are the same on one site
-// for one session and different everywhere else, so sites can't recognise this PC by them.
+// Fingerprint protection: canvas (also off-screen), WebGL and audio readouts get tiny changes that are the same on
+// one site for one session and different everywhere else, so sites can't recognise this PC by them. The battery
+// answer is the one a desktop PC gives. This file runs in every frame, also frames from other sites inside a page
+// (where trackers usually sit); a frame gets the changes of the site you are on.
+// What it can't reach: background workers (a script can still read the real canvas values inside a worker).
 // Nothing is read from the page.
 'use strict';
 try {
@@ -85,16 +88,26 @@ function otoFarble(seed) {
   const nativeToString = Function.prototype.toString;
   const fakeToString = function toString() { return natives.has(this) ? natives.get(this) : nativeToString.call(this); };
   const mix = (n) => { let x = (n ^ seed) >>> 0; x = Math.imul(x ^ (x >>> 16), 0x45d9f3b) >>> 0; x = Math.imul(x ^ (x >>> 16), 0x45d9f3b) >>> 0; return (x ^ (x >>> 16)) >>> 0; };
-  const noisePixels = (d) => { for (let i = 0; i < d.length; i += 4) { const m = mix(i); if ((m & 15) === 0) { const c = i + (m >>> 4) % 3; d[c] = d[c] ^ 1; } } };
+  // Which pixels change depends on the site, the session AND the picture itself. With a fixed pattern a script could
+  // draw a plain test picture, see which pixels moved, and undo the same changes in its real fingerprint picture.
+  const noisePixels = (d) => {
+    let k = d.length >>> 0;
+    for (let i = 0; i < d.length; i += 4) k = (Math.imul(k ^ d[i] ^ (d[i + 1] << 8) ^ (d[i + 2] << 16) ^ (d[i + 3] << 24), 0x01000193)) >>> 0;
+    k = mix(k);
+    for (let i = 0; i < d.length; i += 4) { const m = mix(i ^ k); if ((m & 15) === 0) { const c = i + (m >>> 4) % 3; d[c] = d[c] ^ 1; } }
+  };
   function patch(w) {
     try {
       if (!w || done.has(w)) return;
       done.add(w);
+      // a replaced function keeps the original's name and number of arguments
+      const like = (fn, orig) => { try { Object.defineProperty(fn, 'name', { value: orig.name, configurable: true }); Object.defineProperty(fn, 'length', { value: orig.length, configurable: true }); } catch (e) {} };
       const swap = (obj, name, make) => {
         const desc = Object.getOwnPropertyDescriptor(obj, name);
         if (!desc || typeof desc.value !== 'function') return;
         const orig = desc.value, fn = make(orig);
         natives.set(fn, nativeToString.call(orig));
+        like(fn, orig);
         Object.defineProperty(obj, name, { ...desc, value: fn });
       };
       const getter = (obj, name, make) => {
@@ -102,6 +115,7 @@ function otoFarble(seed) {
         if (!desc || !desc.get) return;
         const fn = make(desc.get);
         natives.set(fn, nativeToString.call(desc.get));
+        like(fn, desc.get);
         Object.defineProperty(obj, name, { ...desc, get: fn });
       };
       w.Function.prototype.toString = fakeToString;
@@ -123,6 +137,21 @@ function otoFarble(seed) {
         swap(HC, 'toDataURL', (orig) => function toDataURL() { let c = null; try { c = copyNoisy(this); } catch (e) {} return orig.apply(c || this, arguments); });
         swap(HC, 'toBlob', (orig) => function toBlob() { let c = null; try { c = copyNoisy(this); } catch (e) {} return orig.apply(c || this, arguments); });
       }
+      // Off-screen canvas: the same picture can be drawn and read without ever being on the page
+      const O2D = w.OffscreenCanvasRenderingContext2D && w.OffscreenCanvasRenderingContext2D.prototype;
+      const offGet = O2D && O2D.getImageData;
+      if (O2D) swap(O2D, 'getImageData', (orig) => function getImageData() { const img = orig.apply(this, arguments); try { noisePixels(img.data); } catch (e) {} return img; });
+      const OC = w.OffscreenCanvas && w.OffscreenCanvas.prototype;
+      if (OC && offGet) {
+        swap(OC, 'convertToBlob', (orig) => function convertToBlob() {
+          let c = null;
+          try {
+            const w2 = this.width, h2 = this.height;
+            if (w2 && h2 && w2 * h2 <= 16e6) { c = new w.OffscreenCanvas(w2, h2); const x = c.getContext('2d'); x.drawImage(this, 0, 0); const img = offGet.call(x, 0, 0, w2, h2); noisePixels(img.data); x.putImageData(img, 0, 0); }
+          } catch (e) { c = null; }
+          return orig.apply(c || this, arguments);
+        });
+      }
       // WebGL: tiny changes to read-back pixels. The graphics-card name stays real: a made-up one is exactly what
       // "are you human?" checks (Cloudflare, used by ChatGPT and many others) look for, and they lock you out.
       for (const G of [w.WebGLRenderingContext, w.WebGL2RenderingContext]) {
@@ -134,14 +163,30 @@ function otoFarble(seed) {
       const AB = w.AudioBuffer && w.AudioBuffer.prototype;
       if (AB) {
         const seen = new WeakSet();
-        swap(AB, 'getChannelData', (orig) => function getChannelData() {
-          const d = orig.apply(this, arguments);
+        const nativeGet = AB.getChannelData;
+        // the changes are made once, in the sound data itself, so every way of reading it gives the same answer
+        const noised = (buf, ch) => {
+          const d = nativeGet.call(buf, ch);
           try { if (!seen.has(d)) { seen.add(d); for (let i = 0; i < d.length; i += 97) { const m = mix(i); if (m & 1) d[i] += ((m >>> 8) / 4294967296 - 0.5) * 1e-7; } } } catch (e) {}
           return d;
-        });
+        };
+        swap(AB, 'getChannelData', () => function getChannelData(channel) { return arguments.length ? noised(this, channel) : nativeGet.apply(this, arguments); });
+        swap(AB, 'copyFromChannel', (orig) => function copyFromChannel(destination, channelNumber) { try { noised(this, channelNumber); } catch (e) {} return orig.apply(this, arguments); });
       }
       const AN = w.AnalyserNode && w.AnalyserNode.prototype;
-      if (AN) swap(AN, 'getFloatFrequencyData', (orig) => function getFloatFrequencyData(a) { orig.apply(this, arguments); try { for (let i = 0; i < a.length; i += 7) a[i] += ((mix(i) & 255) / 255 - 0.5) * 0.001; } catch (e) {} });
+      if (AN) {
+        swap(AN, 'getFloatFrequencyData', (orig) => function getFloatFrequencyData(a) { orig.apply(this, arguments); try { for (let i = 0; i < a.length; i += 7) a[i] += ((mix(i) & 255) / 255 - 0.5) * 0.001; } catch (e) {} });
+        swap(AN, 'getFloatTimeDomainData', (orig) => function getFloatTimeDomainData(a) { orig.apply(this, arguments); try { for (let i = 0; i < a.length; i += 7) a[i] += ((mix(i + 1) & 255) / 255 - 0.5) * 1e-6; } catch (e) {} });
+      }
+      // Battery: level and charging times can link two sites visited at the same moment. Every site gets the answer
+      // of a desktop PC on mains power (a real, common answer; nothing made up).
+      const BM = w.BatteryManager && w.BatteryManager.prototype;
+      if (BM) {
+        getter(BM, 'charging', () => function charging() { return true; });
+        getter(BM, 'level', () => function level() { return 1; });
+        getter(BM, 'chargingTime', () => function chargingTime() { return 0; });
+        getter(BM, 'dischargingTime', () => function dischargingTime() { return Infinity; });
+      }
       // Hardware hints (CPU cores, memory) are left alone: background workers can't be changed the same way, and a
       // page that sees two different answers is treated as a bot.
       // Frames made by script (about:blank) get the same protection when the page reaches into them

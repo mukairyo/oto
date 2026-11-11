@@ -28,6 +28,9 @@ const SITES = {
   'open.site': () => recorderUser(),
   'quiet.site': () => ({ html: recorderUser(), headers: { 'Referrer-Policy': 'no-referrer' } }),
   'private.site': () => ({ html: recorderUser(), headers: { 'Referrer-Policy': 'same-origin' } }),
+  // What a fingerprinting script can read (fp.site, fp2.site: two unrelated sites; each also runs the same readings
+  // inside a frame from a third site, the way an embedded tracker would).
+  'fp.site': () => fpPage(true), 'fp2.site': () => fpPage(true), 'fpframe.site': () => fpPage(false),
   'recorder.site': () => page('Recorder Inc.', '<h1>The recorder company\'s own website</h1><script src="/rec.js"></script>'),
 };
 // Every way of asking, each to its own address so the server can tell which ones arrived (see /__hits).
@@ -48,6 +51,49 @@ const recorderUser = () => page('A site that records visitors', `<h1>A site that
     out.own = await tried(fetch('/own-data?how=own'));
     setTimeout(() => { window.__res = out; }, 700);
   });</script>`);
+const fpPage = (withFrame) => page('Fingerprint readings', `<h1>Fingerprint readings</h1>${withFrame ? '<iframe id="tp" src="http://fpframe.site/" width="300" height="80"></iframe>' : ''}
+  <script>
+  const hs = (s) => { let x = 0; for (let i = 0; i < s.length; i++) x = (Math.imul(x, 31) + s.charCodeAt(i)) >>> 0; return x.toString(16); };
+  const draw = (x) => { x.textBaseline = 'top'; x.font = "14px Arial"; x.fillStyle = '#f60'; x.fillRect(125, 1, 62, 20); x.fillStyle = '#069'; x.fillText('Oto <canvas> reading 1.0', 2, 15); x.fillStyle = 'rgba(102, 204, 0, 0.7)'; x.fillText('Oto <canvas> reading 1.0', 4, 17); };
+  async function readings() {
+    const out = {};
+    const c = document.createElement('canvas'); c.width = 240; c.height = 60; const x = c.getContext('2d'); draw(x);
+    out.canvasUrl = hs(c.toDataURL()); out.canvasUrlAgain = hs(c.toDataURL()); out.canvasPixels = hs(String([...x.getImageData(0, 0, 240, 60).data]));
+    out.canvasBlob = await new Promise((r) => c.toBlob(async (b) => r(hs(String([...new Uint8Array(await b.arrayBuffer())])))));
+    try { const o = new OffscreenCanvas(240, 60); const ox = o.getContext('2d'); draw(ox); out.offscreenPixels = hs(String([...ox.getImageData(0, 0, 240, 60).data])); out.offscreenBlob = hs(String([...new Uint8Array(await (await o.convertToBlob()).arrayBuffer())])); } catch (e) { out.offscreenPixels = 'error ' + e.message; }
+    try { const g = document.createElement('canvas'); g.width = 64; g.height = 64; const gl = g.getContext('webgl', { preserveDrawingBuffer: true });
+      if (!gl) out.webgl = 'no WebGL here'; else {
+        const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+        const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, 'attribute vec2 p;varying vec2 v;void main(){v=p;gl_Position=vec4(p,0,1);}')); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, 'precision mediump float;varying vec2 v;void main(){gl_FragColor=vec4(v.x*0.5+0.5,v.y*0.5+0.5,sin(v.x*9.0)*0.5+0.5,1);}')); gl.linkProgram(pr); gl.useProgram(pr);
+        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, 0, 1]), gl.STATIC_DRAW);
+        const l = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 2, gl.FLOAT, false, 0, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
+        const px = new Uint8Array(64 * 64 * 4); gl.readPixels(0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, px); out.webglPixels = hs(String([...px])); out.webglUrl = hs(g.toDataURL());
+      } } catch (e) { out.webgl = 'error ' + e.message; }
+    try { const mk = async () => { const ac = new OfflineAudioContext(1, 5000, 44100); const o = ac.createOscillator(); o.type = 'triangle'; o.frequency.value = 10000; const k = ac.createDynamicsCompressor(); k.threshold.value = -50; k.knee.value = 40; k.ratio.value = 12; k.attack.value = 0; k.release.value = 0.25; o.connect(k); k.connect(ac.destination); o.start(0); return ac.startRendering(); };
+      const sum = (d) => { let s = 0; for (let i = 4500; i < 5000; i++) s += Math.abs(d[i]); return String(s); };
+      out.audioCopy = await mk().then((b) => { const d = new Float32Array(5000); b.copyFromChannel(d, 0); return sum(d); }); // read WITHOUT getChannelData first
+      out.audioData = await mk().then((b) => sum(b.getChannelData(0)));
+    } catch (e) { out.audio = 'error ' + e.message; }
+    out.cores = navigator.hardwareConcurrency; out.plugins = [...navigator.plugins].map((p) => p.name).join('|'); out.agent = navigator.userAgent;
+    // no Node.js or Electron in the page, also not inside frames
+    out.node = [typeof require, typeof process, typeof module, typeof global, typeof Buffer].join('/');
+    // replaced functions look like the originals to a script that inspects them
+    const f = HTMLCanvasElement.prototype.toDataURL, g = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow').get;
+    out.looks = [f.name, f.length, /\[native code\]/.test(Function.prototype.toString.call(f)), g.name, /\[native code\]/.test(String(g))].join('/');
+    // battery (only exists on secure pages such as localhost): the answer of a desktop PC on mains power
+    try { if (navigator.getBattery) { const b = await navigator.getBattery(); out.battery = [b.charging, b.level, b.chargingTime, b.dischargingTime].join('/'); out.batteryIs = b instanceof BatteryManager; } } catch (e) { out.battery = 'error ' + e.message; }
+    try { out.workerCores = await new Promise((r) => { const w = new Worker(URL.createObjectURL(new Blob(['postMessage(navigator.hardwareConcurrency)']))); w.onmessage = (e) => r(e.data); setTimeout(() => r('timeout'), 2000); }); } catch (e) { out.workerCores = 'error'; }
+    return out;
+  }
+  window.__res = null;
+  // the embedded frame may finish first: listen for its readings from the start
+  const fromFrame = window.top === window && document.getElementById('tp') ? new Promise((r) => { addEventListener('message', (e) => { if (e.data && e.data.fpFrame) r(e.data.fpFrame); }); setTimeout(() => r(null), 5000); }) : null;
+  addEventListener('load', async () => {
+    const mine = await readings();
+    if (window.top !== window) { window.top.postMessage({ fpFrame: mine }, '*'); return; }
+    window.__res = { page: mine, frame: await fromFrame };
+  });
+  </script>`);
 const HITS = {}; // "how" -> how many requests of that kind reached recorder.site
 const adTester = () => page('Ad-block tester (local)', `<h1>Ad-block tester</h1>
   <div id="cts_test" class="textads adsbox banner_ads adbox ADBox AdBox adbox-wrapper adSocial ">&nbsp;</div><div id="ctd_test"></div><div id="normal_box" class="article-box">&nbsp;</div>
@@ -86,7 +132,8 @@ function handler(req, res) {
   if (url.pathname === '/widget/ads.png') { res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(PNG); }
   if (url.pathname === '/setup.exe') { res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': 'attachment; filename="setup.exe"' }); return res.end('MZ test'); }
   if (host === 'tracker.site') { res.writeHead(200, { 'Content-Type': 'application/javascript' }); return res.end('window.__trackerLoaded = 1;'); }
-  const site = SITES[host] || (host === 'localhost' || host === '127.0.0.1' ? SITES['login.site'] : null);
+  const local = host === 'localhost' || host === '127.0.0.1';
+  const site = local && url.pathname === '/fp' ? () => fpPage(false) : SITES[host] || (local ? SITES['login.site'] : null);
   if (!site) { res.writeHead(404); return res.end('not found'); }
   const made = site(), html = typeof made === 'string' ? made : made.html;
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...(made.headers || {}) });

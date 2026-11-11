@@ -150,9 +150,10 @@ const EXTRA_SCRIPTS = [
 // Every address rule is "on other sites only" ($third-party): the tracker is blocked when another site loads it and the
 // company's own website and dashboards keep working. Basic is the ads-only level, so recorders start at Balanced.
 const third = (d) => `||${d}^$third-party`;
-const extraFilters = (level) => [
+// opts.recorders: block session recorders (a switch of its own in Custom; without opts it follows the level).
+const extraFilters = (level, opts) => [
   ...[...Object.values(EXTRA).flat(), ...(level === 'strict' ? EXTRA_STRICT : [])].map(third),
-  ...(level === 'basic' ? [] : [...Object.values(RECORDERS).flat().map(third), ...RECORDER_PARTS.flatMap((p) => p.rules.map((r) => `${r}$third-party`))]),
+  ...((opts && typeof opts.recorders === 'boolean' ? opts.recorders : level !== 'basic') ? [...Object.values(RECORDERS).flat().map(third), ...RECORDER_PARTS.flatMap((p) => p.rules.map((r) => `${r}$third-party`))] : []),
   ...EXTRA_SCRIPTS.map((r) => `${r.has}$script${r.site ? `,domain=${r.site}` : ''}`),
   ...EXTRA_COSMETIC.map((sel) => `##${sel}`),
 ];

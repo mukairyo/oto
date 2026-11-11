@@ -452,6 +452,7 @@ contextBridge.exposeInMainWorld('oto', {
     pick: (url, sel) => ipcRenderer.invoke('shield:pick', url, sel),
     annoy: (on) => ipcRenderer.invoke('shield:annoy', on),
     level: (lvl) => ipcRenderer.invoke('shield:level', lvl),
+    feature: (name, value) => ipcRenderer.invoke('shield:feature', name, value),
     update: () => ipcRenderer.invoke('shield:update'),
     stats: () => ipcRenderer.invoke('shield:stats'),
     fp: (on) => ipcRenderer.invoke('shield:fp', on),

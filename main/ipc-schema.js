@@ -49,6 +49,7 @@ const SCHEMAS = {
   // Oto Shield
   'shield:site': [URL_, bool], 'shield:pick': [URL_, str(4096)], 'shield:dangerAllow': [str(512)],
   'shield:filters': [optStr(4 * 1024 * 1024)], 'shield:level': [optStr(16)],
+  'shield:feature': [str(16), (v) => typeof v === 'boolean' || str(16)(v)],
   // saved state
   'state:save': [obj], 'state:save-sync': [obj],
 };

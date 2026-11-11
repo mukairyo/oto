@@ -211,3 +211,13 @@ body.skin-rt .ver-grid .vr + .vr { border-top-color: var(--rt-line); }
 body.skin-rt .ver-grid .k { font: 600 9.5px var(--rt-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--rt-fg3); }
 body.skin-rt .ver-grid b { font-family: var(--rt-mono); font-weight: 500; font-size: 12.5px; color: var(--rt-fg); }
 body.skin-rt .ver-grid small { color: var(--rt-fg3); }
+
+/* Shield: facts under the big numbers (session recorders, protection level, site exceptions) and the protection switches */
+.v1-shp .sh-facts { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 10px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--k-line2); }
+.v1-shp .sh-facts .fact { padding: 12px 18px 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.v1-shp .sh-facts .fact + .fact { border-left: 1px solid var(--k-line2); }
+.v1-shp .sh-facts small { font: 600 9.5px var(--k-mono); letter-spacing: .22em; color: var(--k-fg3); }
+.v1-shp .sh-facts b { font: 400 22px/1.15 var(--k-serif); font-variant-numeric: tabular-nums; }
+.v1-shp .sh-facts span { font-size: 11.5px; color: var(--k-fg2); line-height: 1.35; }
+.v1-shp .sh-feats.dim { opacity: .45; pointer-events: none; }
+.v1-shp .sh-fixed { font: 600 9.5px var(--k-mono); letter-spacing: .22em; color: var(--k-fg3); padding: 0 6px; }
