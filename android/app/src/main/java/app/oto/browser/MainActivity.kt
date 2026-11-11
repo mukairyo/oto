@@ -44,6 +44,8 @@ import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
+import org.mozilla.geckoview.WebExtension
+import org.mozilla.geckoview.WebExtensionController
 import org.mozilla.geckoview.WebRequestError
 import org.mozilla.geckoview.WebResponse
 import java.net.HttpURLConnection
@@ -64,6 +66,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val NEWTAB = "resource://android/assets/newtab.html"
         private var runtime: GeckoRuntime? = null
+        private var shieldExt: WebExtension? = null
         private var introPlayed = false
 
         // Oto theme
@@ -106,6 +109,7 @@ class MainActivity : AppCompatActivity() {
                 .consoleOutput(false)
                 .build()
         ).also { rt -> try { rt.settings.setFingerprintingProtection(prefs.getBoolean("fp", true)) } catch (e: Throwable) {} }
+        installShieldExt()
         buildUi()
         restoreTabs()
         intent?.dataString?.let { if (it.startsWith("http")) openTab(it) }
@@ -228,7 +232,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Oto Shield = GeckoView's built-in blocking of ads, trackers, social trackers, fingerprinting and cryptominers,
-    // plus cookies kept per site and tracking bits stripped from links. Dangerous-site warnings (Google Safe
+    // plus cookies kept per site and tracking bits stripped from links, plus Oto's own blocker (installShieldExt). Dangerous-site warnings (Google Safe
     // Browsing, the same lists Firefox uses) are separate and stay on even with the Shield off.
     private fun shieldSettings(on: Boolean): ContentBlocking.Settings =
         ContentBlocking.Settings.Builder()
@@ -238,6 +242,30 @@ class MainActivity : AppCompatActivity() {
             .queryParameterStrippingEnabled(on)
             .safeBrowsing(if (prefs.getBoolean("danger", true)) ContentBlocking.SafeBrowsing.DEFAULT else ContentBlocking.SafeBrowsing.NONE)
             .build()
+
+    // Oto's own blocker (assets/shield): a small extension built into the app. It stops requests to known ad, tracker
+    // and telemetry addresses and to ad scripts, and hides common ad boxes, next to the engine's tracking protection.
+    // It follows the Shield switch. If it can't start, Oto still works with the engine's protection alone.
+    private fun installShieldExt() {
+        val rt = runtime ?: return
+        if (shieldExt != null) return
+        try {
+            rt.webExtensionController.ensureBuiltIn("resource://android/assets/shield/", "shield@oto.app").accept({ ext ->
+                shieldExt = ext
+                if (!prefs.getBoolean("shield", true)) switchShieldExt(false) {}
+            }, { e -> android.util.Log.w("Oto", "Oto Shield's own blocker could not start", e) })
+        } catch (e: Throwable) { android.util.Log.w("Oto", "Oto Shield's own blocker could not start", e) }
+    }
+
+    private fun switchShieldExt(on: Boolean, then: () -> Unit) {
+        val ext = shieldExt
+        val ctl = runtime?.webExtensionController
+        if (ext == null || ctl == null) { then(); return }
+        try {
+            val r = if (on) ctl.enable(ext, WebExtensionController.EnableSource.APP) else ctl.disable(ext, WebExtensionController.EnableSource.APP)
+            r.accept({ e -> if (e != null) shieldExt = e; then() }, { then() })
+        } catch (e: Throwable) { then() }
+    }
 
     private fun setDanger(on: Boolean) {
         prefs.edit().putBoolean("danger", on).apply()
@@ -401,7 +429,7 @@ class MainActivity : AppCompatActivity() {
             it.setAntiTracking(if (on) ContentBlocking.AntiTracking.STRICT else ContentBlocking.AntiTracking.NONE)
             it.setEnhancedTrackingProtectionLevel(if (on) ContentBlocking.EtpLevel.STRICT else ContentBlocking.EtpLevel.NONE)
         }
-        current()?.session?.reload()
+        switchShieldExt(on) { current()?.session?.reload() } // reload once Oto's own blocker has switched too
         toast(if (on) "Oto Shield is on — ads & trackers blocked" else "Oto Shield is off")
     }
 
