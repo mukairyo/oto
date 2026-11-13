@@ -14,7 +14,7 @@
  *   on          switched on
  *   strength    0–100   how strongly the glow shows
  *   blur        0–100   how soft
- *   spread      0–200   how far past the player it reaches (100 = normal)
+ *   spread      0–400   how far past the player it reaches (100 = normal)
  *   brightness  50–150  glow brightness (100 = the video's own)
  *   colors      0–200   glow colour strength (100 = the video's own)
  *   fade        ms      how long the glow takes to appear and go
@@ -29,16 +29,18 @@
  *   thumbs      20–100  thumbnail brightness
  *   immersive   theatre mode: the top bar and the page below fade away until you scroll or point at them
  *   key         the G key switches the glow off and on in this tab
+ *   frame       Oto's own window (sidebar, top bar, edges around the page) glows too. Oto asks the page for the
+ *               glow's edge colours (colors(), below) a few times a second and lights its own window with them.
  *   button      an ambient light button in the player's controls, next to captions and settings. It opens a small
  *               panel with the main settings; changes there are collected by Oto (take(), below), checked and saved.
  * Only on watch pages. Hidden in fullscreen (the video fills the screen), in the mini-player, for videos with copy
  * protection (they draw black) and while the tab is in the background. YouTube's own, much smaller "ambient mode"
  * glow is hidden while Oto's is on.
  */
-const OTO_AMBIENT_DEFAULTS = { on: true, strength: 85, blur: 45, spread: 100, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true };
+const OTO_AMBIENT_DEFAULTS = { on: true, strength: 85, blur: 45, spread: 100, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true };
 function otoYtAmbient(opts) {
   // = OTO_AMBIENT_DEFAULTS (this function runs inside the page on its own)
-  const D = { on: true, strength: 85, blur: 45, spread: 100, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true };
+  const D = { on: true, strength: 85, blur: 45, spread: 100, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true };
   const A = window.__otoAmbient;
   if (A) { A.set(opts); return 'updated'; }
   const o0 = { ...D, ...(opts || {}) };
@@ -48,7 +50,9 @@ function otoYtAmbient(opts) {
   layer.id = 'oto-ambient';
   layer.setAttribute('aria-hidden', 'true');
   layer.appendChild(cv);
-  const ctx = cv.getContext('2d', { alpha: false, desynchronized: true });
+  // A normal canvas, not a low-latency ("desynchronized") one: Chromium may put those straight on the screen and skip
+  // the blur, which shows as sharp stretched stripes (seen on Windows in 1.6.1).
+  const ctx = cv.getContext('2d', { alpha: false });
   const probe = doc.createElement('canvas'); probe.width = 96; probe.height = 54; // for black bars
   const pctx = probe.getContext('2d', { willReadFrequently: true });
   const style = doc.createElement('style'), look = doc.createElement('style');
@@ -59,7 +63,7 @@ html[oto-ambient] ytd-app{background:transparent!important;position:relative;z-i
 html[oto-ambient] #cinematics,html[oto-ambient] #cinematics-container{display:none!important}
 #oto-ambient{position:absolute;left:0;top:0;width:0;height:0;z-index:0;pointer-events:none;opacity:0;transition:opacity var(--oa-fade,600ms) ease;contain:layout style size}
 #oto-ambient.on{opacity:var(--oa-strength,.85)}
-#oto-ambient canvas{position:absolute;left:calc(-1*var(--oa-x,10%));top:calc(-1*var(--oa-y,14%));width:calc(100% + 2*var(--oa-x,10%));height:calc(100% + 2*var(--oa-y,14%));filter:blur(var(--oa-blur,70px)) saturate(var(--oa-colors,1.35)) brightness(var(--oa-bright,1))}
+#oto-ambient canvas{position:absolute;left:0;top:0;width:100%;height:100%;filter:blur(var(--oa-blur,70px)) saturate(var(--oa-colors,1.35)) brightness(var(--oa-bright,1))}
 #oto-ambient::after{content:'';position:absolute;inset:0;box-shadow:0 0 var(--oa-edge,0px) calc(var(--oa-edge,0px)/5) rgba(0,0,0,.85)}
 html[oto-ambient] #movie_player,html[oto-ambient] .html5-video-player,html[oto-ambient] #full-bleed-container,html[oto-ambient] #player-full-bleed-container,html[oto-ambient] #player-container-outer,html[oto-ambient] #player-container-inner,html[oto-ambient] #ytd-player,html[oto-ambient] #container.ytd-player{background:transparent!important}
 html[oto-ambient][oto-immersive] #masthead-container,html[oto-ambient][oto-immersive] ytd-watch-flexy #columns{transition:opacity .45s ease}
@@ -112,6 +116,13 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     r = { left: r.left + r.width * crop.x, top: r.top + r.height * crop.y, width: r.width * crop.w, height: r.height * crop.h };
     const s = layer.style;
     s.left = `${r.left + scrollX}px`; s.top = `${r.top + scrollY}px`; s.width = `${r.width}px`; s.height = `${r.height}px`;
+    // The glow reaches past the picture by the spread, but stays inside the page: a blurred layer cut off by the
+    // window's edge shows a hard bright line there. Inside the page it always fades out softly.
+    const sp = n(o.spread, 0, 400, 100) / 100, ex = r.width * 0.1 * sp, ey = r.height * 0.14 * sp;
+    const pageW = root.clientWidth, x0 = Math.max(r.left - ex, 0), x1 = Math.min(r.left + r.width + ex, pageW);
+    const y0 = Math.max(r.top + scrollY - ey, 0) - scrollY, y1 = r.top + r.height + ey;
+    const c = cv.style;
+    c.left = `${x0 - r.left}px`; c.top = `${y0 - r.top}px`; c.width = `${Math.max(1, x1 - x0)}px`; c.height = `${Math.max(1, y1 - y0)}px`;
   };
   // Black bars: about once a second a tiny copy of the frame is checked for dark rows and columns at its edges. A
   // change is only used once it has been seen twice in a row, so a dark scene doesn't make the glow jump.
@@ -153,10 +164,9 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
 
   // the settings that only change how things look
   const looks = () => {
-    const sp = n(o.spread, 0, 200, 100) / 100, s = layer.style;
+    const s = layer.style;
     s.setProperty('--oa-strength', String(n(o.strength, 0, 100, 85) / 100));
     s.setProperty('--oa-blur', `${Math.round(12 + n(o.blur, 0, 100, 45) * 1.3)}px`);
-    s.setProperty('--oa-x', `${(10 * sp).toFixed(1)}%`); s.setProperty('--oa-y', `${(14 * sp).toFixed(1)}%`);
     s.setProperty('--oa-fade', `${n(o.fade, 0, 5000, 600)}ms`);
     s.setProperty('--oa-bright', String(n(o.brightness, 50, 150, 100) / 100));
     s.setProperty('--oa-colors', String(n(o.colors, 0, 200, 135) / 100));
@@ -175,6 +185,7 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     if (thumbs !== 1) css += `html[oto-ambient] ytd-watch-flexy ytd-thumbnail img,html[oto-ambient] ytd-watch-flexy yt-thumbnail-view-model img,html[oto-ambient] ytd-watch-flexy .yt-lockup-view-model img{filter:brightness(${thumbs})}`;
     look.textContent = css;
     root.toggleAttribute('oto-immersive', !!(o.on && o.immersive));
+    if (shown) place();
   };
   const show = (v) => {
     if (video !== v) {
@@ -237,7 +248,7 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
   const changes = {}; let wantOpen = false;
   const change = (k, v) => { o = { ...o, [k]: v }; changes[k] = v; looks(); const on = !!o.on; if (on !== enabled) { enabled = on; if (on) add(); else remove(); } else if (on) check(); paintPop(); };
   const ranges = {};
-  for (const [k, label, min, max] of [['strength', 'Strength', 10, 100], ['blur', 'Blur', 0, 100], ['spread', 'Spread', 0, 200], ['brightness', 'Brightness', 50, 150]]) {
+  for (const [k, label, min, max] of [['strength', 'Strength', 10, 100], ['blur', 'Blur', 0, 100], ['spread', 'Spread', 0, 400], ['brightness', 'Brightness', 50, 150]]) {
     const row = el('div', 'r'), r = el('input'), out = el('span');
     r.type = 'range'; r.min = String(min); r.max = String(max); r.step = '1'; r.setAttribute('aria-label', label);
     r.addEventListener('input', () => { out.textContent = `${r.value}%`; change(k, +r.value); });
@@ -291,7 +302,19 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     wantOpen = false;
     return Object.keys(r.changes).length || r.open ? r : null;
   };
-  window.__otoAmbient = { set, take };
+  // The glow's colours at its four edges and overall, read from the tiny glow canvas (64 x 36 points, nothing else),
+  // for Oto to light its own window with. null while there is no glow.
+  const colors = () => {
+    if (!shown || !enabled) return null;
+    let d;
+    try { d = ctx.getImageData(0, 0, W, H).data; } catch (e) { return null; }
+    const avg = (x0, y0, x1, y1) => { let r = 0, g = 0, b = 0, c = 0; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = (y * W + x) * 4; r += d[i]; g += d[i + 1]; b += d[i + 2]; c++; } return [r / c | 0, g / c | 0, b / c | 0]; };
+    const bx = Math.max(1, W >> 3), by = Math.max(1, H >> 3);
+    const k = n(o.brightness, 50, 150, 100) / 100;
+    const fix = (c) => c.map((v) => Math.min(255, Math.round(v * k)));
+    return { left: fix(avg(0, 0, bx, H)), right: fix(avg(W - bx, 0, W, H)), top: fix(avg(0, 0, W, by)), bottom: fix(avg(0, H - by, W, H)), all: fix(avg(0, 0, W, H)), strength: n(o.strength, 0, 100, 85) / 100 };
+  };
+  window.__otoAmbient = { set, take, colors };
   set(o0);
   return 'installed';
 }

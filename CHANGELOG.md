@@ -3,6 +3,18 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.6.2 — 2026-11-14
+
+*Small update. Nothing to do: it updates itself.*
+
+**Fixed**
+- **YouTube ambient light looked wrong on Windows:** a sharp, blocky patch of the video (or stretched stripes) instead of a soft glow all around. The glow's canvas used a low-latency mode that lets Windows show it without the blur. It's an ordinary canvas now, so the blur always applies, as it does in Chrome.
+- **A hard bright line at the right edge of the page** where the glow was cut off. The glow now stays inside the page and always fades out softly.
+
+**New**
+- **Spread goes up to 400%** (was 200%), in Oto's settings and in the player panel.
+- **Glow around Oto:** while a YouTube video with ambient light is the tab you're looking at, Oto's sidebar, top bar and the edges around the page take the video's colours too. Switch it off under Shield › YouTube › "Glow around Oto". Oto only asks the page for the glow's four edge colours, and checks they are real colours.
+
 ## 1.6.1 — 2026-11-14
 
 *Small update. Nothing to do: it updates itself.*

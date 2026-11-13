@@ -70,7 +70,7 @@ async function ytAmbApply(v, url) {
 }
 // Changes made in the small panel of the player button. The page can't reach Oto: Oto asks the YouTube tab you are
 // looking at for them, keeps only known settings with sensible values, saves them and passes them to other tabs.
-const YT_AMB_RANGES = { strength: [10, 100], blur: [0, 100], spread: [0, 200], brightness: [50, 150], colors: [0, 200], fade: [0, 5000], fps: [5, 60], edge: [0, 100], text: [0, 100], boxes: [0, 200], thumbs: [20, 100] };
+const YT_AMB_RANGES = { strength: [10, 100], blur: [0, 100], spread: [0, 400], brightness: [50, 150], colors: [0, 200], fade: [0, 5000], fps: [5, 60], edge: [0, 100], text: [0, 100], boxes: [0, 200], thumbs: [20, 100] };
 const YT_AMB_CHOICES = { layouts: ['all', 'normal', 'theater'], res: ['low', 'normal', 'high'] };
 function ytAmbClean(c) {
   const out = {};
@@ -104,6 +104,48 @@ async function ytAmbTakeFrom(v) {
   if (r.open === true) v1ShieldPage('youtube');
 }
 setInterval(ytAmbCollect, 1200);
+
+// The glow around Oto itself: while the YouTube tab you are looking at has ambient light, Oto's sidebar, top bar and
+// the edges around the page take the glow's colours (asked from the page a few times a second; only colours come
+// back, checked to be three numbers 0–255). The page area itself is left out, so the video and YouTube's own glow
+// stay as they are. Gone at once in fullscreen, on other tabs, or when "Glow around Oto" is off.
+const AMBF = { el: null, busy: false, on: false, hold: false }; // hold: the tests draw it themselves
+function ambFrameEl() {
+  if (AMBF.el) return AMBF.el;
+  const el = h('div', { id: 'amb-frame', 'aria-hidden': 'true' }, h('i', { class: 'l' }), h('i', { class: 't' }), h('i', { class: 'r' }), h('i', { class: 'b' }));
+  document.body.appendChild(el);
+  return (AMBF.el = el);
+}
+function ambFrameOff() { if (AMBF.on && AMBF.el) { AMBF.el.classList.remove('on'); AMBF.on = false; } }
+const ambRgb = (c) => (Array.isArray(c) && c.length === 3 && c.every((v) => Number.isInteger(v) && v >= 0 && v <= 255) ? `rgb(${c.join(',')})` : null);
+async function ambFrameTick() {
+  if (AMBF.busy || AMBF.hold) return;
+  const amb = ytAmb();
+  const t = typeof activeTab === 'function' && activeTab(), v = t && V.get(t.id);
+  if (!amb.on || amb.frame === false || !v || !v.ready || !v.ytAmbient || !v.wv || document.fullscreenElement || document.hidden) return ambFrameOff();
+  let url = '';
+  try { url = v.wv.getURL(); } catch { return ambFrameOff(); }
+  if (!isYT(url)) return ambFrameOff();
+  AMBF.busy = true;
+  let c = null;
+  try { c = await v.wv.executeJavaScript('window.__otoAmbient && window.__otoAmbient.colors ? window.__otoAmbient.colors() : null'); } catch {}
+  AMBF.busy = false;
+  ambFrameShow(c);
+}
+function ambFrameShow(c) {
+  const L = c && ambRgb(c.left), R = c && ambRgb(c.right), T = c && ambRgb(c.top), B = c && ambRgb(c.bottom);
+  if (!L || !R || !T || !B) return ambFrameOff();
+  const el = ambFrameEl(), box = document.getElementById('content');
+  const r = box ? box.getBoundingClientRect() : { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
+  // everything except the page area (a frame with a hole)
+  el.style.clipPath = `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${r.left}px ${r.top}px, ${r.right}px ${r.top}px, ${r.right}px ${r.bottom}px, ${r.left}px ${r.bottom}px, ${r.left}px ${r.top}px)`;
+  el.style.setProperty('--af-l', L); el.style.setProperty('--af-r', R); el.style.setProperty('--af-t', T); el.style.setProperty('--af-b', B);
+  el.style.setProperty('--af-x0', `${r.left}px`); el.style.setProperty('--af-y0', `${r.top}px`);
+  el.style.setProperty('--af-x1', `${innerWidth - r.right}px`); el.style.setProperty('--af-y1', `${innerHeight - r.bottom}px`);
+  el.style.setProperty('--af-a', String(Math.max(0, Math.min(1, Number(c.strength) || 0.85)) * 0.75));
+  if (!AMBF.on) { el.classList.add('on'); AMBF.on = true; }
+}
+setInterval(ambFrameTick, 120);
 // while a slider moves: only the glow's settings change, the YouTube switches' CSS stays as it is
 function ytAmbRefresh() { for (const v of V.values()) if (v && v.ready && v.wv) { try { ytAmbApply(v, v.wv.getURL()); } catch {} } }
 function ytRefresh() { for (const v of V.values()) if (v && v.ready) ytApply(v); }
@@ -341,11 +383,12 @@ function shpAmbient() {
       row('Ambient light', 'A soft glow in the video’s colours spreads around the player and follows the picture', shpSwitch(a.on, (v) => set('on', v, true))),
       slider('strength', 'Strength', 10, 100, pct),
       slider('blur', 'Blur', 0, 100, pct),
-      slider('spread', 'Spread', 0, 200, pct),
+      slider('spread', 'Spread', 0, 400, pct),
       row('Fade in', 'How gently the glow appears and goes', seg('fade', [['0', 'Off'], ['300', 'Quick'], ['600', 'Soft'], ['1500', 'Slow']], a.fade)),
       row('Player sizes', 'Normal player, theatre mode, or both. Never in fullscreen: the video fills the screen', seg('layouts', [['all', 'Both'], ['normal', 'Normal'], ['theater', 'Theatre']], a.layouts)),
       row('YouTube theme', 'A glow reads best on YouTube’s dark theme', shpSeg([['dark', 'Dark only'], ['both', 'Dark & light']], a.light ? 'both' : 'dark', (id) => set('light', id === 'both'))),
       row('Button in the player', 'Next to captions and settings: the glow’s main settings right on the video', sw('button')),
+      row('Glow around Oto', 'Oto’s sidebar, top bar and the edges around the page take the video’s colours too', sw('frame')),
       ...more,
       h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('small', {}, 'Off for videos with copy protection (they can’t be drawn) and while the tab is in the background.')),
         h('button', { class: 'sh-btn sh-more', 'aria-expanded': String(shpAmbMore), onclick: () => { shpAmbMore = !shpAmbMore; shpPaint(); } }, shpAmbMore ? 'FEWER SETTINGS' : 'MORE SETTINGS'),

@@ -33,9 +33,12 @@ module.exports = async (t) => {
   await run({ strength: 40, blur: 0, spread: 0, fade: 0 }); await wait(200);
   a = await look();
   t.check('settings apply at once: brightness 40%, blur 0, spread 0 (glow exactly on the picture)', a.opacity === '0.4' && /blur\(12px\)/.test(a.blur) && JSON.stringify(a.canvas) === JSON.stringify(a.layer), `opacity ${a.opacity} ${a.blur} glow ${a.canvas} layer ${a.layer}`);
-  await run({ spread: 200, blur: 100 }); await wait(200);
+  await run({ spread: 400, blur: 100 }); await wait(200);
   a = await look();
-  t.check('…spread 200% reaches twice as far as normal, blur 100% is the softest', a.canvas[0] < a.layer[0] - a.layer[2] * 0.19 && /blur\(142px\)/.test(a.blur), `glow ${a.canvas} layer ${a.layer} ${a.blur}`);
+  const pageW = await t.page('document.documentElement.clientWidth');
+  const ctxMode = await t.page(`JSON.stringify(document.querySelector('#oto-ambient canvas').getContext('2d').getContextAttributes())`);
+  t.check('spread 400% reaches far past the picture but stays inside the page (no hard line at the window edge), blur 100% is the softest', a.canvas[0] >= 0 && a.canvas[0] + a.canvas[2] <= pageW && a.canvas[1] >= 0 && a.canvas[3] > a.layer[3] * 1.6 && /blur\(142px\)/.test(a.blur), `glow ${a.canvas} layer ${a.layer} page width ${pageW} ${a.blur}`);
+  t.check('the glow canvas is an ordinary one (a low-latency canvas can skip the blur on Windows and show stripes)', JSON.parse(ctxMode).desynchronized === false, ctxMode);
 
   // theatre mode: the player gets wider than the picture; the glow stays on the picture
   await run({ fade: 0 });
@@ -120,6 +123,21 @@ module.exports = async (t) => {
   await t.js(`typeof shpClose === 'function' && shpClose(); S.settings.ytAmbient = { ...OTO_AMBIENT_DEFAULTS }; true`);
   await run({ fade: 0, button: false }); await wait(300);
   t.check('with "Button in the player" off, the button goes away', (await t.page(`!document.querySelector('.oto-amb-btn')`)) === true);
+
+  // the glow around Oto's own window takes the glow's edge colours
+  await run({ fade: 0, button: true }); await t.page('window.__paint("#2050e0")'); await wait(900);
+  const cols = JSON.parse(await t.page('JSON.stringify(window.__otoAmbient.colors())'));
+  t.check('the page hands Oto only the glow\'s edge colours (blue here)', !!cols && ['left', 'right', 'top', 'bottom'].every((k) => Array.isArray(cols[k]) && cols[k][2] > 150 && cols[k][0] < 90), JSON.stringify(cols));
+  t.check('…and Oto accepts only real colours from it', (await t.js(`[ambRgb([1, 2, 3]), ambRgb([1, 2]), ambRgb([1, 2, 300]), ambRgb(['1', 2, 3]), ambRgb('red')].join('|')`)) === 'rgb(1,2,3)||||');
+
+  await t.js(`AMBF.hold = true; ambFrameShow(${JSON.stringify(cols)}); true`); await wait(900);
+  const fr = JSON.parse(await t.js(`JSON.stringify((() => { const el = document.getElementById('amb-frame'), c = document.getElementById('content').getBoundingClientRect(); return { on: el.classList.contains('on'), opacity: getComputedStyle(el).opacity, clip: el.style.clipPath, hole: [c.left, c.top].map(Math.round), pointer: getComputedStyle(el).pointerEvents, left: getComputedStyle(el.querySelector('.l')).backgroundColor }; })())`));
+  t.check('Oto\'s window glows around the page in those colours, never over the page and never catching the mouse', fr.on && +fr.opacity > 0.3 && fr.pointer === 'none' && /evenodd/.test(fr.clip) && fr.clip.includes(`${fr.hole[0]}px`) && /rgb\(\d+, \d+, (1[5-9]\d|2\d\d)\)/.test(fr.left), JSON.stringify(fr));
+  if (process.env.OTO_E2E_SHOTS) {
+    const win = require('electron').BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.isVisible());
+    if (win) require('fs').writeFileSync(require('path').join(process.env.OTO_E2E_SHOTS, 'oto-ambient-frame.png'), (await win.capturePage()).toPNG());
+  }
+  await t.js('ambFrameOff(); AMBF.hold = false; true');
 
   // only real YouTube addresses get it, and it is on unless switched off
   t.check('runs on youtube.com watch pages, nowhere else; on by default', await t.js(`isYT('https://www.youtube.com/watch?v=abc') && isYT('https://m.youtube.com/watch?v=abc') && !isYT('https://youtube.com.evil.example/') && !isYT('https://notyoutube.com/') && ytAmb().on === true`));
