@@ -78,6 +78,7 @@ module.exports = function createShield(ctx) {
   function enableFallback(ses) {
     const list = new Set(require('../blocklist.js'));
     ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (d, cb) => {
+      noteOpening(d);
       if (dangerCheck(d)) return cb({ cancel: true });
       if (d.resourceType === 'mainFrame') { const clean = cleanLink(d); return cb(clean ? { redirectURL: clean } : {}); }
       let h;
@@ -116,7 +117,7 @@ module.exports = function createShield(ctx) {
   const FP_SESSION = require('crypto').randomBytes(16).toString('hex');
   const shieldHost = (u) => { try { return new URL(u).hostname.toLowerCase().replace(/\.+$/, '').replace(/^www\./, ''); } catch { return ''; } };
   const shieldAllowed = (host) => { if (!host) return false; let h = host; while (h) { if (SHIELD.allow.has(h)) return true; const i = h.indexOf('.'); if (i < 0) break; h = h.slice(i + 1); } return false; };
-  const pageHostOf = (wcId) => { try { const wc = webContents.fromId(wcId); return wc ? shieldHost(wc.getURL()) : ''; } catch { return ''; } };
+  const pageHostOf = (wcId) => { try { return shieldHost(pageUrlOf(wcId)); } catch { return ''; } }; // also knows the page a new tab is still opening (below)
   const shieldLines = () => SHIELD.custom.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('!') && !l.startsWith('#'));
   function shieldApplyCustom() {
     if (!blocker) return 0;
@@ -132,12 +133,22 @@ module.exports = function createShield(ctx) {
   // of tracker blocking, so off with the Trackers switch, with Shield off, and for a site that has Shield off.
   const { cleanNavigation } = require('./clean-url.js');
   const cleanLink = (d) => (d.resourceType === 'mainFrame' && d.method === 'GET' && features().lists !== 'basic' && !shieldAllowed(shieldHost(d.url)) ? cleanNavigation(d.url) : '');
-  const pageUrlOf = (wcId) => { try { const wc = wcId && webContents.fromId(wcId); return wc ? wc.getURL() : ''; } catch { return ''; } };
+  // The page a tab is opening, remembered from its own request: in a brand-new tab the first page's scripts can be
+  // asked for before Chromium has given the frame or the tab that address (both still say ""), and then no
+  // "third-party" rule applied (the thirdparty suite caught that about one run in three).
+  const opening = new Map();
+  const pageUrlOf = (wcId) => { try { const wc = wcId && webContents.fromId(wcId); return (wc && wc.getURL()) || opening.get(wcId) || ''; } catch { return ''; } };
+  const noteOpening = (d) => {
+    if (d.resourceType !== 'mainFrame' || !d.webContentsId) return;
+    if (opening.size > 300) opening.clear();
+    opening.set(d.webContentsId, d.url);
+  };
   function shieldPatch(b) {
     const ob = b.onBeforeRequest, oh = b.onHeadersReceived, oc = b.onInjectCosmeticFilters;
     // withSource: the engine learns which page asks from the real frame when the page sends no Referer (request-source.js)
     b.onBeforeRequest = (d, cb) => {
       if (dangerCheck(d)) return cb({ cancel: true });
+      noteOpening(d);
       const clean = cleanLink(d);
       if (clean) return cb({ redirectURL: clean });
       return shieldAllowed(pageHostOf(d.webContentsId)) ? cb({}) : ob(withSource(d, () => pageUrlOf(d.webContentsId)), cb);

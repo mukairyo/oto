@@ -9,6 +9,7 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 
 **Fixed**
 - **Fingerprint scripts could get the real values by running in a background worker** (a script without a page). Workers now get exactly the same protection as their page: canvas, off-screen canvas, WebGL, CPU cores and languages. This covers workers made by the page, by frames from other sites inside it, by other workers, and service workers.
+- **On a page that hides where its requests come from, a tracker loaded by the very first page of a new tab could sometimes get through** (the address of the page wasn't known yet at that moment). Oto now remembers the page each tab is opening. The same fix makes "Shield off for this site" apply from the very first request of a new tab. Found by the automated tests, which failed about one run in three; now ten runs out of ten pass.
 
 **New**
 - **CPU cores:** each site sees 4 or 8 (never more than your PC has), the same in the page and its workers. A PC with 4 to 7 always says 4.
