@@ -49,6 +49,8 @@ function ytCss() {
   if (ytOn('related')) css += 'ytd-watch-flexy[flexy]:not([theater]) #secondary:not(:has(ytd-playlist-panel-renderer:not([hidden]))):not(:has(#chat:not([collapsed]))){min-width:0!important;width:0!important;padding:0!important}';
   return css;
 }
+// Ambient light (src/yt-ambient.js): a glow in the video's colours around the player. On unless switched off.
+const ytAmb = () => ({ ...OTO_AMBIENT_DEFAULTS, ...(S.settings.ytAmbient || {}) });
 async function ytApply(v) {
   if (!v || !v.wv) return;
   let url = '';
@@ -57,7 +59,17 @@ async function ytApply(v) {
   if (!isYT(url)) return;
   const css = ytCss();
   if (css) { try { v.ytKey = await v.wv.insertCSS(css); } catch {} }
+  // the page's own code, run once per page (it follows YouTube's in-page navigation itself); later runs only change
+  // its settings. No Oto API is given to the page.
+  await ytAmbApply(v, url);
 }
+async function ytAmbApply(v, url) {
+  if (!isYT(url)) return;
+  const amb = ytAmb();
+  if (amb.on || v.ytAmbient) { try { await v.wv.executeJavaScript(`(${otoYtAmbient})(${JSON.stringify(amb)})`); v.ytAmbient = true; } catch {} }
+}
+// while a slider moves: only the glow's settings change, the YouTube switches' CSS stays as it is
+function ytAmbRefresh() { for (const v of V.values()) if (v && v.ready && v.wv) { try { ytAmbApply(v, v.wv.getURL()); } catch {} } }
 function ytRefresh() { for (const v of V.values()) if (v && v.ready) ytApply(v); }
 function ytShorts(v, url) {
   if (!ytOn('shortsPlayer')) return;
@@ -249,6 +261,40 @@ function shpBlocking() {
 }
 
 // ---------------------------------------------------------------- 03 youtube
+// Ambient light settings: a switch, three sliders and two choices. Every change shows at once on open YouTube tabs.
+function shpAmbient() {
+  const a = ytAmb();
+  let saveT = 0;
+  const set = (k, val, repaint) => {
+    S.settings.ytAmbient = { ...ytAmb(), [k]: val };
+    ytAmbRefresh();
+    clearTimeout(saveT); saveT = setTimeout(save, 300); // sliders send many changes while dragging
+    if (repaint) shpPaint();
+  };
+  const slider = (k, label, min, max, fmt) => {
+    const out = h('span', { class: 'val' }, fmt(a[k]));
+    const r = h('input', { type: 'range', min, max, step: 1, value: a[k], 'aria-label': label, disabled: !a.on });
+    r.addEventListener('input', () => { out.textContent = fmt(+r.value); set(k, +r.value); });
+    return h('div', { class: 'sh-row sh-range' }, h('span', { class: 'tt' }, h('b', {}, label)), r, out);
+  };
+  const pct = (n) => `${n}%`;
+  return [
+    shpLbl('AMBIENT LIGHT'),
+    h('div', { class: `sh-list sh-amb${a.on ? '' : ' off'}` },
+      h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'Ambient light'), h('small', {}, 'A soft glow in the video’s colours spreads around the player and follows the picture')), shpSwitch(a.on, (v) => set('on', v, true))),
+      slider('strength', 'Brightness', 10, 100, pct),
+      slider('blur', 'Blur', 0, 100, pct),
+      slider('spread', 'Spread', 0, 200, pct),
+      h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'Fade in'), h('small', {}, 'How gently the glow appears and goes')),
+        shpSeg([['0', 'Off'], ['300', 'Quick'], ['600', 'Soft'], ['1500', 'Slow']], String(a.fade), (id) => set('fade', +id))),
+      h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'Player sizes'), h('small', {}, 'Normal player, theatre mode, or both. Never in fullscreen: the video fills the screen')),
+        shpSeg([['all', 'Both'], ['normal', 'Normal'], ['theater', 'Theatre']], a.layouts, (id) => set('layouts', id))),
+      h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'YouTube theme'), h('small', {}, 'A glow reads best on YouTube’s dark theme')),
+        shpSeg([['dark', 'Dark only'], ['both', 'Dark & light']], a.light ? 'both' : 'dark', (id) => set('light', id === 'both'))),
+      h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('small', {}, 'Off for videos with copy protection (they can’t be drawn) and while the tab is in the background.')),
+        h('button', { class: 'sh-btn', onclick: () => { S.settings.ytAmbient = { ...OTO_AMBIENT_DEFAULTS, on: ytAmb().on }; save(); ytAmbRefresh(); shpPaint(); } }, 'RESET LOOK'))),
+  ];
+}
 function shpYouTube() {
   const set = (k, v) => { S.settings.yt = { ...(S.settings.yt || {}), [k]: v }; save(); ytRefresh(); };
   const n = YT_ALL.filter(([k]) => ytOn(k)).length;
@@ -256,6 +302,7 @@ function shpYouTube() {
     shpCrumb('SHIELD / YOUTUBE', '03'),
     h('h1', {}, 'YouTube, calmer'),
     h('p', { class: 'sub' }, 'Switch off the parts of YouTube you don’t want. Changes show right away, no filters to write.'),
+    ...shpAmbient(),
     ...YT_SW.flatMap(([grp, list]) => [shpLbl(grp),
       h('div', { class: 'sh-list' }, ...list.map(([k, label, desc]) => h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, label), desc ? h('small', {}, desc) : null), shpSwitch(ytOn(k), (v) => set(k, v)))))]),
     h('div', { class: 'sh-foot' }, h('span', {}, `${n} OF ${YT_ALL.length} SWITCHED ON`),
@@ -447,7 +494,7 @@ function initV1j() {
   const _bind = bindView;
   bindView = function (tab, v) {
     _bind.apply(this, arguments);
-    v.wv.addEventListener('dom-ready', () => { v.ytKey = null; ytApply(v); });
+    v.wv.addEventListener('dom-ready', () => { v.ytKey = null; v.ytAmbient = false; ytApply(v); });
     v.wv.addEventListener('did-navigate', (e) => ytShorts(v, e.url));
     v.wv.addEventListener('did-navigate-in-page', (e) => { if (e.isMainFrame) ytShorts(v, e.url); });
   };

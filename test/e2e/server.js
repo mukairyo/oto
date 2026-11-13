@@ -168,6 +168,16 @@ function handler(req, res) {
     + 'try { if (navigator.serviceWorker) { const reg = await navigator.serviceWorker.register("/fpsw.js"); await navigator.serviceWorker.ready; const w = reg.active; out.service = await new Promise((r) => { navigator.serviceWorker.onmessage = (e) => r(e.data); w.postMessage("go"); setTimeout(() => r(null), 8000); }); await reg.unregister(); } else out.service = "no service workers on this page"; } catch (e) { out.service = "error " + e.message; }'
     + 'try { const o = new OffscreenCanvas(240, 60); const x = o.getContext("2d"); x.textBaseline = "top"; x.font = "14px Arial"; x.fillStyle = "#f60"; x.fillRect(125, 1, 62, 20); x.fillStyle = "#069"; x.fillText("Oto <canvas> reading 1.0", 2, 15); x.fillStyle = "rgba(102, 204, 0, 0.7)"; x.fillText("Oto <canvas> reading 1.0", 4, 17); const d = x.getImageData(0, 0, 240, 60).data; let h = 0; const s = String([...d]); for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) >>> 0; out.offscreenPixels = h.toString(16); } catch (e) {}'
     + 'out.cores = navigator.hardwareConcurrency; window.__res = out; });</script>')); }
+  // A stand-in for a YouTube watch page (the parts Oto's ambient light uses): dark theme, ytd-app, ytd-watch-flexy,
+  // #movie_player and a playing video. The video plays a canvas whose colour the test changes (window.__paint).
+  if (host === 'yt.site' && url.pathname === '/watch') {
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    return res.end(`<!doctype html><html dark><head><title>Watch</title><style>html{background:#0f0f0f}body{margin:0}ytd-app{display:block;background:#0f0f0f;min-height:100vh}#movie_player{position:relative;width:640px;height:360px;margin:60px 0 0 40px;background:#000}ytd-watch-flexy[theater] #movie_player{width:1000px;margin-left:0}video{width:100%;height:100%;object-fit:contain}#below{height:300px;color:#fff}</style></head>
+<body><ytd-app><ytd-watch-flexy><div id="movie_player" class="html5-video-player"><video class="html5-main-video" muted playsinline></video></div><div id="below">Title</div><div id="cinematics">youtube glow</div></ytd-watch-flexy></ytd-app>
+<script>const c = document.createElement('canvas'); c.width = 320; c.height = 180; const x = c.getContext('2d'); let color = '#e0204a';
+window.__paint = (col) => { color = col; }; setInterval(() => { x.fillStyle = color; x.fillRect(0, 0, 320, 180); }, 30);
+const v = document.querySelector('video'); v.srcObject = c.captureStream(30); v.play();</script></body></html>`);
+  }
   if (url.pathname === '/echo-lang') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end(String(req.headers['accept-language'] || '')); }
   if (url.pathname === '/fpworker.js') { res.writeHead(200, { 'Content-Type': 'text/javascript' }); return res.end(FP_WORKER); }
   if (url.pathname === '/go') { res.writeHead(302, { Location: url.searchParams.get('to') || '/' }); return res.end(); }

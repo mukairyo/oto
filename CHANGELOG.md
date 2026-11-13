@@ -3,6 +3,18 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.6.1 — 2026-11-14
+
+*Small update. Nothing to do: it updates itself.*
+
+**New**
+- **YouTube ambient light, built in.** A soft glow in the video's own colours spreads around the player and over the page, and follows the picture as it changes, like the "Ambient light for YouTube" extension, without needing it. On by default. Settings on Oto's YouTube page (Shield › YouTube): brightness, blur, spread, fade-in, which player sizes get it (normal, theatre or both) and whether it also shows on YouTube's light theme. In theatre mode the bars beside the video fill with the glow too.
+- Written for Oto, not taken from the extension. The video is only drawn onto the screen; nothing is read from it, sent anywhere, or given to the page.
+
+**Good to know**
+- Not in fullscreen (the video fills the screen), not in the mini-player, and not for videos with copy protection (films you rent or buy draw black). It pauses while the tab is in the background.
+- If you keep the extension, switch one of them off: two glows on top of each other look muddy.
+
 ## 1.6.0 — 2026-11-13
 
 *Stronger fingerprint protection. Nothing to do: it updates itself. Details and limits are in docs/PRIVACY_PROTECTION.md.*
