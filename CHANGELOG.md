@@ -3,6 +3,20 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.6.4 — 2026-11-14
+
+*Small update. Nothing to do: it updates itself.*
+
+**Changed**
+- **YouTube ambient light is now built the way the "Ambient light for YouTube" extension builds it**, so it looks the same:
+  - The light is the video drawn several times, each copy a little bigger than the last (12% steps), smaller copies on top. Just outside the video you see its own edge colours carried outward, ring by ring, instead of colours from further inside the picture.
+  - It reaches equally far on every side (before, it reached further sideways than up and down).
+  - Blur is a share of the video's height, so it looks the same in a small player and in theatre mode. The default blur is 30%, like the extension.
+  - The fade-out follows a curve with an adjustable start and shape: new "Edge size", "Fade start" and "Fade curve" settings under More settings.
+  - A sharper picture of the video (256 points across instead of 64), so the light isn't blocky at low blur.
+- The glow around Oto's window uses the same copies and fade, so it matches the light in the page.
+- Thanks to Wessel Kroos, whose MIT-licensed extension showed how the light is built. Oto's code is its own.
+
 ## 1.6.3 — 2026-11-14
 
 *Small update. Nothing to do: it updates itself.*

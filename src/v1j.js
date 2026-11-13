@@ -70,7 +70,7 @@ async function ytAmbApply(v, url) {
 }
 // Changes made in the small panel of the player button. The page can't reach Oto: Oto asks the YouTube tab you are
 // looking at for them, keeps only known settings with sensible values, saves them and passes them to other tabs.
-const YT_AMB_RANGES = { strength: [10, 100], blur: [0, 100], spread: [0, 400], brightness: [50, 150], colors: [0, 200], fade: [0, 5000], fps: [5, 60], edge: [0, 100], text: [0, 100], boxes: [0, 200], thumbs: [20, 100] };
+const YT_AMB_RANGES = { strength: [10, 100], blur: [0, 100], spread: [0, 400], step: [1, 60], fadeStart: [-50, 100], fadeCurve: [1, 100], brightness: [50, 150], colors: [0, 200], fade: [0, 5000], fps: [5, 60], edge: [0, 100], text: [0, 100], boxes: [0, 200], thumbs: [20, 100] };
 const YT_AMB_CHOICES = { layouts: ['all', 'normal', 'theater'], res: ['low', 'normal', 'high'] };
 function ytAmbClean(c) {
   const out = {};
@@ -111,31 +111,40 @@ setInterval(ytAmbCollect, 1200);
 // video and blurred the same, around the page. It never covers the page itself, never catches the mouse, and is
 // always blurred at least 24 px, so nothing sharp from a page can be drawn over Oto. Gone at once in fullscreen, on
 // other tabs, or when "Glow around Oto" is off.
-const AMBF = { el: null, cv: null, ctx: null, busy: false, on: false, hold: false }; // hold: the tests draw it themselves
+const AMBF = { el: null, wash: null, src: null, sctx: null, stacks: [], busy: false, on: false, hold: false }; // hold: the tests draw it themselves
+// One light: wrap (left/right fade) > mid (blur, top/bottom fade) > copies of the frame, biggest at the bottom.
+const ambStack = (parent) => { const mid = h('div', { class: 'af-mid' }), wrap = h('div', { class: 'af-wrap' }, mid); parent.appendChild(wrap); return { wrap, mid, levels: [], shape: '' }; };
 function ambFrameEl() {
   if (AMBF.el) return AMBF.el;
-  AMBF.cv = h('canvas', { width: 64, height: 36 });
-  AMBF.ctx = AMBF.cv.getContext('2d');
-  // two fades on two elements (left/right on the wrapper, top/bottom on the canvas): one mask each multiplies
-  AMBF.wrap = h('div', { class: 'af-wrap' }, AMBF.cv);
-  AMBF.el = h('div', { id: 'amb-frame', 'aria-hidden': 'true' }, AMBF.wrap);
-  // Where the glow reaches, Oto's window also takes its colour (its colour only: Oto's own light and dark, and so
-  // every text and icon, stay as they are). The same picture in the same place: strong near the video, fading out
-  // with the light, and Oto's normal look wherever the light doesn't reach.
-  AMBF.washCv = h('canvas', { width: 64, height: 36 });
-  AMBF.washWrap = h('div', { class: 'af-wrap' }, AMBF.washCv);
-  AMBF.wash = h('div', { id: 'amb-wash', 'aria-hidden': 'true' }, AMBF.washWrap);
+  AMBF.src = document.createElement('canvas'); AMBF.src.width = 128; AMBF.src.height = 72;
+  AMBF.sctx = AMBF.src.getContext('2d');
+  AMBF.el = h('div', { id: 'amb-frame', 'aria-hidden': 'true' });
+  // Where the light reaches, Oto's window also takes its colour (its colour only: Oto's own light and dark, and so
+  // every text and icon, stay as they are): the same light in the same place, strong near the video, fading with it.
+  AMBF.wash = h('div', { id: 'amb-wash', 'aria-hidden': 'true' });
+  AMBF.stacks = [ambStack(AMBF.el), ambStack(AMBF.wash)];
   document.body.append(AMBF.wash, AMBF.el);
   return AMBF.el;
 }
-function ambFrameOff() { if (AMBF.on && AMBF.el) { AMBF.el.classList.remove('on'); if (AMBF.wash) AMBF.wash.classList.remove('on'); AMBF.on = false; } }
+function ambFrameOff() { if (AMBF.on && AMBF.el) { AMBF.el.classList.remove('on'); AMBF.wash.classList.remove('on'); AMBF.on = false; } }
 const ambNum = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
 function ambFrameValid(f) {
-  if (!f || typeof f !== 'object') return false;
-  if (![[32, 18], [64, 36], [128, 72]].some(([w, hh]) => f.w === w && f.h === hh)) return false;
+  if (!f || typeof f !== 'object' || f.w !== 128 || f.h !== 72) return false;
   if (typeof f.rgb !== 'string' || f.rgb.length !== f.w * f.h * 4 || !/^[A-Za-z0-9+/]+=*$/.test(f.rgb)) return false;
   if (!Array.isArray(f.pic) || f.pic.length !== 4 || !f.pic.every((v) => ambNum(v, -20000, 20000)) || f.pic[2] < 1 || f.pic[3] < 1) return false;
-  return ambNum(f.ex, 0, 20000) && ambNum(f.ey, 0, 20000) && ambNum(f.blur, 0, 400) && ambNum(f.strength, 0, 1) && ambNum(f.bright, 0.5, 1.5) && ambNum(f.colors, 0, 2);
+  if (!Number.isInteger(f.outer) || f.outer < 0 || f.outer > 46 || !Number.isInteger(f.inner) || f.inner < 0 || f.inner > 4) return false;
+  return ambNum(f.ex, 0, 40000) && ambNum(f.step, 0.01, 0.6) && ambNum(f.blur, 0, 400) && ambNum(f.fadeStart, -50, 100) && ambNum(f.fadeCurve, 1, 100)
+    && ambNum(f.strength, 0, 1) && ambNum(f.bright, 0.5, 1.5) && ambNum(f.colors, 0, 2);
+}
+// the same fade-out as in the page: full light up to the fade start, then along the curve to nothing
+function ambFade(dir, a, len, e, fadeStart, fadeCurve) {
+  if (e < 1) return `linear-gradient(${dir},#000,#000)`;
+  const f = (fadeStart / 100) * e, curve = 16 / (fadeCurve * 0.64), pts = [];
+  for (let i = 0; i <= 12; i++) { const t = i / 12, d = f + (e - f) * t; if (d >= 0) pts.push([d, 1 - Math.pow(t, curve)]); }
+  const first = pts.length ? pts[0][1] : 1;
+  const before = pts.slice().reverse().map(([d, al]) => `rgba(0,0,0,${al.toFixed(3)}) ${(a - d).toFixed(1)}px`);
+  const after = pts.map(([d, al]) => `rgba(0,0,0,${al.toFixed(3)}) ${(a + len + d).toFixed(1)}px`);
+  return `linear-gradient(${dir},${before.join(',')},rgba(0,0,0,${first.toFixed(3)}) ${a.toFixed(1)}px,rgba(0,0,0,${first.toFixed(3)}) ${(a + len).toFixed(1)}px,${after.join(',')})`;
 }
 async function ambFrameTick() {
   if (AMBF.busy || AMBF.hold) return;
@@ -153,35 +162,36 @@ async function ambFrameTick() {
 }
 function ambFrameShow(f, box, zoom = 1) {
   if (!ambFrameValid(f) || !box) return ambFrameOff();
-  const el = ambFrameEl(), cv = AMBF.cv;
-  // the picture
+  const el = ambFrameEl();
   let bin;
   try { bin = atob(f.rgb); } catch { return ambFrameOff(); }
-  if (cv.width !== f.w || cv.height !== f.h) { cv.width = f.w; cv.height = f.h; }
-  const img = AMBF.ctx.createImageData(f.w, f.h);
+  const img = AMBF.sctx.createImageData(f.w, f.h);
   for (let i = 0, j = 0; i < bin.length; i += 3, j += 4) { img.data[j] = bin.charCodeAt(i); img.data[j + 1] = bin.charCodeAt(i + 1); img.data[j + 2] = bin.charCodeAt(i + 2); img.data[j + 3] = 255; }
-  AMBF.ctx.putImageData(img, 0, 0);
-
-  // where: the video's rectangle in Oto's window, the glow reaching past it, fading out like the glow in the page
+  AMBF.sctx.putImageData(img, 0, 0);
+  // where: the video's rectangle in Oto's window, and the light built around it exactly as in the page
   const z = ambNum(zoom, 0.25, 5) ? zoom : 1;
-  const px = box.left + f.pic[0] * z, py = box.top + f.pic[1] * z, pw = f.pic[2] * z, ph = f.pic[3] * z, ex = f.ex * z, ey = f.ey * z;
-  const c = cv.style, w = AMBF.wrap.style, gw = pw + 2 * ex, gh = ph + 2 * ey;
-  w.left = `${px - ex}px`; w.top = `${py - ey}px`; w.width = `${gw}px`; w.height = `${gh}px`;
-  c.filter = `blur(${Math.max(24, f.blur * z)}px) saturate(${f.colors}) brightness(${f.bright})`;
-  // light fades out gradually (eased), not in a straight ramp that ends in a visible line
-  const ease = (dir, a, b, c, d) => {
-    const st = [[0, 0], [0.2, 0.06], [0.4, 0.2], [0.6, 0.45], [0.8, 0.75], [1, 1]];
-    const up = st.map(([t, v]) => `rgba(0,0,0,${v}) ${(a + (b - a) * t).toFixed(1)}px`);
-    const down = st.slice().reverse().map(([t, v]) => `rgba(0,0,0,${v}) ${(d - (d - c) * t).toFixed(1)}px`);
-    return `linear-gradient(${dir},${up.join(',')},${down.join(',')})`;
-  };
-  const mx = ease('to right', 0, ex, ex + pw, gw), my = ease('to bottom', 0, ey, ey + ph, gh);
-  w.maskImage = mx; w.webkitMaskImage = mx;
-  c.maskImage = my; c.webkitMaskImage = my;
-  const wc = AMBF.washCv;
-  if (wc.width !== cv.width || wc.height !== cv.height) { wc.width = cv.width; wc.height = cv.height; }
-  wc.getContext('2d').drawImage(cv, 0, 0);
-  wc.style.cssText = c.cssText; AMBF.washWrap.style.cssText = w.cssText;
+  const px = box.left + f.pic[0] * z, py = box.top + f.pic[1] * z, pw = f.pic[2] * z, ph = f.pic[3] * z, e = f.ex * z;
+  const gw = pw + 2 * e, gh = ph + 2 * e;
+  const mx = ambFade('to right', e, pw, e, f.fadeStart, f.fadeCurve), my = ambFade('to bottom', e, ph, e, f.fadeStart, f.fadeCurve);
+  for (const st of AMBF.stacks) {
+    const want = `${f.outer}|${f.inner}`;
+    if (st.shape !== want) {
+      st.shape = want;
+      for (const l of st.levels) l.el.remove();
+      st.levels = [];
+      for (let pos = f.outer; pos >= -f.inner; pos--) { const c = h('canvas', { width: 128, height: 72 }); st.mid.appendChild(c); st.levels.push({ el: c, ctx: c.getContext('2d'), pos }); }
+    }
+    const w = st.wrap.style, m = st.mid.style;
+    w.left = `${px - e}px`; w.top = `${py - e}px`; w.width = `${gw}px`; w.height = `${gh}px`;
+    w.maskImage = mx; w.webkitMaskImage = mx;
+    m.maskImage = my; m.webkitMaskImage = my;
+    m.filter = `blur(${Math.max(24, f.blur * z)}px) saturate(${f.colors}) brightness(${f.bright})`; // never sharp over Oto
+    for (const l of st.levels) {
+      l.ctx.drawImage(AMBF.src, 0, 0);
+      const sx = Math.max(0.02, 1 + f.step * l.pos), sy = Math.max(0.02, 1 + f.step * l.pos * (pw / ph)), cs = l.el.style;
+      cs.left = `${e}px`; cs.top = `${e}px`; cs.width = `${pw}px`; cs.height = `${ph}px`; cs.transform = `scale(${sx.toFixed(4)},${sy.toFixed(4)})`;
+    }
+  }
   // everything except the page area (a frame with a hole)
   const hole = `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${box.left}px ${box.top}px, ${box.right}px ${box.top}px, ${box.right}px ${box.bottom}px, ${box.left}px ${box.bottom}px, ${box.left}px ${box.top}px)`;
   el.style.clipPath = hole; AMBF.wash.style.clipPath = hole;
@@ -413,6 +423,9 @@ function shpAmbient() {
   const sw = (k) => shpSwitch(!!a[k], (v) => set(k, v));
   const more = !shpAmbMore ? [] : [
     h('div', { class: 'sh-sub' }, 'GLOW'),
+    slider('step', 'Edge size', 1, 60, pct, 'The light is the video drawn again and again, each copy this much bigger. Smaller is smoother; easiest to see with blur at 0'),
+    slider('fadeStart', 'Fade start', -50, 100, pct, 'Where the light starts to fade, as a share of the spread'),
+    slider('fadeCurve', 'Fade curve', 1, 100, pct, 'Low: the light fades early and gently. High: it stays strong longer'),
     slider('brightness', 'Brightness', 50, 150, pct, 'Brighter or darker than the video itself'),
     slider('colors', 'Colours', 0, 200, pct, '0% is grey, 100% the video’s own colours, more is richer'),
     row('Detail', 'More detail follows small parts of the picture; less is smoother', seg('res', [['low', 'Low'], ['normal', 'Normal'], ['high', 'High']], a.res)),

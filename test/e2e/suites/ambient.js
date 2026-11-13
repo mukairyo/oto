@@ -9,11 +9,11 @@ module.exports = async (t) => {
   const run = (opts) => t.page(`(${src})(${JSON.stringify(opts)})`);
   // what the page looks like right now: the glow layer, its picture, YouTube's own background
   const look = () => t.page(`(() => {
-    const L = document.getElementById('oto-ambient'), c = L && L.querySelector('canvas'), app = document.querySelector('ytd-app');
-    const box = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); };
+    const L = document.getElementById('oto-ambient'), c = L && L.querySelector('canvas'), box = L && L.querySelector('.oa-wrap'), mid = L && L.querySelector('.oa-mid'), app = document.querySelector('ytd-app');
+    const rect = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); };
     let px = null; try { const d = c.getContext('2d').getImageData(32, 18, 1, 1).data; px = [d[0], d[1], d[2]]; } catch (e) { px = String(e); }
     return { on: !!L && L.classList.contains('on'), attr: document.documentElement.hasAttribute('oto-ambient'), opacity: L ? getComputedStyle(L).opacity : null,
-      layer: L ? box(L) : null, canvas: c ? box(c) : null, blur: c ? getComputedStyle(c).filter : null, video: box(document.querySelector('video')),
+      layer: L ? rect(L) : null, canvas: box ? rect(box) : null, blur: mid ? getComputedStyle(mid).filter : null, copies: L ? L.querySelectorAll('canvas').length : 0, video: rect(document.querySelector('video')),
       appBg: getComputedStyle(app).backgroundColor, cinematics: getComputedStyle(document.getElementById('cinematics')).display, px, noApi: typeof window.oto === 'undefined' && typeof require === 'undefined' };
   })()`);
   const near = (px, rgb) => Array.isArray(px) && px.every((v, i) => Math.abs(v - rgb[i]) < 40);
@@ -24,6 +24,7 @@ module.exports = async (t) => {
   let a = await look();
   t.check('a glow appears behind the playing video, and YouTube\'s own background lets it through', a.on && a.attr && a.appBg === 'rgba(0, 0, 0, 0)' && a.cinematics === 'none', JSON.stringify(a));
   t.check('…placed on the picture and reaching past it on every side', JSON.stringify(a.layer) === JSON.stringify(a.video) && a.canvas[0] < a.layer[0] && a.canvas[1] < a.layer[1] && a.canvas[2] > a.layer[2] && a.canvas[3] > a.layer[3], `layer ${a.layer} video ${a.video} glow ${a.canvas}`);
+  t.check('the light is the picture drawn several times, each copy bigger (spread 100%, edge 12%: 8 bigger copies + 2 under the picture), reaching equally far on every side', a.copies === 11 && Math.abs((a.canvas[1] + a.canvas[3]) - (a.layer[1] + a.layer[3]) - 307) <= 2, `copies ${a.copies}, reach below ${(a.canvas[1] + a.canvas[3]) - (a.layer[1] + a.layer[3])} (expected 307: half of 12% x 8 of the width 640; the left side stops at the page edge)`);
   t.check('…in the video\'s colour (red)', near(a.px, [224, 32, 74]), String(a.px));
   await t.page('window.__paint("#20c040")'); await wait(700);
   a = await look();
@@ -32,12 +33,12 @@ module.exports = async (t) => {
 
   await run({ strength: 40, blur: 0, spread: 0, fade: 0 }); await wait(200);
   a = await look();
-  t.check('settings apply at once: brightness 40%, blur 0, spread 0 (glow exactly on the picture)', a.opacity === '0.4' && /blur\(12px\)/.test(a.blur) && JSON.stringify(a.canvas) === JSON.stringify(a.layer), `opacity ${a.opacity} ${a.blur} glow ${a.canvas} layer ${a.layer}`);
+  t.check('settings apply at once: brightness 40%, blur 0, spread 0 (glow exactly on the picture)', a.opacity === '0.4' && /blur\(0px\)/.test(a.blur) && JSON.stringify(a.canvas) === JSON.stringify(a.layer), `opacity ${a.opacity} ${a.blur} glow ${a.canvas} layer ${a.layer}`);
   await run({ spread: 400, blur: 100 }); await wait(200);
   a = await look();
   const pageW = await t.page('document.documentElement.clientWidth');
   const ctxMode = await t.page(`JSON.stringify(document.querySelector('#oto-ambient canvas').getContext('2d').getContextAttributes())`);
-  t.check('spread 400% reaches far past the picture but stays inside the page (no hard line at the window edge), blur 100% is the softest', a.canvas[0] >= 0 && a.canvas[0] + a.canvas[2] <= pageW && a.canvas[1] >= 0 && a.canvas[3] > a.layer[3] * 1.6 && /blur\(142px\)/.test(a.blur), `glow ${a.canvas} layer ${a.layer} page width ${pageW} ${a.blur}`);
+  t.check('spread 400% reaches far past the picture but stays inside the page (no hard line at the window edge), blur 100% is the softest', a.canvas[0] >= 0 && a.canvas[0] + a.canvas[2] <= pageW && a.canvas[1] >= 0 && a.canvas[3] > a.layer[3] * 1.6 && /blur\(90px\)/.test(a.blur), `glow ${a.canvas} layer ${a.layer} page width ${pageW} ${a.blur}`);
   t.check('the glow canvas is an ordinary one (a low-latency canvas can skip the blur on Windows and show stripes)', JSON.parse(ctxMode).desynchronized === false, ctxMode);
 
   // theatre mode: the player gets wider than the picture; the glow stays on the picture
@@ -77,8 +78,8 @@ module.exports = async (t) => {
   t.check('…and with "Ignore black bars" off it covers the whole frame again', a.layer[3] === 360 && a.layer[1] === a.video[1], `layer ${a.layer} video ${a.video}`);
   await t.page('window.__bars(false)');
   await run({ fade: 0, edge: 60, text: 50, boxes: 0, thumbs: 50, res: 'high', brightness: 120, colors: 50 }); await wait(400);
-  const pageLook = JSON.parse(await t.page(`JSON.stringify({ edge: getComputedStyle(document.getElementById('oto-ambient'), '::after').boxShadow, text: getComputedStyle(document.querySelector('ytd-watch-flexy')).textShadow, chip: getComputedStyle(document.documentElement).getPropertyValue('--yt-spec-badge-chip-background').trim(), detail: document.querySelector('#oto-ambient canvas').width, filter: getComputedStyle(document.querySelector('#oto-ambient canvas')).filter })`));
-  t.check('video edge shadow, text shadows, see-through boxes, glow detail, brightness and colours all apply', /54px/.test(pageLook.edge) && pageLook.text !== 'none' && /rgba\(255,\s*255,\s*255,\s*0(\.0+)?\)/.test(pageLook.chip) && pageLook.detail === 128 && /saturate\(0\.5\) brightness\(1\.2\)/.test(pageLook.filter), JSON.stringify(pageLook));
+  const pageLook = JSON.parse(await t.page(`JSON.stringify({ edge: getComputedStyle(document.getElementById('oto-ambient'), '::after').boxShadow, text: getComputedStyle(document.querySelector('ytd-watch-flexy')).textShadow, chip: getComputedStyle(document.documentElement).getPropertyValue('--yt-spec-badge-chip-background').trim(), detail: document.querySelector('#oto-ambient canvas').width, filter: getComputedStyle(document.querySelector('#oto-ambient .oa-mid')).filter })`));
+  t.check('video edge shadow, text shadows, see-through boxes, glow detail, brightness and colours all apply', /54px/.test(pageLook.edge) && pageLook.text !== 'none' && /rgba\(255,\s*255,\s*255,\s*0(\.0+)?\)/.test(pageLook.chip) && pageLook.detail === 512 && /saturate\(0\.5\) brightness\(1\.2\)/.test(pageLook.filter), JSON.stringify(pageLook));
   await run({ fade: 0, immersive: true });
   await t.page('document.querySelector("ytd-watch-flexy").setAttribute("theater", ""); scrollTo(0, 0)'); await wait(1000);
   const imm = async () => JSON.parse(await t.page(`JSON.stringify({ top: getComputedStyle(document.getElementById('masthead-container')).opacity, page: getComputedStyle(document.getElementById('columns')).opacity })`));
@@ -128,21 +129,21 @@ module.exports = async (t) => {
   await run({ fade: 0, button: true }); await t.page('window.__paint("#2050e0")'); await wait(900);
   const fr0 = JSON.parse(await t.page('JSON.stringify(window.__otoAmbient.frame())'));
   const blue = fr0 && (() => { const b = Buffer.from(fr0.rgb, 'base64'); return [b[0], b[1], b[2]]; })();
-  t.check('the page hands Oto only the glow\'s tiny picture and where it sits (blue here)', !!fr0 && fr0.w === 64 && fr0.h === 36 && Buffer.from(fr0.rgb, 'base64').length === 64 * 36 * 3 && blue[2] > 150 && blue[0] < 90 && fr0.pic.length === 4, fr0 ? `${fr0.w}x${fr0.h} first point ${blue} picture ${fr0.pic} reach ${fr0.ex},${fr0.ey}` : 'nothing');
+  t.check('the page hands Oto only the glow\'s tiny picture and where it sits (blue here)', !!fr0 && fr0.w === 128 && fr0.h === 72 && Buffer.from(fr0.rgb, 'base64').length === 128 * 72 * 3 && fr0.outer > 1 && blue[2] > 150 && blue[0] < 90 && fr0.pic.length === 4, fr0 ? `${fr0.w}x${fr0.h} first point ${blue} picture ${fr0.pic} reach ${fr0.ex},${fr0.ey}` : 'nothing');
   const bad = await t.js(`JSON.stringify([ambFrameValid(${JSON.stringify(fr0)}), ambFrameValid({ ...${JSON.stringify(fr0)}, w: 4000 }), ambFrameValid({ ...${JSON.stringify(fr0)}, rgb: 'x' }), ambFrameValid({ ...${JSON.stringify(fr0)}, pic: [0, 0, 'a', 1] }), ambFrameValid({ ...${JSON.stringify(fr0)}, strength: 7 }), ambFrameValid('frame')])`);
   t.check('…and Oto accepts only a real small picture with sensible numbers', bad === '[true,false,false,false,false,false]', bad);
   await t.js(`AMBF.hold = true; ambFrameShow(${JSON.stringify(fr0)}, V.get(activeTab().id).wv.getBoundingClientRect(), 1); true`); await wait(900);
-  const fr = JSON.parse(await t.js(`JSON.stringify((() => { const el = document.getElementById('amb-frame'), c = el.querySelector('canvas'), b = V.get(activeTab().id).wv.getBoundingClientRect(), r = c.getBoundingClientRect(); return { on: el.classList.contains('on'), opacity: getComputedStyle(el).opacity, clip: el.style.clipPath, hole: [b.left, b.top].map(Math.round), pointer: getComputedStyle(el).pointerEvents, filter: c.style.filter, glow: [r.left, r.top, r.width, r.height].map(Math.round), pic: [b.left + ${fr0.pic[0]}, b.top + ${fr0.pic[1]}].map(Math.round) }; })())`));
-  const wash = JSON.parse(await t.js(`JSON.stringify((() => { const w = document.getElementById('amb-wash'), wc = w.querySelector('canvas'), gc = document.querySelector('#amb-frame canvas'); const r = (e) => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.width, b.height].map(Math.round).join(','); }; return { on: w.classList.contains('on'), blend: getComputedStyle(w).mixBlendMode, bg: getComputedStyle(w).backgroundColor, clip: /evenodd/.test(w.style.clipPath), pointer: getComputedStyle(w).pointerEvents, same: r(wc) === r(gc), mask: /linear-gradient/.test(wc.style.maskImage || wc.style.webkitMaskImage) }; })())`));
+  const fr = JSON.parse(await t.js(`JSON.stringify((() => { const el = document.getElementById('amb-frame'), c = el.querySelector('.af-wrap'), m = el.querySelector('.af-mid'), b = V.get(activeTab().id).wv.getBoundingClientRect(), r = c.getBoundingClientRect(); return { on: el.classList.contains('on'), opacity: getComputedStyle(el).opacity, clip: el.style.clipPath, hole: [b.left, b.top].map(Math.round), pointer: getComputedStyle(el).pointerEvents, filter: m.style.filter, copies: el.querySelectorAll('canvas').length, glow: [r.left, r.top, r.width, r.height].map(Math.round), pic: [b.left + ${fr0.pic[0]}, b.top + ${fr0.pic[1]}].map(Math.round) }; })())`));
+  const wash = JSON.parse(await t.js(`JSON.stringify((() => { const w = document.getElementById('amb-wash'), wc = w.querySelector('.af-wrap'), gc = document.querySelector('#amb-frame .af-wrap'); const r = (e) => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.width, b.height].map(Math.round).join(','); }; return { on: w.classList.contains('on'), blend: getComputedStyle(w).mixBlendMode, bg: getComputedStyle(w).backgroundColor, clip: /evenodd/.test(w.style.clipPath), pointer: getComputedStyle(w).pointerEvents, same: r(wc) === r(gc), mask: /linear-gradient/.test(wc.style.maskImage || wc.style.webkitMaskImage) }; })())`));
   t.check('…and Oto\'s window takes the glow\'s colour only where the light reaches (same place and fade as the glow, colour only so text stays readable)', wash.on && wash.blend === 'color' && wash.clip && wash.pointer === 'none' && wash.same && wash.mask && wash.bg === 'rgba(0, 0, 0, 0)', JSON.stringify(wash));
   t.check('Oto\'s older even glow around a playing page steps aside while the YouTube glow is on (no light where none reaches)', (await t.js(`(() => { const c = document.getElementById('content'); c.classList.add('v1-amb'); AMBF.on = false; ambFrameShow(${JSON.stringify(fr0)}, V.get(activeTab().id).wv.getBoundingClientRect(), 1); return !c.classList.contains('v1-amb'); })()`)) === true);
-  t.check('Oto continues the glow around the page: lined up with the video, blurred, never over the page, never catching the mouse', fr.on && +fr.opacity > 0.3 && fr.pointer === 'none' && /evenodd/.test(fr.clip) && fr.clip.includes(`${fr.hole[0]}px`) && /blur\((7\d|[2-9]\d)px\)/.test(fr.filter) && Math.abs(fr.glow[0] - (fr.pic[0] - fr0.ex)) <= 1 && Math.abs(fr.glow[1] - (fr.pic[1] - fr0.ey)) <= 1, JSON.stringify(fr));
+  t.check('Oto continues the glow around the page: lined up with the video, blurred, never over the page, never catching the mouse', fr.on && +fr.opacity > 0.3 && fr.pointer === 'none' && /evenodd/.test(fr.clip) && fr.clip.includes(`${fr.hole[0]}px`) && /blur\((7\d|[2-9]\d)px\)/.test(fr.filter) && Math.abs(fr.glow[0] - (fr.pic[0] - fr0.ex)) <= 1 && Math.abs(fr.glow[1] - (fr.pic[1] - fr0.ex)) <= 1 && fr.copies === fr0.outer + fr0.inner + 1, JSON.stringify(fr));
   if (process.env.OTO_E2E_SHOTS) {
     const win = require('electron').BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.isVisible());
     if (win) require('fs').writeFileSync(require('path').join(process.env.OTO_E2E_SHOTS, 'oto-ambient-frame.png'), (await win.capturePage()).toPNG());
   }
   await t.js('ambFrameOff(); AMBF.hold = false; true');
-  const mask = await t.page(`[document.querySelector('#oto-ambient .oa-wrap'), document.querySelector('#oto-ambient canvas')].map((e) => getComputedStyle(e).maskImage || getComputedStyle(e).webkitMaskImage).join(' | ')`);
+  const mask = await t.page(`[document.querySelector('#oto-ambient .oa-wrap'), document.querySelector('#oto-ambient .oa-mid')].map((e) => getComputedStyle(e).maskImage || getComputedStyle(e).webkitMaskImage).join(' | ')`);
   t.check('the glow in the page fades out towards its outer edges (no hard edge even without blur)', /linear-gradient/.test(mask) && /transparent|rgba\(0, 0, 0, 0\)/.test(mask), mask.slice(0, 160));
 
   // only real YouTube addresses get it, and it is on unless switched off

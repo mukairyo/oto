@@ -13,15 +13,21 @@
  * per page, and later calls change the settings or switch it off. Settings (Shield › YouTube › Ambient light):
  *   on          switched on
  *   strength    0–100   how strongly the glow shows
- *   blur        0–100   how soft
- *   spread      0–400   how far past the picture it reaches: 100% = half the picture's size past each edge (the same
- *               scale as the "Ambient light for YouTube" extension, so the same number looks the same)
+ *   blur        0–100   how soft, as a share of the picture's height (so it looks the same in any player size)
+ *   spread      0–400   how far past the picture it reaches: 100% = half the picture's width past every edge
+ *   step        1–60    edge size: the light is the picture drawn several times, each copy this much (% of the
+ *               picture) bigger than the last, smaller copies on top. Just outside the picture you then see its own
+ *               edge colours carried outward, ring by ring, instead of colours from further inside the picture.
+ *   fadeStart   -50–100 where the fade-out starts, in % of the spread (0 = right at the picture's edge)
+ *   fadeCurve   1–100   how the fade-out runs: low = light fades early and gently, high = it stays strong longer
+ * (The way the light is built, with stacked copies, an even reach on all sides and a fade curve, follows the
+ * approach of the MIT-licensed "Ambient light for YouTube" extension by Wessel Kroos; the code is Oto's own.)
  *   brightness  50–150  glow brightness (100 = the video's own)
  *   colors      0–200   glow colour strength (100 = the video's own)
  *   fade        ms      how long the glow takes to appear and go
  *   layouts     'all' | 'normal' | 'theater'
  *   light       also on YouTube's light theme (normally only the dark theme, where a glow reads best)
- *   res         'low' | 'normal' | 'high'   detail of the glow (32, 64 or 128 points across)
+ *   res         'low' | 'normal' | 'high'   detail of the glow (128, 256 or 512 points across)
  *   fps         15 | 30 | 60               most glow updates per second
  *   bars        ignore black bars inside the picture
  *   edge        0–100   shadow around the video's edges
@@ -38,24 +44,26 @@
  * protection (they draw black) and while the tab is in the background. YouTube's own, much smaller "ambient mode"
  * glow is hidden while Oto's is on.
  */
-const OTO_AMBIENT_DEFAULTS = { on: true, strength: 85, blur: 45, spread: 100, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true };
+const OTO_AMBIENT_DEFAULTS = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true };
 function otoYtAmbient(opts) {
   // = OTO_AMBIENT_DEFAULTS (this function runs inside the page on its own)
-  const D = { on: true, strength: 85, blur: 45, spread: 100, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true };
+  const D = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true };
   const A = window.__otoAmbient;
   if (A) { A.set(opts); return 'updated'; }
   const o0 = { ...D, ...(opts || {}) };
   if (!o0.on && !o0.button) return 'off';
   const doc = document, root = doc.documentElement;
-  const layer = doc.createElement('div'), cv = doc.createElement('canvas');
+  const layer = doc.createElement('div'), cv = doc.createElement('canvas'); // cv: the current frame, not on the page
   layer.id = 'oto-ambient';
   layer.setAttribute('aria-hidden', 'true');
-  const wrap = doc.createElement('div'); // two fades on two elements: one mask each always multiplies correctly
-  wrap.className = 'oa-wrap';
-  wrap.appendChild(cv); layer.appendChild(wrap);
-  // A normal canvas, not a low-latency ("desynchronized") one: Chromium may put those straight on the screen and skip
+  // two fades on two elements (one mask each always multiplies correctly): left/right on wrap, top/bottom on mid
+  const wrap = doc.createElement('div'), mid = doc.createElement('div');
+  wrap.className = 'oa-wrap'; mid.className = 'oa-mid';
+  wrap.appendChild(mid); layer.appendChild(wrap);
+  // Normal canvases, not low-latency ("desynchronized") ones: Chromium may put those straight on the screen and skip
   // the blur, which shows as sharp stretched stripes (seen on Windows in 1.6.1).
   const ctx = cv.getContext('2d', { alpha: false });
+  let levels = []; // [{ el, ctx, s }] from the biggest copy (bottom) to the smallest (top)
   const probe = doc.createElement('canvas'); probe.width = 96; probe.height = 54; // for black bars
   const pctx = probe.getContext('2d', { willReadFrequently: true });
   const style = doc.createElement('style'), look = doc.createElement('style');
@@ -67,7 +75,8 @@ html[oto-ambient] #cinematics,html[oto-ambient] #cinematics-container{display:no
 #oto-ambient{position:absolute;left:0;top:0;width:0;height:0;z-index:0;pointer-events:none;opacity:0;transition:opacity var(--oa-fade,600ms) ease;contain:layout style size}
 #oto-ambient.on{opacity:var(--oa-strength,.85)}
 #oto-ambient .oa-wrap{position:absolute}
-#oto-ambient canvas{position:absolute;left:0;top:0;width:100%;height:100%;filter:blur(var(--oa-blur,70px)) saturate(var(--oa-colors,1.35)) brightness(var(--oa-bright,1))}
+#oto-ambient .oa-mid{position:absolute;inset:0;filter:blur(var(--oa-blur,54px)) saturate(var(--oa-colors,1.35)) brightness(var(--oa-bright,1))}
+#oto-ambient canvas{position:absolute;transform-origin:50% 50%}
 #oto-ambient::after{content:'';position:absolute;inset:0;box-shadow:0 0 var(--oa-edge,0px) calc(var(--oa-edge,0px)/5) rgba(0,0,0,.85)}
 html[oto-ambient] #movie_player,html[oto-ambient] .html5-video-player,html[oto-ambient] #full-bleed-container,html[oto-ambient] #player-full-bleed-container,html[oto-ambient] #player-container-outer,html[oto-ambient] #player-container-inner,html[oto-ambient] #ytd-player,html[oto-ambient] #container.ytd-player{background:transparent!important}
 html[oto-ambient][oto-immersive] #masthead-container,html[oto-ambient][oto-immersive] ytd-watch-flexy #columns{transition:opacity .45s ease}
@@ -90,7 +99,8 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
 .oto-amb-pop .f button{border:0;background:transparent;color:#e7dfd1;font:600 12px Roboto,Arial,sans-serif;cursor:pointer;padding:4px 0}
 .oto-amb-pop.off .r{opacity:.45;pointer-events:none}`;
   let o = o0, enabled = false, userOff = false, timer = 0, lastDraw = 0, lastProbe = 0, video = null, rvfc = 0, shown = false, gone = 0;
-  let W = 64, H = 36, crop = { x: 0, y: 0, w: 1, h: 1 }, cropSeen = '', cropCount = 0, geo = null;
+  // 256 points across (enough that stretched copies don't look blocky, and small enough to draw several of them)
+  let W = 256, H = 144, crop = { x: 0, y: 0, w: 1, h: 1 }, cropSeen = '', cropCount = 0, geo = null, shape = '';
   cv.width = W; cv.height = H;
   const n = (v, lo, hi, d) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
 
@@ -106,6 +116,23 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     const v = p.querySelector('video.html5-main-video');
     return v && v.videoWidth > 0 ? v : false;
   };
+  // A fade-out along one direction: the picture starts at `a` (px, inside the element) and is `len` long; the light
+  // reaches `e` px past each end. Light is full up to the fade start, then falls along the curve to nothing.
+  const fadeMask = (dir, a, len, e) => {
+    if (e < 1) return `linear-gradient(${dir},#000,#000)`;
+    const f = n(o.fadeStart, -50, 100, 15) / 100 * e, curve = 16 / (n(o.fadeCurve, 1, 100, 35) * 0.64);
+    const pts = [];
+    for (let i = 0; i <= 12; i++) {
+      const t = i / 12, d = f + (e - f) * t; // distance from the picture's edge
+      if (d < 0) continue;
+      pts.push([d, 1 - Math.pow(t, curve)]);
+    }
+    const first = pts.length ? pts[0][1] : 1;
+    const before = pts.slice().reverse().map(([d, al]) => `rgba(0,0,0,${al.toFixed(3)}) ${(a - d).toFixed(1)}px`);
+    const after = pts.map(([d, al]) => `rgba(0,0,0,${al.toFixed(3)}) ${(a + len + d).toFixed(1)}px`);
+    return `linear-gradient(${dir},${before.join(',')},rgba(0,0,0,${first.toFixed(3)}) ${a.toFixed(1)}px,rgba(0,0,0,${first.toFixed(3)}) ${(a + len).toFixed(1)}px,${after.join(',')})`;
+  };
+  const drawLevels = () => { for (const l of levels) { try { l.ctx.drawImage(cv, 0, 0); } catch (e) {} } };
   // the glow follows the picture itself: in theatre mode the player is wider than the video (the bars at the sides
   // are made see-through above, so the glow fills them), and black bars inside the picture are left out
   const place = () => {
@@ -120,25 +147,39 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     r = { left: r.left + r.width * crop.x, top: r.top + r.height * crop.y, width: r.width * crop.w, height: r.height * crop.h };
     const s = layer.style;
     s.left = `${r.left + scrollX}px`; s.top = `${r.top + scrollY}px`; s.width = `${r.width}px`; s.height = `${r.height}px`;
-    // The glow reaches past the picture by the spread, but stays inside the page: a blurred layer cut off by the
-    // window's edge shows a hard bright line there. Inside the page it always fades out softly.
-    const sp = n(o.spread, 0, 400, 100) / 100, ex = r.width * 0.5 * sp, ey = r.height * 0.5 * sp; // like the extension: 100% reaches half the picture's size past each edge
+    // The copies: how many and how big. Each is `step` % of the picture bigger than the last; widths grow by that much
+    // of the picture's width and heights by the same number of pixels, so the light reaches equally far on every side.
+    // Two smaller copies sit under the picture: blurred, they make the light right at its edge as strong as the picture.
+    const step = n(o.step, 1, 60, 12) / 100, outer = Math.min(46, Math.round(n(o.spread, 0, 400, 100) / 100 / step)), INNER = 2;
+    const want = `${outer}|${step}|${W}x${H}`;
+    if (want !== shape) {
+      shape = want;
+      for (const l of levels) l.el.remove();
+      levels = [];
+      for (let pos = outer; pos >= -INNER; pos--) { // biggest first: later (smaller) copies are drawn on top
+        const el = doc.createElement('canvas'); el.width = W; el.height = H;
+        mid.appendChild(el);
+        levels.push({ el, ctx: el.getContext('2d', { alpha: false }), pos });
+      }
+      if (shown) drawLevels();
+    }
+    const ex = (r.width * step * outer) / 2, ey = ex;
+    // The light stays inside the page: a blurred layer cut off by the window's edge shows a hard bright line there.
     const pageW = root.clientWidth, x0 = Math.max(r.left - ex, 0), x1 = Math.min(r.left + r.width + ex, pageW);
     const y0 = Math.max(r.top + scrollY - ey, 0) - scrollY, y1 = r.top + r.height + ey;
-    const w = wrap.style, c = cv.style;
+    const w = wrap.style, c = mid.style;
     w.left = `${x0 - r.left}px`; w.top = `${y0 - r.top}px`; w.width = `${Math.max(1, x1 - x0)}px`; w.height = `${Math.max(1, y1 - y0)}px`;
-    // The glow fades out towards its outer edges, from full at the picture's edge to nothing at the end of the spread,
-    // so it never ends in a hard edge, even with no blur (the stops are measured inside the canvas; the parts past
-    // the page edge are simply never shown).
-    const L = r.left - ex - x0, Lp = r.left - x0, Rp = r.left + r.width - x0, R = r.left + r.width + ex - x0;
-    const T = r.top - ey - y0, Tp = r.top - y0, Bp = r.top + r.height - y0, B = r.top + r.height + ey - y0;
-    // eased, like light fading out (a straight ramp ends in a visible line)
-    const st = [[0, 0], [0.2, 0.06], [0.4, 0.2], [0.6, 0.45], [0.8, 0.75], [1, 1]];
-    const ease = (dir, a, b, cc, dd) => `linear-gradient(${dir},${st.map(([t, v]) => `rgba(0,0,0,${v}) ${Math.round(a + (b - a) * t)}px`).join(',')},${st.slice().reverse().map(([t, v]) => `rgba(0,0,0,${v}) ${Math.round(dd - (dd - cc) * t)}px`).join(',')})`;
-    const mx = ease('to right', L, Lp, Rp, R), my = ease('to bottom', T, Tp, Bp, B);
+    for (const l of levels) {
+      const sx = Math.max(0.02, 1 + step * l.pos), sy = Math.max(0.02, 1 + step * l.pos * (r.width / r.height)), st = l.el.style;
+      st.left = `${r.left - x0}px`; st.top = `${r.top - y0}px`; st.width = `${r.width}px`; st.height = `${r.height}px`;
+      st.transform = `scale(${sx.toFixed(4)},${sy.toFixed(4)})`;
+    }
+    layer.style.setProperty('--oa-blur', `${Math.round(r.height * 0.0025 * n(o.blur, 0, 100, 30))}px`);
+    // The fade-out: full light up to `fadeStart` % of the spread, then fading along a curve to nothing at its end.
+    const mx = fadeMask('to right', r.left - x0, r.width, ex), my = fadeMask('to bottom', r.top - y0, r.height, ey);
     w.maskImage = mx; w.webkitMaskImage = mx;
     c.maskImage = my; c.webkitMaskImage = my;
-    geo = { pic: [r.left, r.top, r.width, r.height], ex, ey };
+    geo = { pic: [r.left, r.top, r.width, r.height], ex, ey, step, outer, inner: INNER };
   };
   // Black bars: about once a second a tiny copy of the frame is checked for dark rows and columns at its edges. A
   // change is only used once it has been seen twice in a row, so a dark scene doesn't make the glow jump.
@@ -169,6 +210,7 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
       const vw = video.videoWidth, vh = video.videoHeight;
       ctx.drawImage(video, vw * crop.x, vh * crop.y, vw * crop.w, vh * crop.h, 0, 0, W, H);
     } catch (e) {}
+    drawLevels();
     lastDraw = now;
   };
   const onFrame = () => {
@@ -182,13 +224,12 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
   const looks = () => {
     const s = layer.style;
     s.setProperty('--oa-strength', String(n(o.strength, 0, 100, 85) / 100));
-    s.setProperty('--oa-blur', `${Math.round(12 + n(o.blur, 0, 100, 45) * 1.3)}px`);
     s.setProperty('--oa-fade', `${n(o.fade, 0, 5000, 600)}ms`);
     s.setProperty('--oa-bright', String(n(o.brightness, 50, 150, 100) / 100));
     s.setProperty('--oa-colors', String(n(o.colors, 0, 200, 135) / 100));
     s.setProperty('--oa-edge', `${Math.round(n(o.edge, 0, 100, 0) * 0.9)}px`);
-    const res = { low: [32, 18], high: [128, 72] }[o.res] || [64, 36];
-    if (res[0] !== W) { W = res[0]; H = res[1]; cv.width = W; cv.height = H; if (shown) draw(); }
+    const res = { low: [128, 72], high: [512, 288] }[o.res] || [256, 144];
+    if (res[0] !== W) { W = res[0]; H = res[1]; cv.width = W; cv.height = H; shape = ''; if (shown) { place(); draw(); } }
     if (!o.bars && (crop.w !== 1 || crop.h !== 1)) { crop = { x: 0, y: 0, w: 1, h: 1 }; cropSeen = ''; if (shown) { place(); draw(); } }
     // page look: text shadows, buttons and boxes, thumbnails (only what differs from YouTube's own)
     const text = n(o.text, 0, 100, 0), boxes = n(o.boxes, 0, 200, 100) / 100, thumbs = n(o.thumbs, 20, 100, 100) / 100;
@@ -318,18 +359,20 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     wantOpen = false;
     return Object.keys(r.changes).length || r.open ? r : null;
   };
-  // For the glow around Oto's own window: the glow's tiny picture (W x H colour points, nothing else), where it sits
-  // in the page (the picture's rectangle and how far the glow reaches past it), and how it looks. Oto draws the same
-  // picture, the same size and blurred the same, around the page, so the glow carries on into Oto's sidebar and bars.
-  // null while there is no glow.
+  // For the glow around Oto's own window: a small copy of the current frame (128 x 72 colour points, nothing else),
+  // where the picture sits in the page, and how the light is built (copies, reach, blur, fade). Oto builds the same
+  // light around the page, so it carries on into Oto's sidebar and bars. null while there is no glow.
+  const small = doc.createElement('canvas'); small.width = 128; small.height = 72;
+  const sctx = small.getContext('2d', { willReadFrequently: true });
   const frame = () => {
     if (!shown || !enabled || !geo) return null;
     let d;
-    try { d = ctx.getImageData(0, 0, W, H).data; } catch (e) { return null; }
+    try { sctx.drawImage(cv, 0, 0, 128, 72); d = sctx.getImageData(0, 0, 128, 72).data; } catch (e) { return null; }
     let bin = '';
     for (let i = 0; i < d.length; i += 4) bin += String.fromCharCode(d[i], d[i + 1], d[i + 2]);
-    return { w: W, h: H, rgb: btoa(bin), pic: geo.pic.map((v) => Math.round(v)), ex: Math.round(geo.ex), ey: Math.round(geo.ey),
-      blur: Math.round(12 + n(o.blur, 0, 100, 45) * 1.3), strength: n(o.strength, 0, 100, 85) / 100, bright: n(o.brightness, 50, 150, 100) / 100, colors: n(o.colors, 0, 200, 135) / 100 };
+    return { w: 128, h: 72, rgb: btoa(bin), pic: geo.pic.map((v) => Math.round(v)), ex: Math.round(geo.ex), step: geo.step, outer: geo.outer, inner: geo.inner,
+      blur: Math.round(geo.pic[3] * 0.0025 * n(o.blur, 0, 100, 30)), fadeStart: n(o.fadeStart, -50, 100, 15), fadeCurve: n(o.fadeCurve, 1, 100, 35),
+      strength: n(o.strength, 0, 100, 85) / 100, bright: n(o.brightness, 50, 150, 100) / 100, colors: n(o.colors, 0, 200, 135) / 100 };
   };
   window.__otoAmbient = { set, take, frame };
   set(o0);
