@@ -266,6 +266,8 @@ app.on('web-contents-created', (_e, contents) => {
   contents.on('before-input-event', (e, input) => handleKeys(e, input, contents));
   // Calls (WebRTC): how much of this PC's network the page may find out follows the Shield level and the site
   SH.rtcApply(contents);
+  // Fingerprint protection inside the page's background workers (see main/worker-guard.js)
+  require('./main/worker-guard.js').guard(contents, (workerUrl, wc) => fpSeed(wc.getURL(), workerUrl));
   contents.on('did-start-navigation', (ev, url, _inPlace, isMain) => {
     const main = ev && typeof ev.isMainFrame === 'boolean' ? ev.isMainFrame : isMain, same = ev && ev.isSameDocument;
     if (main && !same) SH.rtcApply(contents, (ev && ev.url) || url);
@@ -570,6 +572,23 @@ function showNativeContextMenu(wc, p) {
 // ---------------------------------------------------------------- Oto Shield (main/shield.js)
 const SH = require('./main/shield.js')(CTX);
 const { enableBlocking, disableBlocking, shieldHost, shieldAllowed, shieldLevel, shieldListsAt, regDomain, dangerUpdate, SHIELD, DANGER, FP_SESSION } = SH;
+// Fingerprint protection: a number that's the same for one site (the page you are on) during one session and
+// different everywhere else; 0 means "real values". Pages and frames ask through oto:page, workers through
+// main/worker-guard.js, so a page, its frames and its workers always get the same answers.
+function fpSeed(topUrl, frameUrl) {
+  try {
+    const top = shieldHost(topUrl);
+    // ...except inside the "are you human?" boxes themselves (Cloudflare, hCaptcha, reCAPTCHA): changed readings there
+    // look like a bot and the box never lets you through.
+    const fh = (() => { try { const u = new URL(String(frameUrl)); return u.protocol === 'blob:' ? new URL(u.pathname).hostname : u.hostname; } catch { return ''; } })(); // a worker made from a blob: belongs to the site that made it
+    const humanCheck = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net|arkoselabs\.com|funcaptcha\.com)$/.test(fh)
+      || (/(^|\.)google\.com$/.test(fh) && fh !== top);
+    if (top && !humanCheck && SH.features().fp && SH.mode() !== 'off' && !shieldAllowed(top)) {
+      return require('crypto').createHash('sha256').update(`${FP_SESSION}|${regDomain(top)}`).digest().readUInt32LE(0) || 1;
+    }
+  } catch {}
+  return 0;
+}
 
 // ---------------------------------------------------------------- permissions
 // mediaKeySystem = protected content (Widevine) for Spotify, Netflix, Disney+ … — Chrome allows it by default too.
@@ -624,7 +643,19 @@ function addPagePreload(ses) {
   const file = path.join(__dirname, 'page-preload.js');
   try {
     if (ses.registerPreloadScript) {
-      if (!(ses.getPreloadScripts ? ses.getPreloadScripts() : []).some((p) => p.id === 'oto-page')) ses.registerPreloadScript({ type: 'frame', id: 'oto-page', filePath: file });
+      const have = (id) => (ses.getPreloadScripts ? ses.getPreloadScripts() : []).some((p) => p.id === id);
+      if (!have('oto-page')) ses.registerPreloadScript({ type: 'frame', id: 'oto-page', filePath: file });
+      // Service workers: the same fingerprint protection as the site's pages (page-preload.js asks oto:worker)
+      if (!have('oto-sw') && ses.serviceWorkers) {
+        ses.registerPreloadScript({ type: 'service-worker', id: 'oto-sw', filePath: file });
+        ses.serviceWorkers.on('running-status-changed', ({ versionId, runningStatus }) => {
+          if (runningStatus !== 'starting') return;
+          try {
+            const sw = ses.serviceWorkers.getWorkerFromVersionID(versionId);
+            if (sw && !sw.ipc.listenerCount('oto:worker')) sw.ipc.on('oto:worker', (e) => { e.returnValue = fpSeed(sw.scope, sw.scope); });
+          } catch {}
+        });
+      }
     } else if (!ses.getPreloads().includes(file)) ses.setPreloads([...ses.getPreloads(), file]);
   } catch (e) { console.warn('[oto] page preload:', e && e.message); }
 }
@@ -1097,7 +1128,7 @@ function setupIPC(ses) {
       if (!dbg.isAttached()) dbg.attach('1.3');
       await dbg.sendCommand('Page.enable');
       await dbg.sendCommand('Page.setWebLifecycleState', { state: frozen ? 'frozen' : 'active' });
-      if (!frozen) dbg.detach();
+      if (!frozen && !require('./main/worker-guard.js').isGuarded(wc)) dbg.detach(); // stays connected for worker protection
       return true;
     } catch { return false; }
   });
@@ -1118,7 +1149,7 @@ function setupIPC(ses) {
   });
   // page-preload.js asks this once per page: should media wait for a click, and may this frame write cookies?
   ipcMain.on('oto:page', (e, frameOrigin) => {
-    const r = { autoplay: false, cookies: false, fp: 0, yt: false };
+    const r = { autoplay: false, cookies: false, fp: 0, fpStrict: false, yt: false };
     // YouTube (also its players embedded on other sites): strip the ads out of the player's data before it reads it,
     // so the player never waits for an ad Oto blocked (that left an empty player until you reloaded).
     try {
@@ -1127,15 +1158,8 @@ function setupIPC(ses) {
     } catch {}
     // Fingerprint protection: a number that's the same for one site during one session, different everywhere else.
     try {
-      const top = shieldHost(e.sender.getURL());
-      // ...except inside the "are you human?" boxes themselves (Cloudflare, hCaptcha, reCAPTCHA): changed readings there
-      // look like a bot and the box never lets you through.
-      const fh = (() => { try { return new URL(String(frameOrigin)).hostname; } catch { return ''; } })();
-      const humanCheck = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net|arkoselabs\.com|funcaptcha\.com)$/.test(fh)
-        || (/(^|\.)google\.com$/.test(fh) && fh !== top);
-      if (top && !humanCheck && SH.features().fp && SH.mode() !== 'off' && !shieldAllowed(top)) {
-        r.fp = require('crypto').createHash('sha256').update(`${FP_SESSION}|${regDomain(top)}`).digest().readUInt32LE(0) || 1;
-      }
+      r.fp = fpSeed(e.sender.getURL(), String(frameOrigin));
+      r.fpStrict = !!r.fp && SH.features().mode === 'strict'; // Strict: keyboard layout and read-aloud voices too
     } catch {}
     try { r.autoplay = autoplayBlocked(originOf(e.sender.getURL())); } catch {}
     try { r.cookies = cookieBlockHosts.length > 0 && cookieBlocked(new URL(String(frameOrigin)).hostname); } catch {}

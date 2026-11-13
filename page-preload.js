@@ -7,12 +7,15 @@
 // and if an ad still starts, it is skipped.
 // Fingerprint protection: canvas (also off-screen), WebGL and audio readouts get tiny changes that are the same on
 // one site for one session and different everywhere else, so sites can't recognise this PC by them. The battery
-// answer is the one a desktop PC gives. This file runs in every frame, also frames from other sites inside a page
-// (where trackers usually sit); a frame gets the changes of the site you are on.
-// What it can't reach: background workers (a script can still read the real canvas values inside a worker).
+// answer is the one a desktop PC gives, and the PDF plugin's internal file name differs per site (see below).
+// CPU cores: each site gets a common number (4 or 8, never more than the PC has); languages: only the main one.
+// This file runs in every frame, also frames from other sites inside a page (where trackers usually sit); a frame
+// gets the changes of the site you are on. Background workers get the same: main/worker-guard.js runs otoFarble
+// inside dedicated workers, and this file is also the preload of service workers (see the end of the file).
 // Nothing is read from the page.
 'use strict';
-try {
+const inPage = typeof window !== 'undefined' && typeof document !== 'undefined';
+if (inPage) try {
   const host = location.hostname;
   if (/(^|\.)accounts\.google\.com$/.test(host) || /(^|\.)accounts\.youtube\.com$/.test(host)) {
     const { contextBridge, webFrame } = require('electron');
@@ -57,7 +60,7 @@ try {
 
 // Autoplay: Block — media only plays once you've clicked or typed on the page.
 // Cookies: Block — the page can't write cookies (ones sent by the server are removed by Oto right away).
-try {
+if (inPage) try {
   const { ipcRenderer, contextBridge, webFrame } = require('electron');
   const run = (fn, ...args) => { if (contextBridge && contextBridge.executeInMainWorld) contextBridge.executeInMainWorld({ func: fn, args }); else if (webFrame) webFrame.executeJavaScript(`(${fn.toString()})(...${JSON.stringify(args)})`); };
   const site = ipcRenderer.sendSync('oto:page', location.origin) || {};
@@ -67,7 +70,7 @@ try {
       try { if (window.cookieStore) window.cookieStore.set = () => Promise.resolve(); } catch (e) {}
     });
   }
-  if (site.fp) run(otoFarble, site.fp);
+  if (site.fp) run(otoFarble, site.fp, !!site.fpStrict);
   if (site.yt) run(otoYouTubeAds);
   if (site.autoplay) {
     const hold = () => {
@@ -82,7 +85,7 @@ try {
 
 // Runs in the page. `seed` is per site and per session (main.js). Changes are tiny (a few lowest bits) and
 // always the same for the same picture or sound on the same site, so pages still work and look right.
-function otoFarble(seed) {
+function otoFarble(seed, strict) {
   const done = new WeakSet();
   const natives = new WeakMap();
   const nativeToString = Function.prototype.toString;
@@ -119,6 +122,7 @@ function otoFarble(seed) {
         like(fn, desc.get);
         Object.defineProperty(obj, name, { ...desc, get: fn });
       };
+      const inWorker = typeof w.document === 'undefined';
       w.Function.prototype.toString = fakeToString;
       natives.set(fakeToString, nativeToString.call(nativeToString));
       // 2D canvas
@@ -190,6 +194,19 @@ function otoFarble(seed) {
         swap(AN, 'getFloatFrequencyData', (orig) => function getFloatFrequencyData(a) { orig.apply(this, arguments); try { for (let i = 0; i < a.length; i += 7) a[i] += ((mix(i) & 255) / 255 - 0.5) * 0.001; } catch (e) {} });
         swap(AN, 'getFloatTimeDomainData', (orig) => function getFloatTimeDomainData(a) { orig.apply(this, arguments); try { for (let i = 0; i < a.length; i += 7) a[i] += ((mix(i + 1) & 255) / 255 - 0.5) * 1e-6; } catch (e) {} });
       }
+      // The PDF plugin's internal file name. Chrome reports the same five PDF plugins to every site, each with the
+      // file name "internal-pdf-viewer", so this list identifies nobody and changing it hides nothing by itself. It
+      // is varied anyway because fingerprint tests (EFF's Cover Your Tracks) count the plugin details as one of the
+      // five things that must differ between sites before they call a browser's fingerprint "randomized"; Brave
+      // varies them for the same reason. Only the file name changes (to the kind of name Chrome itself used for
+      // years: 32 letters a to p). The plugin names, their order and the list itself stay exactly Chrome's, the
+      // plugins stay the browser's real objects, and every way of reaching a plugin gives the same answer.
+      const PL = w.Plugin && w.Plugin.prototype;
+      if (PL) {
+        let file = '';
+        for (let i = 0; i < 32; i++) file += String.fromCharCode(97 + (mix(0x70646600 + i) & 15));
+        getter(PL, 'filename', (orig) => function filename() { const real = orig.call(this); return real === 'internal-pdf-viewer' ? file : real; });
+      }
       // Battery: level and charging times can link two sites visited at the same moment. Every site gets the answer
       // of a desktop PC on mains power (a real, common answer; nothing made up).
       const BM = w.BatteryManager && w.BatteryManager.prototype;
@@ -199,8 +216,44 @@ function otoFarble(seed) {
         getter(BM, 'chargingTime', () => function chargingTime() { return 0; });
         getter(BM, 'dischargingTime', () => function dischargingTime() { return Infinity; });
       }
-      // Hardware hints (CPU cores, memory) are left alone: background workers can't be changed the same way, and a
-      // page that sees two different answers is treated as a bot.
+      // CPU cores: a common number per site, 4 or 8 (never more than this PC has; a PC with fewer keeps its own).
+      // The page, its frames and its workers all get the same number (workers through main/worker-guard.js), so a
+      // page never sees two different answers. Memory stays as Chromium reports it (already rounded, at most 8).
+      const NV = (w.WorkerNavigator && inWorker ? w.WorkerNavigator : w.Navigator);
+      if (NV && NV.prototype) getter(NV.prototype, 'hardwareConcurrency', (orig) => function hardwareConcurrency() {
+        const real = orig.call(this);
+        const opts = [4, 8].filter((n) => n <= real);
+        return opts.length ? opts[mix(0x636f7265) % opts.length] : real;
+      });
+      // Languages: only your main language, like Brave. The full list (e.g. Greek, Greek (Greece), English) is rarer
+      // than the first entry alone, and Oto's request headers already send only that one. Pages use the first entry
+      // to pick a language, so nothing changes for them. Same list object every time, like Chrome.
+      if (NV && NV.prototype) getter(NV.prototype, 'languages', (orig) => {
+        let from = null, list = null;
+        return function languages() {
+          const real = orig.call(this);
+          if (!real || !real.length) return real;
+          if (real !== from) { from = real; list = Object.freeze([real[0]]); }
+          return list;
+        };
+      });
+      // Strict level only: two more details that can tell people apart and that a few sites do use.
+      if (strict && !inWorker) {
+        // Keyboard layout (Greek, US, German...): the layout map is refused, as Chrome itself refuses it inside frames.
+        const KB = w.Keyboard && w.Keyboard.prototype;
+        if (KB) swap(KB, 'getLayoutMap', () => function getLayoutMap() { return Promise.reject(new w.DOMException('getLayoutMap() must be called from a top-level browsing context or allowed by the permission policy.', 'SecurityError')); });
+        // Read-aloud voices show which Windows language packs are installed. Only voices in your main language are
+        // listed (if there are none, only the default voice).
+        const SS = w.SpeechSynthesis && w.SpeechSynthesis.prototype;
+        if (SS) swap(SS, 'getVoices', (orig) => function getVoices() {
+          const all = orig.apply(this, arguments);
+          try {
+            const main = String((w.navigator.language || '')).split('-')[0].toLowerCase();
+            const mine = all.filter((v) => String(v.lang || '').split(/[-_]/)[0].toLowerCase() === main);
+            return mine.length ? mine : all.filter((v) => v.default).slice(0, 1);
+          } catch (e) { return all; }
+        });
+      }
       // Frames made by script (about:blank) get the same protection when the page reaches into them
       const IF = w.HTMLIFrameElement && w.HTMLIFrameElement.prototype;
       if (IF) {
@@ -209,7 +262,7 @@ function otoFarble(seed) {
       }
     } catch (e) {}
   }
-  patch(window);
+  patch(typeof window !== 'undefined' ? window : self);
 }
 
 // Runs in YouTube pages before YouTube's own scripts.
@@ -250,3 +303,15 @@ function otoYouTubeAds() {
     } catch (e) {}
   }, 250);
 }
+
+// Service workers (scripts a site leaves running in the background) get the same protection: main.js registers this
+// file as their preload too. The per-site number comes from the site the service worker belongs to.
+const processKind = typeof process === 'object' && process ? process.type : '';
+if (processKind === 'service-worker') try {
+  const { ipcRenderer, contextBridge } = require('electron');
+  const seed = ipcRenderer.sendSync('oto:worker');
+  if (seed && contextBridge && contextBridge.executeInMainWorld) contextBridge.executeInMainWorld({ func: otoFarble, args: [seed] });
+} catch {}
+
+// main.js (and the tests) load this file too, outside any page, to run the same protection inside background workers.
+if (!inPage && processKind !== 'service-worker' && typeof module === 'object' && module && module.exports) module.exports = { otoFarble };

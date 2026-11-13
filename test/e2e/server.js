@@ -51,6 +51,32 @@ const recorderUser = () => page('A site that records visitors', `<h1>A site that
     out.own = await tried(fetch('/own-data?how=own'));
     setTimeout(() => { window.__res = out; }, 700);
   });</script>`);
+// What a background worker can read: the same off-screen picture and WebGL picture the page draws, and CPU cores.
+// Served as /fpworker.js; the page also starts it from a blob: and lets it start a worker of its own.
+const FP_WORKER = `
+const hs = (s) => { let x = 0; for (let i = 0; i < s.length; i++) x = (Math.imul(x, 31) + s.charCodeAt(i)) >>> 0; return x.toString(16); };
+const draw = (x) => { x.textBaseline = 'top'; x.font = "14px Arial"; x.fillStyle = '#f60'; x.fillRect(125, 1, 62, 20); x.fillStyle = '#069'; x.fillText('Oto <canvas> reading 1.0', 2, 15); x.fillStyle = 'rgba(102, 204, 0, 0.7)'; x.fillText('Oto <canvas> reading 1.0', 4, 17); };
+async function readings() {
+  const o = { cores: navigator.hardwareConcurrency, langs: navigator.languages.join(',') };
+  try { const c = new OffscreenCanvas(240, 60); const x = c.getContext('2d'); draw(x); o.offscreenPixels = hs(String([...x.getImageData(0, 0, 240, 60).data])); o.offscreenBlob = hs(String([...new Uint8Array(await (await c.convertToBlob()).arrayBuffer())])); } catch (e) { o.offscreenPixels = 'error ' + e.message; }
+  try { const gl = new OffscreenCanvas(64, 64).getContext('webgl');
+    if (!gl) o.webgl = 'no WebGL here'; else {
+      const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+      const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, 'attribute vec2 p;varying vec2 v;void main(){v=p;gl_Position=vec4(p,0,1);}')); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, 'precision mediump float;varying vec2 v;void main(){gl_FragColor=vec4(v.x*0.5+0.5,v.y*0.5+0.5,sin(v.x*9.0)*0.5+0.5,1);}')); gl.linkProgram(pr); gl.useProgram(pr);
+      gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, 0, 1]), gl.STATIC_DRAW);
+      const l = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 2, gl.FLOAT, false, 0, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
+      const px = new Uint8Array(64 * 64 * 4); gl.readPixels(0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, px); o.webglPixels = hs(String([...px]));
+    } } catch (e) { o.webgl = 'error ' + e.message; }
+  const f = OffscreenCanvasRenderingContext2D.prototype.getImageData, g = Object.getOwnPropertyDescriptor(WorkerNavigator.prototype, 'hardwareConcurrency').get;
+  o.looks = [f.name, f.length, /\\[native code\\]/.test(Function.prototype.toString.call(f)), g.name, /\\[native code\\]/.test(Function.prototype.toString.call(g))].join('/');
+  o.node = [typeof require, typeof process, typeof module, typeof Buffer].join('/');
+  return o;
+}
+onmessage = async (e) => {
+  const o = await readings();
+  if (e.data === 'nest' && typeof Worker !== 'undefined') o.nested = await new Promise((r) => { const w = new Worker(location.href); w.onmessage = (m) => r(m.data); w.postMessage('plain'); setTimeout(() => r(null), 4000); });
+  postMessage(o);
+};`;
 const fpPage = (withFrame) => page('Fingerprint readings', `<h1>Fingerprint readings</h1>${withFrame ? '<iframe id="tp" src="http://fpframe.site/" width="300" height="80"></iframe>' : ''}
   <script>
   const hs = (s) => { let x = 0; for (let i = 0; i < s.length; i++) x = (Math.imul(x, 31) + s.charCodeAt(i)) >>> 0; return x.toString(16); };
@@ -76,7 +102,17 @@ const fpPage = (withFrame) => page('Fingerprint readings', `<h1>Fingerprint read
     } catch (e) { out.audio = 'error ' + e.message; }
     // storage inside a frame from another site: is it shared between the sites that embed the frame?
     try { out.sawStorage = localStorage.getItem('oto-fp-test') || 'empty'; localStorage.setItem('oto-fp-test', 'written under ' + (document.referrer || location.href)); } catch (e) { out.sawStorage = 'blocked'; }
+    out.langs = navigator.languages.join(','); out.langsSameObject = navigator.languages === navigator.languages; try { out.langHeader = await (await fetch('/echo-lang')).text(); } catch (e) { out.langHeader = 'error'; }
+    try { out.keyboard = navigator.keyboard ? await Promise.race([navigator.keyboard.getLayoutMap().then((m) => 'layout map', (e) => e.name), new Promise((r) => setTimeout(r, 2000, 'timeout'))]) : 'no keyboard API'; } catch (e) { out.keyboard = 'error ' + e.message; }
+    try { out.voices = speechSynthesis.getVoices().map((v) => v.lang).join(','); } catch (e) { out.voices = 'error'; }
     out.cores = navigator.hardwareConcurrency; out.plugins = [...navigator.plugins].map((p) => p.name).join('|'); out.agent = navigator.userAgent;
+    // the plugins' internal file name, reached in every way a script can reach a plugin
+    const pf = Object.getOwnPropertyDescriptor(Plugin.prototype, 'filename').get;
+    out.pluginFile = navigator.plugins.length ? navigator.plugins[0].filename : 'no plugins';
+    out.pluginFiles = [...new Set([...[...navigator.plugins].map((p) => p.filename), navigator.plugins.item(1).filename, navigator.plugins.namedItem('PDF Viewer').filename, navigator.plugins['Chrome PDF Viewer'].filename, navigator.mimeTypes[0].enabledPlugin.filename, navigator.mimeTypes['text/pdf'].enabledPlugin.filename, pf.call(navigator.plugins[4])])].join('|');
+    // everything a script can read about the plugins, in a fixed order (fingerprint tests compare this between sites)
+    out.pluginDetails = [...navigator.plugins].map((p) => [p.name, p.description, p.filename, ...[...p].map((m) => m.type + ',' + m.suffixes + ',' + m.description)].join(';')).sort().join('|');
+    out.pluginLooks = [pf.name, pf.length, /\[native code\]/.test(Function.prototype.toString.call(pf)), navigator.plugins[0] instanceof Plugin, navigator.plugins instanceof PluginArray, navigator.plugins.length, (() => { try { pf.call({}); return 'no error'; } catch (e) { return e.constructor.name; } })()].join('/');
     // no Node.js or Electron in the page, also not inside frames
     out.node = [typeof require, typeof process, typeof module, typeof global, typeof Buffer].join('/');
     // replaced functions look like the originals to a script that inspects them
@@ -85,6 +121,10 @@ const fpPage = (withFrame) => page('Fingerprint readings', `<h1>Fingerprint read
     // battery (only exists on secure pages such as localhost): the answer of a desktop PC on mains power
     try { if (navigator.getBattery) { const b = await navigator.getBattery(); out.battery = [b.charging, b.level, b.chargingTime, b.dischargingTime].join('/'); out.batteryIs = b instanceof BatteryManager; } } catch (e) { out.battery = 'error ' + e.message; }
     try { out.workerCores = await new Promise((r) => { const w = new Worker(URL.createObjectURL(new Blob(['postMessage(navigator.hardwareConcurrency)']))); w.onmessage = (e) => r(e.data); setTimeout(() => r('timeout'), 2000); }); } catch (e) { out.workerCores = 'error'; }
+    // background workers: one from the site's own address (which starts a worker of its own), one made from a blob:
+    const ask = (w, msg) => new Promise((r) => { w.onmessage = (e) => r(e.data); w.onerror = () => r(null); w.postMessage(msg); setTimeout(() => r(null), 8000); });
+    try { out.worker = await ask(new Worker('/fpworker.js'), 'nest'); } catch (e) { out.worker = null; }
+    try { out.blobWorker = await ask(new Worker(URL.createObjectURL(new Blob([await (await fetch('/fpworker.js')).text()], { type: 'text/javascript' }))), 'plain'); } catch (e) { out.blobWorker = null; }
     return out;
   }
   window.__res = null;
@@ -121,6 +161,15 @@ function handler(req, res) {
     if (url.pathname === '/pixel.gif') { res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(PNG); }
     res.writeHead(200, { 'Content-Type': 'text/html', 'Access-Control-Allow-Origin': '*' }); return res.end('ok');
   }
+  if (url.pathname === '/fpshared.js') { res.writeHead(200, { 'Content-Type': 'text/javascript' }); return res.end(FP_WORKER + '\nonconnect = (e) => { const p = e.ports[0]; p.onmessage = async () => p.postMessage(await readings()); };'); }
+  if (url.pathname === '/fpsw.js') { res.writeHead(200, { 'Content-Type': 'text/javascript' }); return res.end(FP_WORKER + '\nonmessage = null; addEventListener("message", async (e) => e.source.postMessage(await readings()));'); }
+  if (url.pathname === '/fpworkers.html') { res.writeHead(200, { 'Content-Type': 'text/html' }); return res.end(page('Workers', '<h1>Workers</h1><script>window.__res = null; addEventListener("load", async () => { const out = {};'
+    + 'try { const sw = new SharedWorker("/fpshared.js"); out.shared = await new Promise((r) => { sw.port.onmessage = (e) => r(e.data); sw.port.postMessage("go"); setTimeout(() => r(null), 8000); }); } catch (e) { out.shared = "error " + e.message; }'
+    + 'try { if (navigator.serviceWorker) { const reg = await navigator.serviceWorker.register("/fpsw.js"); await navigator.serviceWorker.ready; const w = reg.active; out.service = await new Promise((r) => { navigator.serviceWorker.onmessage = (e) => r(e.data); w.postMessage("go"); setTimeout(() => r(null), 8000); }); await reg.unregister(); } else out.service = "no service workers on this page"; } catch (e) { out.service = "error " + e.message; }'
+    + 'try { const o = new OffscreenCanvas(240, 60); const x = o.getContext("2d"); x.textBaseline = "top"; x.font = "14px Arial"; x.fillStyle = "#f60"; x.fillRect(125, 1, 62, 20); x.fillStyle = "#069"; x.fillText("Oto <canvas> reading 1.0", 2, 15); x.fillStyle = "rgba(102, 204, 0, 0.7)"; x.fillText("Oto <canvas> reading 1.0", 4, 17); const d = x.getImageData(0, 0, 240, 60).data; let h = 0; const s = String([...d]); for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) >>> 0; out.offscreenPixels = h.toString(16); } catch (e) {}'
+    + 'out.cores = navigator.hardwareConcurrency; window.__res = out; });</script>')); }
+  if (url.pathname === '/echo-lang') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end(String(req.headers['accept-language'] || '')); }
+  if (url.pathname === '/fpworker.js') { res.writeHead(200, { 'Content-Type': 'text/javascript' }); return res.end(FP_WORKER); }
   if (url.pathname === '/go') { res.writeHead(302, { Location: url.searchParams.get('to') || '/' }); return res.end(); }
   if (url.pathname === '/report.pdf') { res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="report.pdf"' }); return res.end('%PDF-1.4 test'); }
   if (url.pathname === '/slow.bin') { // a file that takes ~1.5 s, so a tab closed mid-download can be checked

@@ -14,5 +14,7 @@ module.exports = async (t) => {
   if (!(now && now.page)) return;
   const same = before.noisy.filter((k) => now.page[k] === before.page[k]);
   t.check('after a restart of Oto, the same site reads different canvas, off-screen canvas and audio values', same.length === 0, `still the same as last session: ${same.join(', ') || 'none'}`);
-  t.check('what should not change did not (CPU cores, plugins, browser name)', now.page.cores === before.page.cores && now.page.plugins === before.page.plugins && now.page.agent === before.page.agent);
+  t.check('…and a different plugin file name', now.page.pluginFile !== before.page.pluginFile && /^[a-p]{32}$/.test(now.page.pluginFile), `${before.page.pluginFile} / ${now.page.pluginFile}`);
+  t.check('what should not change did not (plugin names, browser name, languages)', now.page.plugins === before.page.plugins && now.page.agent === before.page.agent && now.page.langs === before.page.langs);
+  t.check('…and the worker reads what the page reads in the new session too', !!now.page.worker && now.page.worker.offscreenPixels === now.page.offscreenPixels && now.page.worker.cores === now.page.cores, now.page.worker ? `${now.page.worker.offscreenPixels} / ${now.page.offscreenPixels}` : 'no worker');
 };

@@ -112,11 +112,15 @@ test('the preload exposes Oto’s API only through contextBridge (never ipcRende
   assert.doesNotMatch(pre, /ipcRenderer\.(invoke|send|sendSync)\(\s*[a-z]\w*\s*[,)]/i, 'channel names are fixed strings, never passed in by the page');
 });
 
-test('the page preload for websites only asks one fixed, flags-only question', () => {
+test('the page preload for websites only asks fixed, flags-only questions', () => {
   const pp = read('page-preload.js');
   const calls = pp.match(/ipcRenderer\.\w+\(\s*'[^']+'/g) || [];
-  assert.deepStrictEqual([...new Set(calls)], ["ipcRenderer.sendSync('oto:page'"]);
+  // oto:page from pages and frames; oto:worker from service workers only (a number: the per-site fingerprint seed)
+  assert.deepStrictEqual([...new Set(calls)], ["ipcRenderer.sendSync('oto:page'", "ipcRenderer.sendSync('oto:worker'"]);
   assert.doesNotMatch(pp, /exposeInMainWorld/, 'websites get no Oto API');
+  // oto:worker is answered only on a service worker's own channel, never to pages or frames
+  assert.doesNotMatch(main, /ipcMain\.(on|handle)\(\s*'oto:worker'/);
+  assert.match(main, /sw\.ipc\.on\('oto:worker'/);
 });
 
 test('the IPC gatekeeper is installed before anything else registers a handler', () => {

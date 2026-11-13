@@ -3,6 +3,24 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.6.0 — 2026-11-13
+
+*Stronger fingerprint protection. Nothing to do: it updates itself. Details and limits are in docs/PRIVACY_PROTECTION.md.*
+
+**Fixed**
+- **Fingerprint scripts could get the real values by running in a background worker** (a script without a page). Workers now get exactly the same protection as their page: canvas, off-screen canvas, WebGL, CPU cores and languages. This covers workers made by the page, by frames from other sites inside it, by other workers, and service workers.
+
+**New**
+- **CPU cores:** each site sees 4 or 8 (never more than your PC has), the same in the page and its workers. A PC with 4 to 7 always says 4.
+- **Languages:** sites see only your main language, like Brave. The full list was rarer, so it made you easier to pick out.
+- **Strict level:** sites can't read your keyboard layout, and only read-aloud voices in your main language are listed.
+- **Cover Your Tracks now says "randomized fingerprint"** instead of "unique fingerprint" on a PC where WebGL works. That test wants 4 of 5 values to differ between sites. Oto now varies canvas, WebGL, audio and plugin details, and CPU cores too on PCs with 8 or more. (The plugin details on their own hide nothing, because every Chrome user has the same list. They are varied because the test counts them; Brave does the same.)
+
+**Good to know**
+- One rarer kind of worker (shared workers, used by a site across several tabs) still reads real values. Screen size, time zone, fonts, memory and the graphics-card name stay real, because changing them breaks sites or "are you human?" checks. Your IP address is the strongest identifier: use a VPN to hide it.
+- Programs in the browser that size their work by the number of CPU cores (video editors, compression) may run a little slower on big PCs.
+- Tested with automated tests in the real app (Linux here, Windows when the release is built), including the Cover Your Tracks test's own published code on two local sites. Not yet on a long list of real websites. If a site misbehaves, switch Shield off for that site and report it.
+
 ## 1.5.0 — 2026-11-12
 
 *Privacy upgrade. Nothing to do: it updates itself. Details and limits are in docs/PRIVACY_PROTECTION.md.*

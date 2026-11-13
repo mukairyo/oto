@@ -37,7 +37,7 @@ function run(cmd, args, env, timeout) {
     const out = path.join(profile, '..', `oto-e2e-${suite}-${process.pid}.json`);
     const env = { ...process.env, OTO_E2E_SUITE: suite, OTO_E2E_PROFILE: profile, OTO_E2E_OUT: out, OTO_E2E_RULES: srv.rules, OTO_E2E_HTTP: String(srv.httpPort), OTO_E2E_HTTPS: String(srv.httpsPort) };
     delete env.HTTPS_PROXY; delete env.https_proxy; delete env.HTTP_PROXY; delete env.http_proxy; delete env.ELECTRON_RUN_AS_NODE;
-    const args = [path.join(__dirname, 'harness.js'), '--no-sandbox'];
+    const args = [path.join(__dirname, 'harness.js'), '--no-sandbox', ...String(process.env.OTO_E2E_FLAGS || '').split(' ').filter(Boolean)]; // OTO_E2E_FLAGS: extra Chromium flags, e.g. software WebGL on a machine without a graphics card
     const useXvfb = process.platform === 'linux' && !process.env.DISPLAY;
     const t0 = Date.now();
     // async on purpose: the test web server runs in this process and must keep answering while Oto runs
