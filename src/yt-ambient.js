@@ -50,7 +50,9 @@ function otoYtAmbient(opts) {
   const layer = doc.createElement('div'), cv = doc.createElement('canvas');
   layer.id = 'oto-ambient';
   layer.setAttribute('aria-hidden', 'true');
-  layer.appendChild(cv);
+  const wrap = doc.createElement('div'); // two fades on two elements: one mask each always multiplies correctly
+  wrap.className = 'oa-wrap';
+  wrap.appendChild(cv); layer.appendChild(wrap);
   // A normal canvas, not a low-latency ("desynchronized") one: Chromium may put those straight on the screen and skip
   // the blur, which shows as sharp stretched stripes (seen on Windows in 1.6.1).
   const ctx = cv.getContext('2d', { alpha: false });
@@ -64,6 +66,7 @@ html[oto-ambient] ytd-app{background:transparent!important;position:relative;z-i
 html[oto-ambient] #cinematics,html[oto-ambient] #cinematics-container{display:none!important}
 #oto-ambient{position:absolute;left:0;top:0;width:0;height:0;z-index:0;pointer-events:none;opacity:0;transition:opacity var(--oa-fade,600ms) ease;contain:layout style size}
 #oto-ambient.on{opacity:var(--oa-strength,.85)}
+#oto-ambient .oa-wrap{position:absolute}
 #oto-ambient canvas{position:absolute;left:0;top:0;width:100%;height:100%;filter:blur(var(--oa-blur,70px)) saturate(var(--oa-colors,1.35)) brightness(var(--oa-bright,1))}
 #oto-ambient::after{content:'';position:absolute;inset:0;box-shadow:0 0 var(--oa-edge,0px) calc(var(--oa-edge,0px)/5) rgba(0,0,0,.85)}
 html[oto-ambient] #movie_player,html[oto-ambient] .html5-video-player,html[oto-ambient] #full-bleed-container,html[oto-ambient] #player-full-bleed-container,html[oto-ambient] #player-container-outer,html[oto-ambient] #player-container-inner,html[oto-ambient] #ytd-player,html[oto-ambient] #container.ytd-player{background:transparent!important}
@@ -122,17 +125,19 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     const sp = n(o.spread, 0, 400, 100) / 100, ex = r.width * 0.5 * sp, ey = r.height * 0.5 * sp; // like the extension: 100% reaches half the picture's size past each edge
     const pageW = root.clientWidth, x0 = Math.max(r.left - ex, 0), x1 = Math.min(r.left + r.width + ex, pageW);
     const y0 = Math.max(r.top + scrollY - ey, 0) - scrollY, y1 = r.top + r.height + ey;
-    const c = cv.style;
-    c.left = `${x0 - r.left}px`; c.top = `${y0 - r.top}px`; c.width = `${Math.max(1, x1 - x0)}px`; c.height = `${Math.max(1, y1 - y0)}px`;
+    const w = wrap.style, c = cv.style;
+    w.left = `${x0 - r.left}px`; w.top = `${y0 - r.top}px`; w.width = `${Math.max(1, x1 - x0)}px`; w.height = `${Math.max(1, y1 - y0)}px`;
     // The glow fades out towards its outer edges, from full at the picture's edge to nothing at the end of the spread,
     // so it never ends in a hard edge, even with no blur (the stops are measured inside the canvas; the parts past
     // the page edge are simply never shown).
     const L = r.left - ex - x0, Lp = r.left - x0, Rp = r.left + r.width - x0, R = r.left + r.width + ex - x0;
     const T = r.top - ey - y0, Tp = r.top - y0, Bp = r.top + r.height - y0, B = r.top + r.height + ey - y0;
-    const px = (v) => `${Math.round(v)}px`;
-    const m = `linear-gradient(to right,transparent ${px(L)},#000 ${px(Lp)},#000 ${px(Rp)},transparent ${px(R)}),linear-gradient(to bottom,transparent ${px(T)},#000 ${px(Tp)},#000 ${px(Bp)},transparent ${px(B)})`;
-    c.maskImage = m; c.webkitMaskImage = m;
-    c.maskComposite = 'intersect'; c.webkitMaskComposite = 'source-in';
+    // eased, like light fading out (a straight ramp ends in a visible line)
+    const st = [[0, 0], [0.2, 0.06], [0.4, 0.2], [0.6, 0.45], [0.8, 0.75], [1, 1]];
+    const ease = (dir, a, b, cc, dd) => `linear-gradient(${dir},${st.map(([t, v]) => `rgba(0,0,0,${v}) ${Math.round(a + (b - a) * t)}px`).join(',')},${st.slice().reverse().map(([t, v]) => `rgba(0,0,0,${v}) ${Math.round(dd - (dd - cc) * t)}px`).join(',')})`;
+    const mx = ease('to right', L, Lp, Rp, R), my = ease('to bottom', T, Tp, Bp, B);
+    w.maskImage = mx; w.webkitMaskImage = mx;
+    c.maskImage = my; c.webkitMaskImage = my;
     geo = { pic: [r.left, r.top, r.width, r.height], ex, ey };
   };
   // Black bars: about once a second a tiny copy of the frame is checked for dark rows and columns at its edges. A

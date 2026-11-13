@@ -116,10 +116,15 @@ function ambFrameEl() {
   if (AMBF.el) return AMBF.el;
   AMBF.cv = h('canvas', { width: 64, height: 36 });
   AMBF.ctx = AMBF.cv.getContext('2d');
-  AMBF.el = h('div', { id: 'amb-frame', 'aria-hidden': 'true' }, AMBF.cv);
-  // the whole window around the page takes the glow's overall colour (its colour only: Oto's own light and dark,
-  // and so every text and icon, stay as they are)
-  AMBF.wash = h('div', { id: 'amb-wash', 'aria-hidden': 'true' });
+  // two fades on two elements (left/right on the wrapper, top/bottom on the canvas): one mask each multiplies
+  AMBF.wrap = h('div', { class: 'af-wrap' }, AMBF.cv);
+  AMBF.el = h('div', { id: 'amb-frame', 'aria-hidden': 'true' }, AMBF.wrap);
+  // Where the glow reaches, Oto's window also takes its colour (its colour only: Oto's own light and dark, and so
+  // every text and icon, stay as they are). The same picture in the same place: strong near the video, fading out
+  // with the light, and Oto's normal look wherever the light doesn't reach.
+  AMBF.washCv = h('canvas', { width: 64, height: 36 });
+  AMBF.washWrap = h('div', { class: 'af-wrap' }, AMBF.washCv);
+  AMBF.wash = h('div', { id: 'amb-wash', 'aria-hidden': 'true' }, AMBF.washWrap);
   document.body.append(AMBF.wash, AMBF.el);
   return AMBF.el;
 }
@@ -156,18 +161,27 @@ function ambFrameShow(f, box, zoom = 1) {
   const img = AMBF.ctx.createImageData(f.w, f.h);
   for (let i = 0, j = 0; i < bin.length; i += 3, j += 4) { img.data[j] = bin.charCodeAt(i); img.data[j + 1] = bin.charCodeAt(i + 1); img.data[j + 2] = bin.charCodeAt(i + 2); img.data[j + 3] = 255; }
   AMBF.ctx.putImageData(img, 0, 0);
-  let ar = 0, ag = 0, ab = 0;
-  for (let j = 0; j < img.data.length; j += 4) { ar += img.data[j]; ag += img.data[j + 1]; ab += img.data[j + 2]; }
-  const np = img.data.length / 4;
-  AMBF.wash.style.backgroundColor = `rgb(${Math.round(ar / np)},${Math.round(ag / np)},${Math.round(ab / np)})`;
+
   // where: the video's rectangle in Oto's window, the glow reaching past it, fading out like the glow in the page
   const z = ambNum(zoom, 0.25, 5) ? zoom : 1;
   const px = box.left + f.pic[0] * z, py = box.top + f.pic[1] * z, pw = f.pic[2] * z, ph = f.pic[3] * z, ex = f.ex * z, ey = f.ey * z;
-  const c = cv.style, gw = pw + 2 * ex, gh = ph + 2 * ey;
-  c.left = `${px - ex}px`; c.top = `${py - ey}px`; c.width = `${gw}px`; c.height = `${gh}px`;
+  const c = cv.style, w = AMBF.wrap.style, gw = pw + 2 * ex, gh = ph + 2 * ey;
+  w.left = `${px - ex}px`; w.top = `${py - ey}px`; w.width = `${gw}px`; w.height = `${gh}px`;
   c.filter = `blur(${Math.max(24, f.blur * z)}px) saturate(${f.colors}) brightness(${f.bright})`;
-  const m = `linear-gradient(to right,transparent 0,#000 ${ex}px,#000 ${ex + pw}px,transparent ${gw}px),linear-gradient(to bottom,transparent 0,#000 ${ey}px,#000 ${ey + ph}px,transparent ${gh}px)`;
-  c.maskImage = m; c.webkitMaskImage = m; c.maskComposite = 'intersect'; c.webkitMaskComposite = 'source-in';
+  // light fades out gradually (eased), not in a straight ramp that ends in a visible line
+  const ease = (dir, a, b, c, d) => {
+    const st = [[0, 0], [0.2, 0.06], [0.4, 0.2], [0.6, 0.45], [0.8, 0.75], [1, 1]];
+    const up = st.map(([t, v]) => `rgba(0,0,0,${v}) ${(a + (b - a) * t).toFixed(1)}px`);
+    const down = st.slice().reverse().map(([t, v]) => `rgba(0,0,0,${v}) ${(d - (d - c) * t).toFixed(1)}px`);
+    return `linear-gradient(${dir},${up.join(',')},${down.join(',')})`;
+  };
+  const mx = ease('to right', 0, ex, ex + pw, gw), my = ease('to bottom', 0, ey, ey + ph, gh);
+  w.maskImage = mx; w.webkitMaskImage = mx;
+  c.maskImage = my; c.webkitMaskImage = my;
+  const wc = AMBF.washCv;
+  if (wc.width !== cv.width || wc.height !== cv.height) { wc.width = cv.width; wc.height = cv.height; }
+  wc.getContext('2d').drawImage(cv, 0, 0);
+  wc.style.cssText = c.cssText; AMBF.washWrap.style.cssText = w.cssText;
   // everything except the page area (a frame with a hole)
   const hole = `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${box.left}px ${box.top}px, ${box.right}px ${box.top}px, ${box.right}px ${box.bottom}px, ${box.left}px ${box.bottom}px, ${box.left}px ${box.top}px)`;
   el.style.clipPath = hole; AMBF.wash.style.clipPath = hole;
