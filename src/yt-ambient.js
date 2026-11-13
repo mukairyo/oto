@@ -14,7 +14,8 @@
  *   on          switched on
  *   strength    0–100   how strongly the glow shows
  *   blur        0–100   how soft
- *   spread      0–400   how far past the player it reaches (100 = normal)
+ *   spread      0–400   how far past the picture it reaches: 100% = half the picture's size past each edge (the same
+ *               scale as the "Ambient light for YouTube" extension, so the same number looks the same)
  *   brightness  50–150  glow brightness (100 = the video's own)
  *   colors      0–200   glow colour strength (100 = the video's own)
  *   fade        ms      how long the glow takes to appear and go
@@ -29,8 +30,8 @@
  *   thumbs      20–100  thumbnail brightness
  *   immersive   theatre mode: the top bar and the page below fade away until you scroll or point at them
  *   key         the G key switches the glow off and on in this tab
- *   frame       Oto's own window (sidebar, top bar, edges around the page) glows too. Oto asks the page for the
- *               glow's edge colours (colors(), below) a few times a second and lights its own window with them.
+ *   frame       Oto's own window (sidebar, top bar, edges around the page) glows too: Oto asks the page for the
+ *               glow's tiny picture (frame(), below) several times a second and continues the glow around the page.
  *   button      an ambient light button in the player's controls, next to captions and settings. It opens a small
  *               panel with the main settings; changes there are collected by Oto (take(), below), checked and saved.
  * Only on watch pages. Hidden in fullscreen (the video fills the screen), in the mini-player, for videos with copy
@@ -86,7 +87,7 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
 .oto-amb-pop .f button{border:0;background:transparent;color:#e7dfd1;font:600 12px Roboto,Arial,sans-serif;cursor:pointer;padding:4px 0}
 .oto-amb-pop.off .r{opacity:.45;pointer-events:none}`;
   let o = o0, enabled = false, userOff = false, timer = 0, lastDraw = 0, lastProbe = 0, video = null, rvfc = 0, shown = false, gone = 0;
-  let W = 64, H = 36, crop = { x: 0, y: 0, w: 1, h: 1 }, cropSeen = '', cropCount = 0;
+  let W = 64, H = 36, crop = { x: 0, y: 0, w: 1, h: 1 }, cropSeen = '', cropCount = 0, geo = null;
   cv.width = W; cv.height = H;
   const n = (v, lo, hi, d) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
 
@@ -118,11 +119,21 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     s.left = `${r.left + scrollX}px`; s.top = `${r.top + scrollY}px`; s.width = `${r.width}px`; s.height = `${r.height}px`;
     // The glow reaches past the picture by the spread, but stays inside the page: a blurred layer cut off by the
     // window's edge shows a hard bright line there. Inside the page it always fades out softly.
-    const sp = n(o.spread, 0, 400, 100) / 100, ex = r.width * 0.1 * sp, ey = r.height * 0.14 * sp;
+    const sp = n(o.spread, 0, 400, 100) / 100, ex = r.width * 0.5 * sp, ey = r.height * 0.5 * sp; // like the extension: 100% reaches half the picture's size past each edge
     const pageW = root.clientWidth, x0 = Math.max(r.left - ex, 0), x1 = Math.min(r.left + r.width + ex, pageW);
     const y0 = Math.max(r.top + scrollY - ey, 0) - scrollY, y1 = r.top + r.height + ey;
     const c = cv.style;
     c.left = `${x0 - r.left}px`; c.top = `${y0 - r.top}px`; c.width = `${Math.max(1, x1 - x0)}px`; c.height = `${Math.max(1, y1 - y0)}px`;
+    // The glow fades out towards its outer edges, from full at the picture's edge to nothing at the end of the spread,
+    // so it never ends in a hard edge, even with no blur (the stops are measured inside the canvas; the parts past
+    // the page edge are simply never shown).
+    const L = r.left - ex - x0, Lp = r.left - x0, Rp = r.left + r.width - x0, R = r.left + r.width + ex - x0;
+    const T = r.top - ey - y0, Tp = r.top - y0, Bp = r.top + r.height - y0, B = r.top + r.height + ey - y0;
+    const px = (v) => `${Math.round(v)}px`;
+    const m = `linear-gradient(to right,transparent ${px(L)},#000 ${px(Lp)},#000 ${px(Rp)},transparent ${px(R)}),linear-gradient(to bottom,transparent ${px(T)},#000 ${px(Tp)},#000 ${px(Bp)},transparent ${px(B)})`;
+    c.maskImage = m; c.webkitMaskImage = m;
+    c.maskComposite = 'intersect'; c.webkitMaskComposite = 'source-in';
+    geo = { pic: [r.left, r.top, r.width, r.height], ex, ey };
   };
   // Black bars: about once a second a tiny copy of the frame is checked for dark rows and columns at its edges. A
   // change is only used once it has been seen twice in a row, so a dark scene doesn't make the glow jump.
@@ -302,19 +313,20 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     wantOpen = false;
     return Object.keys(r.changes).length || r.open ? r : null;
   };
-  // The glow's colours at its four edges and overall, read from the tiny glow canvas (64 x 36 points, nothing else),
-  // for Oto to light its own window with. null while there is no glow.
-  const colors = () => {
-    if (!shown || !enabled) return null;
+  // For the glow around Oto's own window: the glow's tiny picture (W x H colour points, nothing else), where it sits
+  // in the page (the picture's rectangle and how far the glow reaches past it), and how it looks. Oto draws the same
+  // picture, the same size and blurred the same, around the page, so the glow carries on into Oto's sidebar and bars.
+  // null while there is no glow.
+  const frame = () => {
+    if (!shown || !enabled || !geo) return null;
     let d;
     try { d = ctx.getImageData(0, 0, W, H).data; } catch (e) { return null; }
-    const avg = (x0, y0, x1, y1) => { let r = 0, g = 0, b = 0, c = 0; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = (y * W + x) * 4; r += d[i]; g += d[i + 1]; b += d[i + 2]; c++; } return [r / c | 0, g / c | 0, b / c | 0]; };
-    const bx = Math.max(1, W >> 3), by = Math.max(1, H >> 3);
-    const k = n(o.brightness, 50, 150, 100) / 100;
-    const fix = (c) => c.map((v) => Math.min(255, Math.round(v * k)));
-    return { left: fix(avg(0, 0, bx, H)), right: fix(avg(W - bx, 0, W, H)), top: fix(avg(0, 0, W, by)), bottom: fix(avg(0, H - by, W, H)), all: fix(avg(0, 0, W, H)), strength: n(o.strength, 0, 100, 85) / 100 };
+    let bin = '';
+    for (let i = 0; i < d.length; i += 4) bin += String.fromCharCode(d[i], d[i + 1], d[i + 2]);
+    return { w: W, h: H, rgb: btoa(bin), pic: geo.pic.map((v) => Math.round(v)), ex: Math.round(geo.ex), ey: Math.round(geo.ey),
+      blur: Math.round(12 + n(o.blur, 0, 100, 45) * 1.3), strength: n(o.strength, 0, 100, 85) / 100, bright: n(o.brightness, 50, 150, 100) / 100, colors: n(o.colors, 0, 200, 135) / 100 };
   };
-  window.__otoAmbient = { set, take, colors };
+  window.__otoAmbient = { set, take, frame };
   set(o0);
   return 'installed';
 }

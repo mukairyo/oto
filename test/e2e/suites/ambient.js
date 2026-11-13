@@ -124,20 +124,23 @@ module.exports = async (t) => {
   await run({ fade: 0, button: false }); await wait(300);
   t.check('with "Button in the player" off, the button goes away', (await t.page(`!document.querySelector('.oto-amb-btn')`)) === true);
 
-  // the glow around Oto's own window takes the glow's edge colours
+  // the glow around Oto's own window continues the page's glow
   await run({ fade: 0, button: true }); await t.page('window.__paint("#2050e0")'); await wait(900);
-  const cols = JSON.parse(await t.page('JSON.stringify(window.__otoAmbient.colors())'));
-  t.check('the page hands Oto only the glow\'s edge colours (blue here)', !!cols && ['left', 'right', 'top', 'bottom'].every((k) => Array.isArray(cols[k]) && cols[k][2] > 150 && cols[k][0] < 90), JSON.stringify(cols));
-  t.check('…and Oto accepts only real colours from it', (await t.js(`[ambRgb([1, 2, 3]), ambRgb([1, 2]), ambRgb([1, 2, 300]), ambRgb(['1', 2, 3]), ambRgb('red')].join('|')`)) === 'rgb(1,2,3)||||');
-
-  await t.js(`AMBF.hold = true; ambFrameShow(${JSON.stringify(cols)}); true`); await wait(900);
-  const fr = JSON.parse(await t.js(`JSON.stringify((() => { const el = document.getElementById('amb-frame'), c = document.getElementById('content').getBoundingClientRect(); return { on: el.classList.contains('on'), opacity: getComputedStyle(el).opacity, clip: el.style.clipPath, hole: [c.left, c.top].map(Math.round), pointer: getComputedStyle(el).pointerEvents, left: getComputedStyle(el.querySelector('.l')).backgroundColor }; })())`));
-  t.check('Oto\'s window glows around the page in those colours, never over the page and never catching the mouse', fr.on && +fr.opacity > 0.3 && fr.pointer === 'none' && /evenodd/.test(fr.clip) && fr.clip.includes(`${fr.hole[0]}px`) && /rgb\(\d+, \d+, (1[5-9]\d|2\d\d)\)/.test(fr.left), JSON.stringify(fr));
+  const fr0 = JSON.parse(await t.page('JSON.stringify(window.__otoAmbient.frame())'));
+  const blue = fr0 && (() => { const b = Buffer.from(fr0.rgb, 'base64'); return [b[0], b[1], b[2]]; })();
+  t.check('the page hands Oto only the glow\'s tiny picture and where it sits (blue here)', !!fr0 && fr0.w === 64 && fr0.h === 36 && Buffer.from(fr0.rgb, 'base64').length === 64 * 36 * 3 && blue[2] > 150 && blue[0] < 90 && fr0.pic.length === 4, fr0 ? `${fr0.w}x${fr0.h} first point ${blue} picture ${fr0.pic} reach ${fr0.ex},${fr0.ey}` : 'nothing');
+  const bad = await t.js(`JSON.stringify([ambFrameValid(${JSON.stringify(fr0)}), ambFrameValid({ ...${JSON.stringify(fr0)}, w: 4000 }), ambFrameValid({ ...${JSON.stringify(fr0)}, rgb: 'x' }), ambFrameValid({ ...${JSON.stringify(fr0)}, pic: [0, 0, 'a', 1] }), ambFrameValid({ ...${JSON.stringify(fr0)}, strength: 7 }), ambFrameValid('frame')])`);
+  t.check('…and Oto accepts only a real small picture with sensible numbers', bad === '[true,false,false,false,false,false]', bad);
+  await t.js(`AMBF.hold = true; ambFrameShow(${JSON.stringify(fr0)}, V.get(activeTab().id).wv.getBoundingClientRect(), 1); true`); await wait(900);
+  const fr = JSON.parse(await t.js(`JSON.stringify((() => { const el = document.getElementById('amb-frame'), c = el.querySelector('canvas'), b = V.get(activeTab().id).wv.getBoundingClientRect(), r = c.getBoundingClientRect(); return { on: el.classList.contains('on'), opacity: getComputedStyle(el).opacity, clip: el.style.clipPath, hole: [b.left, b.top].map(Math.round), pointer: getComputedStyle(el).pointerEvents, filter: c.style.filter, glow: [r.left, r.top, r.width, r.height].map(Math.round), pic: [b.left + ${fr0.pic[0]}, b.top + ${fr0.pic[1]}].map(Math.round) }; })())`));
+  t.check('Oto continues the glow around the page: lined up with the video, blurred, never over the page, never catching the mouse', fr.on && +fr.opacity > 0.3 && fr.pointer === 'none' && /evenodd/.test(fr.clip) && fr.clip.includes(`${fr.hole[0]}px`) && /blur\((7\d|[2-9]\d)px\)/.test(fr.filter) && Math.abs(fr.glow[0] - (fr.pic[0] - fr0.ex)) <= 1 && Math.abs(fr.glow[1] - (fr.pic[1] - fr0.ey)) <= 1, JSON.stringify(fr));
   if (process.env.OTO_E2E_SHOTS) {
     const win = require('electron').BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.isVisible());
     if (win) require('fs').writeFileSync(require('path').join(process.env.OTO_E2E_SHOTS, 'oto-ambient-frame.png'), (await win.capturePage()).toPNG());
   }
   await t.js('ambFrameOff(); AMBF.hold = false; true');
+  const mask = await t.page(`getComputedStyle(document.querySelector('#oto-ambient canvas')).maskImage || getComputedStyle(document.querySelector('#oto-ambient canvas')).webkitMaskImage`);
+  t.check('the glow in the page fades out towards its outer edges (no hard edge even without blur)', /linear-gradient/.test(mask) && /transparent|rgba\(0, 0, 0, 0\)/.test(mask), mask.slice(0, 160));
 
   // only real YouTube addresses get it, and it is on unless switched off
   t.check('runs on youtube.com watch pages, nowhere else; on by default', await t.js(`isYT('https://www.youtube.com/watch?v=abc') && isYT('https://m.youtube.com/watch?v=abc') && !isYT('https://youtube.com.evil.example/') && !isYT('https://notyoutube.com/') && ytAmb().on === true`));

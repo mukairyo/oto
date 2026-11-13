@@ -105,19 +105,30 @@ async function ytAmbTakeFrom(v) {
 }
 setInterval(ytAmbCollect, 1200);
 
-// The glow around Oto itself: while the YouTube tab you are looking at has ambient light, Oto's sidebar, top bar and
-// the edges around the page take the glow's colours (asked from the page a few times a second; only colours come
-// back, checked to be three numbers 0–255). The page area itself is left out, so the video and YouTube's own glow
-// stay as they are. Gone at once in fullscreen, on other tabs, or when "Glow around Oto" is off.
-const AMBF = { el: null, busy: false, on: false, hold: false }; // hold: the tests draw it themselves
+// The glow around Oto itself: while the YouTube tab you are looking at has ambient light, the glow carries on past
+// the page into Oto's sidebar, top bar and edges. Oto asks the page for the glow's tiny picture (at most 128 x 72
+// colour points) and where it sits, checks every value (ambFrameValid), and draws the same picture, lined up with the
+// video and blurred the same, around the page. It never covers the page itself, never catches the mouse, and is
+// always blurred at least 24 px, so nothing sharp from a page can be drawn over Oto. Gone at once in fullscreen, on
+// other tabs, or when "Glow around Oto" is off.
+const AMBF = { el: null, cv: null, ctx: null, busy: false, on: false, hold: false }; // hold: the tests draw it themselves
 function ambFrameEl() {
   if (AMBF.el) return AMBF.el;
-  const el = h('div', { id: 'amb-frame', 'aria-hidden': 'true' }, h('i', { class: 'l' }), h('i', { class: 't' }), h('i', { class: 'r' }), h('i', { class: 'b' }));
-  document.body.appendChild(el);
-  return (AMBF.el = el);
+  AMBF.cv = h('canvas', { width: 64, height: 36 });
+  AMBF.ctx = AMBF.cv.getContext('2d');
+  AMBF.el = h('div', { id: 'amb-frame', 'aria-hidden': 'true' }, AMBF.cv);
+  document.body.appendChild(AMBF.el);
+  return AMBF.el;
 }
 function ambFrameOff() { if (AMBF.on && AMBF.el) { AMBF.el.classList.remove('on'); AMBF.on = false; } }
-const ambRgb = (c) => (Array.isArray(c) && c.length === 3 && c.every((v) => Number.isInteger(v) && v >= 0 && v <= 255) ? `rgb(${c.join(',')})` : null);
+const ambNum = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+function ambFrameValid(f) {
+  if (!f || typeof f !== 'object') return false;
+  if (![[32, 18], [64, 36], [128, 72]].some(([w, hh]) => f.w === w && f.h === hh)) return false;
+  if (typeof f.rgb !== 'string' || f.rgb.length !== f.w * f.h * 4 || !/^[A-Za-z0-9+/]+=*$/.test(f.rgb)) return false;
+  if (!Array.isArray(f.pic) || f.pic.length !== 4 || !f.pic.every((v) => ambNum(v, -20000, 20000)) || f.pic[2] < 1 || f.pic[3] < 1) return false;
+  return ambNum(f.ex, 0, 20000) && ambNum(f.ey, 0, 20000) && ambNum(f.blur, 0, 400) && ambNum(f.strength, 0, 1) && ambNum(f.bright, 0.5, 1.5) && ambNum(f.colors, 0, 2);
+}
 async function ambFrameTick() {
   if (AMBF.busy || AMBF.hold) return;
   const amb = ytAmb();
@@ -127,22 +138,32 @@ async function ambFrameTick() {
   try { url = v.wv.getURL(); } catch { return ambFrameOff(); }
   if (!isYT(url)) return ambFrameOff();
   AMBF.busy = true;
-  let c = null;
-  try { c = await v.wv.executeJavaScript('window.__otoAmbient && window.__otoAmbient.colors ? window.__otoAmbient.colors() : null'); } catch {}
+  let f = null, zoom = 1;
+  try { f = await v.wv.executeJavaScript('window.__otoAmbient && window.__otoAmbient.frame ? window.__otoAmbient.frame() : null'); zoom = v.wv.getZoomFactor() || 1; } catch {}
   AMBF.busy = false;
-  ambFrameShow(c);
+  ambFrameShow(f, v.wv.getBoundingClientRect(), zoom);
 }
-function ambFrameShow(c) {
-  const L = c && ambRgb(c.left), R = c && ambRgb(c.right), T = c && ambRgb(c.top), B = c && ambRgb(c.bottom);
-  if (!L || !R || !T || !B) return ambFrameOff();
-  const el = ambFrameEl(), box = document.getElementById('content');
-  const r = box ? box.getBoundingClientRect() : { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
+function ambFrameShow(f, box, zoom = 1) {
+  if (!ambFrameValid(f) || !box) return ambFrameOff();
+  const el = ambFrameEl(), cv = AMBF.cv;
+  // the picture
+  let bin;
+  try { bin = atob(f.rgb); } catch { return ambFrameOff(); }
+  if (cv.width !== f.w || cv.height !== f.h) { cv.width = f.w; cv.height = f.h; }
+  const img = AMBF.ctx.createImageData(f.w, f.h);
+  for (let i = 0, j = 0; i < bin.length; i += 3, j += 4) { img.data[j] = bin.charCodeAt(i); img.data[j + 1] = bin.charCodeAt(i + 1); img.data[j + 2] = bin.charCodeAt(i + 2); img.data[j + 3] = 255; }
+  AMBF.ctx.putImageData(img, 0, 0);
+  // where: the video's rectangle in Oto's window, the glow reaching past it, fading out like the glow in the page
+  const z = ambNum(zoom, 0.25, 5) ? zoom : 1;
+  const px = box.left + f.pic[0] * z, py = box.top + f.pic[1] * z, pw = f.pic[2] * z, ph = f.pic[3] * z, ex = f.ex * z, ey = f.ey * z;
+  const c = cv.style, gw = pw + 2 * ex, gh = ph + 2 * ey;
+  c.left = `${px - ex}px`; c.top = `${py - ey}px`; c.width = `${gw}px`; c.height = `${gh}px`;
+  c.filter = `blur(${Math.max(24, f.blur * z)}px) saturate(${f.colors}) brightness(${f.bright})`;
+  const m = `linear-gradient(to right,transparent 0,#000 ${ex}px,#000 ${ex + pw}px,transparent ${gw}px),linear-gradient(to bottom,transparent 0,#000 ${ey}px,#000 ${ey + ph}px,transparent ${gh}px)`;
+  c.maskImage = m; c.webkitMaskImage = m; c.maskComposite = 'intersect'; c.webkitMaskComposite = 'source-in';
   // everything except the page area (a frame with a hole)
-  el.style.clipPath = `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${r.left}px ${r.top}px, ${r.right}px ${r.top}px, ${r.right}px ${r.bottom}px, ${r.left}px ${r.bottom}px, ${r.left}px ${r.top}px)`;
-  el.style.setProperty('--af-l', L); el.style.setProperty('--af-r', R); el.style.setProperty('--af-t', T); el.style.setProperty('--af-b', B);
-  el.style.setProperty('--af-x0', `${r.left}px`); el.style.setProperty('--af-y0', `${r.top}px`);
-  el.style.setProperty('--af-x1', `${innerWidth - r.right}px`); el.style.setProperty('--af-y1', `${innerHeight - r.bottom}px`);
-  el.style.setProperty('--af-a', String(Math.max(0, Math.min(1, Number(c.strength) || 0.85)) * 0.75));
+  el.style.clipPath = `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${box.left}px ${box.top}px, ${box.right}px ${box.top}px, ${box.right}px ${box.bottom}px, ${box.left}px ${box.bottom}px, ${box.left}px ${box.top}px)`;
+  el.style.setProperty('--af-a', String(f.strength * 0.9));
   if (!AMBF.on) { el.classList.add('on'); AMBF.on = true; }
 }
 setInterval(ambFrameTick, 120);

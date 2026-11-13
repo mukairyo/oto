@@ -3,6 +3,15 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.6.3 — 2026-11-14
+
+*Small update. Nothing to do: it updates itself.*
+
+**Changed**
+- **YouTube ambient light now looks like the extension:** the glow is the video's own picture stretched out past the player and fading to nothing towards its outer edges, so it never ends in a hard edge, even with blur at 0.
+- **Spread uses the extension's scale:** 100% reaches half the video's size past each edge (before: about a tenth), up to 400%. The same number now looks the same as in the extension. The glow still stays inside the page.
+- **The glow around Oto is the same glow, carried on:** instead of one flat colour per side, Oto draws the video's glow past the page into its sidebar, top bar and edges, lined up with the video and blurred the same. Oto only takes a tiny picture (at most 128 by 72 points) from the page, checks it, and always blurs it at least 24 px.
+
 ## 1.6.2 — 2026-11-14
 
 *Small update. Nothing to do: it updates itself.*

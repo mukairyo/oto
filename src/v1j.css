@@ -230,13 +230,9 @@ body.skin-rt .ver-grid small { color: var(--rt-fg3); }
 .v1-shp .sh-feats.dim { opacity: .45; pointer-events: none; }
 .v1-shp .sh-fixed { font: 600 9.5px var(--k-mono); letter-spacing: .22em; color: var(--k-fg3); padding: 0 6px; }
 
-/* YouTube ambient light around Oto's own window (src/v1j.js ambFrameTick): soft colour from the page's edges outward,
-   lightening Oto's dark surfaces like light on a wall. Never over the page itself, never catches the mouse. */
-#amb-frame { position: fixed; inset: 0; z-index: 46; /* above the sidebar and top bar (45), below menus and dialogs */ pointer-events: none; opacity: 0; transition: opacity .6s ease; mix-blend-mode: screen; }
-#amb-frame.on { opacity: var(--af-a, .6); }
-#amb-frame i { position: absolute; display: block; transition: background-color .35s linear; }
-#amb-frame .l { left: 0; top: 0; bottom: 0; width: calc(var(--af-x0, 0px) + 40px); background-color: var(--af-l, #000); -webkit-mask-image: linear-gradient(to left, #000 0, #000 30px, rgba(0,0,0,.55) 45%, rgba(0,0,0,.18) 100%); }
-#amb-frame .r { right: 0; top: 0; bottom: 0; width: calc(var(--af-x1, 0px) + 40px); background-color: var(--af-r, #000); -webkit-mask-image: linear-gradient(to right, #000 0, #000 30px, rgba(0,0,0,.4) 100%); }
-#amb-frame .t { left: 0; right: 0; top: 0; height: calc(var(--af-y0, 0px) + 40px); background-color: var(--af-t, #000); -webkit-mask-image: linear-gradient(to top, #000 0, #000 30px, rgba(0,0,0,.3) 100%); }
-#amb-frame .b { left: 0; right: 0; bottom: 0; height: calc(var(--af-y1, 0px) + 40px); background-color: var(--af-b, #000); -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 30px, rgba(0,0,0,.4) 100%); }
-@media (prefers-reduced-motion: reduce) { #amb-frame, #amb-frame i { transition: none; } }
+/* YouTube ambient light around Oto's own window (src/v1j.js ambFrameShow): the page's glow carried on past the page,
+   lighting Oto's dark surfaces like light on a wall. Never over the page itself, never catches the mouse. */
+#amb-frame { position: fixed; inset: 0; z-index: 46; /* above the sidebar and top bar (45), below menus and dialogs */ pointer-events: none; opacity: 0; transition: opacity .6s ease; mix-blend-mode: screen; overflow: hidden; }
+#amb-frame.on { opacity: var(--af-a, .75); }
+#amb-frame canvas { position: absolute; image-rendering: auto; }
+@media (prefers-reduced-motion: reduce) { #amb-frame { transition: none; } }
