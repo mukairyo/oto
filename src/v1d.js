@@ -269,7 +269,10 @@ function v1Peek(row) {
 async function v1AmbientTick() {
   const v = activeView(), t = activeTab();
   const content = $('#content');
-  if (!v || !t || !v.audible || S.settings.v1Ambient === false || document.hidden || V1H.saver) { content.style.removeProperty('--v1-amb'); content.classList.remove('v1-amb'); return; }
+  // On YouTube with ambient light, the YouTube glow (src/v1j.js ambFrameShow) lights Oto's window where its light
+  // reaches; this simpler even glow around the whole page would light the far edges too, so it steps aside there.
+  const ytGlow = typeof AMBF !== 'undefined' && AMBF.on;
+  if (!v || !t || !v.audible || ytGlow || S.settings.v1Ambient === false || document.hidden || V1H.saver) { content.style.removeProperty('--v1-amb'); content.classList.remove('v1-amb'); return; }
   try {
     const im = await v.wv.capturePage();
     const small = im.resize({ width: 16, height: 9 });

@@ -187,7 +187,12 @@ function ambFrameShow(f, box, zoom = 1) {
   el.style.clipPath = hole; AMBF.wash.style.clipPath = hole;
   el.style.setProperty('--af-a', String(f.strength * 0.9));
   AMBF.wash.style.setProperty('--af-a', String(f.strength * 0.85));
-  if (!AMBF.on) { el.classList.add('on'); AMBF.wash.classList.add('on'); AMBF.on = true; }
+  if (!AMBF.on) {
+    el.classList.add('on'); AMBF.wash.classList.add('on'); AMBF.on = true;
+    // Oto's older even glow around a playing page steps aside (see v1AmbientTick)
+    const content = document.getElementById('content');
+    if (content) { content.classList.remove('v1-amb'); content.style.removeProperty('--v1-amb'); }
+  }
 }
 setInterval(ambFrameTick, 120);
 // while a slider moves: only the glow's settings change, the YouTube switches' CSS stays as it is

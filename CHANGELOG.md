@@ -13,6 +13,7 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 - **The glow around Oto is the same glow, carried on:** instead of one flat colour per side, Oto draws the video's glow past the page into its sidebar, top bar and edges, lined up with the video and blurred the same. Oto only takes a tiny picture (at most 128 by 72 points) from the page, checks it, and always blurs it at least 24 px.
 - **Oto's window reacts to the glow where the light reaches:** near the video, the top bar, sidebar and edges take the video's colours, easing back to Oto's normal look further away, like real light. Only the colour changes, so Oto's text and icons stay as readable as before.
 - The light fades out gradually at its edges (no visible line where it ends).
+- Oto's older, simpler glow (an even light all around the page while a tab plays sound) steps aside on YouTube while ambient light is on, so the far edges of the window no longer light up where no light reaches.
 
 ## 1.6.2 — 2026-11-14
 
