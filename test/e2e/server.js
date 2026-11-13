@@ -173,10 +173,12 @@ function handler(req, res) {
   if (host === 'yt.site' && url.pathname === '/watch') {
     res.writeHead(200, { 'Content-Type': 'text/html' });
     return res.end(`<!doctype html><html dark><head><title>Watch</title><style>html{background:#0f0f0f}body{margin:0}ytd-app{display:block;background:#0f0f0f;min-height:100vh}#movie_player{position:relative;width:640px;height:360px;margin:60px 0 0 40px;background:#000}ytd-watch-flexy[theater] #movie_player{width:1000px;margin-left:0}video{width:100%;height:100%;object-fit:contain}#below{height:300px;color:#fff}</style></head>
-<body><ytd-app><ytd-watch-flexy><div id="movie_player" class="html5-video-player"><video class="html5-main-video" muted playsinline></video></div><div id="below">Title</div><div id="cinematics">youtube glow</div></ytd-watch-flexy></ytd-app>
-<script>const c = document.createElement('canvas'); c.width = 320; c.height = 180; const x = c.getContext('2d'); let color = '#e0204a';
-window.__paint = (col) => { color = col; }; setInterval(() => { x.fillStyle = color; x.fillRect(0, 0, 320, 180); }, 30);
-const v = document.querySelector('video'); v.srcObject = c.captureStream(30); v.play();</script></body></html>`);
+<body><ytd-app><div id="masthead-container">Top bar</div><ytd-watch-flexy><div id="movie_player" class="html5-video-player"><video class="html5-main-video" muted playsinline></video><div class="ytp-chrome-bottom" style="position:absolute;right:0;bottom:0"><div class="ytp-right-controls"><button class="ytp-button ytp-subtitles-button">CC</button><button class="ytp-button ytp-settings-button">S</button></div></div></div><div id="columns"><div id="below">Title<input id="q"></div></div><div id="cinematics">youtube glow</div></ytd-watch-flexy><div style="height:1200px"></div></ytd-app>
+<script>const c = document.createElement('canvas'); c.width = 320; c.height = 180; const x = c.getContext('2d'); let color = '#e0204a', bars = false;
+window.__paint = (col) => { color = col; }; window.__bars = (on) => { bars = on; };
+setInterval(() => { x.fillStyle = '#000'; x.fillRect(0, 0, 320, 180); x.fillStyle = color; if (bars) x.fillRect(0, 30, 320, 120); else x.fillRect(0, 0, 320, 180); }, 30);
+const v = document.querySelector('video'); v.srcObject = c.captureStream(30); v.play();
+window.__playerClicks = 0; document.getElementById('movie_player').addEventListener('click', () => window.__playerClicks++);</script></body></html>`);
   }
   if (url.pathname === '/echo-lang') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end(String(req.headers['accept-language'] || '')); }
   if (url.pathname === '/fpworker.js') { res.writeHead(200, { 'Content-Type': 'text/javascript' }); return res.end(FP_WORKER); }

@@ -112,7 +112,9 @@
 .v1-shp .sh-sw::after { content: ''; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--k-fg2); transition: transform .22s cubic-bezier(.2,.8,.2,1), background .2s; }
 .v1-shp .sh-sw.on { background: var(--k-cream); box-shadow: none; }
 .v1-shp .sh-sw.on::after { transform: translateX(16px); background: var(--k-ink); }
-/* ambient light sliders */
+/* ambient light */
+.v1-shp .sh-amb .sh-sub { padding: 12px 14px 6px; border-top: 1px solid var(--k-line); font: 600 9px var(--k-mono); letter-spacing: .16em; color: var(--k-fg3); }
+.v1-shp .sh-amb .sh-btn + .sh-btn { margin-left: -6px; }
 .v1-shp .sh-range input[type=range] { flex: 1 1 180px; max-width: 260px; accent-color: var(--k-cream); }
 .v1-shp .sh-range .val { width: 44px; text-align: right; font: 600 10px var(--k-mono); letter-spacing: .08em; color: var(--k-fg2); flex: none; }
 .v1-shp .sh-amb.off .sh-row + .sh-row { opacity: .45; pointer-events: none; }

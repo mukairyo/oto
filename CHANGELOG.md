@@ -8,8 +8,11 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 *Small update. Nothing to do: it updates itself.*
 
 **New**
-- **YouTube ambient light, built in.** A soft glow in the video's own colours spreads around the player and over the page, and follows the picture as it changes, like the "Ambient light for YouTube" extension, without needing it. On by default. Settings on Oto's YouTube page (Shield › YouTube): brightness, blur, spread, fade-in, which player sizes get it (normal, theatre or both) and whether it also shows on YouTube's light theme. In theatre mode the bars beside the video fill with the glow too.
-- Written for Oto, not taken from the extension. The video is only drawn onto the screen; nothing is read from it, sent anywhere, or given to the page.
+- **YouTube ambient light, built in.** A soft glow in the video's own colours spreads around the player and over the page, and follows the picture as it changes, like the "Ambient light for YouTube" extension, without needing it. On by default.
+- **A button in the player**, next to captions and settings, opens a small panel right on the video: switch it on or off, strength, blur, spread and brightness. Changes are saved in Oto. **G** switches the glow off and on in that tab.
+- **All settings** on Oto's YouTube page (Shield › YouTube): strength, blur, spread, fade-in, player sizes (normal, theatre or both), YouTube's light theme, and under "More settings": brightness, colours, detail, updates per second, ignore black bars (films), a shadow around the video, text shadows, see-through buttons and boxes, thumbnail brightness, and an immersive theatre mode (the top bar and the page fade away until you scroll or point at them).
+- In theatre mode the bars beside the video fill with the glow too.
+- Written for Oto, not taken from the extension. The video is drawn onto the screen; the only thing read back is a tiny copy about once a second to find black bars. Nothing is sent anywhere, and the page gets no access to Oto: Oto collects changes from the player panel itself and checks every value before saving it.
 
 **Good to know**
 - Not in fullscreen (the video fills the screen), not in the mini-player, and not for videos with copy protection (films you rent or buy draw black). It pauses while the tab is in the background.

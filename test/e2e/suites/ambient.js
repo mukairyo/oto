@@ -41,7 +41,7 @@ module.exports = async (t) => {
   await run({ fade: 0 });
   await t.page('document.querySelector("ytd-watch-flexy").setAttribute("theater", "")'); await wait(1000);
   a = await look();
-  t.check('theatre mode: the glow follows the picture, not the wider player', a.on && Math.abs(a.layer[2] - 640) <= 1 && Math.abs(a.layer[0] - 180) <= 1, `layer ${a.layer}`);
+  t.check('theatre mode: the glow follows the picture, not the wider player', a.on && Math.abs(a.layer[2] - 640) <= 1 && Math.abs(a.layer[0] - 180) <= 1 && a.layer[1] === a.video[1], `layer ${a.layer}`);
   await run({ fade: 0, layouts: 'normal' }); await wait(900);
   t.check('"Normal" only: no glow in theatre mode', !(await look()).on);
   await t.page('document.querySelector("ytd-watch-flexy").removeAttribute("theater")'); await wait(900);
@@ -64,6 +64,63 @@ module.exports = async (t) => {
   await run({ fade: 0 }); await wait(900);
   t.check('…and switched on again it comes back', (await look()).on);
 
+  // the settings under MORE SETTINGS
+  await run({ fade: 0 }); await wait(300);
+  await t.page('window.__paint("#e0204a"); window.__bars(true)'); await wait(3200);
+  a = await look();
+  t.check('black bars inside the picture are left out: the glow starts where the picture starts, in its colour', Math.abs(a.layer[3] - 240) <= 8 && Math.abs(a.layer[1] - (a.video[1] + 60)) <= 4 && near(a.px, [224, 32, 74]), `layer ${a.layer} video ${a.video} colour ${a.px}`);
+  await run({ fade: 0, bars: false }); await wait(400);
+  a = await look();
+  t.check('…and with "Ignore black bars" off it covers the whole frame again', a.layer[3] === 360 && a.layer[1] === a.video[1], `layer ${a.layer} video ${a.video}`);
+  await t.page('window.__bars(false)');
+  await run({ fade: 0, edge: 60, text: 50, boxes: 0, thumbs: 50, res: 'high', brightness: 120, colors: 50 }); await wait(400);
+  const pageLook = JSON.parse(await t.page(`JSON.stringify({ edge: getComputedStyle(document.getElementById('oto-ambient'), '::after').boxShadow, text: getComputedStyle(document.querySelector('ytd-watch-flexy')).textShadow, chip: getComputedStyle(document.documentElement).getPropertyValue('--yt-spec-badge-chip-background').trim(), detail: document.querySelector('#oto-ambient canvas').width, filter: getComputedStyle(document.querySelector('#oto-ambient canvas')).filter })`));
+  t.check('video edge shadow, text shadows, see-through boxes, glow detail, brightness and colours all apply', /54px/.test(pageLook.edge) && pageLook.text !== 'none' && /rgba\(255,\s*255,\s*255,\s*0(\.0+)?\)/.test(pageLook.chip) && pageLook.detail === 128 && /saturate\(0\.5\) brightness\(1\.2\)/.test(pageLook.filter), JSON.stringify(pageLook));
+  await run({ fade: 0, immersive: true });
+  await t.page('document.querySelector("ytd-watch-flexy").setAttribute("theater", ""); scrollTo(0, 0)'); await wait(1000);
+  const imm = async () => JSON.parse(await t.page(`JSON.stringify({ top: getComputedStyle(document.getElementById('masthead-container')).opacity, page: getComputedStyle(document.getElementById('columns')).opacity })`));
+  let i1 = await imm(); await wait(600); i1 = await imm();
+  await t.page('scrollTo(0, 200)'); await wait(800);
+  const i2 = await imm();
+  t.check('immersive theatre: the top bar and the page fade away, and come back when you scroll', i1.top === '0' && i1.page === '0' && i2.top === '1' && i2.page === '1', `${JSON.stringify(i1)} → ${JSON.stringify(i2)}`);
+  await t.page('scrollTo(0, 0); document.querySelector("ytd-watch-flexy").removeAttribute("theater")');
+  await run({ fade: 0 }); await wait(900);
+  const key = (target) => t.page(`(${target}).dispatchEvent(new KeyboardEvent('keydown', { key: 'g', bubbles: true }))`);
+  await key('document.body'); await wait(300);
+  const g1 = (await look()).on;
+  await key('document.getElementById("q")'); await wait(300);
+  const g2 = (await look()).on;
+  await key('document.body'); await wait(300);
+  const g3 = (await look()).on;
+  t.check('the G key switches the glow off and on (not while typing in a box)', g1 === false && g2 === false && g3 === true, `${g1} ${g2} ${g3}`);
+
+  // the button in the player's controls and its small panel
+  await run({ fade: 0 }); await wait(1300);
+  const btnInfo = JSON.parse(await t.page(`JSON.stringify((() => { const b = document.querySelector('.ytp-right-controls .oto-amb-btn'); return b ? { next: b.nextElementSibling && b.nextElementSibling.className, pressed: b.getAttribute('aria-pressed'), label: b.getAttribute('aria-label'), svg: !!b.querySelector('svg') } : null; })())`));
+  t.check('an ambient light button sits in the player\'s controls, just before the settings gear', !!btnInfo && /ytp-settings-button/.test(btnInfo.next) && btnInfo.pressed === 'true' && btnInfo.label === 'Ambient light' && btnInfo.svg, JSON.stringify(btnInfo));
+  const popRes = JSON.parse(await t.page(`(async () => {
+    const b = document.querySelector('.oto-amb-btn'); b.click(); await new Promise((r) => setTimeout(r, 200));
+    const pop = document.querySelector('#movie_player .oto-amb-pop'); const open = !!pop && !pop.hidden;
+    const r = pop.querySelector('input[aria-label="Strength"]'); r.value = 40; r.dispatchEvent(new Event('input', { bubbles: true })); r.click();
+    await new Promise((x) => setTimeout(x, 200));
+    return JSON.stringify({ open, sliders: [...pop.querySelectorAll('input[type=range]')].map((x) => x.getAttribute('aria-label')).join(','), opacity: getComputedStyle(document.getElementById('oto-ambient')).opacity, clicks: window.__playerClicks });
+  })()`));
+  t.check('the button opens a small panel (switch, Strength, Blur, Spread, Brightness) that changes the glow at once', popRes.open && popRes.sliders === 'Strength,Blur,Spread,Brightness' && popRes.opacity === '0.4', JSON.stringify(popRes));
+  t.check('…and clicks in the panel don\'t reach the video (no pause)', popRes.clicks === 0, `player clicks: ${popRes.clicks}`);
+  await t.js('(() => { const v = V.get(activeTab().id); v.ytAmbient = true; })()');
+  await t.js('ytAmbTakeFrom(V.get(activeTab().id))');
+  t.check('Oto picks up the change from the panel and saves it', (await t.js('ytAmb().strength')) === 40);
+  t.check('…keeping only known settings with sensible values (junk from a page is dropped)', (await t.js(`JSON.stringify(ytAmbClean({ strength: 9999, blur: 'x', evil: 1, layouts: 'bad', on: 'yes', __proto__: { on: false } }))`)) === '{"strength":100}');
+  await t.page(`(() => { const pop = document.querySelector('.oto-amb-pop'); pop.querySelector('.sw').click(); })()`); await wait(400);
+  const offNow = JSON.parse(await t.page(`JSON.stringify({ glow: document.getElementById('oto-ambient').classList.contains('on'), btn: !!document.querySelector('.oto-amb-btn'), pressed: document.querySelector('.oto-amb-btn').getAttribute('aria-pressed') })`));
+  t.check('the panel\'s switch turns the glow off; the button stays so it can be turned back on', !offNow.glow && offNow.btn && offNow.pressed === 'false', JSON.stringify(offNow));
+  await t.page(`document.querySelector('.oto-amb-pop .f button').click()`);
+  await t.js('ytAmbTakeFrom(V.get(activeTab().id))'); await wait(700);
+  t.check('"All settings" opens Oto\'s YouTube page; the glow\'s "off" was saved too', (await t.js(`!!document.querySelector('.sh-amb') && ytAmb().on === false`)) === true);
+  await t.js(`typeof shpClose === 'function' && shpClose(); S.settings.ytAmbient = { ...OTO_AMBIENT_DEFAULTS }; true`);
+  await run({ fade: 0, button: false }); await wait(300);
+  t.check('with "Button in the player" off, the button goes away', (await t.page(`!document.querySelector('.oto-amb-btn')`)) === true);
+
   // only real YouTube addresses get it, and it is on unless switched off
   t.check('runs on youtube.com watch pages, nowhere else; on by default', await t.js(`isYT('https://www.youtube.com/watch?v=abc') && isYT('https://m.youtube.com/watch?v=abc') && !isYT('https://youtube.com.evil.example/') && !isYT('https://notyoutube.com/') && ytAmb().on === true`));
 
@@ -84,5 +141,5 @@ module.exports = async (t) => {
     if (typeof shpClose === 'function') shpClose();
     return JSON.stringify(out);
   })()`);
-  t.check('Oto\'s YouTube page: ambient light switch, Brightness/Blur/Spread sliders, fade/player-size/theme choices, changes saved', /"ranges":"Brightness,Blur,Spread","segs":3,"strength":55/.test(panel), panel);
+  t.check('Oto\'s YouTube page: ambient light switch, Strength/Blur/Spread sliders, fade/player-size/theme choices, changes saved', /"ranges":"Strength,Blur,Spread","segs":3,"strength":55/.test(panel), panel);
 };

@@ -4,129 +4,294 @@
  * A soft glow in the video's own colours spreads out around the player and over the page, and follows the picture as
  * it changes. Written for Oto (not taken from any extension).
  *
- * How: a small canvas (64 x 36 pixels) behind the page gets the current video frame drawn into it, and the browser
- * stretches and blurs it far past the player's edges. Nothing is read back from the canvas: the picture only goes
- * from the video onto the screen, so it needs no permissions and works with Shield's fingerprint protection.
+ * How: a small canvas behind the page gets the current video frame drawn into it, and the browser stretches and
+ * blurs it far past the player's edges. The picture only goes from the video onto the screen; the one thing read
+ * back is a tiny copy, about once a second, to find black bars inside the picture (films), and nothing leaves the
+ * page. No permissions, and it works with Shield's fingerprint protection.
  *
  * otoYtAmbient(opts) is run in YouTube pages by the renderer (src/v1j.js, wv.executeJavaScript): it installs once
  * per page, and later calls change the settings or switch it off. Settings (Shield › YouTube › Ambient light):
  *   on          switched on
- *   strength    0–100: how bright the glow is
- *   blur        0–100: how soft
- *   spread      0–200: how far past the player it reaches (100 = normal)
- *   fade        milliseconds the glow takes to appear and disappear
- *   layouts     'all' | 'normal' | 'theater': which player sizes get it
- *   light       also in YouTube's light theme (normally only the dark theme, where a glow reads best)
+ *   strength    0–100   how strongly the glow shows
+ *   blur        0–100   how soft
+ *   spread      0–200   how far past the player it reaches (100 = normal)
+ *   brightness  50–150  glow brightness (100 = the video's own)
+ *   colors      0–200   glow colour strength (100 = the video's own)
+ *   fade        ms      how long the glow takes to appear and go
+ *   layouts     'all' | 'normal' | 'theater'
+ *   light       also on YouTube's light theme (normally only the dark theme, where a glow reads best)
+ *   res         'low' | 'normal' | 'high'   detail of the glow (32, 64 or 128 points across)
+ *   fps         15 | 30 | 60               most glow updates per second
+ *   bars        ignore black bars inside the picture
+ *   edge        0–100   shadow around the video's edges
+ *   text        0–100   shadow behind the page's text, for reading over the glow
+ *   boxes       0–200   how solid YouTube's buttons and boxes are (100 = as YouTube draws them)
+ *   thumbs      20–100  thumbnail brightness
+ *   immersive   theatre mode: the top bar and the page below fade away until you scroll or point at them
+ *   key         the G key switches the glow off and on in this tab
+ *   button      an ambient light button in the player's controls, next to captions and settings. It opens a small
+ *               panel with the main settings; changes there are collected by Oto (take(), below), checked and saved.
  * Only on watch pages. Hidden in fullscreen (the video fills the screen), in the mini-player, for videos with copy
  * protection (they draw black) and while the tab is in the background. YouTube's own, much smaller "ambient mode"
  * glow is hidden while Oto's is on.
  */
-const OTO_AMBIENT_DEFAULTS = { on: true, strength: 85, blur: 45, spread: 100, fade: 600, layouts: 'all', light: false };
+const OTO_AMBIENT_DEFAULTS = { on: true, strength: 85, blur: 45, spread: 100, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true };
 function otoYtAmbient(opts) {
-  const D = { on: true, strength: 85, blur: 45, spread: 100, fade: 600, layouts: 'all', light: false }; // = OTO_AMBIENT_DEFAULTS (this function runs inside the page on its own)
+  // = OTO_AMBIENT_DEFAULTS (this function runs inside the page on its own)
+  const D = { on: true, strength: 85, blur: 45, spread: 100, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true };
   const A = window.__otoAmbient;
   if (A) { A.set(opts); return 'updated'; }
   const o0 = { ...D, ...(opts || {}) };
-  if (!o0.on) return 'off';
-  const doc = document, W = 64, H = 36, FPS = 30;
+  if (!o0.on && !o0.button) return 'off';
+  const doc = document, root = doc.documentElement;
   const layer = doc.createElement('div'), cv = doc.createElement('canvas');
   layer.id = 'oto-ambient';
   layer.setAttribute('aria-hidden', 'true');
-  cv.width = W; cv.height = H;
   layer.appendChild(cv);
   const ctx = cv.getContext('2d', { alpha: false, desynchronized: true });
-  const style = doc.createElement('style');
-  style.id = 'oto-ambient-css';
+  const probe = doc.createElement('canvas'); probe.width = 96; probe.height = 54; // for black bars
+  const pctx = probe.getContext('2d', { willReadFrequently: true });
+  const style = doc.createElement('style'), look = doc.createElement('style');
+  style.id = 'oto-ambient-css'; look.id = 'oto-ambient-look';
+  const IMM = 'html[oto-ambient][oto-immersive][oto-theater]:not([oto-scrolled])';
   style.textContent = `
 html[oto-ambient] ytd-app{background:transparent!important;position:relative;z-index:1}
 html[oto-ambient] #cinematics,html[oto-ambient] #cinematics-container{display:none!important}
 #oto-ambient{position:absolute;left:0;top:0;width:0;height:0;z-index:0;pointer-events:none;opacity:0;transition:opacity var(--oa-fade,600ms) ease;contain:layout style size}
 #oto-ambient.on{opacity:var(--oa-strength,.85)}
-#oto-ambient canvas{position:absolute;left:calc(-1*var(--oa-x,10%));top:calc(-1*var(--oa-y,14%));width:calc(100% + 2*var(--oa-x,10%));height:calc(100% + 2*var(--oa-y,14%));filter:blur(var(--oa-blur,70px)) saturate(1.35)}
-html[oto-ambient] #movie_player,html[oto-ambient] .html5-video-player,html[oto-ambient] #full-bleed-container,html[oto-ambient] #player-full-bleed-container,html[oto-ambient] #player-container-outer,html[oto-ambient] #player-container-inner,html[oto-ambient] #ytd-player,html[oto-ambient] #container.ytd-player{background:transparent!important}`;
-  let o = o0, enabled = false, timer = 0, lastDraw = 0, video = null, rvfc = 0, shown = false;
-  const looks = () => {
-    const n = (v, lo, hi, d) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
-    const sp = n(o.spread, 0, 200, 100) / 100, s = layer.style;
-    s.setProperty('--oa-strength', String(n(o.strength, 0, 100, 85) / 100));
-    s.setProperty('--oa-blur', `${Math.round(12 + n(o.blur, 0, 100, 45) * 1.3)}px`);
-    s.setProperty('--oa-x', `${(10 * sp).toFixed(1)}%`); s.setProperty('--oa-y', `${(14 * sp).toFixed(1)}%`);
-    s.setProperty('--oa-fade', `${n(o.fade, 0, 5000, 600)}ms`);
-  };
+#oto-ambient canvas{position:absolute;left:calc(-1*var(--oa-x,10%));top:calc(-1*var(--oa-y,14%));width:calc(100% + 2*var(--oa-x,10%));height:calc(100% + 2*var(--oa-y,14%));filter:blur(var(--oa-blur,70px)) saturate(var(--oa-colors,1.35)) brightness(var(--oa-bright,1))}
+#oto-ambient::after{content:'';position:absolute;inset:0;box-shadow:0 0 var(--oa-edge,0px) calc(var(--oa-edge,0px)/5) rgba(0,0,0,.85)}
+html[oto-ambient] #movie_player,html[oto-ambient] .html5-video-player,html[oto-ambient] #full-bleed-container,html[oto-ambient] #player-full-bleed-container,html[oto-ambient] #player-container-outer,html[oto-ambient] #player-container-inner,html[oto-ambient] #ytd-player,html[oto-ambient] #container.ytd-player{background:transparent!important}
+html[oto-ambient][oto-immersive] #masthead-container,html[oto-ambient][oto-immersive] ytd-watch-flexy #columns{transition:opacity .45s ease}
+${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:not(:hover){opacity:0}
+.oto-amb-btn{display:inline-flex!important;align-items:center;justify-content:center}
+.oto-amb-btn svg{width:100%;height:100%;pointer-events:none}
+.oto-amb-btn .ray{transition:opacity .2s}
+.oto-amb-btn[aria-pressed=false] .ray{opacity:.25}
+.oto-amb-pop{position:absolute;right:12px;bottom:60px;z-index:72;width:280px;padding:10px 0 8px;border-radius:12px;background:rgba(28,28,28,.92);color:#eee;font:500 13px/1.3 Roboto,Arial,sans-serif;text-shadow:none;box-shadow:0 6px 24px rgba(0,0,0,.45);backdrop-filter:blur(8px)}
+.oto-amb-pop[hidden]{display:none}
+.oto-amb-pop .h{display:flex;align-items:center;justify-content:space-between;padding:2px 16px 8px;font-weight:600;font-size:14px}
+.oto-amb-pop .sw{position:relative;width:36px;height:20px;border:0;border-radius:10px;background:#555;cursor:pointer;padding:0}
+.oto-amb-pop .sw::after{content:'';position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#ccc;transition:transform .18s}
+.oto-amb-pop .sw[aria-checked=true]{background:#e7dfd1}
+.oto-amb-pop .sw[aria-checked=true]::after{transform:translateX(16px);background:#131313}
+.oto-amb-pop .r{display:grid;grid-template-columns:76px 1fr 40px;align-items:center;gap:8px;padding:5px 16px}
+.oto-amb-pop .r span:last-child{text-align:right;font-size:12px;color:#bbb}
+.oto-amb-pop input[type=range]{width:100%;accent-color:#e7dfd1;margin:0}
+.oto-amb-pop .f{display:flex;justify-content:space-between;align-items:center;padding:8px 16px 2px;border-top:1px solid rgba(255,255,255,.1);margin-top:6px;font-size:11px;color:#999}
+.oto-amb-pop .f button{border:0;background:transparent;color:#e7dfd1;font:600 12px Roboto,Arial,sans-serif;cursor:pointer;padding:4px 0}
+.oto-amb-pop.off .r{opacity:.45;pointer-events:none}`;
+  let o = o0, enabled = false, userOff = false, timer = 0, lastDraw = 0, lastProbe = 0, video = null, rvfc = 0, shown = false, gone = 0;
+  let W = 64, H = 36, crop = { x: 0, y: 0, w: 1, h: 1 }, cropSeen = '', cropCount = 0;
+  cv.width = W; cv.height = H;
+  const n = (v, lo, hi, d) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
 
   const player = () => doc.querySelector('ytd-watch-flexy:not([hidden]) #movie_player');
+  const theaterNow = () => !!doc.querySelector('ytd-watch-flexy[theater]:not([hidden]), ytd-watch-flexy[full-bleed-player]:not([hidden])');
   const usable = () => {
-    if (!enabled || doc.hidden || doc.fullscreenElement) return false;
-    if (!/^\/watch/.test(location.pathname) || (!o.light && !doc.documentElement.hasAttribute('dark'))) return false;
+    if (!enabled || userOff || doc.hidden || doc.fullscreenElement) return false;
+    if (!/^\/watch/.test(location.pathname) || (!o.light && !root.hasAttribute('dark'))) return false;
     const p = player();
     if (!p || p.classList.contains('ytp-player-minimized')) return false;
-    const theater = !!doc.querySelector('ytd-watch-flexy[theater]:not([hidden]), ytd-watch-flexy[full-bleed-player]:not([hidden])');
+    const theater = theaterNow();
     if ((o.layouts === 'normal' && theater) || (o.layouts === 'theater' && !theater)) return false;
     const v = p.querySelector('video.html5-main-video');
     return v && v.videoWidth > 0 ? v : false;
   };
   // the glow follows the picture itself: in theatre mode the player is wider than the video (the bars at the sides
-  // are made see-through above, so the glow fills them)
+  // are made see-through above, so the glow fills them), and black bars inside the picture are left out
   const place = () => {
     const p = player();
     if (!p) return;
     const pr = p.getBoundingClientRect();
-    let r = pr;
+    let r = { left: pr.left, top: pr.top, width: pr.width, height: pr.height };
     if (video && video.videoWidth && video.videoHeight) {
       const k = Math.min(pr.width / video.videoWidth, pr.height / video.videoHeight), w = video.videoWidth * k, h = video.videoHeight * k;
       r = { left: pr.left + (pr.width - w) / 2, top: pr.top + (pr.height - h) / 2, width: w, height: h };
     }
+    r = { left: r.left + r.width * crop.x, top: r.top + r.height * crop.y, width: r.width * crop.w, height: r.height * crop.h };
     const s = layer.style;
     s.left = `${r.left + scrollX}px`; s.top = `${r.top + scrollY}px`; s.width = `${r.width}px`; s.height = `${r.height}px`;
   };
+  // Black bars: about once a second a tiny copy of the frame is checked for dark rows and columns at its edges. A
+  // change is only used once it has been seen twice in a row, so a dark scene doesn't make the glow jump.
+  const findBars = () => {
+    let d;
+    try { pctx.drawImage(video, 0, 0, 96, 54); d = pctx.getImageData(0, 0, 96, 54).data; } catch (e) { return; } // protected video: keep as is
+    const dark = (i) => d[i] < 22 && d[i + 1] < 22 && d[i + 2] < 22;
+    const rowDark = (y) => { for (let x = 2; x < 94; x += 2) if (!dark((y * 96 + x) * 4)) return false; return true; };
+    const colDark = (x) => { for (let y = 2; y < 52; y += 2) if (!dark((y * 96 + x) * 4)) return false; return true; };
+    let t = 0, b = 0, l = 0, rr = 0;
+    while (t < 16 && rowDark(t)) t++;
+    while (b < 16 && rowDark(53 - b)) b++;
+    while (l < 28 && colDark(l)) l++;
+    while (rr < 28 && colDark(95 - rr)) rr++;
+    if (t >= 16 && b >= 16) return; // a (nearly) black frame says nothing
+    const pair = (a, z) => (Math.abs(a - z) <= 1 ? Math.min(a, z) : 0); // real bars come in pairs
+    const ty = pair(t, b), lx = pair(l, rr), key = `${lx},${ty}`;
+    if (key !== cropSeen) { cropSeen = key; cropCount = 1; return; }
+    if (++cropCount !== 2) return;
+    const next = { x: lx / 96, y: ty / 54, w: 1 - (2 * lx) / 96, h: 1 - (2 * ty) / 54 };
+    if (next.x !== crop.x || next.y !== crop.y) { crop = next; place(); }
+  };
   const draw = () => {
     if (!video) return;
-    try { ctx.drawImage(video, 0, 0, W, H); } catch (e) {}
-    lastDraw = performance.now();
+    const now = performance.now();
+    if (o.bars && now - lastProbe > 1000) { lastProbe = now; findBars(); }
+    try {
+      const vw = video.videoWidth, vh = video.videoHeight;
+      ctx.drawImage(video, vw * crop.x, vh * crop.y, vw * crop.w, vh * crop.h, 0, 0, W, H);
+    } catch (e) {}
+    lastDraw = now;
   };
   const onFrame = () => {
     rvfc = 0;
     if (!video || !shown) return;
-    if (performance.now() - lastDraw >= 1000 / FPS - 2) draw();
+    if (performance.now() - lastDraw >= 1000 / n(o.fps, 5, 60, 30) - 2) draw();
     rvfc = video.requestVideoFrameCallback(onFrame);
+  };
+
+  // the settings that only change how things look
+  const looks = () => {
+    const sp = n(o.spread, 0, 200, 100) / 100, s = layer.style;
+    s.setProperty('--oa-strength', String(n(o.strength, 0, 100, 85) / 100));
+    s.setProperty('--oa-blur', `${Math.round(12 + n(o.blur, 0, 100, 45) * 1.3)}px`);
+    s.setProperty('--oa-x', `${(10 * sp).toFixed(1)}%`); s.setProperty('--oa-y', `${(14 * sp).toFixed(1)}%`);
+    s.setProperty('--oa-fade', `${n(o.fade, 0, 5000, 600)}ms`);
+    s.setProperty('--oa-bright', String(n(o.brightness, 50, 150, 100) / 100));
+    s.setProperty('--oa-colors', String(n(o.colors, 0, 200, 135) / 100));
+    s.setProperty('--oa-edge', `${Math.round(n(o.edge, 0, 100, 0) * 0.9)}px`);
+    const res = { low: [32, 18], high: [128, 72] }[o.res] || [64, 36];
+    if (res[0] !== W) { W = res[0]; H = res[1]; cv.width = W; cv.height = H; if (shown) draw(); }
+    if (!o.bars && (crop.w !== 1 || crop.h !== 1)) { crop = { x: 0, y: 0, w: 1, h: 1 }; cropSeen = ''; if (shown) { place(); draw(); } }
+    // page look: text shadows, buttons and boxes, thumbnails (only what differs from YouTube's own)
+    const text = n(o.text, 0, 100, 0), boxes = n(o.boxes, 0, 200, 100) / 100, thumbs = n(o.thumbs, 20, 100, 100) / 100;
+    let css = '';
+    if (text) { const a = (text / 100).toFixed(2); css += `html[oto-ambient] ytd-watch-flexy{text-shadow:0 0 ${(text * 0.06).toFixed(1)}px rgba(0,0,0,${a}),0 1px ${(text * 0.03).toFixed(1)}px rgba(0,0,0,${a})}`; }
+    if (boxes !== 1) {
+      const d = Math.min(1, 0.1 * boxes).toFixed(3), l = Math.min(1, 0.05 * boxes).toFixed(3);
+      css += `html[oto-ambient][dark]{--yt-spec-badge-chip-background:rgba(255,255,255,${d});--yt-spec-10-percent-layer:rgba(255,255,255,${d})}html[oto-ambient]:not([dark]){--yt-spec-badge-chip-background:rgba(0,0,0,${l});--yt-spec-10-percent-layer:rgba(0,0,0,${l})}`;
+    }
+    if (thumbs !== 1) css += `html[oto-ambient] ytd-watch-flexy ytd-thumbnail img,html[oto-ambient] ytd-watch-flexy yt-thumbnail-view-model img,html[oto-ambient] ytd-watch-flexy .yt-lockup-view-model img{filter:brightness(${thumbs})}`;
+    look.textContent = css;
+    root.toggleAttribute('oto-immersive', !!(o.on && o.immersive));
   };
   const show = (v) => {
     if (video !== v) {
       if (video && rvfc) { video.cancelVideoFrameCallback(rvfc); rvfc = 0; }
-      video = v;
+      video = v; crop = { x: 0, y: 0, w: 1, h: 1 }; cropSeen = ''; lastProbe = 0;
     }
     if (!layer.isConnected) doc.body.prepend(layer);
     if (!style.isConnected) doc.head.appendChild(style);
+    if (!look.isConnected) doc.head.appendChild(look);
     clearTimeout(gone);
-    doc.documentElement.setAttribute('oto-ambient', '');
+    root.setAttribute('oto-ambient', '');
+    root.toggleAttribute('oto-theater', theaterNow());
     place();
     if (!shown) { shown = true; draw(); layer.classList.add('on'); }
     if (!rvfc && video.requestVideoFrameCallback) rvfc = video.requestVideoFrameCallback(onFrame);
   };
-  // the glow fades out first; YouTube's own background comes back once it has gone
-  let gone = 0;
+  // the glow fades out first; YouTube's own look comes back once it has gone
   const hide = () => {
     if (!shown) return;
     shown = false;
     layer.classList.remove('on');
     if (video && rvfc) { video.cancelVideoFrameCallback(rvfc); rvfc = 0; }
     clearTimeout(gone);
-    gone = setTimeout(() => { if (!shown) doc.documentElement.removeAttribute('oto-ambient'); }, Math.max(0, Number(o.fade) || 0));
+    gone = setTimeout(() => { if (!shown) { root.removeAttribute('oto-ambient'); root.removeAttribute('oto-theater'); } }, n(o.fade, 0, 5000, 600));
   };
   const check = () => { const v = usable(); if (v) show(v); else hide(); }; // show() also re-places the glow
   // a still picture (paused, seeking) still needs a fresh frame
   const still = (e) => { if (shown && e.target === video) draw(); };
+  const scrolled = () => root.toggleAttribute('oto-scrolled', scrollY > 40);
+  // G switches the glow off and on in this tab (not while typing, and not with Ctrl/Alt/Cmd)
+  const keyG = (e) => {
+    if (!o.key || e.repeat || e.ctrlKey || e.altKey || e.metaKey || String(e.key).toLowerCase() !== 'g') return;
+    const t = e.target, tag = t && t.tagName;
+    if (t && (t.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT')) return;
+    if (!/^\/watch/.test(location.pathname)) return;
+    userOff = !userOff; check();
+    btn.setAttribute('aria-pressed', String(!!o.on && !userOff));
+  };
   const tick = () => { check(); timer = setTimeout(tick, 700); }; // the page changes without telling (theatre mode, layout, new video)
-  const events = [['resize', () => shown && place()], ['yt-navigate-finish', check], ['fullscreenchange', check], ['visibilitychange', check]];
-  const add = () => { for (const [n, f] of events) addEventListener(n, f, true); doc.addEventListener('seeked', still, true); doc.addEventListener('loadeddata', still, true); tick(); };
-  const remove = () => { for (const [n, f] of events) removeEventListener(n, f, true); doc.removeEventListener('seeked', still, true); doc.removeEventListener('loadeddata', still, true); clearTimeout(timer); hide(); };
+  const events = [['resize', () => shown && place()], ['yt-navigate-finish', check], ['fullscreenchange', check], ['visibilitychange', check], ['scroll', scrolled], ['keydown', keyG]];
+  const add = () => { for (const [e, f] of events) addEventListener(e, f, { capture: true, passive: e !== 'keydown' }); doc.addEventListener('seeked', still, true); doc.addEventListener('loadeddata', still, true); scrolled(); tick(); };
+  const remove = () => { for (const [e, f] of events) removeEventListener(e, f, { capture: true }); doc.removeEventListener('seeked', still, true); doc.removeEventListener('loadeddata', still, true); clearTimeout(timer); hide(); root.removeAttribute('oto-scrolled'); };
+  // ---- the button in the player's controls and its small panel (built with the DOM: YouTube allows no HTML strings)
+  const SVG = 'http://www.w3.org/2000/svg';
+  const svgEl = (tag, at) => { const e = doc.createElementNS(SVG, tag); for (const k in at) e.setAttribute(k, at[k]); return e; };
+  const btn = doc.createElement('button');
+  btn.className = 'ytp-button oto-amb-btn';
+  btn.setAttribute('aria-label', 'Ambient light'); btn.setAttribute('title', 'Ambient light (g)'); btn.setAttribute('aria-haspopup', 'true');
+  const icon = svgEl('svg', { viewBox: '0 0 36 36', fill: 'none', stroke: '#fff', 'stroke-width': '2', 'stroke-linecap': 'round' });
+  icon.appendChild(svgEl('rect', { x: '11', y: '13', width: '14', height: '10', rx: '2' }));
+  for (const [x1, y1, x2, y2] of [[18, 7, 18, 9.5], [6, 18, 8.5, 18], [27.5, 18, 30, 18], [9.5, 9.5, 11.2, 11.2], [26.5, 9.5, 24.8, 11.2], [9.5, 26.5, 11.2, 24.8], [26.5, 26.5, 24.8, 24.8], [18, 26.5, 18, 29]]) icon.appendChild(svgEl('line', { x1, y1, x2, y2, class: 'ray' }));
+  btn.appendChild(icon);
+  const pop = doc.createElement('div');
+  pop.className = 'oto-amb-pop'; pop.hidden = true; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Ambient light');
+  const el = (tag, cls, text) => { const e = doc.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
+  const head = el('div', 'h'), swB = el('button', 'sw');
+  swB.setAttribute('role', 'switch'); swB.setAttribute('aria-label', 'Ambient light');
+  head.append(el('span', '', 'Ambient light'), swB);
+  pop.appendChild(head);
+  const changes = {}; let wantOpen = false;
+  const change = (k, v) => { o = { ...o, [k]: v }; changes[k] = v; looks(); const on = !!o.on; if (on !== enabled) { enabled = on; if (on) add(); else remove(); } else if (on) check(); paintPop(); };
+  const ranges = {};
+  for (const [k, label, min, max] of [['strength', 'Strength', 10, 100], ['blur', 'Blur', 0, 100], ['spread', 'Spread', 0, 200], ['brightness', 'Brightness', 50, 150]]) {
+    const row = el('div', 'r'), r = el('input'), out = el('span');
+    r.type = 'range'; r.min = String(min); r.max = String(max); r.step = '1'; r.setAttribute('aria-label', label);
+    r.addEventListener('input', () => { out.textContent = `${r.value}%`; change(k, +r.value); });
+    row.append(el('span', '', label), r, out);
+    ranges[k] = [r, out];
+    pop.appendChild(row);
+  }
+  const foot = el('div', 'f'), all = el('button', '', 'All settings');
+  foot.append(el('span', '', 'Saved in Oto'), all);
+  pop.appendChild(foot);
+  const paintPop = () => {
+    swB.setAttribute('aria-checked', String(!!o.on));
+    btn.setAttribute('aria-pressed', String(!!o.on && !userOff));
+    pop.classList.toggle('off', !o.on);
+    for (const k in ranges) { const [r, out] = ranges[k]; if (doc.activeElement !== r) r.value = String(o[k]); out.textContent = `${o[k]}%`; }
+  };
+  swB.addEventListener('click', () => change('on', !o.on));
+  all.addEventListener('click', () => { wantOpen = true; pop.hidden = true; });
+  const openPop = (v) => { pop.hidden = !v; btn.setAttribute('aria-expanded', String(v)); if (v) paintPop(); };
+  btn.addEventListener('click', (e) => { e.stopPropagation(); openPop(pop.hidden); });
+  // inside the panel, clicks and keys stay in the panel (YouTube would pause, seek or change the volume)
+  for (const t of ['click', 'mousedown', 'mouseup', 'dblclick', 'keydown', 'keyup', 'wheel', 'pointerdown']) pop.addEventListener(t, (e) => { e.stopPropagation(); if (t === 'keydown' && e.key === 'Escape') { openPop(false); btn.focus(); } });
+  doc.addEventListener('mousedown', (e) => { if (!pop.hidden && !pop.contains(e.target) && !btn.contains(e.target)) openPop(false); }, true);
+  // YouTube rebuilds its controls now and then: put the button back when it goes
+  const mountButton = () => {
+    const p = player();
+    const bar = p && p.querySelector('.ytp-right-controls');
+    if (!o.button || !bar || !/^\/watch/.test(location.pathname)) { btn.remove(); pop.remove(); return; }
+    const gear = bar.querySelector('.ytp-settings-button');
+    const where = gear && gear.parentNode ? gear.parentNode : bar; // YouTube sometimes groups its buttons
+    if (btn.parentNode !== where) where.insertBefore(btn, gear && gear.parentNode === where ? gear : where.firstChild);
+    if (pop.parentNode !== p) p.appendChild(pop);
+    if (!style.isConnected) doc.head.appendChild(style);
+    btn.setAttribute('aria-pressed', String(!!o.on && !userOff));
+  };
+  let mountT = 0;
+  const mountTick = () => { mountButton(); mountT = setTimeout(mountTick, 1000); };
+
   const set = (next) => {
     o = { ...D, ...(next || {}) };
     looks();
     const v = !!o.on;
     if (v !== enabled) { enabled = v; if (v) add(); else remove(); } else if (v) check();
+    clearTimeout(mountT); if (o.button) mountTick(); else { btn.remove(); pop.remove(); }
+    if (!pop.hidden) paintPop();
   };
-  window.__otoAmbient = { set };
+  // Oto collects what was changed in the panel (and whether "All settings" was pressed), checks it and saves it
+  const take = () => {
+    const r = { changes: { ...changes }, open: wantOpen };
+    for (const k in changes) delete changes[k];
+    wantOpen = false;
+    return Object.keys(r.changes).length || r.open ? r : null;
+  };
+  window.__otoAmbient = { set, take };
   set(o0);
   return 'installed';
 }
