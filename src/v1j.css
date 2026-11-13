@@ -235,4 +235,6 @@ body.skin-rt .ver-grid small { color: var(--rt-fg3); }
 #amb-frame { position: fixed; inset: 0; z-index: 46; /* above the sidebar and top bar (45), below menus and dialogs */ pointer-events: none; opacity: 0; transition: opacity .6s ease; mix-blend-mode: screen; overflow: hidden; }
 #amb-frame.on { opacity: var(--af-a, .75); }
 #amb-frame canvas { position: absolute; image-rendering: auto; }
-@media (prefers-reduced-motion: reduce) { #amb-frame { transition: none; } }
+#amb-wash { position: fixed; inset: 0; z-index: 46; pointer-events: none; opacity: 0; transition: opacity .6s ease, background-color .4s linear; mix-blend-mode: color; }
+#amb-wash.on { opacity: var(--af-a, .7); }
+@media (prefers-reduced-motion: reduce) { #amb-frame, #amb-wash { transition: none; } }

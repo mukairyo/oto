@@ -117,10 +117,13 @@ function ambFrameEl() {
   AMBF.cv = h('canvas', { width: 64, height: 36 });
   AMBF.ctx = AMBF.cv.getContext('2d');
   AMBF.el = h('div', { id: 'amb-frame', 'aria-hidden': 'true' }, AMBF.cv);
-  document.body.appendChild(AMBF.el);
+  // the whole window around the page takes the glow's overall colour (its colour only: Oto's own light and dark,
+  // and so every text and icon, stay as they are)
+  AMBF.wash = h('div', { id: 'amb-wash', 'aria-hidden': 'true' });
+  document.body.append(AMBF.wash, AMBF.el);
   return AMBF.el;
 }
-function ambFrameOff() { if (AMBF.on && AMBF.el) { AMBF.el.classList.remove('on'); AMBF.on = false; } }
+function ambFrameOff() { if (AMBF.on && AMBF.el) { AMBF.el.classList.remove('on'); if (AMBF.wash) AMBF.wash.classList.remove('on'); AMBF.on = false; } }
 const ambNum = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
 function ambFrameValid(f) {
   if (!f || typeof f !== 'object') return false;
@@ -153,6 +156,10 @@ function ambFrameShow(f, box, zoom = 1) {
   const img = AMBF.ctx.createImageData(f.w, f.h);
   for (let i = 0, j = 0; i < bin.length; i += 3, j += 4) { img.data[j] = bin.charCodeAt(i); img.data[j + 1] = bin.charCodeAt(i + 1); img.data[j + 2] = bin.charCodeAt(i + 2); img.data[j + 3] = 255; }
   AMBF.ctx.putImageData(img, 0, 0);
+  let ar = 0, ag = 0, ab = 0;
+  for (let j = 0; j < img.data.length; j += 4) { ar += img.data[j]; ag += img.data[j + 1]; ab += img.data[j + 2]; }
+  const np = img.data.length / 4;
+  AMBF.wash.style.backgroundColor = `rgb(${Math.round(ar / np)},${Math.round(ag / np)},${Math.round(ab / np)})`;
   // where: the video's rectangle in Oto's window, the glow reaching past it, fading out like the glow in the page
   const z = ambNum(zoom, 0.25, 5) ? zoom : 1;
   const px = box.left + f.pic[0] * z, py = box.top + f.pic[1] * z, pw = f.pic[2] * z, ph = f.pic[3] * z, ex = f.ex * z, ey = f.ey * z;
@@ -162,9 +169,11 @@ function ambFrameShow(f, box, zoom = 1) {
   const m = `linear-gradient(to right,transparent 0,#000 ${ex}px,#000 ${ex + pw}px,transparent ${gw}px),linear-gradient(to bottom,transparent 0,#000 ${ey}px,#000 ${ey + ph}px,transparent ${gh}px)`;
   c.maskImage = m; c.webkitMaskImage = m; c.maskComposite = 'intersect'; c.webkitMaskComposite = 'source-in';
   // everything except the page area (a frame with a hole)
-  el.style.clipPath = `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${box.left}px ${box.top}px, ${box.right}px ${box.top}px, ${box.right}px ${box.bottom}px, ${box.left}px ${box.bottom}px, ${box.left}px ${box.top}px)`;
+  const hole = `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${box.left}px ${box.top}px, ${box.right}px ${box.top}px, ${box.right}px ${box.bottom}px, ${box.left}px ${box.bottom}px, ${box.left}px ${box.top}px)`;
+  el.style.clipPath = hole; AMBF.wash.style.clipPath = hole;
   el.style.setProperty('--af-a', String(f.strength * 0.9));
-  if (!AMBF.on) { el.classList.add('on'); AMBF.on = true; }
+  AMBF.wash.style.setProperty('--af-a', String(f.strength * 0.85));
+  if (!AMBF.on) { el.classList.add('on'); AMBF.wash.classList.add('on'); AMBF.on = true; }
 }
 setInterval(ambFrameTick, 120);
 // while a slider moves: only the glow's settings change, the YouTube switches' CSS stays as it is
