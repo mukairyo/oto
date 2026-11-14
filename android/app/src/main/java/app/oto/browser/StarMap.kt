@@ -83,6 +83,16 @@ class StarMap(
     private val tNew = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(8f); letterSpacing = 0.14f; color = 0xE6E68C6E.toInt(); textAlign = Paint.Align.CENTER }
     private val arrow = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xF2D66042.toInt() }
     private val trail = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
+
+    // the small windows that show what's inside a star
+    private val winA = HashMap<Int, Float>()          // item index → how visible its window is (eases in and out)
+    private val winRect = HashMap<Int, android.graphics.RectF>()
+    private val winFill = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val winLine = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = px(1f) }
+    private val winPic = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+    private val tWin = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(7.5f); letterSpacing = 0.12f; color = 0x9EECE8E1.toInt() }
+    private val tWinBig = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL); textSize = sp(30f); color = 0x33ECE8E1; textAlign = Paint.Align.CENTER }
+    private val tWinHint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(7f); letterSpacing = 0.1f; color = 0x61ECE8E1; textAlign = Paint.Align.CENTER }
     private val sparkle = Path().apply {
         // a four-pointed star, like the stars on a chart (unit size)
         moveTo(0f, -1f); quadTo(0f, 0f, 1f, 0f); quadTo(0f, 0f, 0f, 1f); quadTo(0f, 0f, -1f, 0f); quadTo(0f, 0f, 0f, -1f); close()
@@ -123,6 +133,7 @@ class StarMap(
         }
         override fun onSingleTapUp(e: MotionEvent): Boolean {
             arrowHit(e.x, e.y)?.let { glideTo(it); return true }
+            windowAt(e.x, e.y)?.let { s -> onOpen(s.item.index); return true }
             starAt(e.x, e.y)?.let { s -> onOpen(s.item.index) }
             return true
         }
@@ -363,6 +374,9 @@ class StarMap(
         }
         c.restore()
 
+        // a small window above the star nearest the middle (and above every star when you zoom in): what's inside it
+        if (drawWindows(c, appear)) busy = true
+
         // new tabs flying in as shooting stars
         for ((idx, t0) in arrivals.toList()) {
             val s = star(idx)
@@ -399,6 +413,66 @@ class StarMap(
         }
 
         if (busy) postInvalidateOnAnimation() else postInvalidateDelayed(80)
+    }
+
+    /** Returns true while a window is still easing in or out. */
+    private fun drawWindows(c: Canvas, appear: Float): Boolean {
+        if (appear < 1f) return false
+        var moving = false
+        val all = groups.flatMap { it.stars }
+        // the focus: the star nearest the middle of the screen
+        var focus: StarPt? = null; var fd = px(130f)
+        val mx = width / 2f; val my = height * 0.5f
+        for (s in all) { val (sx, sy) = screenOf(s); val dd = hypot(sx - mx, sy - my); if (dd < fd) { fd = dd; focus = s } }
+        val zoomedIn = zoom >= 1.25f
+        winRect.clear()
+        val ww = px(136f) * zoom.coerceIn(0.9f, 1.3f); val wh = ww * 0.74f
+        for (s in all) {
+            val (sx, sy) = screenOf(s)
+            val onScreen = sx > -ww && sx < width + ww && sy > -wh && sy < height + wh * 2
+            val want = if (onScreen && isMatch(s) && s.item.index != fading && (s === focus || zoomedIn)) 1f else 0f
+            val cur = winA[s.item.index] ?: 0f
+            val a = if (abs(want - cur) < 0.04f) want else cur + (want - cur) * 0.22f
+            if (a != want) moving = true
+            if (a <= 0.01f) { winA.remove(s.item.index); continue }
+            winA[s.item.index] = a
+            // above the star, with a thin line down to it
+            val r = android.graphics.RectF(sx - ww / 2f, sy - px(22f) - wh, sx + ww / 2f, sy - px(22f))
+            r.offset(0f, px(8f) * (1f - a))
+            winRect[s.item.index] = r
+            val al = (255 * a * starAlpha(s, SystemClock.uptimeMillis())).toInt()
+            winLine.color = 0x33ECE8E1; winLine.alpha = al / 3
+            c.drawLine(sx, r.bottom, sx, sy - px(9f), winLine)
+            winFill.color = 0xF0111113.toInt(); winFill.alpha = (240 * a).toInt()
+            c.drawRoundRect(r, px(7f), px(7f), winFill)
+            // its little title bar: the site
+            val bar = px(15f)
+            c.drawText(TextUtils.ellipsize(s.item.host.uppercase(), tWin, r.width() - px(16f), TextUtils.TruncateAt.END).toString(), r.left + px(8f), r.top + bar - px(4.5f), tWin.also { it.alpha = al * 158 / 255 })
+            val pic = android.graphics.RectF(r.left + px(4f), r.top + bar, r.right - px(4f), r.bottom - px(4f))
+            val b = s.item.thumb
+            c.save()
+            c.clipPath(Path().apply { addRoundRect(pic, px(4f), px(4f), Path.Direction.CW) })
+            if (b != null && !b.isRecycled) {
+                val sc = pic.width() / b.width
+                val srcH = min(b.height.toFloat(), pic.height() / sc)
+                winPic.alpha = al
+                c.drawBitmap(b, android.graphics.Rect(0, 0, b.width, srcH.toInt()), android.graphics.RectF(pic.left, pic.top, pic.right, pic.top + srcH * sc), winPic)
+            } else {
+                winFill.color = 0xFF0A0A0B.toInt(); winFill.alpha = al; c.drawRect(pic, winFill)
+                val letter = s.item.host.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "音"
+                tWinBig.alpha = al * 0x33 / 255; c.drawText(letter, pic.centerX(), pic.centerY() + px(4f), tWinBig)
+                tWinHint.alpha = al * 0x61 / 255; c.drawText("OPEN IT ONCE TO SEE IT", pic.centerX(), pic.bottom - px(8f), tWinHint)
+            }
+            c.restore()
+            winLine.color = if (s.item.current) MainActivity.CREAM else 0x3DECE8E1; winLine.alpha = if (s.item.current) al else al * 0x3D / 255
+            c.drawRoundRect(r, px(7f), px(7f), winLine)
+        }
+        return moving
+    }
+
+    private fun windowAt(x: Float, y: Float): StarPt? {
+        val hit = winRect.entries.filter { (winA[it.key] ?: 0f) > 0.5f && it.value.contains(x, y) }.map { it.key }
+        return groups.flatMap { it.stars }.firstOrNull { it.item.index in hit }
     }
 
     /** a new star only shows once its shooting star has arrived */

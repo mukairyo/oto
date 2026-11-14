@@ -8,6 +8,7 @@ import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.MediaPlayer
@@ -757,6 +758,7 @@ class MainActivity : AppCompatActivity() {
         if (i == cur) gecko.releaseSession()
         t.session?.close()
         tabs.removeAt(i)
+        dropThumb(t.url)
         linkSoon()
         if (tabs.isEmpty()) { openTab(); return }
         if (i < cur || cur >= tabs.size) cur--
@@ -798,6 +800,7 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {}
         if (tabs.isEmpty()) tabs.add(Tab(NEWTAB))
         select(prefs.getInt("cur", 0))
+        loadThumbs()
     }
 
     // ------------------------------------------------------------------ sheets (tabs, menu, update)
@@ -882,9 +885,43 @@ class MainActivity : AppCompatActivity() {
                     val small = Bitmap.createScaledBitmap(Bitmap.createBitmap(b, 0, 0, b.width, cropH), w, maxOf(1, cropH * w / b.width), true)
                     t.thumb = small
                     then?.invoke(t, small)
+                    saveThumb(t.url, small)
                 } catch (e: Throwable) {}
             }, { _ -> })
         } catch (e: Throwable) {}
+    }
+
+    // The pictures are kept in Oto's own private cache (only Oto can read it), one small file per page, so the tab
+    // window still shows them after a restart. A page's picture is deleted when its last tab is closed, and pictures
+    // older than two weeks are cleared.
+    private fun thumbFile(url: String) = java.io.File(java.io.File(cacheDir, "thumbs"), java.security.MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }.take(32) + ".webp")
+
+    private fun saveThumb(url: String, b: Bitmap) {
+        if (!url.startsWith("http")) return
+        thread {
+            try {
+                val f = thumbFile(url); f.parentFile?.mkdirs()
+                f.outputStream().use { b.compress(Bitmap.CompressFormat.WEBP_LOSSY, 70, it) }
+                val old = System.currentTimeMillis() - 14L * 24 * 3600 * 1000
+                f.parentFile?.listFiles()?.forEach { if (it.lastModified() < old) it.delete() }
+            } catch (e: Throwable) {}
+        }
+    }
+
+    private fun loadThumbs() {
+        val list = tabs.filter { it.thumb == null && it.url.startsWith("http") }
+        if (list.isEmpty()) return
+        thread {
+            for (t in list) try {
+                val f = thumbFile(t.url)
+                if (f.exists()) BitmapFactory.decodeFile(f.path)?.let { b -> runOnUiThread { if (t.thumb == null) t.thumb = b } }
+            } catch (e: Throwable) {}
+        }
+    }
+
+    private fun dropThumb(url: String) {
+        if (tabs.any { it.url == url }) return
+        thread { try { thumbFile(url).delete() } catch (e: Throwable) {} }
     }
 
     /** a tab arrived behind the one you're on: the tab counter gives a small hop */
