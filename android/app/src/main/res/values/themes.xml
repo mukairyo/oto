@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Oto" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/oto_bg</item>
+        <item name="android:statusBarColor">@color/oto_bg</item>
+        <item name="android:navigationBarColor">@color/oto_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="colorPrimary">@color/oto_cream</item>
+        <item name="colorAccent">@color/oto_cream</item>
+        <item name="android:textColorHighlight">#55E7DFD1</item>
+    </style>
+</resources>
