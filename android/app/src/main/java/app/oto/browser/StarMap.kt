@@ -53,7 +53,7 @@ class StarMap(
     private fun px(v: Float) = v * d
     private fun sp(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, v, resources.displayMetrics)
 
-    private class StarPt(val item: DrawerItem, val x: Float, val y: Float, val parent: Int, val label: String)
+    private class StarPt(val item: DrawerItem, val x: Float, val y: Float, val parent: Int, val label: String) { var labelUp = false }
     private class Group(val host: String, val name: String, val stars: ArrayList<StarPt>, val bits: FloatArray)
 
     private var items: List<DrawerItem> = emptyList()
@@ -160,7 +160,7 @@ class StarMap(
                     MID[(r.next() * MID.size).toInt().coerceAtMost(MID.size - 1)] +
                     END[(r.next() * END.size).toInt().coerceAtMost(END.size - 1)]
                 val low = n.lowercase()
-                if (low !in REAL && REAL.none { (low.startsWith(it) && it.length >= 4) || (it.length >= 5 && low.contains(it)) } && n !in taken && n.length in 4..10) return n
+                if (!Regex("([a-z])\\1").containsMatchIn(low) && low !in REAL && REAL.none { (low.startsWith(it) && it.length >= 4) || (it.length >= 5 && low.contains(it)) } && n !in taken && n.length in 4..10) return n
             }
             return "Ulvarion"
         }
@@ -293,6 +293,8 @@ class StarMap(
                 val label = TextUtils.ellipsize(t.title.uppercase(), tStar, px(120f), TextUtils.TruncateAt.END).toString()
                 stars.add(StarPt(t, cx + px(pts[k][0]), cy + px(pts[k][1]), pts[k][2].toInt(), label))
             }
+            // two stars side by side: the second one's name goes above it so the names don't run into each other
+            stars.forEachIndexed { k, st -> st.labelUp = (0 until k).any { j -> val o = stars[j]; !o.labelUp && abs(o.x - st.x) < px(115f) && abs(o.y - st.y) < px(36f) } }
             val dr = Rng(hash(host) xor 77)
             groups.add(Group(host, constellationName(host), stars, FloatArray(stars.size) { 0.3f + dr.next() * 0.4f }))
         }
@@ -529,7 +531,7 @@ class StarMap(
                 if (s.item.fresh) { ring.color = 0xFFD66042.toInt(); ring.alpha = (230 * a * pulse).toInt(); c.drawCircle(s.x, s.y, px(15f), ring); busy = true }
                 tStar.color = if (s.item.current) 0xFFFFF8EC.toInt() else 0x9EECE8E1.toInt()
                 tStar.alpha = (tStar.alpha * a).toInt()
-                c.drawText(s.label, s.x, s.y + px(28f), tStar)
+                c.drawText(s.label, s.x, if (s.labelUp) s.y - px(19f) else s.y + px(28f), tStar)
             }
             // the constellation's name, above its highest star
             val top = g.stars.minOf { it.y }; val mid = g.stars.sumOf { it.x.toDouble() }.toFloat() / g.stars.size
