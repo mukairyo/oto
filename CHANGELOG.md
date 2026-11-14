@@ -3,6 +3,15 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.6.9 — 2026-11-15
+
+**Sky View**
+- **Opening a tab dives into its star.** Click a star (or Open, or Enter): the view flies to it, locks on, zooms in until its light fills the screen, and the tab opens as Sky View fades away.
+- **Click inside a Space to fly into it.** Opening Sky View eases in too. (All of it is off with Reduce motion.)
+- **Tab names no longer run into each other.** Constellations have more room, and when two stars sit side by side, one name moves above its star.
+- **No blue line along the edge** of the window any more. The selected star's dashed ring shows where the keyboard is.
+- Constellation names stay visible when you zoom out further.
+
 ## 1.6.8 — 2026-11-15
 
 **New**

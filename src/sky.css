@@ -25,7 +25,7 @@ body .v1-ov.sky { padding: 0; background: #07080B !important; backdrop-filter: n
 .sky-box { position: absolute; inset: 0; overflow: hidden; }
 .sky-box svg.galaxy-bg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .75; pointer-events: none; }
 .sky-canvas { position: absolute; inset: 0; cursor: grab; outline: none; }
-.sky-canvas:focus-visible { box-shadow: inset 0 0 0 2px rgba(168, 231, 243, .5); }
+/* (no outline on the sky itself: the selected star's dashed ring shows where the keyboard is) */
 
 /* the preview window */
 .sky-card { position: absolute; z-index: 4; width: 300px; box-sizing: border-box; padding: 14px; background: #111318; color: #F1EEE8;

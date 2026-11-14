@@ -68,6 +68,13 @@ module.exports = async (t) => {
   a = await J(`return { ws: tabById(${JSON.stringify(news.id)}).ws };`);
   t.check('dragging a star into another Space moves the tab there', a.ws === wsIds[1], JSON.stringify(a));
 
+  // a click on empty sky inside a Space flies into that Space
+  await t.js('Object.assign(SKY.cam, skyFitAll()), skyDraw(), 1'); await t.sleep(200);
+  const inside = await J(`const sp = SKY.spaceById.get(${JSON.stringify(wsIds[0])}); const [x, y] = skyToScreen(sp.cx + sp.rx * 0.55, sp.cy + sp.ry * 0.55); const r = SKY.canvas.getBoundingClientRect(); return [x + r.left, y + r.top];`);
+  await mouse('mouseDown', inside[0], inside[1]); await mouse('mouseUp', inside[0], inside[1]); await t.sleep(700);
+  a = await J(`const sp = SKY.spaceById.get(${JSON.stringify(wsIds[0])}); return { dx: Math.round(SKY.cam.x - sp.cx), dy: Math.round(SKY.cam.y - sp.cy) };`);
+  t.check('clicking inside a Space flies into it', Math.abs(a.dx) < 5 && Math.abs(a.dy) < 5, JSON.stringify(a));
+
   // closing a tab doesn't move the other stars
   const keep = await J(`return [...SKY.starById.values()].filter((s) => s.id !== ${JSON.stringify(fine.id)}).map((s) => [s.id, Math.round(s.x), Math.round(s.y)]).sort();`);
   await t.js(`skyClose(${JSON.stringify(fine.id)}), 1`); await t.sleep(900);
@@ -78,7 +85,11 @@ module.exports = async (t) => {
   const quiet = ids.find((x) => x.host === 'quiet.site');
   await t.js(`SKY.cam.z = 1; skyFocusStar(${JSON.stringify(nav.id)}, 1), 1`); await t.sleep(500);
   p = await starXY(nav.id);
-  await mouse('mouseDown', p[0], p[1]); await mouse('mouseUp', p[0], p[1]); await t.sleep(700);
+  await mouse('mouseDown', p[0], p[1]); await mouse('mouseUp', p[0], p[1]); await t.sleep(420);
+  a = await J('return { diving: !!SKY.dive, z: SKY.cam.z };');
+  t.check('opening a tab dives into its star first', a.diving && a.z > 1.2, JSON.stringify(a));
+  await shot('5-dive');
+  await t.sleep(900);
   a = await J("return { active: (activeTab() || {}).id, open: !!document.querySelector('#v1Ov') };");
   t.check('clicking a star opens its tab', a.active === nav.id && !a.open, JSON.stringify(a));
   void quiet;

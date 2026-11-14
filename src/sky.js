@@ -16,8 +16,8 @@
 
 // ------------------------------------------------------------------ layout engine (pure: no DOM, testable)
 const SKY_L = {
-  SPACE_W: 860, SPACE_H: 620,   // one Space's place in the sky (world px)
-  SUB_W: 250, SUB_H: 190,       // one constellation's place inside its Space
+  SPACE_W: 1080, SPACE_H: 780,  // one Space's place in the sky (world px)
+  SUB_W: 330, SUB_H: 240,       // one constellation's place inside its Space (room for its tab names)
 };
 
 /** The same small random numbers every time for the same seed. */
@@ -117,6 +117,8 @@ function skyLayout(tabs, spaces, saved = {}) {
         bySlot.set(s, stars.length);
         stars.push({ id: t.id, x: gx + shape[s][0] + (off ? off[0] : 0), y: gy + shape[s][1] + (off ? off[1] : 0), parent: p >= 0 ? bySlot.get(p) : -1 });
       }
+      // two stars side by side: the second one's name goes above it, so the names don't run into each other
+      stars.forEach((st, i) => { st.up = stars.slice(0, i).some((o) => !o.up && Math.abs(o.x - st.x) < 200 && Math.abs(o.y - st.y) < 44); });
       outGroups.push({ ws: w.id, key: k, name: gt[0].keyName, cx: gx, cy: gy, stars });
     }
     const rx = Math.max(300, (Math.max(-ext[0], ext[1]) + 0.5) * sp.SUB_W + 140);
@@ -198,7 +200,7 @@ function skyGlideTo(to, ms = 260) {
   skyKick();
 }
 /** Fly to a Space (1–9 in Sky View). */
-function skyGoSpace(id) { const sp = SKY.spaceById.get(id); if (sp) skyGlideTo({ x: sp.cx, y: sp.cy, z: clamp(Math.min((SKY.w - 80) / (sp.rx * 2), (SKY.h - 80) / (sp.ry * 2)), 0.4, 1.4) }); }
+function skyGoSpace(id, ms = 380) { const sp = SKY.spaceById.get(id); if (sp) { skyGlideTo({ x: sp.cx, y: sp.cy, z: clamp(Math.min((SKY.w - 80) / (sp.rx * 2), (SKY.h - 140) / (sp.ry * 2)), 0.4, 1.4) }, ms); setTimeout(() => { skyUpdateZoom(); skySaveCam(); }, ms + 20); } }
 function skyFocusStar(id, z) { const s = SKY.starById.get(id); if (s) skyGlideTo({ x: s.x, y: s.y, z: z || Math.max(SKY.cam.z, 0.9) }); }
 
 // ------------------------------------------------------------------ drawing
@@ -255,8 +257,8 @@ function skyDraw(now = performance.now()) {
     c.strokeStyle = 'rgba(241,238,232,.42)'; c.lineWidth = 1.1; c.setLineDash([2, 5]); c.lineCap = 'round';
     g.stars.forEach((s, k) => { if (s.parent < 0) return; const a = pts[s.parent], b = pts[k]; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); });
     c.setLineDash([]);
-    if (z >= 0.4) {
-      const top = Math.min(...pts.map((p) => p[1])), mx = pts.reduce((a, p) => a + p[0], 0) / pts.length;
+    if (z >= 0.3) {
+      const top = Math.min(...pts.map((p, k) => p[1] - (g.stars[k].up ? 30 : 0))), mx = pts.reduce((a, p) => a + p[0], 0) / pts.length;
       c.font = `italic ${Math.round(clamp(19 * z, 13, 22))}px ${SERIF}`; c.fillStyle = 'rgba(241,238,232,.86)'; c.textAlign = 'center';
       c.fillText(g.name, mx, top - Math.max(22, 34 * z));
     }
@@ -280,10 +282,28 @@ function skyDraw(now = performance.now()) {
         const strong = on || hov || sel;
         c.font = `${strong ? '600 ' : ''}${strong ? 15 : 13}px ${SANS}`; c.textAlign = 'center';
         c.fillStyle = strong ? SKY_C.tx : asleep ? 'rgba(241,238,232,.58)' : 'rgba(241,238,232,.85)';
-        c.fillText(skyEll(c, t.title || prettyUrl(t.url), 190), x, y + 30);
+        c.fillText(skyEll(c, t.title || prettyUrl(t.url), 190), x, s.up ? y - 22 : y + 30);
       }
     });
     c.globalAlpha = 1;
+  }
+  // diving into a star: brackets lock on, the rest of the sky fades, its light fills the screen
+  if (SKY.dive) {
+    const s = SKY.starById.get(SKY.dive.id);
+    if (s) {
+      const [x, y] = skyToScreen(s.x, s.y), p = SKY.dive.p, lk = SKY.dive.lock || 0;
+      if (p > 0) { c.fillStyle = `rgba(7,8,11,${Math.min(0.85, p * 1.2)})`; c.fillRect(0, 0, w, h); }
+      const rr = 60 - 42 * (1 - Math.pow(1 - lk, 2)), tk = 7;
+      c.save(); c.translate(x, y); c.rotate((1 - lk) * Math.PI / 4);
+      c.strokeStyle = `rgba(168,231,243,${1 - p})`; c.lineWidth = 1.6;
+      for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) { c.beginPath(); c.moveTo(sx * rr, sy * (rr - tk)); c.lineTo(sx * rr, sy * rr); c.lineTo(sx * (rr - tk), sy * rr); c.stroke(); }
+      c.restore();
+      if (lk >= 1 && p < 0.5) { c.font = `600 12px ${MONO}`; c.textAlign = 'center'; c.fillStyle = `rgba(168,231,243,${1 - p * 2})`; c.fillText('OPENING', x, y + 48); }
+      const rad = Math.max(w, h) * (0.08 + 1.1 * p);
+      const g = c.createRadialGradient(x, y, 0, x, y, rad);
+      g.addColorStop(0, `rgba(255,246,232,${0.25 + 0.6 * p})`); g.addColorStop(0.45, `rgba(241,238,232,${0.35 * p})`); g.addColorStop(1, 'rgba(7,8,11,0)');
+      c.fillStyle = g; c.fillRect(0, 0, w, h);
+    }
   }
   // a star being dragged
   if (SKY.drag && SKY.drag.moved) {
@@ -330,11 +350,40 @@ function skySpaceAt(x, y) {
 }
 
 // ------------------------------------------------------------------ actions (the same ones the sidebar uses)
-function skyOpen(id) {
-  const t = tabById(id); if (!t) return;
-  v1CloseOverview();
+function skyOpenNow(t) {
   if (!t.essential && t.ws !== S.activeWs) switchWorkspace(t.ws, { activate: false });
   activate(t.id);
+}
+/** Open a tab: the view flies to its star, locks on and dives in until its light fills the screen, then the tab opens
+ *  and Sky View fades away (with reduce-motion: straight away). */
+function skyOpen(id) {
+  const t = tabById(id); if (!t) return;
+  const s = SKY.starById.get(id);
+  if (!skyMotion() || !s || !SKY.layer || SKY.dive) { v1CloseOverview(); skyOpenNow(t); return; }
+  skyHideCard();
+  if (SKY.help) { SKY.help.remove(); SKY.help = null; }
+  const from = { ...SKY.cam }, t0 = performance.now(), layer = SKY.layer;
+  const z1 = Math.max(from.z, 1);
+  SKY.dive = { id, t0, p: 0 };
+  SKY.glide = (now) => {
+    const e = now - t0;
+    if (e < 220) { // fly to it
+      const p = e / 220, k = 1 - Math.pow(1 - p, 3);
+      SKY.cam.x = from.x + (s.x - from.x) * k; SKY.cam.y = from.y + (s.y - from.y) * k; SKY.cam.z = from.z + (z1 - from.z) * k;
+      SKY.dive.lock = p; SKY.dive.p = 0;
+    } else { // dive in
+      const p = Math.min(1, (e - 220) / 420), k = p * p * p;
+      SKY.cam.x = s.x; SKY.cam.y = s.y; SKY.cam.z = z1 + (7 - z1) * k;
+      SKY.dive.lock = 1; SKY.dive.p = p;
+      if (p >= 1) {
+        SKY.glide = null;
+        skyOpenNow(t);
+        layer.style.transition = 'opacity .18s ease'; layer.style.opacity = '0';
+        setTimeout(() => { SKY.dive = null; if (layer.isConnected) v1CloseOverview(); }, 190);
+      }
+    }
+  };
+  skyKick();
 }
 function skyMove(id, toWs) {
   const t = tabById(id); if (!t) return;
@@ -494,7 +543,11 @@ function skyMount(layer, search) {
   };
   SKY.onUp = (e) => {
     if (!SKY.on) return;
-    if (SKY.pan) { const moved = SKY.pan.moved; SKY.pan = null; skySaveCam(); if (!moved) { SKY.sel = null; skyDraw(); } return; }
+    if (SKY.pan) {
+      const moved = SKY.pan.moved, x0 = SKY.pan.x0, y0 = SKY.pan.y0; SKY.pan = null; skySaveCam();
+      if (!moved) { SKY.sel = null; const sp = skySpaceAt(x0, y0); if (sp) skyGoSpace(sp, 420); else skyDraw(); }
+      return;
+    }
     if (SKY.drag) {
       const d = SKY.drag; SKY.drag = null; canvas.style.cursor = '';
       if (!d.moved) { if (e.button === 0) skyOpen(d.id); return; }
@@ -545,6 +598,7 @@ function skyMount(layer, search) {
   layer.append(ctl);
   skyUpdateZoom();
   skyHelp(false);
+  if (skyMotion()) { const to = { ...SKY.cam }; SKY.cam.z = to.z * 0.82; skyGlideTo(to, 380); }
   skyKick();
 }
 
