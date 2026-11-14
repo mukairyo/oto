@@ -509,7 +509,13 @@ function bindView(tab, v) {
     }
   });
   el.addEventListener('did-navigate', (e) => {
-    if (v.wcId && typeof SHP_DANGER !== 'undefined') SHP_DANGER.delete(v.wcId); // a page loaded: the old warning is over
+    // A page loaded: the old warning is over. Not when this is Chromium's error page for the very load Oto stopped
+    // (same site, no HTTP answer): that commit can come after the warning arrived, and dropping it then left a blank tab.
+    if (v.wcId && typeof SHP_DANGER !== 'undefined') {
+      const d = SHP_DANGER.get(v.wcId);
+      if (d && !(e.httpResponseCode > 0) && hostOf(e.url) === hostOf(d.url)) dangerShow(tab, v, e.url);
+      else SHP_DANGER.delete(v.wcId);
+    }
     tab.url = e.url;
     addHistory(e.url, tab.title);
     save(); refresh();

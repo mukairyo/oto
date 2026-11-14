@@ -11,8 +11,9 @@ module.exports = async (t) => {
     t.check(`a dangerous site is blocked (${label})`, /"code":"danger"/.test(e), why);
   }
   await t.js('oto.setBlocking(false)'); await t.sleep(600);
-  await t.open('http://evil.site/', 3000);
-  const off = await t.js('JSON.stringify(V.get(activeTab().id).error || null)');
+  await t.open('http://evil.site/', 1500);
+  let off = 'null';
+  for (let i = 0; i < 26 && !/"code":"danger"/.test(off); i++) { off = await t.js('JSON.stringify(V.get(activeTab().id).error || null)'); if (!/"code":"danger"/.test(off)) await t.sleep(250); } // up to ~8 s on a slow machine
   t.check('a dangerous site is still blocked with ad blocking off', /"code":"danger"/.test(off), off);
   await t.js('oto.setBlocking(true)'); await t.sleep(600);
   await t.js("(loadIn(activeTab(), 'http://fine.site/'), 1)"); await t.sleep(2500);
