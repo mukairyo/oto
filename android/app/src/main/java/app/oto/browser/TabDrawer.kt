@@ -157,7 +157,7 @@ class TabDrawer(
     }
 
     // ------------------------------------------------------------------ hold a star: its menu
-    // The page's picture, then OPEN · PIN, CONSTELLATION… · CLOSE. "Constellation…" puts the tab in one of your own
+    // The page's picture, then OPEN · PIN, GROUP… · CLOSE. "Group…" puts the tab in one of your own
     // constellations (or a new one with a made-up name you can rename), or back with its site.
     private fun showCard(item: DrawerItem, x: Float, y: Float) {
         dismissCard()
@@ -193,12 +193,12 @@ class TabDrawer(
             }
             row(button("Open", true) { dismissCard(); map.openWithZoom(item.index) },
                 button(if (item.pinned) "Unpin" else "◆ Pin", false) { dismissCard(); onPin(item.index) })
-            row(button("Constellation…", false) { groupPage() },
+            row(button("Group…", false) { groupPage() },
                 button("Close", false) { dismissCard(); map.fadeOut(item.index) { onClose(item.index) } })
         }
         groupPage = {
             panel.removeAllViews()
-            panel.addView(mono("—  PUT IT IN A CONSTELLATION", 10f, MainActivity.FG2, 0.18f).apply { setPadding(pxi(2), 0, 0, pxi(10)) })
+            panel.addView(mono("—  GROUP INTO", 10f, MainActivity.FG2, 0.18f).apply { setPadding(pxi(2), 0, 0, pxi(10)) })
             fun option(label: String, cream: Boolean = false, onClick: () -> Unit) {
                 panel.addView(button(label, cream, onClick), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, pxi(36)).apply { setMargins(0, 0, 0, pxi(6)) })
             }
