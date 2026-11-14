@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.MediaPlayer
@@ -65,6 +66,12 @@ class Tab(var url: String, var title: String = "") {
     var unseen = false
     /** media Oto paused because the tab hadn't been opened yet (started when you open it) */
     var heldMedia: MediaSession? = null
+    /** a small picture of the page for its folder in the tab window (taken while you look at the tab) */
+    var thumb: Bitmap? = null
+    /** opened behind and not looked at yet: a "new" mark on its folder's label */
+    var fresh = false
+    /** already shown in the tab window (a new tab drops into the drawer the first time) */
+    var dropped = true
 }
 
 class MainActivity : AppCompatActivity() {
@@ -603,11 +610,12 @@ class MainActivity : AppCompatActivity() {
                 val ns = newSession()
                 val idx = cur + 1
                 val bg = prefs.getBoolean("linksBg", true)
-                val t = Tab(uri).also { it.session = ns; it.unseen = bg && prefs.getBoolean("holdMedia", true) }
+                val t = Tab(uri).also { it.session = ns; it.unseen = bg && prefs.getBoolean("holdMedia", true); it.fresh = bg; it.dropped = false }
                 tabs.add(idx, t)
                 if (bg) root.post {
                     try { ns.setActive(false) } catch (e: Throwable) {}
                     refreshBar(); saveTabs()
+                    if (drawer != null) drawer?.show(drawerItems()).also { tabs.forEach { it.dropped = true } } else pulseTabs()
                     openedBehind(t)
                 } else root.post { select(idx) }
                 return GeckoResult.fromValue(ns)
@@ -670,7 +678,10 @@ class MainActivity : AppCompatActivity() {
         s.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onProgressChange(session: GeckoSession, progress: Int) { tabFor(session)?.progress = progress; if (tabFor(session) === current()) refreshBar() }
             override fun onPageStart(session: GeckoSession, url: String) { tabFor(session)?.progress = 5; refreshBar() }
-            override fun onPageStop(session: GeckoSession, success: Boolean) { tabFor(session)?.progress = 100; refreshBar(); saveTabs(); linkSoon() }
+            override fun onPageStop(session: GeckoSession, success: Boolean) {
+                tabFor(session)?.progress = 100; refreshBar(); saveTabs(); linkSoon()
+                if (tabFor(session) === current()) { linkHandler.removeCallbacks(thumbSoon); linkHandler.postDelayed(thumbSoon, 1200) }
+            }
         }
         s.contentDelegate = object : GeckoSession.ContentDelegate {
             override fun onTitleChange(session: GeckoSession, title: String?) { tabFor(session)?.title = title ?: "" }
@@ -732,6 +743,7 @@ class MainActivity : AppCompatActivity() {
         // a page that is only starting to load: Oto's dark background instead of a white flash until it draws
         if (fresh) try { gecko.coverUntilFirstPaint(BG) } catch (e: Throwable) {}
         try { s.setActive(true) } catch (e: Throwable) {}
+        t.fresh = false; t.dropped = true
         if (t.unseen) {
             t.unseen = false
             t.heldMedia?.let { m -> t.heldMedia = null; try { m.play() } catch (e: Throwable) {} }
@@ -790,6 +802,7 @@ class MainActivity : AppCompatActivity() {
 
     // ------------------------------------------------------------------ sheets (tabs, menu, update)
     private fun closeSheet() {
+        drawer?.hideKeyboard(); drawer = null
         sheet?.let { root.removeView(it) }; sheet = null
         asking?.let { a -> asking = null; a(false); root.post { nextAsk() } }
     }
@@ -815,40 +828,71 @@ class MainActivity : AppCompatActivity() {
         if (right.isNotEmpty()) addView(mono(right, 10f, FG2, 0.2f))
     }
 
+    // ------------------------------------------------------------------ the tab window (TabDrawer)
+    private var drawer: TabDrawer? = null
+
+    private fun tabTitle(t: Tab) = when {
+        t.url == NEWTAB -> "New Tab"
+        t.url.startsWith(CARD) -> "Oto Card"
+        else -> t.title.ifBlank { prettyUrl(t.url) }
+    }
+    private fun tabHost(t: Tab) = when {
+        t.url == NEWTAB -> "oto"
+        t.url.startsWith(CARD) -> "oto card"
+        else -> Uri.parse(t.url).host?.removePrefix("www.") ?: prettyUrl(t.url)
+    }
+    private fun drawerItems() = tabs.mapIndexed { i, t -> DrawerItem(i, tabTitle(t), tabHost(t), t.thumb, i == cur, t.fresh, !t.dropped) }
+
+    /** Every open tab as a hanging file folder in a drawer, with a search box on top. */
     private fun showTabs() {
-        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(px(14), px(18), px(14), px(14)); background = box(BG, LINE2, 10) }
-        panel.addView(label("—  音  OTO // TABS", String.format("%02d", tabs.size)))
-        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        tabs.forEachIndexed { i, t ->
-            val active = i == cur
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                setPadding(px(10), px(10), px(4), px(10))
-                background = if (active) box(CREAM, CREAM, 4) else box(0x05FFFFFF, LINE, 4)
-                setOnClickListener { closeSheet(); select(i) }
-            }
-            row.addView(mono(String.format("%02d", i + 1), 10f, if (active) 0x80131313.toInt() else FG3, 0.05f).apply { setPadding(0, 0, px(12), 0) })
-            val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-            col.addView(TextView(this).apply {
-                text = if (t.url == NEWTAB) "New Tab" else t.title.ifBlank { prettyUrl(t.url) }
-                textSize = 14f; setTextColor(if (active) INK else FG); maxLines = 1; ellipsize = TextUtils.TruncateAt.END
-                if (active) setTypeface(typeface, Typeface.BOLD)
-            })
-            if (t.url != NEWTAB) col.addView(mono(Uri.parse(t.url).host?.removePrefix("www.") ?: "", 9f, if (active) 0x99131313.toInt() else FG3, 0.12f).apply { isAllCaps = false })
-            row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            row.addView(TextView(this).apply {
-                text = "×"; textSize = 18f; setTextColor(if (active) INK else FG2); gravity = Gravity.CENTER
-                setOnClickListener { closeTab(i); if (sheet != null) showTabs() }
-            }, LinearLayout.LayoutParams(px(40), px(36)))
-            list.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 0, 0, px(6)) })
-        }
-        val scroll = ScrollView(this).apply { addView(list) }
-        panel.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, minOf(px(64) * tabs.size + px(10), (resources.displayMetrics.heightPixels * 0.55).toInt())))
-        val btns = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, px(10), 0, 0) }
-        btns.addView(blockBtn("Close", false) { closeSheet() }, LinearLayout.LayoutParams(0, px(40), 1f).apply { setMargins(0, 0, px(6), 0) })
-        btns.addView(blockBtn("+ New tab", true) { closeSheet(); openTab() }, LinearLayout.LayoutParams(0, px(40), 1f))
-        panel.addView(btns)
-        sheetFrame(panel)
+        closeSheet()
+        val d = TabDrawer(this,
+            onOpen = { i -> closeSheet(); select(i) },
+            onClose = { i -> closeTab(i); drawer?.show(drawerItems(), removed = i) },
+            onNew = {
+                // the new tab drops into the drawer, then opens
+                val t = Tab(NEWTAB).also { it.dropped = false }
+                tabs.add(t)
+                drawer?.show(drawerItems()); t.dropped = true
+                refreshBar()
+                root.postDelayed({ val i = tabs.indexOf(t); if (i >= 0) { closeSheet(); select(i) } }, 560)
+            },
+            onDismiss = { closeSheet() })
+        drawer = d
+        root.addView(d, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        sheet = d
+        d.show(drawerItems())
+        tabs.forEach { it.dropped = true }
+        d.alpha = 0f; d.animate().alpha(1f).setDuration(160).start()
+        // a fresh picture of the tab you were just on
+        captureThumb { t, b -> drawer?.setThumb(tabs.indexOf(t), b) }
+    }
+
+    private val thumbSoon = Runnable { if (sheet == null) captureThumb(null) }
+
+    /** Take a small picture of the page on screen for its folder (only the top of the page, kept small). */
+    private fun captureThumb(then: ((Tab, Bitmap) -> Unit)?) {
+        val t = current() ?: return
+        try {
+            gecko.capturePixels().accept({ b ->
+                if (b == null || b.width <= 0 || b.height <= 0) return@accept
+                try {
+                    val cropH = minOf(b.height, (b.width * 1.25f).toInt())
+                    val w = minOf(320, b.width)
+                    val small = Bitmap.createScaledBitmap(Bitmap.createBitmap(b, 0, 0, b.width, cropH), w, maxOf(1, cropH * w / b.width), true)
+                    t.thumb = small
+                    then?.invoke(t, small)
+                } catch (e: Throwable) {}
+            }, { _ -> })
+        } catch (e: Throwable) {}
+    }
+
+    /** a tab arrived behind the one you're on: the tab counter gives a small hop */
+    private fun pulseTabs() {
+        tabsBtn.animate().cancel()
+        tabsBtn.animate().scaleX(1.3f).scaleY(1.3f).translationY(-4 * dp).setDuration(140).withEndAction {
+            tabsBtn.animate().scaleX(1f).scaleY(1f).translationY(0f).setDuration(220).setInterpolator(android.view.animation.OvershootInterpolator(2f)).start()
+        }.start()
     }
 
     private fun blockBtn(text: String, cream: Boolean, onClick: () -> Unit) = mono(text, 10f, if (cream) INK else FG2, 0.18f).apply {
