@@ -22,6 +22,26 @@ module.exports = async (t) => {
   const before = await t.js('S.tabs.length');
   await t.page("window.open('file:///'); 1"); await t.sleep(1200);
   t.check("a website can't pop up a local-file window", (await t.js('S.tabs.length')) === before);
+  // popups a page opens (1.6.6): the same rules as tabs, and the title bar always starts with the real site
+  const { BrowserWindow } = require('electron');
+  const tabWc = webContents.fromId(await t.js('V.get(activeTab().id).wv.getWebContentsId()'));
+  await tabWc.executeJavaScript("window.open('http://nav.site/?popup=1', 'p', 'popup,width=420,height=420'); 1", true); await t.sleep(1800);
+  const pop = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && /popup=1/.test(w.webContents.getURL()));
+  t.check('a page can still open a real popup window (sign-in windows)', !!pop);
+  if (pop) {
+    const pw = pop.webContents;
+    t.check("the popup's title bar starts with its real site", /^nav\.site/.test(pop.getTitle()), pop.getTitle());
+    await pw.executeJavaScript("document.title = 'accounts.google.com — Sign in'; 1"); await t.sleep(400);
+    t.check("a popup can't put another site first in its title", /^nav\.site .*accounts\.google\.com/.test(pop.getTitle()), pop.getTitle());
+    await pw.executeJavaScript("location.href = 'file:///'; 1", true); await t.sleep(1200);
+    t.check("a popup can't open local files", /^http:\/\/nav\.site/.test(pw.getURL()), pw.getURL());
+    const tabs0 = await t.js('S.tabs.length');
+    await pw.executeJavaScript("window.open('http://nav.site/?fromPopup=1'); 1", true); await t.sleep(1800);
+    const tabs1 = await t.js('S.tabs.length');
+    t.check('a link a popup opens as a tab opens as an Oto tab (Oto’s rules, not a bare window)', tabs1 === tabs0 + 1 && !BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && /fromPopup/.test(w.webContents.getURL())), `${tabs0} → ${tabs1}`);
+    if (tabs1 > tabs0) await t.js('closeTabNow(S.tabs[S.tabs.length - 1].id), 1');
+    pop.destroy();
+  }
   // the gatekeeper: a message from a web page's process can't reach Oto's handlers (pages have no ipcRenderer at all;
   // as a stand-in, the window's own process also can't call a channel with bad arguments)
   t.check('the gatekeeper refuses malformed messages', await t.js("oto.pwGet({ id: 'x' }, 'reveal').then(() => false, () => true)"));

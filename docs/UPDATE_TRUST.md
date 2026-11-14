@@ -25,7 +25,8 @@ Oto never hides or bypasses SmartScreen to remove the warning. It goes away only
    Broken metadata (unreadable `latest.yml`, no checksum) is refused by the library (tested: `test/updates.test.js`).
 3. Oto itself then checks the installer's GitHub build record (`main/attest.js`): Sigstore CA chain, Oto's own workflow
    and branch, signature over the exact SHA-256, and Sigstore's transparency-log promise. Only then is the update
-   "ready", and only then can it install (button or on quit).
+   "ready", and only then can it install (button or on quit). Right before it installs, Oto hashes the file again: if
+   it isn't exactly the file that passed, it's deleted and nothing installs (since 1.6.6).
 4. If the check fails, the file is deleted and that version is never downloaded again in this session. If GitHub can't be
    reached, the file is kept, nothing installs, and Oto tries again in 10 minutes.
 
@@ -86,3 +87,14 @@ Steps when Ryo wants to apply:
 
 Until then: unsigned installers, a SmartScreen warning on new versions, and the provenance check above, which works
 whether or not the file is signed.
+
+## How the release workflow keeps build tools away from release rights (since 1.6.6)
+
+`release.yml` has two jobs. **build** runs everything that executes other people's code (`npm ci`, the tests, the
+EVS tool, electron-builder) with read-only access. **release** runs none of it: it takes the files from build, checks
+them against build's `SHA256SUMS.txt`, makes the build record and publishes. Only release has `contents: write` and the
+build-record token, so a bad package during the build can't push to the repository, edit other releases or make build
+records for other files. It can still change the installer it builds, which is why the tools are pinned (lockfile
+integrity for npm, exact versions with SHA-256 in `.github/requirements-evs.txt` for EVS) and why Chromium updates wait
+for review.
+

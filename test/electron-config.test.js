@@ -84,7 +84,7 @@ test('Oto’s window can’t be navigated away or open popups', () => {
 });
 
 test('websites can’t reach local files or internal pages, and popups only open web addresses', () => {
-  assert.match(main, /const localOnly = \/\^\(file\|view-source\|chrome\|devtools\|chrome-extension\):\/i/);
+  assert.match(main, /const LOCAL_ONLY = \/\^\(file\|view-source\|chrome\|devtools\|chrome-extension\):\/i/);
   assert.match(main, /contents\.on\('will-navigate', \(e, url\) => blockLocal\(e, url\)\)/);
   assert.match(main, /contents\.on\('will-frame-navigate'/);
   assert.match(main, /if \(!mayOpen\(url\)\) return \{ action: 'deny' \}/);

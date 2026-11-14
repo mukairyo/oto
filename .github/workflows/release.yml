@@ -14,17 +14,19 @@ permissions:
   contents: read
 
 jobs:
-  release:
+  # Everything that runs other people's code (npm packages, the EVS tool, the tests, the build) happens here, with
+  # read-only access: this job can't publish releases, push to the repository or make build records.
+  build:
     runs-on: windows-latest
     permissions:
-      contents: write      # publish the release
-      id-token: write      # signed build provenance (who built this installer, from which commit)
-      attestations: write
+      contents: read
     outputs:
       version: ${{ steps.check.outputs.version }}
       skip: ${{ steps.check.outputs.skip }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Is this version already released?
         id: check
@@ -82,9 +84,10 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Exact versions with their SHA-256 (.github/requirements-evs.txt): a changed or newer package is refused.
       - name: Install the VMP signing tool
         if: steps.check.outputs.skip != 'true'
-        run: python -m pip install --upgrade castlabs-evs
+        run: python -m pip install --require-hashes --only-binary ':all:' -r .github/requirements-evs.txt
 
       - name: Build installer
         if: steps.check.outputs.skip != 'true'
@@ -105,8 +108,7 @@ jobs:
           EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
         run: if [ -n "$EVS_ACCOUNT_NAME" ]; then python -m castlabs_evs.vmp -n verify-pkg dist/win-unpacked; else echo "no EVS account, skipped"; fi
 
-      # SHA-256 checksums (anyone can check a download wasn't changed) + a signed GitHub attestation that this
-      # installer was built by this workflow from this commit: gh attestation verify Oto-Setup-X.exe --repo mukairyo/oto
+      # SHA-256 checksums (anyone can check a download wasn't changed).
       - name: Checksums
         if: steps.check.outputs.skip != 'true'
         shell: bash
@@ -114,21 +116,64 @@ jobs:
           v="${{ steps.check.outputs.version }}"
           cd dist && sha256sum "Oto-Setup-$v.exe" "Oto-Setup-$v.exe.blockmap" latest*.yml | tee SHA256SUMS.txt
 
-      - name: Build provenance
+      - name: Hand the files to the release job
         if: steps.check.outputs.skip != 'true'
+        shell: bash
+        run: |
+          v="${{ steps.check.outputs.version }}"
+          mkdir out && cp "dist/Oto-Setup-$v.exe" "dist/Oto-Setup-$v.exe.blockmap" dist/SHA256SUMS.txt out/
+          for f in dist/*.yml; do [ "$(basename "$f")" = builder-debug.yml ] || cp "$f" out/; done
+          ls -la out
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.check.outputs.skip != 'true'
+        with:
+          name: release-files
+          path: out/
+          retention-days: 3
+          if-no-files-found: error
+
+  # Publishing: a short job that runs no packages, tests or build tools. It gets the files from the build job, checks
+  # them against the build job's checksums, makes the signed GitHub build record (who built this installer, from which
+  # commit) and publishes the release. Only this job has write access and the build-record token.
+  release:
+    needs: build
+    if: needs.build.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # publish the release
+      id-token: write      # signed build provenance
+      attestations: write
+    outputs:
+      version: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: release-files
+          path: dist
+
+      - name: Check the files
+        shell: bash
+        run: cd dist && ls -la && sha256sum -c SHA256SUMS.txt
+
+      # gh attestation verify Oto-Setup-X.exe --repo mukairyo/oto
+      - name: Build provenance
         uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
         with:
-          subject-path: dist/Oto-Setup-${{ steps.check.outputs.version }}.exe
+          subject-path: dist/Oto-Setup-${{ needs.build.outputs.version }}.exe
 
       - name: Publish release
-        if: steps.check.outputs.skip != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          v="${{ steps.check.outputs.version }}"
+          v="${{ needs.build.outputs.version }}"
           files=("dist/Oto-Setup-$v.exe" "dist/Oto-Setup-$v.exe.blockmap" "dist/SHA256SUMS.txt")
-          for f in dist/*.yml; do [ "$(basename "$f")" = builder-debug.yml ] || files+=("$f"); done
+          for f in dist/*.yml; do files+=("$f"); done
           # tester builds (e.g. 0.10.0-beta.1) are pre-releases: only Beta/Alpha testers get them
           pre=(); [[ "$v" == *-* ]] && pre=(--prerelease)
           ls -la "${files[@]}"
@@ -145,7 +190,6 @@ jobs:
   # commit. If either fails, the run goes red so it's noticed right away.
   verify:
     needs: release
-    if: needs.release.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -10,6 +10,7 @@ module.exports = function createUpdates(ctx) {
   // launch, every 2 minutes on the Owner/test channels (30 on Stable) and when you come back to the window;
   // downloads in the background and installs when you restart.
   let updater = null;
+  let stillVerifiedNow = () => false, refusedNow = () => {};
   let updateState = { state: 'idle' };
   function setUpdate(st) {
     updateState = { ...st, at: Date.now() };
@@ -34,6 +35,7 @@ module.exports = function createUpdates(ctx) {
     ipcMain.handle('update:check', () => checkForUpdates(true));
     ipcMain.on('update:install', () => {
       if (!updater || updateState.state !== 'ready') return;
+      if (!stillVerifiedNow()) return refusedNow();
       setImmediate(() => updater.quitAndInstall(true, true));
     });
     if (!app.isPackaged) { updateState = { state: 'dev' }; return; }
@@ -47,14 +49,33 @@ module.exports = function createUpdates(ctx) {
       return r.json();
     };
     let verifyTimer = null;
+    // The file that passed the check and its SHA-256. Right before it installs (button or quit), the file is checked
+    // again: if anything changed it on disk in between, it's deleted and nothing installs.
+    let verified = null;
+    const { fileSha256Sync } = require('./attest.js');
+    const stillVerified = () => {
+      try { return !!verified && fileSha256Sync(verified.file) === verified.digest; } catch { return false; }
+    };
+    const refuseChanged = () => {
+      updater.autoInstallOnAppQuit = false;
+      try { if (verified) fs.unlinkSync(verified.file); } catch {}
+      verified = null;
+      setUpdate({ state: 'error', message: 'The downloaded update changed on disk after Oto checked it, so it was deleted and not installed. Oto downloads it again.' });
+    };
+    stillVerifiedNow = stillVerified; refusedNow = refuseChanged;
+    app.on('before-quit', () => { if (updater && updater.autoInstallOnAppQuit && verified && !stillVerified()) refuseChanged(); });
     const refused = new Set(); // versions whose file failed the check: never downloaded again this session
     async function verifyDownloaded(i) {
       clearTimeout(verifyTimer);
       const version = displayVersion(i.version), file = i.downloadedFile;
       setUpdate({ state: 'verifying', version });
       try {
-        await verifyInstaller(file, fetchJson);
+        const res = await verifyInstaller(file, fetchJson);
+        verified = { file, digest: res.digest };
         updater.autoInstallOnAppQuit = true;
+        // electron-updater adds its "install when Oto quits" step only if that was on when the download finished, and
+        // Oto keeps it off until the check passes, so it's added here (otherwise the update waited for the button).
+        if (typeof updater.addQuitHandler === 'function') { try { updater.addQuitHandler(); } catch {} }
         setUpdate({ state: 'ready', version, verified: true });
       } catch (err) {
         updater.autoInstallOnAppQuit = false;

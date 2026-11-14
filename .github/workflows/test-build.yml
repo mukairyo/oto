@@ -34,7 +34,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install the VMP signing tool
-        run: python -m pip install --upgrade castlabs-evs
+        run: python -m pip install --require-hashes --only-binary ':all:' -r .github/requirements-evs.txt
       - name: Build the test installer
         id: build
         shell: bash

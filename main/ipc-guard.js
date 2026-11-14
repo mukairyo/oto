@@ -7,7 +7,7 @@
 //   oto:page        page-preload.js asks once per frame what protection applies (returns flags only)
 //   crx-*           electron-chrome-extensions (extension APIs, checks its own senders)
 //   @ghostery/*     the ad blocker's cosmetic filters
-//   chromeWebstore.* / chrome.*   electron-chrome-web-store (only answers the Chrome Web Store's own origin)
+//   chromeWebstore.* / chrome.*   electron-chrome-web-store: Oto lets through only the exact Chrome Web Store origin
 // Reviewed for 1.3.2: oto:page returns only flags about the asking frame; the web-store library checks
 // event.senderFrame.origin; crx-* calls are routed to the extension they name; @ghostery/* only returns
 // cosmetic filters for the URL of the frame that asks. None of them read or change Oto's own data.
@@ -16,6 +16,8 @@ const { pathToFileURL } = require('url');
 const { checkArgs } = require('./ipc-schema.js');
 
 const OPEN = /^(oto:page$|crx-|@ghostery\/|chromeWebstore\.|chrome\.)/;
+const WEBSTORE_CH = /^(chromeWebstore\.|chrome\.)/;
+const WEBSTORE_ORIGIN = 'https://chromewebstore.google.com';
 // Size limits per message (counted like memory: 2 bytes per character): 1 MB normally; only the channels that carry
 // Oto's whole saved state (or an image) may send more.
 const LIMIT = 2 * 1024 * 1024;
@@ -76,6 +78,16 @@ module.exports = function guardIPC(ipcMain, appDir) {
       if (n > 0) origRemove(channel); // newest wins (all of them call the same blocker)
       sharedCount.set(channel, n + 1);
       return orig.call(ipcMain, channel, fn);
+    }
+    // The Web Store library's channels (chromeWebstore.*, and the chrome.* ones it adds for the store page) only
+    // answer the Chrome Web Store itself. The library checks this with "starts with", which a look-alike address such
+    // as chromewebstore.google.com.example.net also passes, so Oto checks the exact origin first.
+    if (WEBSTORE_CH.test(channel) && typeof fn === 'function') {
+      const fromStore = (e) => { try { return !!e.senderFrame && e.senderFrame.origin === WEBSTORE_ORIGIN; } catch { return false; } };
+      const guardedStore = kind === 'handle'
+        ? (e, ...args) => { if (!fromStore(e)) { refuse(channel, e); return undefined; } return fn(e, ...args); }
+        : (e, ...args) => { if (!fromStore(e)) { refuse(channel, e); e.returnValue = null; return; } return fn(e, ...args); };
+      return orig.call(ipcMain, channel, guardedStore);
     }
     if (OPEN.test(channel) || typeof fn !== 'function') return orig.call(ipcMain, channel, fn);
     // sender -> size -> shape (main/ipc-schema.js: per-channel argument rules + no prototype keys)

@@ -165,7 +165,10 @@ module.exports = function createPasswords(ctx) {
     return rows.filter((r) => r.some((x) => x.trim()));
   }
   const csvCell = (v) => (/[",\n\r]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
-  const pwFillCode = (u, p) => `((u, p) => {
+  // `o`: the site the login belongs to. Checked again inside the page at the moment of filling, so a page that changed
+  // to another site between the check in the main process and the fill gets nothing.
+  const pwFillCode = (u, p, o) => `((u, p, o) => {
+    if (location.origin !== o) return { user: false, pass: false, moved: true };
     const vis = (x) => x && x.offsetParent !== null && !x.disabled && !x.readOnly;
     const set = (el, v) => { if (!el) return; const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value'); d.set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
     const a = document.activeElement;
@@ -179,7 +182,7 @@ module.exports = function createPasswords(ctx) {
     if (user && u) set(user, u);
     if (pass) { set(pass, p); pass.focus(); }
     return { user: !!user, pass: !!pass };
-  })(${JSON.stringify(u)}, ${JSON.stringify(p)})`;
+  })(${JSON.stringify(u)}, ${JSON.stringify(p)}, ${JSON.stringify(o)})`;
   function setupPasswordIPC() {
     ipcMain.handle('pw:status', () => ({ encrypted: pwCanEncrypt(), count: pwLoad().entries.length, unprotected: pwLoad().entries.filter((e) => e.plain && !e.enc).length, damaged: pwDamaged, readOnly: pwReadOnly }));
     ipcMain.handle('pw:list', () => pwOk() !== true ? [] : pwLoad().entries.map(pwPublic).sort((a, b) => a.site.localeCompare(b.site) || a.username.localeCompare(b.username)));
@@ -192,7 +195,29 @@ module.exports = function createPasswords(ctx) {
       return pwDec(ex) === password ? 'same' : 'update';
     });
     ipcMain.handle('pw:save', (_e, url, username, password) => { const o = pwOrigin(url); return o && pwSecure(o) && typeof password === 'string' && password && password.length <= 4096 ? pwUpsert(o, String(username || '').slice(0, 512), password) : 'invalid'; });
-    ipcMain.handle('pw:get', (_e, id, purpose) => { const ok = pwOk(purpose); if (ok === 'pin') return { needPin: true }; if (ok !== true) return null; const e = pwLoad().entries.find((x) => x.id === id); if (!e) return null; e.lastUsed = Date.now(); pwSave(); return { username: e.username, password: pwDec(e), origin: e.origin }; });
+    // Showing or copying a saved password asks first, in a Windows dialog from the main process (nothing in a page or
+    // in Oto's window can click it). One yes covers 5 minutes, so looking through a few logins doesn't ask every time,
+    // but nothing can quietly read every password one by one.
+    let revealUntil = 0, asking = null;
+    async function mayReveal() {
+      if (Date.now() < revealUntil) return true;
+      if (!asking) {
+        asking = dialog.showMessageBox(ctx.win, {
+          type: 'question', buttons: ['Cancel', 'Show passwords'], defaultId: 1, cancelId: 0, noLink: true, title: 'Saved passwords',
+          message: 'Show your saved passwords?',
+          detail: 'Oto asks before showing or copying a saved password. Your answer covers the next 5 minutes.',
+        }).then((r) => { if (r.response === 1) revealUntil = Date.now() + 5 * 60 * 1000; return r.response === 1; }, () => false)
+          .finally(() => { asking = null; });
+      }
+      return asking;
+    }
+    ipcMain.handle('pw:get', async (_e, id, purpose) => {
+      const ok = pwOk(purpose); if (ok === 'pin') return { needPin: true }; if (ok !== true) return null;
+      if (!pwLoad().entries.some((x) => x.id === id)) return null;
+      if (!(await mayReveal())) return null;
+      const e = pwLoad().entries.find((x) => x.id === id); if (!e) return null;
+      e.lastUsed = Date.now(); pwSave(); return { username: e.username, password: pwDec(e), origin: e.origin };
+    });
     // All checks and the encryption happen first; only then is anything changed (a failed edit changes nothing).
     ipcMain.handle('pw:update', (_e, id, patch) => {
       const e = pwLoad().entries.find((x) => x.id === id);
@@ -236,7 +261,8 @@ module.exports = function createPasswords(ctx) {
       const cred = pwLoad().entries.find((x) => x.id === id);
       if (!cred || pwOrigin(wc.getURL()) !== cred.origin) return { ok: false }; // never fill a login into a different site
       cred.lastUsed = Date.now(); pwSave();
-      const r = await wc.executeJavaScriptInIsolatedWorld(PW_WORLD, [{ code: pwFillCode(cred.username, pwDec(cred)) }]).catch(() => null);
+      const r = await wc.executeJavaScriptInIsolatedWorld(PW_WORLD, [{ code: pwFillCode(cred.username, pwDec(cred), cred.origin) }]).catch(() => null);
+      if (r && r.moved) return { ok: false };
       return { ok: true, user: !!(r && r.user), pass: !!(r && r.pass) };
     });
     ipcMain.handle('pw:delete', (_e, id) => {

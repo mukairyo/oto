@@ -264,8 +264,11 @@ module.exports = function createShield(ctx) {
   // Calls (WebRTC): how much of this PC's network a page may find out (main/shield-levels.js). Set per tab, again
   // whenever the tab goes to another site (a site with Shield off gets Chromium's default) or the setting changes.
   const webrtcPolicy = (host) => LV.webrtcPolicy(features(), blockingMode === 'off' || shieldAllowed(host));
+  // Web content Oto set up (tabs and the popups pages open): only these get the WebRTC policy, never Oto's own window.
+  const webContentsSet = new WeakSet();
+  const markWeb = (wc) => { if (wc) webContentsSet.add(wc); };
   function rtcApply(wc, url) {
-    try { if (wc && !wc.isDestroyed() && wc.getType() === 'webview') { const p = webrtcPolicy(shieldHost(url || wc.getURL())); if (wc.getWebRTCIPHandlingPolicy() !== p) wc.setWebRTCIPHandlingPolicy(p); } } catch {}
+    try { if (wc && !wc.isDestroyed() && (wc.getType() === 'webview' || webContentsSet.has(wc))) { const p = webrtcPolicy(shieldHost(url || wc.getURL())); if (wc.getWebRTCIPHandlingPolicy() !== p) wc.setWebRTCIPHandlingPolicy(p); } } catch {}
   }
   function rtcRefresh() { try { for (const wc of webContents.getAllWebContents()) rtcApply(wc); } catch {} }
 
@@ -341,7 +344,7 @@ module.exports = function createShield(ctx) {
   return {
     enableBlocking, disableBlocking, shieldHost, shieldAllowed, shieldLevel, shieldListsAt, regDomain, dangerUpdate, setupShieldIPC,
     dangerOf: (host) => (SHIELD.conf.danger === false ? '' : dangerOf(host)),
-    SHIELD, DANGER, FP_SESSION, features, rtcApply, rtcRefresh,
+    SHIELD, DANGER, FP_SESSION, features, rtcApply, rtcRefresh, markWeb,
     mode: () => blockingMode,
     flushStats() { if (pstatsTimer) pstatsSave(); },
   };

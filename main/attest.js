@@ -107,6 +107,13 @@ function fileSha256(file) {
   return new Promise((res, rej) => { const h = crypto.createHash('sha256'); fs.createReadStream(file).on('error', rej).on('data', (d) => h.update(d)).on('end', () => res(h.digest('hex'))); });
 }
 
+// The same, without waiting (used while Oto quits, where nothing asynchronous can run any more).
+function fileSha256Sync(file) {
+  const h = crypto.createHash('sha256'), fd = fs.openSync(file, 'r'), buf = Buffer.allocUnsafe(1 << 20);
+  try { let n; while ((n = fs.readSync(fd, buf, 0, buf.length, null)) > 0) h.update(buf.subarray(0, n)); } finally { fs.closeSync(fd); }
+  return h.digest('hex');
+}
+
 // fetchJson(url) -> parsed JSON, throwing an error with .status on HTTP errors. Resolves { ok, digest, ref, signedAt }
 // or throws AttestError: transient = couldn't check right now (try later); otherwise the file must not be installed.
 async function verifyInstaller(file, fetchJson, opts = {}) {
@@ -124,4 +131,4 @@ async function verifyInstaller(file, fetchJson, opts = {}) {
   throw new AttestError(`build record check failed: ${[...new Set(why)].join('; ')}`);
 }
 
-module.exports = { verifyBundle, verifyInstaller, fileSha256, AttestError };
+module.exports = { verifyBundle, verifyInstaller, fileSha256, fileSha256Sync, AttestError };

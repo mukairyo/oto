@@ -13,6 +13,9 @@ module.exports = function createExtensions(ctx) {
   const MANUAL_EXT_FILE = 'extensions-manual.json';
 
   function extApi(ses) { return ses.extensions || ses; }
+  const { folderHash } = require('./folder-hash.js');
+  // extensions-manual.json: a folder path (older Oto, and files Oto unpacked itself) or { dir, hash } for a folder you picked
+  const entryDir = (e) => (typeof e === 'string' ? e : e && typeof e.dir === 'string' ? e.dir : null);
   // true if `p` is inside folder `dir` (not just a name that starts the same: "Extensions-files" isn't in "Extensions")
   const inside = (dir, p) => { const r = path.relative(dir, String(p || '')); return !!r && !r.startsWith('..') && !path.isAbsolute(r); };
 
@@ -98,10 +101,33 @@ module.exports = function createExtensions(ctx) {
       console.warn('[oto] Chrome Web Store support unavailable:', err && err.message);
     }
     // Extensions installed from files / folders.
-    for (const dir of readJSON(MANUAL_EXT_FILE, [])) {
+    // A folder you picked stays where it is, so anything that writes there later could change the extension's code
+    // without you seeing it. Oto remembers a fingerprint of the folder when you add it, and if it's different at the
+    // next start, it asks before loading the changed extension.
+    const list = readJSON(MANUAL_EXT_FILE, []);
+    let changedList = false;
+    for (let i = 0; i < list.length; i++) {
+      const dir = entryDir(list[i]);
+      if (!dir) continue;
+      if (!inside(userFile('Extensions-files'), dir)) {
+        const now = folderHash(dir);
+        const was = typeof list[i] === 'object' ? list[i].hash : null;
+        if (!was) { list[i] = { dir, hash: now }; changedList = true; } // older Oto: remember it as it is now
+        else if (now !== was) {
+          const name = permissionText(dir).name;
+          const r = await dialog.showMessageBox(ctx.win, {
+            type: 'warning', buttons: ['Don’t load it', 'Load the changed extension'], defaultId: 0, cancelId: 0, noLink: true, title: 'Extension changed',
+            message: `“${name}” changed on disk since you added it.`,
+            detail: `Its files in ${dir} are different now. If you didn’t change them yourself, don’t load it.\n\nIt asks to:\n${permissionText(dir).text}`,
+          });
+          if (r.response !== 1) { console.warn('[oto] changed folder extension not loaded:', dir); continue; }
+          list[i] = { dir, hash: now }; changedList = true;
+        }
+      }
       // File access (reading file:// pages) stays off for extensions added from files or folders.
       try { await extApi(ses).loadExtension(dir, { allowFileAccess: false }); } catch (err) { console.warn('[oto] could not load', dir, err && err.message); }
     }
+    if (changedList) writeJSON(MANUAL_EXT_FILE, list);
     send('ext:changed');
   }
 
@@ -207,7 +233,8 @@ module.exports = function createExtensions(ctx) {
         if (!fs.existsSync(path.join(r.filePaths[0], 'manifest.json'))) return { ok: false, error: 'That folder has no manifest.json — it isn’t an extension.' };
         if (!(await confirmAdd(r.filePaths[0], 'a folder'))) return { ok: false };
         const ext = await extApi(ses).loadExtension(r.filePaths[0], { allowFileAccess: false });
-        writeJSON(MANUAL_EXT_FILE, [...new Set([...readJSON(MANUAL_EXT_FILE, []), r.filePaths[0]])]);
+        const dir = r.filePaths[0];
+        writeJSON(MANUAL_EXT_FILE, [...readJSON(MANUAL_EXT_FILE, []).filter((e) => entryDir(e) !== dir), { dir, hash: folderHash(dir) }]);
         return { ok: true, name: ext.name };
       } catch (err) { return { ok: false, error: err.message }; }
     });
@@ -221,7 +248,7 @@ module.exports = function createExtensions(ctx) {
           await uninstallExtension(id, { session: ses, extensionsPath: storeDir });
         } else {
           extApi(ses).removeExtension(id);
-          writeJSON(MANUAL_EXT_FILE, readJSON(MANUAL_EXT_FILE, []).filter((d) => d !== ext.path));
+          writeJSON(MANUAL_EXT_FILE, readJSON(MANUAL_EXT_FILE, []).filter((e) => entryDir(e) !== ext.path));
           if (inside(userFile('Extensions-files'), ext.path)) fs.rmSync(ext.path, { recursive: true, force: true });
         }
         return true;
@@ -229,5 +256,5 @@ module.exports = function createExtensions(ctx) {
     });
   }
 
-  return { get extensions() { return extensions; }, initExtensionAPI, setupExtensions, setupExtensionIPC, guardCrxDownloads, _inside: inside };
+  return { get extensions() { return extensions; }, initExtensionAPI, setupExtensions, setupExtensionIPC, guardCrxDownloads, _inside: inside, _entryDir: entryDir };
 };

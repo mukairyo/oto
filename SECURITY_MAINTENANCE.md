@@ -7,7 +7,7 @@ policy, not a one-time audit: a serious new browser-engine vulnerability trigger
 
 | What | When | What happens | Workflow |
 | --- | --- | --- | --- |
-| **Chromium/Electron security updates** | daily | A newer castlabs Electron in Oto's major version is applied, the changelog gets an entry, and a release starts. The release only publishes if every check below passes. A new major version opens an issue instead. Oto can only be as current as castlabs' build: when castlabs is behind the official Electron, so is Oto (see "When an engine vulnerability is announced"). | `chromium-update.yml` |
+| **Chromium/Electron security updates** | daily | A newer castlabs Electron in Oto's major version is prepared on its own branch (package files + changelog entry) and a **pull request** is opened. Nothing is released until Ryo merges it (since 1.6.6: an upstream build can't ship itself). Merging starts the release, which only publishes if every check below passes. A new major version opens an issue instead. Oto can only be as current as castlabs' build: when castlabs is behind the official Electron, so is Oto (see "When an engine vulnerability is announced"). | `chromium-update.yml` |
 | **Unfinished releases** | daily | If the version on `main` has no finished release and none is running (a download failed, a test machine was slow), the release is started again and an issue is opened. | `chromium-update.yml` |
 | **Android engine and libraries** | daily (engine), weekly (libraries) | A newer GeckoView raises Oto for Android's version and ships a new APK. Dependabot opens pull requests on the `android` branch for the build's actions and libraries; each one builds the app. | `android-engine.yml`, `.github/dependabot.yml` |
 | **Unit tests, security rules, audit** | every push and pull request, every branch | `npm test`, `scripts/lint.js` (sandbox, no Node in pages, no unsafe settings), `npm audit --omit=dev --audit-level=high` | `ci.yml` → checks |
@@ -34,7 +34,8 @@ If Chrome's release notes or a security advisory mention a Chromium or V8 bug **
 critical):
 
 1. Check whether castlabs has an Electron build with the fix (`castlabs/electron-releases`). The daily workflow picks it
-   up automatically within a day. Run **Chromium updates** by hand (Actions → Run workflow) to go faster.
+   up within a day and opens a pull request; merge it to release. Run **Chromium updates** by hand (Actions → Run
+   workflow) to go faster.
 2. If the fix is only in a newer **major** Electron, the workflow opens an issue. Do that upgrade the same week: bump,
    run all checks, and test on Windows (the end-to-end job does most of it).
 3. If no fixed build exists yet: note it in the issue, and consider a release note telling users what to avoid.

@@ -260,10 +260,13 @@ function createWindow() {
 // rules, YouTube ad removal in embedded players) only ran in the top page, and a tracker inside a frame from another
 // site, which is where trackers usually sit, read the real fingerprint.
 
-// Every page (webview) gets keyboard shortcuts, tab-style popups and a context menu.
-app.on('web-contents-created', (_e, contents) => {
-  if (contents.getType() !== 'webview') return;
-  contents.on('before-input-event', (e, input) => handleKeys(e, input, contents));
+// What every piece of web content gets, in a tab or in a popup a page opened: no way to local files or browser pages,
+// Oto's rules for new windows, the WebRTC policy and fingerprint protection in workers. `tab` is the tab the content
+// came from (for a popup, the tab that opened it), so links it opens as tabs land in the same window (private stays private).
+const LOCAL_ONLY = /^(file|view-source|chrome|devtools|chrome-extension):/i;
+function guardWebContent(contents, tab) {
+  const via = hostOfWc(tab);
+  SH.markWeb(contents);
   // Calls (WebRTC): how much of this PC's network the page may find out follows the Shield level and the site
   SH.rtcApply(contents);
   // Fingerprint protection inside the page's background workers (see main/worker-guard.js)
@@ -272,23 +275,10 @@ app.on('web-contents-created', (_e, contents) => {
     const main = ev && typeof ev.isMainFrame === 'boolean' ? ev.isMainFrame : isMain, same = ev && ev.isSameDocument;
     if (main && !same) SH.rtcApply(contents, (ev && ev.url) || url);
   });
-  // Tell the UI when the mouse is moving over a page (throttled): on Windows the UI doesn't get
-  // a reliable "mouse left" when you move from the sidebar onto a page.
-  let lastMouse = 0;
-  contents.on('before-mouse-event', (_ev, m) => {
-    if (m.type === 'mouseDown' && ctrlDown) sendVia(contents, 'ctrl-hold', 'other');
-    if (m.type !== 'mouseMove') return;
-    const now = Date.now();
-    if (now - lastMouse < 120) return;
-    lastMouse = now;
-    sendVia(contents, 'page-mouse', now);
-  });
-  if (EXT.extensions && win) { try { EXT.extensions.addTab(contents, win); } catch {} }
   // Websites can't send you to local files or browser-internal pages (only you can, by typing them):
   // a page that isn't itself a local file can't navigate itself or a frame to file:, view-source:, chrome: …
-  const localOnly = /^(file|view-source|chrome|devtools|chrome-extension):/i;
   const sameOrigin = (a, b) => { try { const x = new URL(a), y = new URL(b); return x.protocol === y.protocol && x.host === y.host; } catch { return false; } };
-  const mayOpen = (url) => !localOnly.test(String(url)) || /^file:/i.test(contents.getURL()) || (/^chrome-extension:/i.test(url) && sameOrigin(url, contents.getURL()));
+  const mayOpen = (url) => !LOCAL_ONLY.test(String(url)) || /^file:/i.test(contents.getURL()) || (/^chrome-extension:/i.test(url) && sameOrigin(url, contents.getURL()));
   const blockLocal = (e, url) => { try { if (!mayOpen(url)) e.preventDefault(); } catch {} };
   contents.on('will-navigate', (e, url) => blockLocal(e, url));
   contents.on('will-frame-navigate', (e) => blockLocal(e, e && e.url));
@@ -301,9 +291,47 @@ app.on('web-contents-created', (_e, contents) => {
         overrideBrowserWindowOptions: { width: 560, height: 720, autoHideMenuBar: true, icon: ICON, backgroundColor: '#ffffff' },
       };
     }
-    sendVia(contents, 'tab:open', { url, background: disposition === 'background-tab' });
+    // The window the tab lives in, found when the content was set up: if it has closed since (say a private window), the
+    // link isn't moved into another window.
+    if (via && !via.isDestroyed()) sendVia(via, 'tab:open', { url, background: disposition === 'background-tab' });
     return { action: 'deny' };
   });
+  // A popup is a window of its own, so it gets the same rules (and the popups it opens, too), and its title bar always
+  // starts with the site it's really on: a page can't pass itself off as a sign-in window for another site.
+  contents.on('did-create-window', (child) => {
+    try {
+      guardWebContent(child.webContents, tab);
+      const showSite = () => {
+        if (child.isDestroyed()) return;
+        child.setTitle(popupTitle(child.webContents.getURL(), child.webContents.getTitle()));
+      };
+      child.webContents.on('page-title-updated', (e) => { e.preventDefault(); showSite(); });
+      child.webContents.on('did-navigate', showSite);
+      child.webContents.on('did-navigate-in-page', showSite);
+      showSite();
+    } catch (err) { console.warn('[oto] popup guard failed, closing it:', err && err.message); try { child.destroy(); } catch {} }
+  });
+}
+const { popupTitle } = require('./main/popup-title.js');
+
+// Every page (webview) gets keyboard shortcuts, tab-style popups and a context menu.
+app.on('web-contents-created', (_e, contents) => {
+  if (contents.getType() !== 'webview') return;
+  contents.on('before-input-event', (e, input) => handleKeys(e, input, contents));
+  // Calls (WebRTC): how much of this PC's network the page may find out follows the Shield level and the site
+  // Tell the UI when the mouse is moving over a page (throttled): on Windows the UI doesn't get
+  // a reliable "mouse left" when you move from the sidebar onto a page.
+  let lastMouse = 0;
+  contents.on('before-mouse-event', (_ev, m) => {
+    if (m.type === 'mouseDown' && ctrlDown) sendVia(contents, 'ctrl-hold', 'other');
+    if (m.type !== 'mouseMove') return;
+    const now = Date.now();
+    if (now - lastMouse < 120) return;
+    lastMouse = now;
+    sendVia(contents, 'page-mouse', now);
+  });
+  if (EXT.extensions && win) { try { EXT.extensions.addTab(contents, win); } catch {} }
+  guardWebContent(contents, contents);
   contents.on('context-menu', (_ev, params) => showContextMenu(contents, params));
 });
 

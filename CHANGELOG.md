@@ -3,6 +3,19 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.6.6 — 2026-11-14
+
+*Security update. Nothing to do: it updates itself.*
+
+**Security**
+- **Popup windows show the real site.** When a website opens a popup (sign-in windows and similar), the popup's title bar now always starts with the site it's really on, so a page can't pretend to be another site's sign-in window. Popups also get the same protections as tabs: no way to local files, fingerprint protection in their background workers, and links they open as tabs go to the same Oto window.
+- **Showing or copying a saved password asks first.** A Windows dialog asks before a password is shown or copied in the Library. One yes covers the next 5 minutes. Filling a login into a page works as before.
+- **A login is never filled into a page that just changed to another site.** The site is checked again inside the page at the moment of filling.
+- **Extensions added from a folder:** if their files change on disk after you added them, Oto asks before loading the changed version at the next start.
+- **Chrome Web Store messages** are only accepted from the real Web Store address. Before, a look-alike address (one that starts with the Web Store's) could reach them.
+- **Updates are checked again right before they install**, and the downloaded file must still be exactly the one that passed Oto's build-record check. Also fixed: a checked update now really installs when you close Oto (before, it waited for the Restart button).
+- **How Oto is built:** the step that runs packages, tests and the build no longer has the right to publish releases or make build records; a short separate step does that. The Widevine signing tool is pinned to exact, checked versions. Automatic Chromium updates now wait for review instead of releasing themselves.
+
 ## 1.6.5 — 2026-11-14
 
 *Small update. Nothing to do: it updates itself.*
