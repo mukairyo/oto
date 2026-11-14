@@ -43,6 +43,8 @@ class StarMap(
     ctx: Context,
     private val onOpen: (Int) -> Unit,
     private val onHold: (DrawerItem, Float, Float) -> Unit,
+    /** the × on a star's window: close that tab */
+    private val onCloseTab: (Int) -> Unit,
     /** the view moved: where the sky should be (for the stars far behind) */
     private val onMove: (Float, Float) -> Unit,
 ) : View(ctx) {
@@ -56,6 +58,10 @@ class StarMap(
 
     private var items: List<DrawerItem> = emptyList()
     private val groups = ArrayList<Group>()
+    /** made-up constellations that fill the sky around your tabs (scenery: not tabs, not tappable) */
+    private class Decor(val name: String, val x: FloatArray, val y: FloatArray, val parent: IntArray, val size: FloatArray, val bright: FloatArray)
+    private val decor = ArrayList<Decor>()
+    private val closeRect = HashMap<Int, android.graphics.RectF>()
     private var worldW = 0f
     private var worldH = 0f
     private var query = ""
@@ -79,6 +85,7 @@ class StarMap(
     private val glow = Paint(Paint.ANTI_ALIAS_FLAG)
     private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = px(1.2f) }
     private val tStar = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(8.5f); letterSpacing = 0.1f; textAlign = Paint.Align.CENTER }
+    private val tDecor = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC); textSize = sp(13f); color = 0xFFEFE7D8.toInt(); textAlign = Paint.Align.CENTER }
     private val tName = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC); textSize = sp(17f); color = 0xE6EFE7D8.toInt(); textAlign = Paint.Align.CENTER }
     private val tNew = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(8f); letterSpacing = 0.14f; color = 0xE6E68C6E.toInt(); textAlign = Paint.Align.CENTER }
     private val arrow = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xF2D66042.toInt() }
@@ -124,6 +131,38 @@ class StarMap(
         private class Rng(seed: Int) {
             private var s: Long = (abs(seed.toLong()) % 2147483646L) + 1
             fun next(): Float { s = (s * 16807) % 2147483647; return s / 2147483647f }
+        }
+
+        /** a new sky each time Oto starts */
+        private val skySeed = java.util.Random().nextInt(2_000_000_000)
+
+        /** real constellation and star names: a made-up name never comes out as one of these */
+        private val REAL = setOf(
+            "andromeda", "antlia", "apus", "aquarius", "aquila", "ara", "aries", "auriga", "bootes", "caelum", "camelopardalis", "cancer",
+            "canes", "canis", "capricornus", "carina", "cassiopeia", "centaurus", "cepheus", "cetus", "chamaeleon", "circinus", "columba",
+            "coma", "corona", "corvus", "crater", "crux", "cygnus", "delphinus", "dorado", "draco", "equuleus", "eridanus", "fornax", "gemini",
+            "grus", "hercules", "horologium", "hydra", "hydrus", "indus", "lacerta", "leo", "lepus", "libra", "lupus", "lynx", "lyra", "mensa",
+            "microscopium", "monoceros", "musca", "norma", "octans", "ophiuchus", "orion", "pavo", "pegasus", "perseus", "phoenix", "pictor",
+            "pisces", "puppis", "pyxis", "reticulum", "sagitta", "sagittarius", "scorpius", "sculptor", "scutum", "serpens", "sextans", "taurus",
+            "telescopium", "triangulum", "tucana", "ursa", "vela", "virgo", "volans", "vulpecula", "argo", "sirius", "vega", "rigel", "deneb",
+            "altair", "antares", "polaris", "castor", "pollux", "spica", "arcturus", "capella", "aldebaran", "betelgeuse", "procyon", "regulus",
+            "canopus", "mira", "algol", "alcor", "mizar", "electra", "maia", "atlas", "pleione", "merope", "taygeta", "celaeno", "sterope",
+            "bellatrix", "nova", "sol", "luna", "terra", "mars", "venus", "saturn", "jupiter", "pluto", "titan", "europa", "io", "ceres",
+        )
+        private val START = arrayOf("Ka", "Vel", "Thyr", "Nae", "Lu", "Sar", "Ix", "Mor", "Ael", "Qua", "Ren", "Syl", "Tor", "Eth", "Zan", "Cal", "Vey", "Dra", "Ost", "Pha", "Kre", "Yl", "Bre", "Hal", "Ner", "Ulm", "Fae", "Gor", "Ish", "Jov", "Ske", "Wen")
+        private val MID = arrayOf("", "", "", "ra", "len", "ve", "th", "mi", "ro", "sa", "ky", "do", "ne", "lo")
+        private val END = arrayOf("is", "a", "on", "ae", "us", "ix", "ara", "el", "yr", "os", "eth", "une", "ia", "or", "ith", "ux")
+
+        /** an invented star-chart name, never a real one */
+        private fun madeUpName(r: Rng, taken: Set<String>): String {
+            repeat(40) {
+                val n = START[(r.next() * START.size).toInt().coerceAtMost(START.size - 1)] +
+                    MID[(r.next() * MID.size).toInt().coerceAtMost(MID.size - 1)] +
+                    END[(r.next() * END.size).toInt().coerceAtMost(END.size - 1)]
+                val low = n.lowercase()
+                if (low !in REAL && REAL.none { (low.startsWith(it) && it.length >= 4) || (it.length >= 5 && low.contains(it)) } && n !in taken && n.length in 4..10) return n
+            }
+            return "Ulvarion"
         }
 
         /** "youtube.com" → "Youtube", "bbc.co.uk" → "Bbc", "oto" → "Oto" */
@@ -235,7 +274,7 @@ class StarMap(
         groups.clear()
         val byHost = LinkedHashMap<String, ArrayList<DrawerItem>>()
         items.forEach { byHost.getOrPut(it.host) { ArrayList() }.add(it) }
-        val cols = max(2, ceil(sqrt(byHost.size * 1.3)).toInt())
+        val cols = max(4, ceil(sqrt(byHost.size * 1.3)).toInt())
         val rows = cols + 1
         val cell = px(CELL)
         worldW = cols * cell; worldH = rows * cell
@@ -257,11 +296,28 @@ class StarMap(
             val dr = Rng(hash(host) xor 77)
             groups.add(Group(host, constellationName(host), stars, FloatArray(stars.size) { 0.3f + dr.next() * 0.4f }))
         }
+        // the rest of the sky: made-up constellations of 1 to 18 stars, each with an invented name
+        decor.clear()
+        val r = Rng(skySeed)
+        val names = HashSet<String>()
+        for (i in 0 until cols * rows) {
+            if (i in used || r.next() < 0.18f) continue
+            val n = 1 + (r.next() * 18).toInt().coerceAtMost(17)
+            val pts = shape(r, n, 30f, 26f, 26f, 40f + n * 4.5f)
+            val cx = (i % cols + 0.5f) * cell + (r.next() - 0.5f) * px(50f)
+            val cy = (i / cols + 0.5f) * cell + (r.next() - 0.5f) * px(50f)
+            val name = madeUpName(r, names); names.add(name)
+            decor.add(Decor(name,
+                FloatArray(n) { cx + px(pts[it][0]) }, FloatArray(n) { cy + px(pts[it][1]) },
+                IntArray(n) { pts[it][2].toInt() },
+                FloatArray(n) { px(1.1f + r.next() * 1.1f) }, FloatArray(n) { 0.35f + r.next() * 0.45f }))
+        }
     }
 
     /** A made-up constellation: a wandering line of stars with the odd branch, never too close together. */
-    private fun shape(host: String, n: Int): Array<FloatArray> {
-        val r = Rng(hash(host))
+    private fun shape(host: String, n: Int): Array<FloatArray> = shape(Rng(hash(host)), n, 58f, 34f, 48f, 95f)
+
+    private fun shape(r: Rng, n: Int, stepMin: Float, stepVar: Float, minGap: Float, reach: Float): Array<FloatArray> {
         val pts = ArrayList<FloatArray>() // x, y (dp), parent
         val ang = ArrayList<Float>()
         for (k in 0 until n) {
@@ -271,13 +327,13 @@ class StarMap(
             while (tries < 24 && ok == null) {
                 val parent = if (k >= 3 && r.next() < 0.3f) (r.next() * k).toInt().coerceAtMost(k - 1) else k - 1
                 val a = ang[parent] + (r.next() - 0.5f) * 1.7f
-                val l = 58f + r.next() * 34f
+                val l = stepMin + r.next() * stepVar
                 val x = pts[parent][0] + cos(a) * l; val y = pts[parent][1] + sin(a) * l
-                val lim = 95f + tries * 6f
-                if (hypot(x, y) <= lim && pts.all { hypot(it[0] - x, it[1] - y) >= 48f }) { ok = floatArrayOf(x, y, parent.toFloat()); okA = a }
+                val lim = reach + tries * 6f
+                if (hypot(x, y) <= lim && pts.all { hypot(it[0] - x, it[1] - y) >= minGap }) { ok = floatArrayOf(x, y, parent.toFloat()); okA = a }
                 tries++
             }
-            if (ok == null) { val a = r.next() * 6.283f; ok = floatArrayOf(pts[k - 1][0] + cos(a) * 60f, pts[k - 1][1] + sin(a) * 60f, (k - 1).toFloat()); okA = a }
+            if (ok == null) { val a = r.next() * 6.283f; ok = floatArrayOf(pts[k - 1][0] + cos(a) * (stepMin + 2f), pts[k - 1][1] + sin(a) * (stepMin + 2f), (k - 1).toFloat()); okA = a }
             pts.add(ok); ang.add(okA)
         }
         return pts.toTypedArray()
@@ -347,7 +403,10 @@ class StarMap(
                     if (dragMoved) { pinned[key] = floatArrayOf(dragOff0[0] + dx, dragOff0[1] + dy); invalidate() }
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (!dragMoved) onOpen(w.item.index)
+                    if (!dragMoved) {
+                        if (closeRect[w.item.index]?.contains(e.x, e.y) == true) fadeOut(w.item.index) { onCloseTab(w.item.index) }
+                        else onOpen(w.item.index)
+                    }
                     else {
                         // dropped back on its star (or where it started from): it goes back to normal
                         val o = pinned[key] ?: floatArrayOf(0f, 0f)
@@ -427,6 +486,24 @@ class StarMap(
         line.pathEffect = dash
         val rx0 = vx / zoom - px(160f); val rx1 = (vx + width) / zoom + px(160f)
         val ry0 = vy / zoom - px(160f); val ry1 = (vy + height) / zoom + px(160f)
+        // the made-up constellations (dimmer: scenery)
+        val decorA = appear * (1f - diveT) * (if (query.isEmpty()) 1f else 0.4f)
+        if (decorA > 0f) for (dc in decor) {
+            val gx = dc.x[0]; val gy = dc.y[0]
+            if (gx < rx0 - px(150f) || gx > rx1 + px(150f) || gy < ry0 - px(150f) || gy > ry1 + px(150f)) continue
+            line.alpha = (70 * decorA).toInt()
+            for (k in 1 until dc.x.size) { val p = dc.parent[k]; if (p >= 0) c.drawLine(dc.x[p], dc.y[p], dc.x[k], dc.y[k], line) }
+            for (k in dc.x.indices) {
+                val a = decorA * dc.bright[k]
+                glow.shader = glowCool
+                c.save(); c.translate(dc.x[k], dc.y[k]); c.scale(dc.size[k] * 3.5f, dc.size[k] * 3.5f); glow.alpha = (200 * a).toInt(); c.drawCircle(0f, 0f, 1f, glow); c.restore()
+                c.save(); c.translate(dc.x[k], dc.y[k]); c.scale(dc.size[k] * 2.2f, dc.size[k] * 2.2f); core.alpha = (230 * a).toInt(); c.drawPath(sparkle, core); c.restore()
+            }
+            var top = dc.y[0]; var sx = 0f
+            for (k in dc.x.indices) { if (dc.y[k] < top) top = dc.y[k]; sx += dc.x[k] }
+            tDecor.alpha = (120 * decorA).toInt()
+            c.drawText(dc.name, sx / dc.x.size, top - px(16f), tDecor)
+        }
         for (g in groups) {
             val gx = g.stars.first().x; val gy = g.stars.first().y
             if (gx < rx0 - px(150f) || gx > rx1 + px(150f) || gy < ry0 - px(150f) || gy > ry1 + px(150f)) continue
@@ -549,7 +626,7 @@ class StarMap(
         val mx = width / 2f; val my = height * 0.5f
         for (s in all) { val (sx, sy) = screenOf(s); val dd = hypot(sx - mx, sy - my); if (dd < fd) { fd = dd; focus = s } }
         val zoomedIn = zoom >= 1.25f
-        winRect.clear()
+        winRect.clear(); closeRect.clear()
         val zf = zoom.coerceIn(0.9f, 1.3f)
         val ww = px(150f) * zf; val wh = px(112f) * zf; val cut = px(10f)
         for (s in all) {
@@ -620,14 +697,22 @@ class StarMap(
                 s.item.live -> Pair("LIVE", CYAN)
                 else -> Pair("ASLEEP", 0x80E7DFD1.toInt())
             }
+            // × closes the tab
+            val xb = android.graphics.RectF(r.right - px(19f), r.top + px(2f), r.right - px(3f), r.top + px(16f))
+            winLine.color = MainActivity.CREAM; winLine.alpha = al; winLine.strokeWidth = px(1.3f)
+            val xi = px(4f)
+            c.drawLine(xb.centerX() - xi, xb.centerY() - xi, xb.centerX() + xi, xb.centerY() + xi, winLine)
+            c.drawLine(xb.centerX() - xi, xb.centerY() + xi, xb.centerX() + xi, xb.centerY() - xi, winLine)
+            closeRect[s.item.index] = android.graphics.RectF(xb.left - px(10f), r.top - px(8f), r.right + px(8f), xb.bottom + px(8f))
+            winLine.strokeWidth = px(1f)
             tHud.textAlign = Paint.Align.RIGHT; tHud.color = stCol; tHud.alpha = al * android.graphics.Color.alpha(stCol) / 255
-            c.drawText(stText, r.right - px(8f), r.top + px(12f), tHud)
-            val stW = tHud.measureText(stText)
+            c.drawText(stText, xb.left - px(5f), r.top + px(12f), tHud)
+            val stW = tHud.measureText(stText) + px(16f)
             winFill.color = stCol; winFill.alpha = (al * (0.6f + 0.4f * sin(now / 300f))).toInt()
-            c.drawCircle(r.right - px(8f) - stW - px(6f), r.top + px(9.5f), px(2.2f), winFill)
+            c.drawCircle(xb.left - px(5f) - (stW - px(16f)) - px(6f), r.top + px(9.5f), px(2.2f), winFill)
             tHud.textAlign = Paint.Align.LEFT; tHud.color = 0xD9E7DFD1.toInt(); tHud.alpha = al * 0xD9 / 255
             val head = "TAB " + String.format("%02d", s.item.index + 1) + " // " + s.item.host.uppercase()
-            c.drawText(TextUtils.ellipsize(head, tHud, r.width() - px(30f) - stW, TextUtils.TruncateAt.END).toString(), r.left + px(12f), r.top + px(12f), tHud)
+            c.drawText(TextUtils.ellipsize(head, tHud, r.width() - px(34f) - stW, TextUtils.TruncateAt.END).toString(), r.left + px(12f), r.top + px(12f), tHud)
             winFill.color = 0x40E7DFD1; winFill.alpha = al * 0x40 / 255
             c.drawRect(r.left + px(6f), r.top + px(17f), r.right - px(6f), r.top + px(18f), winFill)
 

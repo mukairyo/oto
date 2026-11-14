@@ -76,6 +76,7 @@ class TabDrawer(
         map = StarMap(ctx,
             onOpen = { i -> dismissCard(); onOpen(i) },
             onHold = { item, x, y -> showCard(item, x, y) },
+            onCloseTab = { i -> dismissCard(); onClose(i) },
             onMove = { x, y -> sky.offX = x * 0.15f; sky.offY = y * 0.15f; invalidate() })
 
         // find a tab, like "Find a tab in any space…" on Windows: the sky flies to it
@@ -105,7 +106,7 @@ class TabDrawer(
         }, FrameLayout.LayoutParams(pxi(40), pxi(40), Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, pxi(4), pxi(8)) })
         addView(mapBox, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { setMargins(0, pxi(6), 0, 0) })
 
-        addView(mono("DRAG THE SKY TO PEEK · DRAG A WINDOW TO PIN IT", 8.5f, MainActivity.FG3, 0.14f).apply { gravity = Gravity.CENTER; setPadding(0, pxi(6), 0, pxi(10)) },
+        addView(mono("TAP A WINDOW TO OPEN  ·  × TO CLOSE", 8.5f, MainActivity.FG3, 0.14f).apply { gravity = Gravity.CENTER; setPadding(0, pxi(6), 0, pxi(10)) },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         val btns = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
         btns.addView(button("Close", false) { onDismiss() }, LinearLayout.LayoutParams(0, pxi(40), 1f).apply { setMargins(0, 0, pxi(6), 0) })
