@@ -85,6 +85,12 @@ class StarMap(
     private val trail = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
 
     // the small windows that show what's inside a star
+    private var dragWin: StarPt? = null
+    private var dragX0 = 0f
+    private var dragY0 = 0f
+    private var dragOff0 = floatArrayOf(0f, 0f)
+    private var dragMoved = false
+    private val touchSlop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop
     private val winA = HashMap<Int, Float>()          // item index → how visible its window is (eases in and out)
     private val winRect = HashMap<Int, android.graphics.RectF>()
     private val winFill = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -104,6 +110,9 @@ class StarMap(
     companion object {
         private const val CELL = 250f // dp
         private const val CYAN = 0xFF7FE3FF.toInt()
+        /** windows you've dragged somewhere: they stay open where you put them (for as long as Oto is open) */
+        private val pinned = HashMap<String, FloatArray>()
+        private fun pinKey(i: DrawerItem) = i.host + "|" + i.title
         private fun hash(s: String) = s.hashCode()
         /** the same little random numbers every time for the same seed */
         private class Rng(seed: Int) {
@@ -302,6 +311,46 @@ class StarMap(
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(e: MotionEvent): Boolean {
+        // grab a window: drag it anywhere (it stays open there, linked to its star); just tap it to open the tab
+        if (e.actionMasked == MotionEvent.ACTION_DOWN) {
+            val w = windowAt(e.x, e.y)
+            if (w != null) {
+                dragWin = w; dragX0 = e.x; dragY0 = e.y; dragMoved = false
+                dragOff0 = (pinned[pinKey(w.item)] ?: floatArrayOf(0f, 0f)).copyOf()
+                scroller.forceFinished(true); glide?.cancel()
+                return true
+            }
+        }
+        dragWin?.let { w ->
+            val key = pinKey(w.item)
+            when (e.actionMasked) {
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = e.x - dragX0; val dy = e.y - dragY0
+                    if (!dragMoved && hypot(dx, dy) > touchSlop) { dragMoved = true; parent.requestDisallowInterceptTouchEvent(true) }
+                    if (dragMoved) { pinned[key] = floatArrayOf(dragOff0[0] + dx, dragOff0[1] + dy); invalidate() }
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!dragMoved) onOpen(w.item.index)
+                    else {
+                        // dropped back on its star (or where it started from): it goes back to normal
+                        val o = pinned[key] ?: floatArrayOf(0f, 0f)
+                        val (sx, sy) = screenOf(w)
+                        val onStar = winRect[w.item.index]?.contains(sx, sy) == true
+                        if (hypot(o[0], o[1]) < px(40f) || onStar) {
+                            ValueAnimator.ofFloat(1f, 0f).apply {
+                                duration = 200; interpolator = DecelerateInterpolator()
+                                addUpdateListener { v -> val f = v.animatedValue as Float; pinned[key] = floatArrayOf(o[0] * f, o[1] * f); invalidate() }
+                                addListener(object : android.animation.AnimatorListenerAdapter() { override fun onAnimationEnd(a: android.animation.Animator) { pinned.remove(key); invalidate() } })
+                                start()
+                            }
+                        } else performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                    }
+                    dragWin = null
+                }
+                MotionEvent.ACTION_CANCEL -> dragWin = null
+            }
+            return true
+        }
         pinch.onTouchEvent(e)
         if (!pinch.isInProgress) gestures.onTouchEvent(e)
         return true
@@ -439,8 +488,10 @@ class StarMap(
         val ww = px(150f) * zf; val wh = px(112f) * zf; val cut = px(10f)
         for (s in all) {
             val (sx, sy) = screenOf(s)
-            val onScreen = sx > -ww && sx < width + ww && sy > -wh && sy < height + wh * 2
-            val want = if (onScreen && isMatch(s) && s.item.index != fading && (s === focus || zoomedIn)) 1f else 0f
+            val pin = pinned[pinKey(s.item)]
+            val ox = pin?.get(0) ?: 0f; val oy = pin?.get(1) ?: 0f
+            val onScreen = (sx + ox) > -ww && (sx + ox) < width + ww && (sy + oy) > -wh && (sy + oy) < height + wh * 2
+            val want = if (onScreen && isMatch(s) && s.item.index != fading && (s === focus || zoomedIn || pin != null)) 1f else 0f
             val cur = winA[s.item.index] ?: 0f
             val a = if (abs(want - cur) < 0.04f) want else cur + (want - cur) * 0.24f
             if (a != want) moving = true
@@ -454,16 +505,28 @@ class StarMap(
             val al = (255 * alpha).toInt()
             val cx = sx; val bottom = sy - px(34f)
             val r = android.graphics.RectF(cx - ww / 2f, bottom - wh, cx + ww / 2f, bottom)
+            r.offset(ox, oy)
             val mid = r.centerY(); r.top = mid - (mid - r.top) * unfold; r.bottom = mid + (r.bottom - mid) * unfold
             winRect[s.item.index] = r
 
             // connector: down from the window to a small node, then across to the star; targeting ticks round the star
             winLine.strokeWidth = px(1f); winLine.color = 0x73E7DFD1; winLine.alpha = al * 0x73 / 255
-            val nx = cx - px(30f) * zf
-            c.drawLine(nx, r.bottom, nx, r.bottom + px(10f), winLine)
-            c.drawLine(nx, r.bottom + px(10f), cx - px(6f), sy - px(6f), winLine)
             winFill.color = MainActivity.CREAM; winFill.alpha = al
-            c.drawRect(nx - px(2f), r.bottom + px(8f), nx + px(2f), r.bottom + px(12f), winFill)
+            if (pin == null) {
+                val nx = cx - px(30f) * zf
+                c.drawLine(nx, r.bottom, nx, r.bottom + px(10f), winLine)
+                c.drawLine(nx, r.bottom + px(10f), cx - px(6f), sy - px(6f), winLine)
+                c.drawRect(nx - px(2f), r.bottom + px(8f), nx + px(2f), r.bottom + px(12f), winFill)
+            } else {
+                // moved somewhere: a line from the nearest edge of the window to its star
+                val nx = sx.coerceIn(r.left, r.right); val ny = sy.coerceIn(r.top, r.bottom)
+                val dl = hypot(sx - nx, sy - ny)
+                if (dl > px(18f)) {
+                    val ex = sx - (sx - nx) / dl * px(18f); val ey = sy - (sy - ny) / dl * px(18f)
+                    c.drawLine(nx, ny, ex, ey, winLine)
+                    c.drawRect(nx - px(2f), ny - px(2f), nx + px(2f), ny + px(2f), winFill)
+                }
+            }
             winLine.color = MainActivity.CREAM; winLine.alpha = al; winLine.strokeWidth = px(1.2f)
             val rr = px(16f); val tk = px(5f)
             for (dx in intArrayOf(-1, 1)) for (dy in intArrayOf(-1, 1)) {
@@ -529,7 +592,7 @@ class StarMap(
             }
             // footer
             tHud.color = 0x99E7DFD1.toInt(); tHud.alpha = al * 0x99 / 255
-            c.drawText("▸ TAP TO OPEN", r.left + px(12f), r.bottom - px(5f), tHud)
+            c.drawText(if (pin != null) "◆ PINNED  ▸ OPEN" else "▸ TAP TO OPEN", r.left + px(12f), r.bottom - px(5f), tHud)
             tHud.textAlign = Paint.Align.RIGHT; tHud.color = 0x59E7DFD1; tHud.alpha = al * 0x59 / 255
             c.drawText(String.format("%03d:%03d", (s.x / d).toInt() % 1000, (s.y / d).toInt() % 1000), r.right - px(14f), r.bottom - px(5f), tHud)
             tHud.textAlign = Paint.Align.LEFT
