@@ -1,0 +1,409 @@
+package app.oto.browser
+
+import android.animation.ValueAnimator
+import android.annotation.SuppressLint
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.DashPathEffect
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RadialGradient
+import android.graphics.Shader
+import android.graphics.Typeface
+import android.os.SystemClock
+import android.text.TextPaint
+import android.text.TextUtils
+import android.util.TypedValue
+import android.view.GestureDetector
+import android.view.MotionEvent
+import android.view.ScaleGestureDetector
+import android.view.View
+import android.view.animation.DecelerateInterpolator
+import android.widget.OverScroller
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.ceil
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+/**
+ * Your tabs as a star map. Every tab is a star; the tabs of one site make up a constellation with its own shape
+ * (made up from the site's name, so it's always the same) and the site's name written beside it, like on a star chart.
+ * The sky is bigger than the screen: drag to look around, pinch to see more. A new tab appears somewhere in the sky as
+ * a shooting star, and until you've found it an arrow at the edge points the way.
+ */
+@SuppressLint("ViewConstructor")
+class StarMap(
+    ctx: Context,
+    private val onOpen: (Int) -> Unit,
+    private val onHold: (DrawerItem, Float, Float) -> Unit,
+    /** the view moved: where the sky should be (for the stars far behind) */
+    private val onMove: (Float, Float) -> Unit,
+) : View(ctx) {
+
+    private val d = resources.displayMetrics.density
+    private fun px(v: Float) = v * d
+    private fun sp(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, v, resources.displayMetrics)
+
+    private class StarPt(val item: DrawerItem, val x: Float, val y: Float, val parent: Int, val label: String)
+    private class Group(val host: String, val name: String, val stars: ArrayList<StarPt>, val bits: FloatArray)
+
+    private var items: List<DrawerItem> = emptyList()
+    private val groups = ArrayList<Group>()
+    private var worldW = 0f
+    private var worldH = 0f
+    private var query = ""
+
+    // view: screen = world * zoom - (vx, vy)
+    private var vx = 0f
+    private var vy = 0f
+    private var zoom = 1f
+    private var placed = false
+    private val born = SystemClock.uptimeMillis()
+    private var glide: ValueAnimator? = null
+    private val scroller = OverScroller(ctx)
+    private var fading = -1 // the item index being closed
+    private var fadeT = 0f
+    private val arrivals = HashMap<Int, Long>() // item index → when it started flying in
+
+    // paints
+    private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = 0x8CECE8E1.toInt(); strokeWidth = px(1.1f); strokeCap = Paint.Cap.ROUND }
+    private val dust = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xB3FFFAF2.toInt() }
+    private val core = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFAF2.toInt() }
+    private val glow = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = px(1.2f) }
+    private val tStar = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(8.5f); letterSpacing = 0.1f; textAlign = Paint.Align.CENTER }
+    private val tName = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC); textSize = sp(17f); color = 0xE6EFE7D8.toInt(); textAlign = Paint.Align.CENTER }
+    private val tNew = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(8f); letterSpacing = 0.14f; color = 0xE6E68C6E.toInt(); textAlign = Paint.Align.CENTER }
+    private val arrow = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xF2D66042.toInt() }
+    private val trail = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
+    private val sparkle = Path().apply {
+        // a four-pointed star, like the stars on a chart (unit size)
+        moveTo(0f, -1f); quadTo(0f, 0f, 1f, 0f); quadTo(0f, 0f, 0f, 1f); quadTo(0f, 0f, -1f, 0f); quadTo(0f, 0f, 0f, -1f); close()
+    }
+    private val glowWarm = RadialGradient(0f, 0f, 1f, intArrayOf(0xFFFFF3DC.toInt(), 0x55FFF3DC, 0x00FFF3DC), floatArrayOf(0f, 0.25f, 1f), Shader.TileMode.CLAMP)
+    private val glowCool = RadialGradient(0f, 0f, 1f, intArrayOf(0xFFE8EEFF.toInt(), 0x55E8EEFF, 0x00E8EEFF), floatArrayOf(0f, 0.25f, 1f), Shader.TileMode.CLAMP)
+
+    companion object {
+        private const val CELL = 250f // dp
+        private fun hash(s: String) = s.hashCode()
+        /** the same little random numbers every time for the same seed */
+        private class Rng(seed: Int) {
+            private var s: Long = (abs(seed.toLong()) % 2147483646L) + 1
+            fun next(): Float { s = (s * 16807) % 2147483647; return s / 2147483647f }
+        }
+
+        /** "youtube.com" → "Youtube", "bbc.co.uk" → "Bbc", "oto" → "Oto" */
+        fun constellationName(host: String): String {
+            if (host == "oto") return "Oto"
+            if (host == "oto card") return "Oto Card"
+            val p = host.split('.').filter { it.isNotEmpty() }
+            val core = when {
+                p.size >= 3 && p[p.size - 2].length <= 3 -> p[p.size - 3]
+                p.size >= 2 -> p[p.size - 2]
+                else -> host
+            }
+            return core.replaceFirstChar { it.uppercaseChar() }
+        }
+    }
+
+    private val gestures = GestureDetector(ctx, object : GestureDetector.SimpleOnGestureListener() {
+        override fun onDown(e: MotionEvent): Boolean { scroller.forceFinished(true); glide?.cancel(); return true }
+        override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean { moveTo(vx + dx, vy + dy); return true }
+        override fun onFling(e1: MotionEvent?, e2: MotionEvent, velX: Float, velY: Float): Boolean {
+            val (minX, maxX, minY, maxY) = bounds()
+            scroller.fling(vx.toInt(), vy.toInt(), -velX.toInt(), -velY.toInt(), minX.toInt(), maxX.toInt(), minY.toInt(), maxY.toInt())
+            postInvalidateOnAnimation(); return true
+        }
+        override fun onSingleTapUp(e: MotionEvent): Boolean {
+            arrowHit(e.x, e.y)?.let { glideTo(it); return true }
+            starAt(e.x, e.y)?.let { s -> onOpen(s.item.index) }
+            return true
+        }
+        override fun onLongPress(e: MotionEvent) {
+            val s = starAt(e.x, e.y) ?: return
+            performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            val (sx, sy) = screenOf(s)
+            onHold(s.item, sx, sy)
+        }
+    })
+
+    private val pinch = ScaleGestureDetector(ctx, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScale(g: ScaleGestureDetector): Boolean {
+            val nz = (zoom * g.scaleFactor).coerceIn(0.5f, 1.7f)
+            val wx = (g.focusX + vx) / zoom; val wy = (g.focusY + vy) / zoom
+            zoom = nz
+            moveTo(wx * zoom - g.focusX, wy * zoom - g.focusY)
+            return true
+        }
+    })
+
+    // ------------------------------------------------------------------ data
+    fun show(list: List<DrawerItem>, removed: Int = -1) {
+        items = list
+        layoutSky()
+        list.filter { it.drop }.forEach { arrivals[it.index] = SystemClock.uptimeMillis() + if (placed) 80L else SpaceSky.WARP }
+        if (!placed && width > 0) place()
+        val newOne = list.lastOrNull { it.drop }
+        if (placed && newOne != null && removed < 0) postDelayed({ star(newOne.index)?.let { glideTo(it) } }, 120)
+        invalidate()
+    }
+
+    fun search(q: String) {
+        query = q.trim().lowercase()
+        if (query.isNotEmpty()) matches().firstOrNull()?.let { glideTo(it) }
+        invalidate()
+    }
+
+    fun firstMatch(): DrawerItem? = (if (query.isEmpty()) emptyList() else matches()).firstOrNull()?.item
+
+    fun setThumb(index: Int, b: Bitmap) { items.firstOrNull { it.index == index }?.thumb = b }
+
+    /** Fly to the tab you're on. */
+    fun home() { current()?.let { glideTo(it) } }
+
+    /** The star of a closing tab fades out, then [then] runs. */
+    fun fadeOut(index: Int, then: () -> Unit) {
+        fading = index
+        ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 220
+            addUpdateListener { fadeT = it.animatedValue as Float; invalidate() }
+            addListener(object : android.animation.AnimatorListenerAdapter() { override fun onAnimationEnd(a: android.animation.Animator) { fading = -1; then() } })
+            start()
+        }
+    }
+
+    private fun matches(): List<StarPt> {
+        val words = query.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        return groups.flatMap { it.stars }.filter { s -> val t = (s.item.title + " " + s.item.host).lowercase(); words.all { t.contains(it) } }
+    }
+    private fun isMatch(s: StarPt): Boolean {
+        if (query.isEmpty()) return true
+        val t = (s.item.title + " " + s.item.host).lowercase()
+        return query.split(Regex("\\s+")).filter { it.isNotEmpty() }.all { t.contains(it) }
+    }
+
+    private fun current() = groups.flatMap { it.stars }.firstOrNull { it.item.current }
+    private fun star(index: Int) = groups.flatMap { it.stars }.firstOrNull { it.item.index == index }
+
+    /** Each site gets a place in the sky (from its name) and a constellation shape (from its name and how many tabs). */
+    private fun layoutSky() {
+        groups.clear()
+        val byHost = LinkedHashMap<String, ArrayList<DrawerItem>>()
+        items.forEach { byHost.getOrPut(it.host) { ArrayList() }.add(it) }
+        val cols = max(2, ceil(sqrt(byHost.size * 1.3)).toInt())
+        val rows = cols + 1
+        val cell = px(CELL)
+        worldW = cols * cell; worldH = rows * cell
+        val used = HashSet<Int>()
+        tStar.textSize = sp(8.5f)
+        byHost.forEach { (host, tabs) ->
+            var i = abs(hash(host) % (cols * rows))
+            while (i in used) i = (i + 1) % (cols * rows)
+            used.add(i)
+            val r = Rng(hash(host) xor 0x5bd1)
+            val cx = (i % cols + 0.5f) * cell + (r.next() - 0.5f) * px(40f)
+            val cy = (i / cols + 0.5f) * cell + (r.next() - 0.5f) * px(40f)
+            val pts = shape(host, tabs.size)
+            val stars = ArrayList<StarPt>()
+            tabs.forEachIndexed { k, t ->
+                val label = TextUtils.ellipsize(t.title.uppercase(), tStar, px(120f), TextUtils.TruncateAt.END).toString()
+                stars.add(StarPt(t, cx + px(pts[k][0]), cy + px(pts[k][1]), pts[k][2].toInt(), label))
+            }
+            val dr = Rng(hash(host) xor 77)
+            groups.add(Group(host, constellationName(host), stars, FloatArray(stars.size) { 0.3f + dr.next() * 0.4f }))
+        }
+    }
+
+    /** A made-up constellation: a wandering line of stars with the odd branch, never too close together. */
+    private fun shape(host: String, n: Int): Array<FloatArray> {
+        val r = Rng(hash(host))
+        val pts = ArrayList<FloatArray>() // x, y (dp), parent
+        val ang = ArrayList<Float>()
+        for (k in 0 until n) {
+            if (k == 0) { pts.add(floatArrayOf(0f, 0f, -1f)); ang.add(r.next() * 6.283f); continue }
+            var ok: FloatArray? = null; var okA = 0f
+            var tries = 0
+            while (tries < 24 && ok == null) {
+                val parent = if (k >= 3 && r.next() < 0.3f) (r.next() * k).toInt().coerceAtMost(k - 1) else k - 1
+                val a = ang[parent] + (r.next() - 0.5f) * 1.7f
+                val l = 58f + r.next() * 34f
+                val x = pts[parent][0] + cos(a) * l; val y = pts[parent][1] + sin(a) * l
+                val lim = 95f + tries * 6f
+                if (hypot(x, y) <= lim && pts.all { hypot(it[0] - x, it[1] - y) >= 48f }) { ok = floatArrayOf(x, y, parent.toFloat()); okA = a }
+                tries++
+            }
+            if (ok == null) { val a = r.next() * 6.283f; ok = floatArrayOf(pts[k - 1][0] + cos(a) * 60f, pts[k - 1][1] + sin(a) * 60f, (k - 1).toFloat()); okA = a }
+            pts.add(ok); ang.add(okA)
+        }
+        return pts.toTypedArray()
+    }
+
+    // ------------------------------------------------------------------ the view
+    private fun bounds(): FloatArray {
+        val m = px(70f)
+        var minX = -m; var maxX = worldW * zoom - width + m
+        var minY = -m; var maxY = worldH * zoom - height + m
+        if (maxX < minX) { val c = (worldW * zoom - width) / 2f; minX = c; maxX = c }
+        if (maxY < minY) { val c = (worldH * zoom - height) / 2f; minY = c; maxY = c }
+        return floatArrayOf(minX, maxX, minY, maxY)
+    }
+
+    private fun moveTo(x: Float, y: Float) {
+        val (minX, maxX, minY, maxY) = bounds()
+        vx = x.coerceIn(minX, maxX); vy = y.coerceIn(minY, maxY)
+        onMove(vx, vy)
+        invalidate()
+    }
+
+    private fun screenOf(s: StarPt) = Pair(s.x * zoom - vx, s.y * zoom - vy)
+
+    private fun glideTo(s: StarPt) {
+        glide?.cancel(); scroller.forceFinished(true)
+        val fx = vx; val fy = vy
+        val tx = s.x * zoom - width / 2f; val ty = s.y * zoom - height * 0.45f
+        glide = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 520; interpolator = DecelerateInterpolator(1.6f)
+            addUpdateListener { val t = it.animatedValue as Float; moveTo(fx + (tx - fx) * t, fy + (ty - fy) * t) }
+            start()
+        }
+    }
+
+    private fun place() {
+        placed = true
+        val c = current()
+        if (c != null) moveTo(c.x * zoom - width / 2f, c.y * zoom - height * 0.45f) else moveTo((worldW - width) / 2f, (worldH - height) / 2f)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) { if (!placed && items.isNotEmpty()) place() else moveTo(vx, vy) }
+
+    override fun computeScroll() {
+        if (scroller.computeScrollOffset()) { moveTo(scroller.currX.toFloat(), scroller.currY.toFloat()); postInvalidateOnAnimation() }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(e: MotionEvent): Boolean {
+        pinch.onTouchEvent(e)
+        if (!pinch.isInProgress) gestures.onTouchEvent(e)
+        return true
+    }
+
+    private fun starAt(x: Float, y: Float): StarPt? {
+        var best: StarPt? = null; var bd = px(30f)
+        groups.forEach { g -> g.stars.forEach { s -> val (sx, sy) = screenOf(s); val dd = hypot(sx - x, sy - y); if (dd < bd) { bd = dd; best = s } } }
+        return best
+    }
+
+    /** where the arrow for a new star off the screen sits (or null if it's on the screen) */
+    private fun arrowFor(s: StarPt): FloatArray? {
+        val (sx, sy) = screenOf(s)
+        val inset = px(26f)
+        if (sx in inset..(width - inset) && sy in inset..(height - inset)) return null
+        val cx = width / 2f; val cy = height / 2f
+        val a = atan2(sy - cy, sx - cx)
+        val ax = (cx + cos(a) * width).coerceIn(inset, width - inset)
+        val ay = (cy + sin(a) * height).coerceIn(inset, height - inset)
+        return floatArrayOf(ax, ay, a)
+    }
+
+    private fun arrowHit(x: Float, y: Float): StarPt? = groups.flatMap { it.stars }.filter { it.item.fresh }.firstOrNull { s ->
+        val a = arrowFor(s); a != null && hypot(a[0] - x, a[1] - y) < px(30f)
+    }
+
+    // ------------------------------------------------------------------ drawing
+    override fun onDraw(c: Canvas) {
+        val now = SystemClock.uptimeMillis()
+        val appear = ((now - born - SpaceSky.WARP * 0.55f) / 380f).coerceIn(0f, 1f)
+        if (appear <= 0f) { postInvalidateOnAnimation(); return }
+        var busy = appear < 1f || fading >= 0
+        val pulse = 0.6f + 0.4f * sin(now / 260f)
+        c.save()
+        c.translate(-vx, -vy); c.scale(zoom, zoom)
+        val dash = DashPathEffect(floatArrayOf(px(1.5f), px(4f)), 0f)
+        line.pathEffect = dash
+        val rx0 = vx / zoom - px(160f); val rx1 = (vx + width) / zoom + px(160f)
+        val ry0 = vy / zoom - px(160f); val ry1 = (vy + height) / zoom + px(160f)
+        for (g in groups) {
+            val gx = g.stars.first().x; val gy = g.stars.first().y
+            if (gx < rx0 - px(150f) || gx > rx1 + px(150f) || gy < ry0 - px(150f) || gy > ry1 + px(150f)) continue
+            val gAlpha = appear * (if (query.isEmpty() || g.stars.any { isMatch(it) }) 1f else 0.25f)
+            // dotted lines and a little star dust along them
+            g.stars.forEachIndexed { k, s ->
+                if (s.parent < 0) return@forEachIndexed
+                val p = g.stars[s.parent]
+                val a = gAlpha * starAlpha(s, now) * starAlpha(p, now)
+                line.alpha = (140 * a).toInt(); c.drawLine(p.x, p.y, s.x, s.y, line)
+                val t = g.bits[k]
+                dust.alpha = (180 * a).toInt(); c.drawCircle(p.x + (s.x - p.x) * t, p.y + (s.y - p.y) * t, px(0.9f), dust)
+            }
+            // the stars
+            for (s in g.stars) {
+                val a = gAlpha * starAlpha(s, now) * (if (isMatch(s)) 1f else 0.3f)
+                if (a <= 0.01f) continue
+                val size = px(if (s.item.current) 3.4f else 2.4f) * (if (s.item.index == fading) 1f - fadeT else 1f)
+                glow.shader = if (s.item.current) glowWarm else glowCool
+                c.save(); c.translate(s.x, s.y); c.scale(size * 4f, size * 4f); glow.alpha = (255 * a).toInt(); c.drawCircle(0f, 0f, 1f, glow); c.restore()
+                c.save(); c.translate(s.x, s.y); c.scale(size * 2.6f, size * 2.6f); core.alpha = (255 * a).toInt(); c.drawPath(sparkle, core); c.restore()
+                if (s.item.current) { ring.color = MainActivity.CREAM; ring.alpha = (255 * a).toInt(); c.drawCircle(s.x, s.y, px(15f), ring) }
+                if (s.item.fresh) { ring.color = 0xFFD66042.toInt(); ring.alpha = (230 * a * pulse).toInt(); c.drawCircle(s.x, s.y, px(15f), ring); busy = true }
+                tStar.color = if (s.item.current) 0xFFFFF8EC.toInt() else 0x9EECE8E1.toInt()
+                tStar.alpha = (tStar.alpha * a).toInt()
+                c.drawText(s.label, s.x, s.y + px(28f), tStar)
+            }
+            // the constellation's name, above its highest star
+            val top = g.stars.minOf { it.y }; val mid = g.stars.sumOf { it.x.toDouble() }.toFloat() / g.stars.size
+            tName.alpha = (230 * gAlpha).toInt()
+            c.drawText(g.name, mid, top - px(24f), tName)
+        }
+        c.restore()
+
+        // new tabs flying in as shooting stars
+        for ((idx, t0) in arrivals.toList()) {
+            val s = star(idx)
+            if (s == null) { arrivals.remove(idx); continue }
+            val p = (now - t0) / 700f
+            if (p < 0f) { busy = true; continue }
+            if (p >= 1f) { arrivals.remove(idx); continue }
+            busy = true
+            val (sx, sy) = screenOf(s)
+            val ang = -PI.toFloat() * 0.78f
+            val run = px(260f) * (1f - p)
+            val hx = sx + cos(ang) * run; val hy = sy + sin(ang) * run
+            val len = px(110f) * (1f - p * 0.6f)
+            trail.shader = android.graphics.LinearGradient(hx, hy, hx + cos(ang) * len, hy + sin(ang) * len, 0xF2FFF8EC.toInt(), 0x00FFF8EC, Shader.TileMode.CLAMP)
+            trail.strokeWidth = px(1.6f)
+            c.drawLine(hx, hy, hx + cos(ang) * len, hy + sin(ang) * len, trail)
+            trail.shader = null
+        }
+
+        // arrows to new tabs that are somewhere off the screen: look around to find them
+        for (g in groups) for (s in g.stars) {
+            if (!s.item.fresh) continue
+            val a = arrowFor(s) ?: continue
+            busy = true
+            c.save(); c.translate(a[0], a[1]); c.rotate((a[2] * 180 / PI).toFloat())
+            arrow.alpha = (242 * appear).toInt()
+            val tri = Path().apply { moveTo(px(10f), 0f); lineTo(-px(4f), -px(8f)); lineTo(-px(4f), px(8f)); close() }
+            c.drawPath(tri, arrow)
+            arrow.alpha = (242 * appear * pulse).toInt()
+            c.drawCircle(-px(12f), 0f, px(3f), arrow)
+            c.restore()
+            tNew.alpha = (230 * appear).toInt()
+            c.drawText("NEW", a[0] - cos(a[2]) * px(12f), a[1] - sin(a[2]) * px(12f) + px(20f), tNew)
+        }
+
+        if (busy) postInvalidateOnAnimation() else postInvalidateDelayed(80)
+    }
+
+    /** a new star only shows once its shooting star has arrived */
+    private fun starAlpha(s: StarPt, now: Long): Float {
+        val t0 = arrivals[s.item.index] ?: return 1f
+        return ((now - t0 - 560) / 200f).coerceIn(0f, 1f)
+    }
+}

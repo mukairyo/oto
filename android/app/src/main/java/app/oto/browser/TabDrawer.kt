@@ -4,53 +4,39 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.Path
-import android.graphics.Rect
-import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.Editable
-import android.text.TextPaint
 import android.text.TextUtils
 import android.text.TextWatcher
-import android.util.TypedValue
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
-import android.view.ViewConfiguration
 import android.view.ViewGroup
-import android.view.animation.DecelerateInterpolator
-import android.view.animation.OvershootInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
-import kotlin.math.abs
 import kotlin.math.max
-import kotlin.math.min
 
-/** One folder in the tab window. */
+/** One tab in the tab window. */
 class DrawerItem(
     val index: Int,
     val title: String,
     val host: String,
     var thumb: Bitmap?,
     val current: Boolean,
-    /** opened behind and not looked at yet: a small "new" mark on its label */
+    /** opened behind and not looked at yet: a red ring, and an arrow points to it until you've found it */
     val fresh: Boolean,
-    /** arrived since the window was last open: it drops into the drawer */
+    /** arrived since the window was last open: it flies in as a shooting star */
     val drop: Boolean,
 )
 
 /**
- * The tab window, like the space overview window on Oto for Windows: a search box on top and every open tab below.
- * The tabs stand in a drawer like hanging file folders, each with the page's name on its label; the ones further back
- * are a little smaller and darker, and new tabs drop in at their place. Tap a folder to open it, swipe it sideways
- * (or tap ×) to close it.
+ * The tab window, like the space overview window on Oto for Windows: a search box on top and every open tab below,
+ * here as a star map in the same space as the Oto website (see [StarMap] and [SpaceSky]). Opening it comes out of warp.
  */
 @SuppressLint("ViewConstructor")
 class TabDrawer(
@@ -62,29 +48,14 @@ class TabDrawer(
 ) : LinearLayout(ctx) {
 
     private val d = resources.displayMetrics.density
-    private fun px(v: Float) = v * d
     private fun pxi(v: Int) = (v * d).toInt()
-    private fun sp(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, v, resources.displayMetrics)
 
-    // folder geometry (dp)
-    private val folderH = px(232f)
-    private val step = px(94f)       // how much of each folder behind shows
-    private val labelH = px(24f)
-    private val hookRoom = px(14f)
-    private val flapTop = labelH + px(16f)
-    private val padTop = px(18f)
-    private val padBottom = px(28f)
-
-    private var all: List<DrawerItem> = emptyList()
-    private var query = ""
-    private var first = true
     private val sky = SpaceSky(ctx)
-    private val folders = ArrayList<Folder>()
-
     private val count: TextView
     private val search: EditText
-    private val scroll: ScrollView
-    private val stack: Stack
+    private val mapBox: FrameLayout
+    private val map: StarMap
+    private var card: View? = null
 
     init {
         orientation = LinearLayout.VERTICAL
@@ -100,7 +71,12 @@ class TabDrawer(
         head.addView(count)
         addView(head)
 
-        // find a tab, like "Find a tab in any space…" on Windows
+        map = StarMap(ctx,
+            onOpen = { i -> dismissCard(); onOpen(i) },
+            onHold = { item, x, y -> showCard(item, x, y) },
+            onMove = { x, y -> sky.offX = x * 0.15f; sky.offY = y * 0.15f; invalidate() })
+
+        // find a tab, like "Find a tab in any space…" on Windows: the sky flies to it
         search = EditText(ctx).apply {
             hint = "Find a tab…"; textSize = 14f; setTextColor(MainActivity.FG); setHintTextColor(MainActivity.FG3)
             isSingleLine = true; imeOptions = EditorInfo.IME_ACTION_GO
@@ -110,23 +86,28 @@ class TabDrawer(
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
                 override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-                override fun afterTextChanged(s: Editable?) { query = s?.toString()?.trim() ?: ""; paint(-1, false) }
+                override fun afterTextChanged(s: Editable?) { map.search(s?.toString() ?: "") }
             })
-            setOnEditorActionListener { _, _, _ -> folders.firstOrNull()?.let { onOpen(it.item.index) }; true }
+            setOnEditorActionListener { _, _, _ -> map.firstMatch()?.let { onOpen(it.index) }; true }
         }
         addView(search, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, pxi(42)))
 
-        stack = Stack(ctx)
-        scroll = ScrollView(ctx).apply { isVerticalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER; isFillViewport = true; addView(stack) }
-        // the stars drift a little as you scroll, like on the website
-        scroll.setOnScrollChangeListener { _, _, y, _, _ -> sky.scrollY = y.toFloat(); invalidate() }
-        addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { setMargins(0, pxi(6), 0, 0) })
+        mapBox = FrameLayout(ctx).apply { clipChildren = true }
+        mapBox.addView(map, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        // back to the tab you're on
+        mapBox.addView(TextView(ctx).apply {
+            text = "◎"; textSize = 18f; setTextColor(MainActivity.CREAM); gravity = Gravity.CENTER
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xB3030304.toInt()); setStroke(max(1, d.toInt()), MainActivity.LINE2) }
+            contentDescription = "Back to the tab you're on"
+            setOnClickListener { dismissCard(); map.home() }
+        }, FrameLayout.LayoutParams(pxi(40), pxi(40), Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, pxi(4), pxi(8)) })
+        addView(mapBox, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { setMargins(0, pxi(6), 0, 0) })
 
-        addView(mono("TAP TO OPEN  ·  SWIPE SIDEWAYS TO CLOSE", 9f, MainActivity.FG3, 0.18f).apply { gravity = Gravity.CENTER; setPadding(0, pxi(4), 0, pxi(10)) },
+        addView(mono("DRAG TO LOOK AROUND  ·  TAP A STAR  ·  HOLD TO CLOSE", 8.5f, MainActivity.FG3, 0.14f).apply { gravity = Gravity.CENTER; setPadding(0, pxi(6), 0, pxi(10)) },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         val btns = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
         btns.addView(button("Close", false) { onDismiss() }, LinearLayout.LayoutParams(0, pxi(40), 1f).apply { setMargins(0, 0, pxi(6), 0) })
-        btns.addView(button("+ New tab", true) { onNew() }, LinearLayout.LayoutParams(0, pxi(40), 1f))
+        btns.addView(button("+ New tab", true) { dismissCard(); onNew() }, LinearLayout.LayoutParams(0, pxi(40), 1f))
         addView(btns)
     }
 
@@ -140,255 +121,60 @@ class TabDrawer(
 
     override fun onDetachedFromWindow() { super.onDetachedFromWindow(); sky.release() }
 
-    /** Show these tabs. [removed]: the place a folder was just taken out of (the ones in front of it slide back). */
+    /** Show these tabs. [removed]: the tab that was just closed. */
     fun show(items: List<DrawerItem>, removed: Int = -1) {
-        all = items
         count.text = String.format("%02d", items.size)
-        paint(removed, first)
-        if (first) {
-            first = false
-            // open on the tab you're on
-            val ci = folders.indexOfFirst { it.item.current }
-            if (ci >= 0) scroll.post {
-                val top = padTop + ci * step
-                scroll.scrollTo(0, max(0, (top - scroll.height * 0.45f).toInt()))
-            }
-        }
+        map.show(items, removed)
     }
 
-    /** A fresh picture of a tab's page arrived. */
-    fun setThumb(index: Int, b: Bitmap) {
-        all.firstOrNull { it.index == index }?.thumb = b
-        folders.firstOrNull { it.item.index == index }?.invalidate()
-    }
+    /** A fresh picture of a tab's page arrived (shown when you hold its star). */
+    fun setThumb(index: Int, b: Bitmap) = map.setThumb(index, b)
 
     fun hideKeyboard() {
         (context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(search.windowToken, 0)
     }
 
-    private fun shown(): List<DrawerItem> {
-        if (query.isEmpty()) return all
-        val words = query.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
-        return all.filter { i -> val s = (i.title + " " + i.host).lowercase(); words.all { s.contains(it) } }
-    }
-
-    private fun paint(removed: Int, entering: Boolean) {
-        stack.removeAllViews(); folders.clear()
-        val list = shown()
-        val n = list.size
-        list.forEachIndexed { pos, item ->
-            val depth = n - 1 - pos
-            val f = Folder(item, pos)
-            val lp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, folderH.toInt()).apply { topMargin = (padTop + pos * step).toInt() }
-            stack.addView(f, lp)
-            folders.add(f)
-            val s = max(0.84f, 1f - 0.022f * depth)
-            f.scaleX = s; f.scaleY = s
-            f.dim = min(0.42f, 0.055f * depth)
-            when {
-                item.drop -> {
-                    // a new tab drops into its place in the drawer
-                    f.translationY = -step * 1.4f; f.alpha = 0f
-                    f.animate().translationY(0f).alpha(1f).setStartDelay(if (entering) SpaceSky.WARP else 60L).setDuration(460).setInterpolator(OvershootInterpolator(1.3f)).start()
-                }
-                entering -> {
-                    f.translationY = px(26f) + depth.coerceAtMost(6) * px(3f); f.alpha = 0f
-                    f.animate().translationY(0f).alpha(1f).setStartDelay(SpaceSky.WARP / 2 + min(pos, 10) * 22L).setDuration(240).setInterpolator(DecelerateInterpolator()).start()
-                }
-                removed >= 0 && item.index >= removed -> {
-                    f.translationY = step
-                    f.animate().translationY(0f).setDuration(220).setInterpolator(DecelerateInterpolator()).start()
-                }
-            }
+    // ------------------------------------------------------------------ hold a star: a small card with the page
+    private fun showCard(item: DrawerItem, x: Float, y: Float) {
+        dismissCard()
+        val holder = FrameLayout(context).apply { setOnClickListener { dismissCard() } } // tap anywhere else to put it away
+        val cw = pxi(232)
+        val panel = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL; isClickable = true
+            setPadding(pxi(10), pxi(10), pxi(10), pxi(10))
+            background = box(0xF0101012.toInt(), MainActivity.LINE2, 8)
         }
-        if (n == 0) stack.addView(mono(if (query.isEmpty()) "NO TABS" else "NO TAB MATCHES", 10f, MainActivity.FG3, 0.2f).apply { gravity = Gravity.CENTER },
-            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, pxi(120)))
-        stack.requestLayout(); stack.invalidate()
-    }
-
-    // ------------------------------------------------------------------ the drawer (rails the folders hang on)
-    private inner class Stack(ctx: Context) : FrameLayout(ctx) {
-        private val rail = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x1AE7DFD1; style = Paint.Style.STROKE; strokeWidth = px(6f); strokeCap = Paint.Cap.ROUND }
-        private val shine = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x66E7DFD1; style = Paint.Style.STROKE; strokeWidth = px(1.2f) }
-        private val floor = Paint().apply { color = 0x2E000000 }
-        init { setWillNotDraw(false); clipChildren = false; setPadding(0, 0, 0, padBottom.toInt()) }
-
-        override fun onDraw(c: Canvas) {
-            if (folders.isEmpty()) return
-            // the inside of the drawer
-            c.drawRoundRect(RectF(px(6f), 0f, width - px(6f), height.toFloat()), px(8f), px(8f), floor)
-            // two rails that run back into the drawer, through each folder's hooks
-            val l = Path(); val r = Path()
-            folders.forEachIndexed { i, f ->
-                val s = f.scaleY; val w = f.width.toFloat()
-                val y = f.top + (labelH + px(6f)) * s
-                val xl = w / 2f - (w / 2f - px(9f)) * s
-                val xr = w / 2f + (w / 2f - px(9f)) * s
-                if (i == 0) { l.moveTo(xl, 0f); r.moveTo(xr, 0f) }
-                l.lineTo(xl, y); r.lineTo(xr, y)
-                if (i == folders.size - 1) { l.lineTo(xl, height.toFloat()); r.lineTo(xr, height.toFloat()) }
-            }
-            c.drawPath(l, rail); c.drawPath(r, rail)
-            c.drawPath(l, shine); c.drawPath(r, shine)
+        item.thumb?.takeIf { !it.isRecycled }?.let { b ->
+            panel.addView(ImageView(context).apply {
+                setImageBitmap(b); scaleType = ImageView.ScaleType.MATRIX
+                imageMatrix = android.graphics.Matrix().apply { val s = (cw - pxi(20)).toFloat() / b.width; setScale(s, s) }
+                clipToOutline = true; outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+                background = box(0xFF000000.toInt(), MainActivity.LINE, 4)
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, pxi(120)).apply { setMargins(0, 0, 0, pxi(8)) })
+        }
+        panel.addView(TextView(context).apply {
+            text = item.title; textSize = 14f; setTextColor(MainActivity.FG); setTypeface(typeface, Typeface.BOLD)
+            maxLines = 2; ellipsize = TextUtils.TruncateAt.END
+        })
+        panel.addView(mono(item.host, 9f, MainActivity.FG3, 0.12f).apply { isAllCaps = false; setPadding(0, pxi(2), 0, pxi(10)) })
+        val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+        row.addView(button("Open", true) { dismissCard(); onOpen(item.index) }, LinearLayout.LayoutParams(0, pxi(34), 1f).apply { setMargins(0, 0, pxi(6), 0) })
+        row.addView(button("Close tab", false) { dismissCard(); map.fadeOut(item.index) { onClose(item.index) } }, LinearLayout.LayoutParams(0, pxi(34), 1f))
+        panel.addView(row)
+        holder.addView(panel, FrameLayout.LayoutParams(cw, ViewGroup.LayoutParams.WRAP_CONTENT))
+        mapBox.addView(holder, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        card = holder
+        panel.post {
+            // next to the star, kept on the screen
+            panel.x = (x - cw / 2f).coerceIn(pxi(4).toFloat(), (mapBox.width - cw - pxi(4)).toFloat().coerceAtLeast(0f))
+            val below = y + pxi(40)
+            panel.y = if (below + panel.height < mapBox.height - pxi(4)) below else (y - pxi(40) - panel.height).coerceAtLeast(pxi(4).toFloat())
+            panel.alpha = 0f; panel.scaleX = 0.94f; panel.scaleY = 0.94f
+            panel.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(140).start()
         }
     }
 
-    // ------------------------------------------------------------------ one hanging file folder
-    private inner class Folder(val item: DrawerItem, val pos: Int) : View(context) {
-        var dim = 0f
-        private val base = PALETTE[((item.host.hashCode() % PALETTE.size) + PALETTE.size) % PALETTE.size]
-        private val dark = luminance(base) < 0.55f
-        private val ink = if (dark) MainActivity.FG else MainActivity.INK
-        private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = px(1.5f) }
-        private val tLabel = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(8.5f); letterSpacing = 0.12f; color = MainActivity.INK }
-        private val tNum = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(10f); letterSpacing = 0.1f; color = ink; alpha = 150 }
-        private val tTitle = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); textSize = sp(16f); color = ink }
-        private val tHost = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(10f); letterSpacing = 0.08f; color = ink; alpha = 175 }
-        private val tBig = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL); textSize = sp(64f); color = ink; alpha = 46; textAlign = Paint.Align.CENTER }
-        private val tX = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = sp(20f); color = ink; alpha = 190; textAlign = Paint.Align.CENTER }
-        private val label = RectF()
-        // a few stars on the folder, always the same ones for a site
-        private val specks = FloatArray(30).also { a ->
-            var sd = (item.host.hashCode().toLong() and 0x7fffffffL) + 7
-            for (i in a.indices) { sd = (sd * 16807) % 2147483647; a[i] = sd / 2147483647f }
-        }
-        private val closeBox = RectF()
-        private val slop = ViewConfiguration.get(context).scaledTouchSlop
-        private var downX = 0f; private var downY = 0f; private var dragging = false; private var gone = false
-
-                override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
-            pivotX = w / 2f; pivotY = 0f
-            // the labels sit at different places along the top, like real hanging files
-            val lw = (w - hookRoom * 2) * 0.36f
-            val slots = floatArrayOf(0.06f, 0.33f, 0.60f)
-            val lx = hookRoom + (w - hookRoom * 2) * slots[pos % 3]
-            label.set(lx, 0f, min(lx + lw, w - hookRoom - px(4f)), labelH + px(6f))
-            closeBox.set(w - hookRoom - px(46f), flapTop, w - hookRoom, flapTop + px(42f))
-        }
-
-        override fun onDraw(c: Canvas) {
-            val w = width.toFloat(); val h = height.toFloat()
-            val left = hookRoom; val right = w - hookRoom
-            // hooks resting on the rails
-            fill.color = 0xFF1A1A1C.toInt()
-            c.drawRoundRect(px(2f), labelH + px(2f), left + px(10f), labelH + px(10f), px(2f), px(2f), fill)
-            c.drawRoundRect(right - px(10f), labelH + px(2f), w - px(2f), labelH + px(10f), px(2f), px(2f), fill)
-            // back flap
-            fill.color = shade(base, 0.78f)
-            c.drawRoundRect(left, labelH, right, h, px(5f), px(5f), fill)
-            // the label (clear plastic tab with a paper insert)
-            fill.color = 0xFF2A2A2C.toInt()
-            c.drawRoundRect(label.left - px(2f), label.top, label.right + px(2f), label.bottom + px(4f), px(3f), px(3f), fill)
-            fill.color = if (item.current) MainActivity.CREAM else 0xFFF3F0E9.toInt()
-            c.drawRoundRect(label.left, label.top + px(2f), label.right, label.bottom, px(2f), px(2f), fill)
-            var tx = label.left + px(7f)
-            if (item.fresh) { fill.color = 0xFFC4553B.toInt(); c.drawCircle(tx + px(3f), (label.top + label.bottom) / 2f + px(1f), px(3f), fill); tx += px(10f) }
-            val lt = TextUtils.ellipsize(item.title.uppercase(), tLabel, label.right - tx - px(6f), TextUtils.TruncateAt.END).toString()
-            c.drawText(lt, tx, (label.top + label.bottom) / 2f + tLabel.textSize * 0.38f + px(1f), tLabel)
-            // the pages inside
-            fill.color = 0xFFE9E2D3.toInt()
-            c.drawRect(left + px(10f), labelH + px(7f), right - px(14f), h, fill)
-            fill.color = 0xFFD3C6AA.toInt()
-            c.drawRect(left + px(22f), labelH + px(11f), right - px(30f), h, fill)
-            // front flap
-            fill.color = base
-            c.drawRoundRect(left, flapTop, right, h, px(4f), px(4f), fill)
-            fill.color = if (dark) 0x26FFFFFF else 0x40FFFFFF
-            c.drawRect(left + px(3f), flapTop, right - px(3f), flapTop + px(1f), fill)
-            fill.color = if (dark) 0xFFFFFAF2.toInt() else 0xFF2B2833.toInt()
-            for (i in 0 until 10) {
-                fill.alpha = (40 + specks[i * 3 + 2] * 90).toInt()
-                c.drawCircle(left + px(8f) + (right - left - px(16f)) * specks[i * 3], flapTop + px(6f) + (h - flapTop - px(12f)) * specks[i * 3 + 1], px(0.5f) + specks[i * 3 + 2] * px(0.8f), fill)
-            }
-            fill.alpha = 255
-            // number, name, site
-            val tx2 = left + px(14f)
-            // (kept in the top strip, so the label of the folder in front never covers them)
-            val num = String.format("%02d", item.index + 1)
-            c.drawText(num, tx2, flapTop + px(18f), tNum)
-            c.drawText("×", closeBox.centerX(), closeBox.centerY() + tX.textSize * 0.32f, tX)
-            val tw = right - tx2 - px(48f)
-            val hx = tx2 + tNum.measureText(num) + px(10f)
-            c.drawText(TextUtils.ellipsize(item.host, tHost, right - hx - px(48f), TextUtils.TruncateAt.END).toString(), hx, flapTop + px(18f), tHost)
-            c.drawText(TextUtils.ellipsize(item.title, tTitle, tw, TextUtils.TruncateAt.END).toString(), tx2, flapTop + px(42f), tTitle)
-            // a picture of the page (or the site's first letter until Oto has seen it)
-            val pic = RectF(left + px(12f), flapTop + px(56f), right - px(12f), h - px(12f))
-            if (pic.height() > px(20f)) {
-                val b = item.thumb
-                if (b != null && !b.isRecycled) {
-                    c.save()
-                    val clip = Path().apply { addRoundRect(pic, px(4f), px(4f), Path.Direction.CW) }
-                    c.clipPath(clip)
-                    val sc = pic.width() / b.width
-                    val srcH = min(b.height.toFloat(), pic.height() / sc)
-                    c.drawBitmap(b, Rect(0, 0, b.width, srcH.toInt()), RectF(pic.left, pic.top, pic.right, pic.top + srcH * sc), Paint(Paint.FILTER_BITMAP_FLAG))
-                    c.restore()
-                    stroke.color = 0x22000000; stroke.strokeWidth = px(1f)
-                    c.drawRoundRect(pic, px(4f), px(4f), stroke)
-                } else {
-                    fill.color = if (dark) 0x14FFFFFF else 0x14000000
-                    c.drawRoundRect(pic, px(4f), px(4f), fill)
-                    val letter = item.host.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "音"
-                    c.drawText(letter, pic.centerX(), pic.centerY() + tBig.textSize * 0.34f, tBig)
-                }
-            }
-            // the tab you're on
-            if (item.current) {
-                stroke.color = MainActivity.CREAM; stroke.strokeWidth = px(1.5f)
-                c.drawRoundRect(left + px(0.75f), flapTop + px(0.75f), right - px(0.75f), h - px(0.75f), px(4f), px(4f), stroke)
-            }
-            // further back in the drawer = darker
-            if (dim > 0f) {
-                fill.color = ((dim * 255).toInt() shl 24)
-                c.drawRoundRect(left, labelH, right, h, px(5f), px(5f), fill)
-                c.drawRoundRect(label.left - px(2f), label.top, label.right + px(2f), labelH, px(3f), px(3f), fill)
-            }
-        }
-
-        private fun hit(x: Float, y: Float) = (y >= labelH && x >= hookRoom && x <= width - hookRoom) || label.contains(x, y)
-
-        @SuppressLint("ClickableViewAccessibility")
-        override fun onTouchEvent(e: MotionEvent): Boolean {
-            if (gone) return false
-            when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    // the empty space beside the label belongs to the folder behind
-                    if (!hit(e.x, e.y)) return false
-                    downX = e.rawX; downY = e.rawY; dragging = false
-                    return true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = e.rawX - downX; val dy = e.rawY - downY
-                    if (!dragging && abs(dx) > slop && abs(dx) > abs(dy) * 1.2f) { dragging = true; parent.requestDisallowInterceptTouchEvent(true) }
-                    if (dragging) { translationX = dx; alpha = 1f - min(0.85f, abs(dx) / width) }
-                }
-                MotionEvent.ACTION_UP -> {
-                    val dx = e.rawX - downX; val dy = e.rawY - downY
-                    if (dragging) {
-                        if (abs(translationX) > width * 0.28f) takeOut(if (translationX > 0) 1f else -1f) else settle()
-                    } else if (abs(dx) < slop && abs(dy) < slop) {
-                        if (closeBox.contains(e.x, e.y)) takeOut(1f) else pullUp()
-                    }
-                    dragging = false
-                }
-                MotionEvent.ACTION_CANCEL -> { if (dragging) settle(); dragging = false }
-            }
-            return true
-        }
-
-        private fun settle() = animate().translationX(0f).alpha(1f).setDuration(180).setInterpolator(DecelerateInterpolator()).start()
-
-        private fun takeOut(dir: Float) {
-            gone = true
-            animate().translationX(dir * width).alpha(0f).setDuration(170).withEndAction { onClose(item.index) }.start()
-        }
-
-        private fun pullUp() {
-            gone = true
-            animate().translationY(-px(22f)).setDuration(130).setInterpolator(DecelerateInterpolator()).withEndAction { onOpen(item.index) }.start()
-        }
-    }
+    private fun dismissCard() { card?.let { mapBox.removeView(it) }; card = null }
 
     // ------------------------------------------------------------------ helpers
     private fun mono(text: String, size: Float, color: Int, spacing: Float) = TextView(context).apply {
@@ -404,20 +190,5 @@ class TabDrawer(
         gravity = Gravity.CENTER
         background = if (cream) box(MainActivity.CREAM, MainActivity.CREAM, 4) else box(0x00000000, MainActivity.LINE2, 4)
         setOnClickListener { onClick() }
-    }
-
-    companion object {
-        /** folder colours from the galaxy: nebula violet, deep teal, copper, night, dusk rose, starlight, moon (a site always gets the same one) */
-        private val PALETTE = intArrayOf(
-            0xFF5A4775.toInt(), 0xFF2E5666.toInt(), 0xFF8A5B3E.toInt(), 0xFF2B3040.toInt(),
-            0xFF7A4C5B.toInt(), 0xFFD9CDB5.toInt(), 0xFFA9A6A0.toInt(),
-        )
-
-        private fun luminance(c: Int): Float = (0.299f * ((c shr 16) and 255) + 0.587f * ((c shr 8) and 255) + 0.114f * (c and 255)) / 255f
-
-        private fun shade(c: Int, f: Float): Int {
-            val r = (((c shr 16) and 255) * f).toInt(); val g = (((c shr 8) and 255) * f).toInt(); val b = ((c and 255) * f).toInt()
-            return (0xFF shl 24) or (r shl 16) or (g shl 8) or b
-        }
     }
 }

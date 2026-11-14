@@ -45,8 +45,9 @@ class SpaceSky(private val ctx: Context) {
     private fun rnd(): Float { seed = (seed * 16807) % 2147483647; return seed / 2147483647f }
     private val rand = java.util.Random()
 
-    /** how far the list is scrolled (the starfield drifts with it, like the website) */
-    var scrollY = 0f
+    /** how far the starfield has drifted (it moves a little as you look around, like the website when you scroll) */
+    var offX = 0f
+    var offY = 0f
 
     // the site's shooting stars
     private var meteorAt = 0L
@@ -104,7 +105,7 @@ class SpaceSky(private val ctx: Context) {
             fieldA = min(1f, max(0f, (e - 0.55f) / 0.45f)) * min(1f, (now - fieldIn) / 300f)
             val sc = (1200f * d) / tb.width
             fieldMatrix.setScale(sc, sc)
-            fieldMatrix.postTranslate(0f, -min(scrollY, 20000f * d) * 0.035f)
+            fieldMatrix.postTranslate(-offX, -offY)
             field.shader?.setLocalMatrix(fieldMatrix)
             field.alpha = (255 * fieldA).toInt()
             if (fieldA > 0f) c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), field)

@@ -66,11 +66,11 @@ class Tab(var url: String, var title: String = "") {
     var unseen = false
     /** media Oto paused because the tab hadn't been opened yet (started when you open it) */
     var heldMedia: MediaSession? = null
-    /** a small picture of the page for its folder in the tab window (taken while you look at the tab) */
+    /** a small picture of the page, shown when you hold its star in the tab window (taken while you look at the tab) */
     var thumb: Bitmap? = null
-    /** opened behind and not looked at yet: a "new" mark on its folder's label */
+    /** opened behind and not looked at yet: a red ring on its star in the tab window */
     var fresh = false
-    /** already shown in the tab window (a new tab drops into the drawer the first time) */
+    /** already shown in the tab window (a new tab flies in as a shooting star the first time) */
     var dropped = true
 }
 
@@ -843,19 +843,19 @@ class MainActivity : AppCompatActivity() {
     }
     private fun drawerItems() = tabs.mapIndexed { i, t -> DrawerItem(i, tabTitle(t), tabHost(t), t.thumb, i == cur, t.fresh, !t.dropped) }
 
-    /** Every open tab as a hanging file folder in a drawer, with a search box on top. */
+    /** Every open tab as a star in a star map (the tabs of one site make a constellation), with a search box on top. */
     private fun showTabs() {
         closeSheet()
         val d = TabDrawer(this,
             onOpen = { i -> closeSheet(); select(i) },
             onClose = { i -> closeTab(i); drawer?.show(drawerItems(), removed = i) },
             onNew = {
-                // the new tab drops into the drawer, then opens
+                // the new tab flies into the sky as a shooting star, then opens
                 val t = Tab(NEWTAB).also { it.dropped = false }
                 tabs.add(t)
                 drawer?.show(drawerItems()); t.dropped = true
                 refreshBar()
-                root.postDelayed({ val i = tabs.indexOf(t); if (i >= 0) { closeSheet(); select(i) } }, 560)
+                root.postDelayed({ val i = tabs.indexOf(t); if (i >= 0 && drawer != null) { closeSheet(); select(i) } }, 1150)
             },
             onDismiss = { closeSheet() })
         drawer = d
@@ -870,7 +870,7 @@ class MainActivity : AppCompatActivity() {
 
     private val thumbSoon = Runnable { if (sheet == null) captureThumb(null) }
 
-    /** Take a small picture of the page on screen for its folder (only the top of the page, kept small). */
+    /** Take a small picture of the page on screen for its star (only the top of the page, kept small). */
     private fun captureThumb(then: ((Tab, Bitmap) -> Unit)?) {
         val t = current() ?: return
         try {
