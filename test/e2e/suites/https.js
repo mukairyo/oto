@@ -5,8 +5,9 @@ module.exports = async (t) => {
   const err = await t.js('JSON.stringify(V.get(activeTab().id).error || null)');
   t.check('a site with an untrusted certificate shows the certificate warning', /CERT/.test(err), err);
   for (const [label, url] of [['direct', 'http://evil.site/'], ['trailing dot', 'http://evil.site./'], ['uppercase', 'http://EVIL.SITE/'], ['redirect', 'http://fine.site/go?to=http%3A%2F%2Fevil.site%2F']]) {
-    await t.open(url, 3000);
-    const e = await t.js('JSON.stringify(V.get(activeTab().id).error || null)');
+    await t.open(url, 1500);
+    let e = 'null';
+    for (let i = 0; i < 26 && !/"code":"danger"/.test(e); i++) { e = await t.js('JSON.stringify(V.get(activeTab().id).error || null)'); if (!/"code":"danger"/.test(e)) await t.sleep(250); } // up to ~8 s: a slow machine can take seconds to open a tab
     const why = /"code":"danger"/.test(e) ? e : await t.js('JSON.stringify({ err: V.get(activeTab().id).error || null, wv: V.get(activeTab().id).wv.getURL(), loading: V.get(activeTab().id).wv.isLoading(), tab: activeTab().url, tabs: S.tabs.length })');
     t.check(`a dangerous site is blocked (${label})`, /"code":"danger"/.test(e), why);
   }

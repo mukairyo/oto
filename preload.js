@@ -90,6 +90,9 @@ contextBridge.exposeInMainWorld('oto', {
   // extensions
   extTabReady: (id, wcId) => ipcRenderer.send('ext:tab-ready', id, wcId),
   extActive: (wcId) => ipcRenderer.send('ext:active', wcId),
+  // a tab opened in the background: the next page view Oto creates holds its videos until tabSeen(its id)
+  holdNextTab: () => ipcRenderer.sendSync('tab:hold-next'),
+  tabSeen: (wcId) => ipcRenderer.send('tab:seen', wcId),
   extList: () => ipcRenderer.invoke('ext:list'),
   extInstallFile: () => ipcRenderer.invoke('ext:install-file'),
   extLoadFolder: () => ipcRenderer.invoke('ext:load-folder'),

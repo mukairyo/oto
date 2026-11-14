@@ -293,7 +293,7 @@ function guardWebContent(contents, tab) {
     }
     // The window the tab lives in, found when the content was set up: if it has closed since (say a private window), the
     // link isn't moved into another window.
-    if (via && !via.isDestroyed()) sendVia(via, 'tab:open', { url, background: disposition === 'background-tab' });
+    if (via && !via.isDestroyed()) sendVia(via, 'tab:open', { url, background: disposition === 'background-tab', link: true });
     return { action: 'deny' };
   });
   // A popup is a window of its own, so it gets the same rules (and the popups it opens, too), and its title bar always
@@ -512,7 +512,7 @@ function ctxAction(act, arg) {
     case 'back': return wc.navigationHistory.goBack();
     case 'forward': return wc.navigationHistory.goForward();
     case 'reload': return wc.reload();
-    case 'openTab': return open(p.linkURL, false);
+    case 'openTab': return send('tab:open', { url: p.linkURL, background: false, link: true });
     case 'openBg': return open(p.linkURL, true);
     case 'copyLink': return clipboard.writeText(p.linkURL);
     case 'copyText': return clipboard.writeText(String(arg || ''));
@@ -539,7 +539,7 @@ function showNativeContextMenu(wc, p) {
   const sep = { type: 'separator' };
   if (p.linkURL) {
     t.push(
-      { label: 'Open link in new tab', click: () => open(p.linkURL, false) },
+      { label: 'Open link in new tab', click: () => send('tab:open', { url: p.linkURL, background: false, link: true }) },
       { label: 'Open link in background tab', click: () => open(p.linkURL, true) },
       { label: 'Open link in Glance', click: () => send('glance', p.linkURL) },
       { label: 'Copy link address', click: () => clipboard.writeText(p.linkURL) },
@@ -1175,9 +1175,27 @@ function setupIPC(ses) {
     if (perm === 'cookies' && val === false && origin !== '*') await eachBrowsingSession((ses) => ses.clearStorageData({ origin, storages: ['cookies'] }));
     return perms;
   });
+  // Tabs opened in the background: their videos wait until you open the tab. The window says "the next page view I
+  // create is a background tab" (tab:hold-next) right before creating it; that view is marked when it appears, its
+  // pages hold their media (page-preload.js), and tab:seen lets them go. A mark not used within 10 s is dropped.
+  const holdNext = [];
+  const unseen = new WeakSet();
+  ipcMain.on('tab:hold-next', (e) => { holdNext.push(Date.now()); if (holdNext.length > 20) holdNext.shift(); e.returnValue = true; });
+  app.on('web-contents-created', (_e, contents) => {
+    if (contents.getType() !== 'webview') return;
+    while (holdNext.length && Date.now() - holdNext[0] > 10000) holdNext.shift();
+    if (holdNext.length) { holdNext.shift(); unseen.add(contents); }
+  });
+  ipcMain.on('tab:seen', (_e, wcId) => {
+    let wc = null;
+    try { wc = webContents.fromId(wcId); } catch {}
+    if (!wc || wc.isDestroyed() || !unseen.has(wc)) return;
+    unseen.delete(wc);
+    try { for (const f of wc.mainFrame.framesInSubtree) { try { f.send('oto:shown'); } catch {} } } catch {}
+  });
   // page-preload.js asks this once per page: should media wait for a click, and may this frame write cookies?
   ipcMain.on('oto:page', (e, frameOrigin) => {
-    const r = { autoplay: false, cookies: false, fp: 0, fpStrict: false, yt: false };
+    const r = { autoplay: false, cookies: false, fp: 0, fpStrict: false, yt: false, hold: unseen.has(e.sender) };
     // YouTube (also its players embedded on other sites): strip the ads out of the player's data before it reads it,
     // so the player never waits for an ad Oto blocked (that left an empty player until you reloaded).
     try {

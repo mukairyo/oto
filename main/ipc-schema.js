@@ -23,6 +23,8 @@ const SCHEMAS = {
   'pw:fillInto': [int, str(128)],
   'pw:forOrigin': [URL_],
   'pw:export': [], 'pw:import': [], 'pw:list': [], 'pw:status': [],
+  // tabs opened in the background (their videos wait until the tab is opened)
+  'tab:hold-next': [], 'tab:seen': [int],
   // permissions and site data
   'perm:set': [str(9000), permVal],
   'perm:reply': [id, permVal],

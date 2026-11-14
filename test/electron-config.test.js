@@ -116,7 +116,9 @@ test('the page preload for websites only asks fixed, flags-only questions', () =
   const pp = read('page-preload.js');
   const calls = pp.match(/ipcRenderer\.\w+\(\s*'[^']+'/g) || [];
   // oto:page from pages and frames; oto:worker from service workers only (a number: the per-site fingerprint seed)
-  assert.deepStrictEqual([...new Set(calls)], ["ipcRenderer.sendSync('oto:page'", "ipcRenderer.sendSync('oto:worker'"]);
+  assert.deepStrictEqual([...new Set(calls)], ["ipcRenderer.sendSync('oto:page'", "ipcRenderer.once('oto:shown'", "ipcRenderer.sendSync('oto:worker'"]);
+  // the one message a page can receive: "this background tab was opened" (1.6.7), with no data in it
+  assert.match(pp, /ipcRenderer\.once\('oto:shown', \(\) => /);
   assert.doesNotMatch(pp, /exposeInMainWorld/, 'websites get no Oto API');
   // oto:worker is answered only on a service worker's own channel, never to pages or frames
   assert.doesNotMatch(main, /ipcMain\.(on|handle)\(\s*'oto:worker'/);

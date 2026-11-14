@@ -81,7 +81,35 @@ if (inPage) try {
     };
     run(hold);
   }
+  // A tab opened in the background: its videos wait until you open the tab (main.js says when).
+  if (site.hold) {
+    run(otoHoldMedia);
+    ipcRenderer.once('oto:shown', () => run(() => { try { window.dispatchEvent(new Event('oto-shown')); } catch (e) {} }));
+  }
 } catch {}
+
+// Runs in the page of a tab opened in the background. play() waits (its promise stays open) instead of failing, so
+// players don't fall back to muted autoplay or show an error; media that starts by itself is paused. When the tab is
+// opened, everything that wanted to play starts.
+function otoHoldMedia() {
+  const P = HTMLMediaElement.prototype, play = P.play;
+  let held = true;
+  const waiting = [];
+  const paused = new Set();
+  P.play = function () {
+    if (!held) return play.apply(this, arguments);
+    const m = this;
+    return new Promise((resolve, reject) => waiting.push([m, resolve, reject]));
+  };
+  document.addEventListener('play', (e) => { const m = e.target; if (held && m && typeof m.pause === 'function') { paused.add(m); try { m.pause(); } catch (err) {} } }, true);
+  window.addEventListener('oto-shown', () => {
+    if (!held) return;
+    held = false;
+    for (const [m, resolve, reject] of waiting.splice(0)) { paused.delete(m); try { play.call(m).then(resolve, reject); } catch (err) { reject(err); } }
+    for (const m of paused) { try { if (m.isConnected && m.paused) play.call(m).catch(() => {}); } catch (err) {} }
+    paused.clear();
+  });
+}
 
 // Runs in the page. `seed` is per site and per session (main.js). Changes are tiny (a few lowest bits) and
 // always the same for the same picture or sound on the same site, so pages still work and look right.

@@ -5,6 +5,10 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 
 ## 1.6.7 — 2026-11-14
 
+**New**
+- **Links open in the background.** A link that opens a new tab (a video opened in a new tab, a link that opens elsewhere, right-click → Open link in new tab) now opens behind the tab you're on, so you stay where you are. You can switch it off in Settings › Tabs.
+- **Videos wait until you open their tab.** A video in a tab opened in the background doesn't start playing by itself; it starts when you switch to that tab. Also in Settings › Tabs.
+
 **Fixed**
 - **YouTube hover previews** in the list next to a video now play right on top of their thumbnail. With the ambient light on, they used to appear too low. The glow now lies under the page, so YouTube's own layout stays exactly as YouTube makes it.
 - **No white flash on new tabs** in dark mode: a new tab (or a video opened in a new tab) waits on a dark background while the page loads, instead of white. Pages without a background of their own still get the usual white once loaded.

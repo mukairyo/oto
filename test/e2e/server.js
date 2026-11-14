@@ -182,6 +182,10 @@ window.__playerClicks = 0; document.getElementById('movie_player').addEventListe
   }
   if (url.pathname === '/echo-lang') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end(String(req.headers['accept-language'] || '')); }
   if (url.pathname === '/fpworker.js') { res.writeHead(200, { 'Content-Type': 'text/javascript' }); return res.end(FP_WORKER); }
+  if (url.pathname === '/links') { // a link that opens a video page in a new tab
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    return res.end('<!doctype html><title>Links</title><body><a id="nt" href="http://yt.site/watch" target="_blank">video in a new tab</a></body>');
+  }
   if (url.pathname === '/slow-dark') { // a dark page that takes 2 s to arrive (what shows behind a new tab meanwhile)
     return setTimeout(() => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end('<!doctype html><html style="background:#0f0f0f;color:#eee"><title>Dark</title><body>dark page</body></html>'); }, 2000);
   }

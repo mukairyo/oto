@@ -495,7 +495,7 @@ function mapWebContents(tab, v) {
   wcToTab.set(id, tab.id);
   if (earlyBlocked.has(id)) { v.blocked += earlyBlocked.get(id); earlyBlocked.delete(id); }
   if (tab.extReq) { oto.extTabReady(tab.extReq, id); delete tab.extReq; }
-  if (S.active[S.activeWs] === tab.id) oto.extActive(id);
+  if (S.active[S.activeWs] === tab.id) { oto.extActive(id); oto.tabSeen(id); }
   // The red warning can arrive before this tab is linked to its page (a new tab on a slow PC): show it now.
   if (typeof SHP_DANGER !== 'undefined' && SHP_DANGER.has(id) && dangerShow(tab, v, '')) { render(); if (S.active[S.activeWs] === tab.id) updateChrome(); }
 }
@@ -623,6 +623,8 @@ function newTab(url, { background = false, opener = null } = {}) {
   if (opener && opener.id) openerOf.set(tab.id, opener.id);
   justOpened = tab.id;
   if (background) {
+    // its videos wait until you open the tab (main.js marks the page this view gets; page-preload.js holds them)
+    if (S.settings.holdBackgroundMedia !== false) { try { oto.holdNextTab(); } catch {} }
     ensureView(tab);
     render();
     toast(`Opened in background — ${hostOf(url) || url}`, { icon: 'tab', timeout: 1800 });
@@ -652,7 +654,7 @@ function activate(id, { focus = true } = {}) {
   render();
   updateChrome();
   if (focus) setTimeout(() => focusView(v), 0);
-  if (v.wcId) oto.extActive(v.wcId);
+  if (v.wcId) { oto.extActive(v.wcId); oto.tabSeen(v.wcId); }
   save();
 }
 
@@ -2012,9 +2014,11 @@ function wire() {
     const fn = CMDS[name];
     if (fn) fn();
   });
-  oto.on('tab:open', ({ url, background }) => {
+  // `link`: a link from a page (opens in a new tab, or right-click → Open link in new tab). Those open behind the tab
+  // you're on unless "Links open in the background" is off.
+  oto.on('tab:open', ({ url, background, link }) => {
     if (!url) return;
-    routedOpen(url, { background, opener: activeTab() });
+    routedOpen(url, { background: !!background || (!!link && S.settings.linksInBackground !== false), opener: activeTab() });
   });
   oto.on('search', (text) => newTab(searchUrl(text), { opener: activeTab() }));
   oto.on('download-tab', (wcId) => {
