@@ -78,6 +78,7 @@ class TabDrawer(
     private var all: List<DrawerItem> = emptyList()
     private var query = ""
     private var first = true
+    private val sky = SpaceSky(d)
     private val folders = ArrayList<Folder>()
 
     private val count: TextView
@@ -87,7 +88,7 @@ class TabDrawer(
 
     init {
         orientation = LinearLayout.VERTICAL
-        setBackgroundColor(MainActivity.BG)
+        setWillNotDraw(false)
         isClickable = true
         setPadding(pxi(14), pxi(16), pxi(14), pxi(12))
 
@@ -105,7 +106,7 @@ class TabDrawer(
             isSingleLine = true; imeOptions = EditorInfo.IME_ACTION_GO
             inputType = EditorInfo.TYPE_CLASS_TEXT or EditorInfo.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             setPadding(pxi(14), 0, pxi(14), 0)
-            background = box(0x08FFFFFF, MainActivity.LINE2, 6)
+            background = box(0x99070708.toInt(), MainActivity.LINE2, 6)
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
                 override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -125,6 +126,14 @@ class TabDrawer(
         btns.addView(button("Close", false) { onDismiss() }, LinearLayout.LayoutParams(0, pxi(40), 1f).apply { setMargins(0, 0, pxi(6), 0) })
         btns.addView(button("+ New tab", true) { onNew() }, LinearLayout.LayoutParams(0, pxi(40), 1f))
         addView(btns)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) { super.onSizeChanged(w, h, ow, oh); sky.size(w, h) }
+
+    override fun onDraw(c: Canvas) {
+        val fast = sky.draw(c)
+        super.onDraw(c)
+        if (fast) postInvalidateOnAnimation() else postInvalidateDelayed(50)
     }
 
     /** Show these tabs. [removed]: the place a folder was just taken out of (the ones in front of it slide back). */
@@ -176,11 +185,11 @@ class TabDrawer(
                 item.drop -> {
                     // a new tab drops into its place in the drawer
                     f.translationY = -step * 1.4f; f.alpha = 0f
-                    f.animate().translationY(0f).alpha(1f).setStartDelay(if (entering) 260L else 60L).setDuration(460).setInterpolator(OvershootInterpolator(1.3f)).start()
+                    f.animate().translationY(0f).alpha(1f).setStartDelay(if (entering) SpaceSky.WARP else 60L).setDuration(460).setInterpolator(OvershootInterpolator(1.3f)).start()
                 }
                 entering -> {
                     f.translationY = px(26f) + depth.coerceAtMost(6) * px(3f); f.alpha = 0f
-                    f.animate().translationY(0f).alpha(1f).setStartDelay(min(pos, 10) * 16L).setDuration(240).setInterpolator(DecelerateInterpolator()).start()
+                    f.animate().translationY(0f).alpha(1f).setStartDelay(SpaceSky.WARP / 2 + min(pos, 10) * 22L).setDuration(240).setInterpolator(DecelerateInterpolator()).start()
                 }
                 removed >= 0 && item.index >= removed -> {
                     f.translationY = step
@@ -195,9 +204,9 @@ class TabDrawer(
 
     // ------------------------------------------------------------------ the drawer (rails the folders hang on)
     private inner class Stack(ctx: Context) : FrameLayout(ctx) {
-        private val rail = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF2B2B2F.toInt(); style = Paint.Style.STROKE; strokeWidth = px(3f); strokeCap = Paint.Cap.ROUND }
-        private val shine = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x1FFFFFFF; style = Paint.Style.STROKE; strokeWidth = px(1f) }
-        private val floor = Paint().apply { color = 0xFF0F0F11.toInt() }
+        private val rail = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x1AE7DFD1; style = Paint.Style.STROKE; strokeWidth = px(6f); strokeCap = Paint.Cap.ROUND }
+        private val shine = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x66E7DFD1; style = Paint.Style.STROKE; strokeWidth = px(1.2f) }
+        private val floor = Paint().apply { color = 0x2E000000 }
         init { setWillNotDraw(false); clipChildren = false; setPadding(0, 0, 0, padBottom.toInt()) }
 
         override fun onDraw(c: Canvas) {
@@ -216,7 +225,7 @@ class TabDrawer(
                 if (i == folders.size - 1) { l.lineTo(xl, height.toFloat()); r.lineTo(xr, height.toFloat()) }
             }
             c.drawPath(l, rail); c.drawPath(r, rail)
-            c.save(); c.translate(-px(1f), -px(1f)); c.drawPath(l, shine); c.drawPath(r, shine); c.restore()
+            c.drawPath(l, shine); c.drawPath(r, shine)
         }
     }
 
@@ -235,6 +244,11 @@ class TabDrawer(
         private val tBig = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL); textSize = sp(64f); color = ink; alpha = 46; textAlign = Paint.Align.CENTER }
         private val tX = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = sp(20f); color = ink; alpha = 190; textAlign = Paint.Align.CENTER }
         private val label = RectF()
+        // a few stars on the folder, always the same ones for a site
+        private val specks = FloatArray(30).also { a ->
+            var sd = (item.host.hashCode().toLong() and 0x7fffffffL) + 7
+            for (i in a.indices) { sd = (sd * 16807) % 2147483647; a[i] = sd / 2147483647f }
+        }
         private val closeBox = RectF()
         private val slop = ViewConfiguration.get(context).scaledTouchSlop
         private var downX = 0f; private var downY = 0f; private var dragging = false; private var gone = false
@@ -278,6 +292,12 @@ class TabDrawer(
             c.drawRoundRect(left, flapTop, right, h, px(4f), px(4f), fill)
             fill.color = if (dark) 0x26FFFFFF else 0x40FFFFFF
             c.drawRect(left + px(3f), flapTop, right - px(3f), flapTop + px(1f), fill)
+            fill.color = if (dark) 0xFFFFFAF2.toInt() else 0xFF2B2833.toInt()
+            for (i in 0 until 10) {
+                fill.alpha = (40 + specks[i * 3 + 2] * 90).toInt()
+                c.drawCircle(left + px(8f) + (right - left - px(16f)) * specks[i * 3], flapTop + px(6f) + (h - flapTop - px(12f)) * specks[i * 3 + 1], px(0.5f) + specks[i * 3 + 2] * px(0.8f), fill)
+            }
+            fill.alpha = 255
             // number, name, site
             val tx2 = left + px(14f)
             // (kept in the top strip, so the label of the folder in front never covers them)
@@ -383,10 +403,10 @@ class TabDrawer(
     }
 
     companion object {
-        /** folder colours: sage, manila, clay, slate, olive, sand, plum-brown (a site always gets the same one) */
+        /** folder colours from the galaxy: nebula violet, deep teal, copper, night, dusk rose, starlight, moon (a site always gets the same one) */
         private val PALETTE = intArrayOf(
-            0xFF6E7B66.toInt(), 0xFFCDB892.toInt(), 0xFF9C6A52.toInt(), 0xFF46524F.toInt(),
-            0xFF59614A.toInt(), 0xFFB7A483.toInt(), 0xFF5B4B45.toInt(),
+            0xFF5A4775.toInt(), 0xFF2E5666.toInt(), 0xFF8A5B3E.toInt(), 0xFF2B3040.toInt(),
+            0xFF7A4C5B.toInt(), 0xFFD9CDB5.toInt(), 0xFFA9A6A0.toInt(),
         )
 
         private fun luminance(c: Int): Float = (0.299f * ((c shr 16) and 255) + 0.587f * ((c shr 8) and 255) + 0.114f * (c and 255)) / 255f
