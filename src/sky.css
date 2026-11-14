@@ -1,0 +1,71 @@
+/* Oto — Sky View (src/sky.js): the SKY side of the space overview. Colours and sizes from the design review:
+   background #07080B, surfaces #111318, text #F1EEE8 / #AAA8A5, active #A8E7F3; nothing smaller than 12 px. */
+
+/* the GRID | SKY switch (both views) */
+.v1-ov .top { display: flex; align-items: center; gap: 14px; }
+.v1-ov .top .brand { display: none; }
+.v1-ovsw { display: inline-flex; padding: 3px; border-radius: 9px; box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .16); background: rgba(17, 19, 24, .6); }
+.v1-ovsw .b { border: 0; background: transparent; color: #AAA8A5; font: 600 12px ui-monospace, Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; padding: 7px 14px; border-radius: 7px; cursor: pointer; }
+.v1-ovsw .b:hover { color: #F1EEE8; }
+.v1-ovsw .b.on { background: #F1EEE8; color: #111318; }
+.v1-ovsw .b:focus-visible { outline: 2px solid #A8E7F3; outline-offset: 2px; }
+
+/* Sky View fills the window */
+body .v1-ov.sky { padding: 0; background: #07080B !important; backdrop-filter: none; }
+.v1-ov.sky .top { position: absolute; z-index: 3; left: 0; right: 0; top: 0; height: 72px; margin: 0; padding: 0 28px; justify-content: space-between; background: linear-gradient(#07080B, rgba(7, 8, 11, 0)); pointer-events: none; }
+.v1-ov.sky .top > * { pointer-events: auto; }
+.v1-ov.sky .top .brand { display: flex; align-items: center; gap: 10px; min-width: 200px; color: #AAA8A5; font: 13px ui-monospace, Consolas, monospace; letter-spacing: .16em; }
+.v1-ov.sky .top .brand b { font: 400 17px Georgia, "Times New Roman", serif; color: #F1EEE8; letter-spacing: 0; }
+.v1-ov.sky .top .v1-ovsw { min-width: 200px; justify-content: flex-end; box-shadow: none; background: none; }
+.v1-ov.sky .top .v1-ovsw .b { box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .14); }
+.v1-ov.sky .top .v1-ovsw .b + .b { margin-left: 4px; }
+.v1-ov.sky .srch { width: min(560px, 46vw); height: 42px; border-radius: 10px; background: #111318 !important; box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .1) !important; color: #AAA8A5; }
+.v1-ov.sky .srch input { color: #F1EEE8; font-size: 14px; }
+.v1-ov.sky .srch input::placeholder { color: #AAA8A5; }
+.sky-box { position: absolute; inset: 0; overflow: hidden; }
+.sky-box svg.galaxy-bg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .75; pointer-events: none; }
+.sky-canvas { position: absolute; inset: 0; cursor: grab; outline: none; }
+.sky-canvas:focus-visible { box-shadow: inset 0 0 0 2px rgba(168, 231, 243, .5); }
+
+/* the preview window */
+.sky-card { position: absolute; z-index: 4; width: 300px; box-sizing: border-box; padding: 14px; background: #111318; color: #F1EEE8;
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .16); filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .55)); animation: skyCard .18s ease; }
+@keyframes skyCard { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .sky-card { animation: none; } }
+.sky-card .hd { display: flex; align-items: center; gap: 10px; }
+.sky-card .hd .fav, .sky-card .hd .fav-letter { width: 20px; height: 20px; border-radius: 5px; flex: none; font-size: 11px; }
+.sky-card .tt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sky-card .tt b { font: 600 14px "Inter", "Segoe UI", system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sky-card .tt small { font: 12px ui-monospace, Consolas, monospace; color: #AAA8A5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sky-card .st { flex: none; font: 600 11px ui-monospace, Consolas, monospace; letter-spacing: .1em; padding: 3px 8px; border-radius: 10px; color: #AAA8A5; box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .16); }
+.sky-card .st.live, .sky-card .st.active { color: #A8E7F3; background: rgba(168, 231, 243, .12); box-shadow: none; }
+.sky-card .x { flex: none; width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: #AAA8A5; display: grid; place-items: center; cursor: pointer; }
+.sky-card .x:hover { background: rgba(216, 121, 121, .16); color: #D87979; }
+.sky-card .x svg.i { width: 14px; height: 14px; }
+.sky-card .img { height: 150px; margin-top: 12px; border-radius: 6px; background: #0b0c10 center top / cover no-repeat; box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .06); position: relative; }
+.sky-card .img.none::after { content: attr(data-why); position: absolute; inset: 0; display: grid; place-items: center; font: 12px ui-monospace, Consolas, monospace; color: #AAA8A5; letter-spacing: .06em; }
+.sky-card .img.none:not([data-why])::after { content: 'No picture yet'; }
+.sky-card .meta { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; font: 12px ui-monospace, Consolas, monospace; color: #AAA8A5; }
+.sky-card .meta span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sky-card .acts { display: flex; gap: 8px; margin-top: 12px; }
+.sky-card .b { height: 32px; padding: 0 12px; border-radius: 6px; border: 0; cursor: pointer; font: 500 13px "Inter", "Segoe UI", system-ui, sans-serif; color: #F1EEE8; background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .18); }
+.sky-card .b:hover { background: rgba(255, 255, 255, .09); }
+.sky-card .b.pri { background: #F1EEE8; color: #111318; box-shadow: none; }
+.sky-card .b.pri:hover { background: #fff; }
+.sky-card button:focus-visible { outline: 2px solid #A8E7F3; outline-offset: 2px; }
+
+/* corner controls and first-run help */
+.sky-ctl { position: absolute; z-index: 3; right: 24px; bottom: 22px; display: flex; align-items: center; gap: 6px; }
+.sky-ctl button { width: 34px; height: 34px; border: 0; border-radius: 50%; background: rgba(17, 19, 24, .85); color: #F1EEE8; box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .2); display: grid; place-items: center; font: 600 15px "Inter", "Segoe UI", system-ui, sans-serif; cursor: pointer; }
+.sky-ctl button:hover { box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .45); }
+.sky-ctl button svg.i { width: 15px; height: 15px; }
+.sky-ctl button:focus-visible { outline: 2px solid #A8E7F3; outline-offset: 2px; }
+.sky-ctl .zt { min-width: 44px; text-align: center; font: 12px ui-monospace, Consolas, monospace; color: #AAA8A5; }
+.sky-help { position: absolute; z-index: 3; left: 24px; bottom: 22px; display: flex; align-items: center; gap: 18px; max-width: calc(100vw - 360px); flex-wrap: wrap; white-space: nowrap;
+  padding: 9px 10px 9px 20px; border-radius: 22px; background: rgba(17, 19, 24, .92); box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .12); color: #AAA8A5; font: 12px "Inter", "Segoe UI", system-ui, sans-serif; }
+.sky-help kbd { font: 12px ui-monospace, Consolas, monospace; color: #F1EEE8; margin-right: 6px; letter-spacing: .04em; }
+.sky-help .ok { border: 0; border-radius: 14px; padding: 6px 14px; background: #F1EEE8; color: #111318; font: 600 12px "Inter", "Segoe UI", system-ui, sans-serif; cursor: pointer; }
+
+/* menus open above Sky View */
+body.v1-sky-open .menu-layer { z-index: 400; }

@@ -472,20 +472,32 @@ function v1Overview() {
     }), h('button', { class: 'spc new', onclick: (e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); v1CloseOverview(); v1TemplateMenu(r.left + 20, r.top + 20); } },
       h('span', { class: 'big', html: icon('plus') }), h('b', {}, 'New space'), h('small', {}, 'from a template or blank')));
   };
-  search.addEventListener('input', () => { V1O.q = search.value.trim(); paint(); });
+  search.addEventListener('input', () => { V1O.q = search.value.trim(); if (V1O.sky) skySearch(V1O.q); else paint(); });
   search.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { e.stopPropagation(); v1CloseOverview(); }
-    if (/^[1-9]$/.test(e.key) && !search.value) { e.preventDefault(); const w = S.workspaces[+e.key - 1]; if (w) { v1CloseOverview(); switchWorkspace(w.id); } }
+    // Sky View: arrows move between tabs, Enter opens the selected one (src/sky.js)
+    if (V1O.sky && (e.key === 'Enter' || e.key.startsWith('Arrow') && !search.value.length) && skyKey(e)) return;
+    if (/^[1-9]$/.test(e.key) && !search.value) { e.preventDefault(); const w = S.workspaces[+e.key - 1]; if (w) { if (V1O.sky) skyGoSpace(w.id); else { v1CloseOverview(); switchWorkspace(w.id); } } }
     if (e.key === 'Enter') { const first = grid.querySelector('.ot'); if (first) first.click(); }
   });
-  layer.append(h('div', { class: 'top' }, h('label', { class: 'srch', html: icon('search') }, search)), grid,
+  // GRID | SKY: the familiar grid of Spaces, or Sky View (every tab a star; src/sky.js). Your choice is remembered.
+  const sky = S.settings.overviewView !== 'grid';
+  const swBtn = (k, label) => h('button', { class: `b${(k === 'sky') === sky ? ' on' : ''}`, 'aria-pressed': String((k === 'sky') === sky), onclick: () => { if ((k === 'sky') === !!V1O.sky) return; S.settings.overviewView = k; save(); v1CloseOverview(); v1Overview(); } }, label);
+  const sw = h('div', { class: 'v1-ovsw', role: 'group', 'aria-label': 'Overview view' }, swBtn('grid', 'Grid'), swBtn('sky', 'Sky'));
+  search.placeholder = sky ? 'Find a tab in any space…' : search.placeholder;
+  layer.classList.toggle('sky', sky);
+  layer.append(h('div', { class: 'top' }, h('div', { class: 'brand' }, h('b', {}, '音'), h('span', {}, 'OTO // SPACES')), h('label', { class: 'srch', html: icon('search') }, search), sw), grid,
     h('div', { class: 'foot', html: '<span><kbd>Ctrl Shift Space</kbd> open / close</span><span><kbd>1</kbd>…<kbd>9</kbd> jump to a space</span><span>Drag tabs between spaces</span><span>Right-click a space to edit it</span>' }));
   layer.addEventListener('mousedown', (e) => { if (e.target === layer || e.target === grid) v1CloseOverview(); });
   document.body.append(layer);
-  paint();
+  if (sky && typeof skyMount === 'function') {
+    grid.hidden = true; layer.querySelector('.foot').hidden = true;
+    V1O.sky = true;
+    skyMount(layer, search);
+  } else paint();
   setTimeout(() => search.focus(), 30);
 }
-function v1CloseOverview() { V1O.open = false; const l = $('#v1Ov'); if (l) l.remove(); }
+function v1CloseOverview() { V1O.open = false; if (V1O.sky) { V1O.sky = false; skyUnmount(); } const l = $('#v1Ov'); if (l) l.remove(); }
 function v1Board14() {
   CMDS.overview = v1Overview;
   ACTIONS.push({ name: 'Space overview', kw: 'all spaces grid mission', icon: 'grid', run: v1Overview });
