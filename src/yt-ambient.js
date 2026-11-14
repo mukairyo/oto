@@ -34,6 +34,8 @@
  *   text        0–100   shadow behind the page's text, for reading over the glow
  *   boxes       0–200   how solid YouTube's buttons and boxes are (100 = as YouTube draws them)
  *   thumbs      20–100  thumbnail brightness
+ *   header      YouTube's top bar lets the light through: its frosted-glass and background layers (which blur
+ *               the colourful light into flat grey) are switched off, with a soft dark shade so its buttons stay readable
  *   immersive   theatre mode: the top bar and the page below fade away until you scroll or point at them
  *   key         the G key switches the glow off and on in this tab
  *   frame       Oto's own window (sidebar, top bar, edges around the page) glows too: Oto asks the page for the
@@ -44,10 +46,10 @@
  * protection (they draw black) and while the tab is in the background. YouTube's own, much smaller "ambient mode"
  * glow is hidden while Oto's is on.
  */
-const OTO_AMBIENT_DEFAULTS = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true };
+const OTO_AMBIENT_DEFAULTS = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true, header: true };
 function otoYtAmbient(opts) {
   // = OTO_AMBIENT_DEFAULTS (this function runs inside the page on its own)
-  const D = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true };
+  const D = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true, header: true };
   const A = window.__otoAmbient;
   if (A) { A.set(opts); return 'updated'; }
   const o0 = { ...D, ...(opts || {}) };
@@ -79,6 +81,8 @@ html[oto-ambient] #cinematics,html[oto-ambient] #cinematics-container{display:no
 #oto-ambient canvas{position:absolute;transform-origin:50% 50%}
 #oto-ambient::after{content:'';position:absolute;inset:0;box-shadow:0 0 var(--oa-edge,0px) calc(var(--oa-edge,0px)/5) rgba(0,0,0,.85)}
 html[oto-ambient] #movie_player,html[oto-ambient] .html5-video-player,html[oto-ambient] #full-bleed-container,html[oto-ambient] #player-full-bleed-container,html[oto-ambient] #player-container-outer,html[oto-ambient] #player-container-inner,html[oto-ambient] #ytd-player,html[oto-ambient] #container.ytd-player{background:transparent!important}
+html[oto-ambient][oto-header] #masthead-container #frosted-glass,html[oto-ambient][oto-header] ytd-masthead #background{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;opacity:0!important}
+html[oto-ambient][oto-header][dark] #masthead-container{background:linear-gradient(rgba(0,0,0,.42),rgba(0,0,0,.18) 70%,rgba(0,0,0,0))!important}
 html[oto-ambient][oto-immersive] #masthead-container,html[oto-ambient][oto-immersive] ytd-watch-flexy #columns{transition:opacity .45s ease}
 ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:not(:hover){opacity:0}
 .oto-amb-btn{display:inline-flex!important;align-items:center;justify-content:center}
@@ -242,6 +246,7 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     if (thumbs !== 1) css += `html[oto-ambient] ytd-watch-flexy ytd-thumbnail img,html[oto-ambient] ytd-watch-flexy yt-thumbnail-view-model img,html[oto-ambient] ytd-watch-flexy .yt-lockup-view-model img{filter:brightness(${thumbs})}`;
     look.textContent = css;
     root.toggleAttribute('oto-immersive', !!(o.on && o.immersive));
+    root.toggleAttribute('oto-header', !!(o.on && o.header !== false));
     if (shown) place();
   };
   const show = (v) => {

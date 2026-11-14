@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.6.5 — 2026-11-14
+
+*Small update. Nothing to do: it updates itself.*
+
+**Fixed**
+- **YouTube's top bar turned flat grey over the ambient light.** Its frosted-glass layer blurred the colourful light into grey. While ambient light is on, the top bar now lets the light through, with a soft dark shade at the very top so the logo and buttons stay readable. To keep YouTube's own top bar, switch off "Top bar lets the light through" (Shield › YouTube › More settings).
+
 ## 1.6.4 — 2026-11-14
 
 *Small update. Nothing to do: it updates itself.*

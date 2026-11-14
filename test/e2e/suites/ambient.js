@@ -41,6 +41,14 @@ module.exports = async (t) => {
   t.check('spread 400% reaches far past the picture but stays inside the page (no hard line at the window edge), blur 100% is the softest', a.canvas[0] >= 0 && a.canvas[0] + a.canvas[2] <= pageW && a.canvas[1] >= 0 && a.canvas[3] > a.layer[3] * 1.6 && /blur\(90px\)/.test(a.blur), `glow ${a.canvas} layer ${a.layer} page width ${pageW} ${a.blur}`);
   t.check('the glow canvas is an ordinary one (a low-latency canvas can skip the blur on Windows and show stripes)', JSON.parse(ctxMode).desynchronized === false, ctxMode);
 
+  // YouTube's top bar lets the light through (its frosted glass would blur the colours into grey)
+  const head = async () => JSON.parse(await t.page(`JSON.stringify({ glass: getComputedStyle(document.getElementById('frosted-glass')).backdropFilter, bg: getComputedStyle(document.querySelector('ytd-masthead #background')).opacity, shade: getComputedStyle(document.getElementById('masthead-container')).backgroundImage.slice(0, 15) })`));
+  const h1 = await head();
+  await run({ fade: 0, header: false }); await wait(300);
+  const h2 = await head();
+  t.check('YouTube\'s top bar lets the light through (no frosted grey), with a soft shade for its buttons; "Top bar lets the light through" off brings YouTube\'s own back', h1.glass === 'none' && h1.bg === '0' && /gradient/.test(h1.shade) && h2.glass !== 'none' && h2.bg === '1', `${JSON.stringify(h1)} → ${JSON.stringify(h2)}`);
+  await run({ fade: 0 });
+
   // theatre mode: the player gets wider than the picture; the glow stays on the picture
   await run({ fade: 0 });
   await t.page('document.querySelector("ytd-watch-flexy").setAttribute("theater", "")'); await wait(1000);

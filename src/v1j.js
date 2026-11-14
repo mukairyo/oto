@@ -433,6 +433,7 @@ function shpAmbient() {
     row('Ignore black bars', 'Films with black bars: the glow uses the picture and starts where it starts', sw('bars')),
     slider('edge', 'Video edge shadow', 0, 100, off0, 'A dark rim around the video, between picture and glow'),
     h('div', { class: 'sh-sub' }, 'PAGE'),
+    row('Top bar lets the light through', 'YouTube’s top bar shows the glow under it instead of a grey frosted layer', sw('header')),
     slider('text', 'Text shadows', 0, 100, off0, 'Easier reading over a bright glow'),
     slider('boxes', 'Buttons & boxes', 0, 200, pct, 'How solid YouTube’s buttons and boxes are. 100% is YouTube’s own'),
     slider('thumbs', 'Thumbnail brightness', 20, 100, pct, 'Dim the video pictures next to the player'),
