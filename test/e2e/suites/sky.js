@@ -86,8 +86,9 @@ module.exports = async (t) => {
   await t.js(`SKY.cam.z = 1; skyFocusStar(${JSON.stringify(nav.id)}, 1), 1`); await t.sleep(500);
   p = await starXY(nav.id);
   await mouse('mouseDown', p[0], p[1]); await mouse('mouseUp', p[0], p[1]); await t.sleep(420);
-  a = await J('return { diving: !!SKY.dive, z: SKY.cam.z };');
-  t.check('opening a tab dives into its star first', a.diving && a.z > 1.2, JSON.stringify(a));
+  a = await J("return { motion: skyMotion(), diving: !!SKY.dive, z: SKY.cam.z, open: !!document.querySelector('#v1Ov') };");
+  // with animations on it dives in first; with reduce motion (e.g. Windows test machines) it opens straight away
+  t.check('opening a tab dives into its star first (or opens straight away with reduce motion)', a.motion ? a.diving && a.z > 1.2 : !a.open, JSON.stringify(a));
   await shot('5-dive');
   await t.sleep(900);
   a = await J("return { active: (activeTab() || {}).id, open: !!document.querySelector('#v1Ov') };");
