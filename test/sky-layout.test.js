@@ -61,3 +61,38 @@ test('helpers: places are unique, earlier constellation places never change', ()
   assert.deepStrictEqual(skySlots(['x', 'y', 'z'], { y: 0, z: 0 }), { y: 0, x: 1, z: 2 }); // the duplicate gets a free place, in tab order
   assert.deepStrictEqual(skyShape('k', 3), skyShape('k', 6).slice(0, 3));
 });
+
+// ---- Galaxy view: each Space a spiral arm, the middle is now, further out = longer ago
+const { galaxyLayout, GAL } = require('../src/sky.js');
+const NOW = 1_800_000_000_000;
+const gt = (id, ws, minutesAgo, extra = {}) => ({ id, ws, essential: false, active: false, lastActive: NOW - minutesAgo * 60000, ...extra });
+
+test('galaxy: one arm per Space', () => {
+  const g = galaxyLayout([gt('a', 'w1', 5), gt('b', 'w2', 5)], [{ id: 'w1' }, { id: 'w2' }, { id: 'w3' }], NOW);
+  assert.deepStrictEqual(g.arms.map((a) => a.ws), ['w1', 'w2', 'w3']);
+});
+
+test('galaxy: the longer ago a tab was used, the further out it sits', () => {
+  const g = galaxyLayout([gt('old', 'w1', 60 * 24 * 5), gt('new', 'w1', 2), gt('mid', 'w1', 90)], [{ id: 'w1' }], NOW);
+  const r = Object.fromEntries(g.stars.map((s) => [s.id, s.r]));
+  assert.ok(r.new < r.mid && r.mid < r.old, JSON.stringify(r));
+});
+
+test('galaxy: the tab you are on is nearest the middle; Essentials circle the core', () => {
+  const g = galaxyLayout([gt('x', 'w1', 1), gt('on', 'w1', 600, { active: true }), gt('e', null, 0, { essential: true })], [{ id: 'w1' }], NOW);
+  const by = Object.fromEntries(g.stars.map((s) => [s.id, s]));
+  assert.ok(by.on.r < by.x.r);
+  assert.strictEqual(by.e.ws, '__essentials'); assert.strictEqual(by.e.r, GAL.CORE);
+});
+
+test('galaxy: tabs used at the same moment still get their own place on the arm', () => {
+  const g = galaxyLayout([gt('a', 'w1', 10), gt('b', 'w1', 10), gt('c', 'w1', 10)], [{ id: 'w1' }], NOW);
+  const rs = g.stars.map((s) => s.r).sort((x, y) => x - y);
+  assert.ok(rs[1] - rs[0] >= 52 && rs[2] - rs[1] >= 52, JSON.stringify(rs));
+});
+
+test('galaxy: rings for 1 hour, 1 day and 1 week, in order', () => {
+  const g = galaxyLayout([], [{ id: 'w1' }], NOW);
+  assert.deepStrictEqual(g.rings.map((x) => x[0]), ['1 HOUR', '1 DAY', '1 WEEK']);
+  assert.ok(g.rings[0][1] < g.rings[1][1] && g.rings[1][1] < g.rings[2][1]);
+});

@@ -481,9 +481,11 @@ function v1Overview() {
     if (e.key === 'Enter') { const first = grid.querySelector('.ot'); if (first) first.click(); }
   });
   // GRID | SKY: the familiar grid of Spaces, or Sky View (every tab a star; src/sky.js). Your choice is remembered.
-  const sky = S.settings.overviewView !== 'grid';
-  const swBtn = (k, label) => h('button', { class: `b${(k === 'sky') === sky ? ' on' : ''}`, 'aria-pressed': String((k === 'sky') === sky), onclick: () => { if ((k === 'sky') === !!V1O.sky) return; S.settings.overviewView = k; save(); v1CloseOverview(); v1Overview(); } }, label);
-  const sw = h('div', { class: 'v1-ovsw', role: 'group', 'aria-label': 'Overview view' }, swBtn('grid', 'Grid'), swBtn('sky', 'Sky'));
+  // GRID | SKY | GALAXY (Galaxy: each Space a spiral arm, the middle is now; src/sky.js)
+  const view = ['grid', 'sky', 'galaxy'].includes(S.settings.overviewView) ? S.settings.overviewView : 'sky';
+  const sky = view !== 'grid';
+  const swBtn = (k, label) => h('button', { class: `b${k === view ? ' on' : ''}`, 'aria-pressed': String(k === view), onclick: () => { if (k === view) return; S.settings.overviewView = k; save(); v1CloseOverview(); v1Overview(); } }, label);
+  const sw = h('div', { class: 'v1-ovsw', role: 'group', 'aria-label': 'Overview view' }, swBtn('grid', 'Grid'), swBtn('sky', 'Sky'), swBtn('galaxy', 'Galaxy'));
   search.placeholder = sky ? 'Find a tab in any space…' : search.placeholder;
   layer.classList.toggle('sky', sky);
   layer.append(h('div', { class: 'top' }, h('div', { class: 'brand' }, h('b', {}, '音'), h('span', {}, 'OTO // SPACES')), h('label', { class: 'srch', html: icon('search') }, search), sw), grid,
@@ -493,7 +495,7 @@ function v1Overview() {
   if (sky && typeof skyMount === 'function') {
     grid.hidden = true; layer.querySelector('.foot').hidden = true;
     V1O.sky = true;
-    skyMount(layer, search);
+    skyMount(layer, search, view);
   } else paint();
   setTimeout(() => search.focus(), 30);
 }

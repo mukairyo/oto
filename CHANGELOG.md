@@ -3,6 +3,14 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.7.0 — 2026-11-15
+
+**New**
+- **Galaxy view.** The space overview (Ctrl+Shift+Space) now has three views: **GRID**, **SKY** and **GALAXY**. In Galaxy, each Space is a spiral arm in its own colours and time runs outwards: the middle is *now*, and the longer ago you last used a tab, the further out along its arm it sits, with faint rings at 1 hour, 1 day and 1 week. Essentials circle the core.
+  - The galaxy turns slowly, and stops while you point at a star or move around. (Still with Reduce motion.)
+  - Everything from Sky works here too: hover for the preview window, click to dive into a tab, drag a star onto another arm to move the tab to that Space, search, arrow keys and Enter.
+  - Tab names make room for each other; a name that would land on another waits until you zoom in.
+
 ## 1.6.9 — 2026-11-15
 
 **Sky View**
