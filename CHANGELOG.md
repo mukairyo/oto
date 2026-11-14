@@ -3,6 +3,17 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.6.8 — 2026-11-15
+
+**New**
+- **Sky View.** The space overview (Ctrl+Shift+Space) has a new **SKY** side: every open tab is a star, the tabs of one site (or one of your tab folders) make a constellation, and each Space is a softly lit region of the sky in its own colours. **GRID** brings back the familiar grid of Spaces; Oto remembers which one you like.
+  - **Find and open:** click a star to open its tab. "Find a tab in any space…" dims everything else and flies to the best match; the arrow keys move between tabs and Enter opens one; 1–9 fly to a Space.
+  - **Look around:** drag to move around, scroll to zoom. Buttons in the corner zoom, show everything, fly back to the tab you're on, and reset the layout.
+  - **Peek inside:** hover a star for a small window with a picture of the page, its site, whether it's loaded, and Open / Pin / Move to Space. Pictures stay in memory only.
+  - **Move tabs between Spaces:** drag a star into another Space (or right-click it).
+  - **Stays put:** the sky is saved. Stars never move on their own; new tabs and Spaces take free places, closing a tab leaves the others where they are, and a star you drag stays where you put it.
+  - Twinkling and glides are subtle and switch off with Reduce motion.
+
 ## 1.6.7 — 2026-11-14
 
 **New**
