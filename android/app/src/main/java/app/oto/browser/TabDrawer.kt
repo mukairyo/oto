@@ -280,13 +280,16 @@ class TabDrawer(
             c.drawRect(left + px(3f), flapTop, right - px(3f), flapTop + px(1f), fill)
             // number, name, site
             val tx2 = left + px(14f)
-            c.drawText(String.format("%02d", item.index + 1), tx2, flapTop + px(18f), tNum)
+            // (kept in the top strip, so the label of the folder in front never covers them)
+            val num = String.format("%02d", item.index + 1)
+            c.drawText(num, tx2, flapTop + px(18f), tNum)
             c.drawText("×", closeBox.centerX(), closeBox.centerY() + tX.textSize * 0.32f, tX)
             val tw = right - tx2 - px(48f)
-            c.drawText(TextUtils.ellipsize(item.title, tTitle, tw, TextUtils.TruncateAt.END).toString(), tx2, flapTop + px(40f), tTitle)
-            c.drawText(TextUtils.ellipsize(item.host, tHost, tw, TextUtils.TruncateAt.END).toString(), tx2, flapTop + px(58f), tHost)
+            val hx = tx2 + tNum.measureText(num) + px(10f)
+            c.drawText(TextUtils.ellipsize(item.host, tHost, right - hx - px(48f), TextUtils.TruncateAt.END).toString(), hx, flapTop + px(18f), tHost)
+            c.drawText(TextUtils.ellipsize(item.title, tTitle, tw, TextUtils.TruncateAt.END).toString(), tx2, flapTop + px(42f), tTitle)
             // a picture of the page (or the site's first letter until Oto has seen it)
-            val pic = RectF(left + px(12f), flapTop + px(70f), right - px(12f), h - px(12f))
+            val pic = RectF(left + px(12f), flapTop + px(56f), right - px(12f), h - px(12f))
             if (pic.height() > px(20f)) {
                 val b = item.thumb
                 if (b != null && !b.isRecycled) {
