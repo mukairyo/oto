@@ -32,6 +32,8 @@ class DrawerItem(
     val fresh: Boolean,
     /** arrived since the window was last open: it flies in as a shooting star */
     val drop: Boolean,
+    /** its page is loaded right now (LIVE on its window); otherwise it's asleep until you open it */
+    val live: Boolean = false,
 )
 
 /**

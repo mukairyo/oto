@@ -844,7 +844,7 @@ class MainActivity : AppCompatActivity() {
         t.url.startsWith(CARD) -> "oto card"
         else -> Uri.parse(t.url).host?.removePrefix("www.") ?: prettyUrl(t.url)
     }
-    private fun drawerItems() = tabs.mapIndexed { i, t -> DrawerItem(i, tabTitle(t), tabHost(t), t.thumb, i == cur, t.fresh, !t.dropped) }
+    private fun drawerItems() = tabs.mapIndexed { i, t -> DrawerItem(i, tabTitle(t), tabHost(t), t.thumb, i == cur, t.fresh, !t.dropped, t.session?.isOpen == true) }
 
     /** Every open tab as a star in a star map (the tabs of one site make a constellation), with a search box on top. */
     private fun showTabs() {

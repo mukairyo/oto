@@ -90,7 +90,8 @@ class StarMap(
     private val winFill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val winLine = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = px(1f) }
     private val winPic = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
-    private val tWin = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(7.5f); letterSpacing = 0.12f; color = 0x9EECE8E1.toInt() }
+    private val tHud = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(7f); letterSpacing = 0.14f }
+    private val scan = Paint()
     private val tWinBig = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL); textSize = sp(30f); color = 0x33ECE8E1; textAlign = Paint.Align.CENTER }
     private val tWinHint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(7f); letterSpacing = 0.1f; color = 0x61ECE8E1; textAlign = Paint.Align.CENTER }
     private val sparkle = Path().apply {
@@ -102,6 +103,7 @@ class StarMap(
 
     companion object {
         private const val CELL = 250f // dp
+        private const val CYAN = 0xFF7FE3FF.toInt()
         private fun hash(s: String) = s.hashCode()
         /** the same little random numbers every time for the same seed */
         private class Rng(seed: Int) {
@@ -361,7 +363,7 @@ class StarMap(
                 glow.shader = if (s.item.current) glowWarm else glowCool
                 c.save(); c.translate(s.x, s.y); c.scale(size * 4f, size * 4f); glow.alpha = (255 * a).toInt(); c.drawCircle(0f, 0f, 1f, glow); c.restore()
                 c.save(); c.translate(s.x, s.y); c.scale(size * 2.6f, size * 2.6f); core.alpha = (255 * a).toInt(); c.drawPath(sparkle, core); c.restore()
-                if (s.item.current) { ring.color = MainActivity.CREAM; ring.alpha = (255 * a).toInt(); c.drawCircle(s.x, s.y, px(15f), ring) }
+                if (s.item.current) { ring.color = MainActivity.CREAM; ring.alpha = (255 * a * (1f - (winA[s.item.index] ?: 0f))).toInt(); c.drawCircle(s.x, s.y, px(15f), ring) }
                 if (s.item.fresh) { ring.color = 0xFFD66042.toInt(); ring.alpha = (230 * a * pulse).toInt(); c.drawCircle(s.x, s.y, px(15f), ring); busy = true }
                 tStar.color = if (s.item.current) 0xFFFFF8EC.toInt() else 0x9EECE8E1.toInt()
                 tStar.alpha = (tStar.alpha * a).toInt()
@@ -372,7 +374,7 @@ class StarMap(
             var nameY = top - px(24f)
             // a star's window is open: the name moves up above it instead of hiding under it
             g.stars.filter { (winA[it.item.index] ?: 0f) > 0f }.forEach { s ->
-                val winTop = s.y - (px(22f) + px(136f) * zoom.coerceIn(0.9f, 1.3f) * 0.74f + px(8f)) / zoom
+                val winTop = s.y - (px(34f) + px(112f) * zoom.coerceIn(0.9f, 1.3f) + px(10f)) / zoom
                 if (abs(s.x - mid) < px(150f) && winTop < nameY) nameY = winTop
             }
             tName.alpha = (230 * gAlpha).toInt()
@@ -421,10 +423,11 @@ class StarMap(
         if (busy) postInvalidateOnAnimation() else postInvalidateDelayed(80)
     }
 
-    /** Returns true while a window is still easing in or out. */
+    /** Returns true while a window is still easing in or out (or its scan line is moving). */
     private fun drawWindows(c: Canvas, appear: Float): Boolean {
         if (appear < 1f) return false
         var moving = false
+        val now = SystemClock.uptimeMillis()
         val all = groups.flatMap { it.stars }
         // the focus: the star nearest the middle of the screen
         var focus: StarPt? = null; var fd = px(130f)
@@ -432,46 +435,104 @@ class StarMap(
         for (s in all) { val (sx, sy) = screenOf(s); val dd = hypot(sx - mx, sy - my); if (dd < fd) { fd = dd; focus = s } }
         val zoomedIn = zoom >= 1.25f
         winRect.clear()
-        val ww = px(136f) * zoom.coerceIn(0.9f, 1.3f); val wh = ww * 0.74f
+        val zf = zoom.coerceIn(0.9f, 1.3f)
+        val ww = px(150f) * zf; val wh = px(112f) * zf; val cut = px(10f)
         for (s in all) {
             val (sx, sy) = screenOf(s)
             val onScreen = sx > -ww && sx < width + ww && sy > -wh && sy < height + wh * 2
             val want = if (onScreen && isMatch(s) && s.item.index != fading && (s === focus || zoomedIn)) 1f else 0f
             val cur = winA[s.item.index] ?: 0f
-            val a = if (abs(want - cur) < 0.04f) want else cur + (want - cur) * 0.22f
+            val a = if (abs(want - cur) < 0.04f) want else cur + (want - cur) * 0.24f
             if (a != want) moving = true
             if (a <= 0.01f) { winA.remove(s.item.index); continue }
             winA[s.item.index] = a
-            // above the star, with a thin line down to it
-            val r = android.graphics.RectF(sx - ww / 2f, sy - px(22f) - wh, sx + ww / 2f, sy - px(22f))
-            r.offset(0f, px(8f) * (1f - a))
+            moving = true // the scan line moves
+            // opening: it unfolds from a thin line and flickers, like a HUD coming on
+            val unfold = (a * a * (3 - 2 * a)).coerceAtLeast(0.06f)
+            val flick = if (a < 0.7f && ((now / 40) % 3 == 0L)) 0.45f else 1f
+            val alpha = a * flick * starAlpha(s, now)
+            val al = (255 * alpha).toInt()
+            val cx = sx; val bottom = sy - px(34f)
+            val r = android.graphics.RectF(cx - ww / 2f, bottom - wh, cx + ww / 2f, bottom)
+            val mid = r.centerY(); r.top = mid - (mid - r.top) * unfold; r.bottom = mid + (r.bottom - mid) * unfold
             winRect[s.item.index] = r
-            val al = (255 * a * starAlpha(s, SystemClock.uptimeMillis())).toInt()
-            winLine.color = 0x33ECE8E1; winLine.alpha = al / 3
-            c.drawLine(sx, r.bottom, sx, sy - px(9f), winLine)
-            winFill.color = 0xF0111113.toInt(); winFill.alpha = (240 * a).toInt()
-            c.drawRoundRect(r, px(7f), px(7f), winFill)
-            // its little title bar: the site
-            val bar = px(15f)
-            c.drawText(TextUtils.ellipsize(s.item.host.uppercase(), tWin, r.width() - px(16f), TextUtils.TruncateAt.END).toString(), r.left + px(8f), r.top + bar - px(4.5f), tWin.also { it.alpha = al * 158 / 255 })
-            val pic = android.graphics.RectF(r.left + px(4f), r.top + bar, r.right - px(4f), r.bottom - px(4f))
-            val b = s.item.thumb
-            c.save()
-            c.clipPath(Path().apply { addRoundRect(pic, px(4f), px(4f), Path.Direction.CW) })
-            if (b != null && !b.isRecycled) {
-                val sc = pic.width() / b.width
-                val srcH = min(b.height.toFloat(), pic.height() / sc)
-                winPic.alpha = al
-                c.drawBitmap(b, android.graphics.Rect(0, 0, b.width, srcH.toInt()), android.graphics.RectF(pic.left, pic.top, pic.right, pic.top + srcH * sc), winPic)
-            } else {
-                winFill.color = 0xFF0A0A0B.toInt(); winFill.alpha = al; c.drawRect(pic, winFill)
-                val letter = s.item.host.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "音"
-                tWinBig.alpha = al * 0x33 / 255; c.drawText(letter, pic.centerX(), pic.centerY() + px(4f), tWinBig)
-                tWinHint.alpha = al * 0x61 / 255; c.drawText("OPEN IT ONCE TO SEE IT", pic.centerX(), pic.bottom - px(8f), tWinHint)
+
+            // connector: down from the window to a small node, then across to the star; targeting ticks round the star
+            winLine.strokeWidth = px(1f); winLine.color = 0x73E7DFD1; winLine.alpha = al * 0x73 / 255
+            val nx = cx - px(30f) * zf
+            c.drawLine(nx, r.bottom, nx, r.bottom + px(10f), winLine)
+            c.drawLine(nx, r.bottom + px(10f), cx - px(6f), sy - px(6f), winLine)
+            winFill.color = MainActivity.CREAM; winFill.alpha = al
+            c.drawRect(nx - px(2f), r.bottom + px(8f), nx + px(2f), r.bottom + px(12f), winFill)
+            winLine.color = MainActivity.CREAM; winLine.alpha = al; winLine.strokeWidth = px(1.2f)
+            val rr = px(16f); val tk = px(5f)
+            for (dx in intArrayOf(-1, 1)) for (dy in intArrayOf(-1, 1)) {
+                c.drawLine(sx + dx * rr, sy + dy * (rr - tk), sx + dx * rr, sy + dy * rr, winLine)
+                c.drawLine(sx + dx * rr, sy + dy * rr, sx + dx * (rr - tk), sy + dy * rr, winLine)
             }
-            c.restore()
-            winLine.color = if (s.item.current) MainActivity.CREAM else 0x3DECE8E1; winLine.alpha = if (s.item.current) al else al * 0x3D / 255
-            c.drawRoundRect(r, px(7f), px(7f), winLine)
+
+            // the body, with two corners cut off
+            val body = Path().apply {
+                moveTo(r.left + cut, r.top); lineTo(r.right, r.top); lineTo(r.right, r.bottom - cut)
+                lineTo(r.right - cut, r.bottom); lineTo(r.left, r.bottom); lineTo(r.left, r.top + cut); close()
+            }
+            winFill.color = 0xEB06080A.toInt(); winFill.alpha = (235 * alpha).toInt(); c.drawPath(body, winFill)
+            winLine.color = 0x61E7DFD1; winLine.alpha = al * 0x61 / 255; winLine.strokeWidth = px(1f); c.drawPath(body, winLine)
+            // brackets on the other two corners
+            winLine.color = MainActivity.CREAM; winLine.alpha = al; winLine.strokeWidth = px(1.6f)
+            val o = px(3f); val bl = px(12f)
+            c.drawLine(r.right - bl, r.top - o, r.right + o, r.top - o, winLine); c.drawLine(r.right + o, r.top - o, r.right + o, r.top + bl, winLine)
+            c.drawLine(r.left - o, r.bottom - bl, r.left - o, r.bottom + o, winLine); c.drawLine(r.left - o, r.bottom + o, r.left + bl, r.bottom + o, winLine)
+            if (unfold < 0.5f) continue
+
+            // readout: TAB 03 // SITE, and a status light
+            val (stText, stCol) = when {
+                s.item.fresh -> Pair("NEW", 0xFFE0694A.toInt())
+                s.item.live -> Pair("LIVE", CYAN)
+                else -> Pair("ASLEEP", 0x80E7DFD1.toInt())
+            }
+            tHud.textAlign = Paint.Align.RIGHT; tHud.color = stCol; tHud.alpha = al * android.graphics.Color.alpha(stCol) / 255
+            c.drawText(stText, r.right - px(8f), r.top + px(12f), tHud)
+            val stW = tHud.measureText(stText)
+            winFill.color = stCol; winFill.alpha = (al * (0.6f + 0.4f * sin(now / 300f))).toInt()
+            c.drawCircle(r.right - px(8f) - stW - px(6f), r.top + px(9.5f), px(2.2f), winFill)
+            tHud.textAlign = Paint.Align.LEFT; tHud.color = 0xD9E7DFD1.toInt(); tHud.alpha = al * 0xD9 / 255
+            val head = "TAB " + String.format("%02d", s.item.index + 1) + " // " + s.item.host.uppercase()
+            c.drawText(TextUtils.ellipsize(head, tHud, r.width() - px(30f) - stW, TextUtils.TruncateAt.END).toString(), r.left + px(12f), r.top + px(12f), tHud)
+            winFill.color = 0x40E7DFD1; winFill.alpha = al * 0x40 / 255
+            c.drawRect(r.left + px(6f), r.top + px(17f), r.right - px(6f), r.top + px(18f), winFill)
+
+            // the picture, with scanlines and a scan line sweeping down
+            val pic = android.graphics.RectF(r.left + px(6f), r.top + px(21f), r.right - px(6f), r.bottom - px(15f))
+            if (pic.height() > px(8f)) {
+                c.save(); c.clipRect(pic)
+                val b = s.item.thumb
+                if (b != null && !b.isRecycled) {
+                    val sc = pic.width() / b.width
+                    val srcH = min(b.height.toFloat(), pic.height() / sc)
+                    winPic.alpha = al
+                    c.drawBitmap(b, android.graphics.Rect(0, 0, b.width, srcH.toInt()), android.graphics.RectF(pic.left, pic.top, pic.right, pic.top + srcH * sc), winPic)
+                } else {
+                    winFill.color = 0xFF0A0B0C.toInt(); winFill.alpha = al; c.drawRect(pic, winFill)
+                    val letter = s.item.host.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "音"
+                    tWinBig.alpha = al * 0x40 / 255; c.drawText(letter, pic.centerX(), pic.centerY() + px(4f), tWinBig)
+                    tWinHint.alpha = al * 0x80 / 255; c.drawText("NO SIGNAL · OPEN IT ONCE", pic.centerX(), pic.bottom - px(7f), tWinHint)
+                }
+                winFill.color = 0x0D7FE3FF; winFill.alpha = al * 0x0D / 255; c.drawRect(pic, winFill)
+                winFill.color = 0x38000000; winFill.alpha = al * 0x38 / 255
+                var yy = pic.top; while (yy < pic.bottom) { c.drawRect(pic.left, yy, pic.right, yy + px(1f), winFill); yy += px(3f) }
+                val scanY = pic.top + pic.height() * ((now % 2600) / 2600f)
+                scan.shader = android.graphics.LinearGradient(0f, scanY - px(14f), 0f, scanY, 0x007FE3FF, 0x387FE3FF, Shader.TileMode.CLAMP)
+                scan.alpha = al; c.drawRect(pic.left, scanY - px(14f), pic.right, scanY, scan)
+                winFill.color = 0x807FE3FF.toInt(); winFill.alpha = al / 2; c.drawRect(pic.left, scanY, pic.right, scanY + px(1f), winFill)
+                c.restore()
+            }
+            // footer
+            tHud.color = 0x99E7DFD1.toInt(); tHud.alpha = al * 0x99 / 255
+            c.drawText("▸ TAP TO OPEN", r.left + px(12f), r.bottom - px(5f), tHud)
+            tHud.textAlign = Paint.Align.RIGHT; tHud.color = 0x59E7DFD1; tHud.alpha = al * 0x59 / 255
+            c.drawText(String.format("%03d:%03d", (s.x / d).toInt() % 1000, (s.y / d).toInt() % 1000), r.right - px(14f), r.bottom - px(5f), tHud)
+            tHud.textAlign = Paint.Align.LEFT
         }
         return moving
     }
