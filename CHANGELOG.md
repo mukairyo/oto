@@ -7,6 +7,7 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 
 **Fixed**
 - **YouTube hover previews** in the list next to a video now play right on top of their thumbnail. With the ambient light on, they used to appear too low. The glow now lies under the page, so YouTube's own layout stays exactly as YouTube makes it.
+- **No white flash on new tabs** in dark mode: a new tab (or a video opened in a new tab) waits on a dark background while the page loads, instead of white. Pages without a background of their own still get the usual white once loaded.
 - **Dangerous-site warning:** a stopped dangerous site now always shows Oto's red warning page. Before, on a slow PC the tab could stay blank instead (the site was blocked either way).
 - **The icon-strip sidebar** (collapsed, and after Ctrl+B brings it back) shows only its icons again. The "01 ESSENTIALS" heading no longer squeezes in and pushes the icons past the edge of the strip.
 

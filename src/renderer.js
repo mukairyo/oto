@@ -458,9 +458,25 @@ function ensureView(tab) {
   el.setAttribute('src', tab.url);
   v = { wv: el, loading: true, ready: false, blocked: 0, error: null, wcId: null, audible: false, muted: false, zoom: 1 };
   V.set(tab.id, v);
+  pageBackdrop(el);
   bindView(tab, v);
   $('#views').append(el);
   return v;
+}
+
+// What shows behind a page before it has drawn anything: in dark mode a dark backdrop, so a new tab doesn't flash
+// white while a dark site (YouTube) loads. A page that doesn't paint its own background relies on the browser's white,
+// so once it has loaded Oto checks, and gives exactly those pages white behind them ('plain').
+const PAGE_BG_CHECK = `(() => {
+  const own = (e) => { if (!e) return false; const c = getComputedStyle(e).backgroundColor || '';
+    if (c === 'transparent') return false; const m = c.match(/^rgba?\\(([^)]*)\\)$/); if (!m) return true;
+    const p = m[1].split(/[\\s,/]+/).filter(Boolean); return p.length < 4 || parseFloat(p[3]) > 0; };
+  return own(document.documentElement) || own(document.body);
+})()`;
+function pageBackdrop(el) {
+  const check = () => { try { el.executeJavaScript(PAGE_BG_CHECK).then((own) => el.classList.toggle('plain', own !== true), () => el.classList.add('plain')); } catch { el.classList.add('plain'); } };
+  el.addEventListener('dom-ready', check);
+  el.addEventListener('did-finish-load', check);
 }
 
 function destroyView(id) {

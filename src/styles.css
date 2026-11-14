@@ -273,8 +273,12 @@ body.compact #main { padding-left: 8px; }
 #views { position: absolute; inset: 0; }
 #views webview {
   position: absolute; inset: 0; width: 100%; height: 100%;
-  visibility: hidden; background: #fff;
+  visibility: hidden; background: var(--page-wait, #fff);
 }
+/* before a page has drawn: dark in dark mode (no white flash on a new tab); pages without their own background get
+   the browser's usual white once loaded */
+:root[data-theme="dark"] { --page-wait: #0f0f0f; }
+webview.plain, #views webview.plain { background: #fff; }
 #views webview.on { visibility: visible; }
 webview:fullscreen { border-radius: 0; }
 

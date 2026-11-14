@@ -243,6 +243,7 @@ function openGlance(url) {
   wvEl.setAttribute('allowpopups', '');
   wvEl.setAttribute('plugins', '');
   wvEl.setAttribute('src', url);
+  pageBackdrop(wvEl);
   const title = h('span', { class: 'gl-title' }, prettyUrl(url));
   const fav = h('span', { class: 'gl-fav' });
   const btn = (ic, tip, run) => h('button', { class: 'icon-btn sm', title: tip, html: icon(ic), onclick: run });

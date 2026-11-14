@@ -182,6 +182,9 @@ window.__playerClicks = 0; document.getElementById('movie_player').addEventListe
   }
   if (url.pathname === '/echo-lang') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end(String(req.headers['accept-language'] || '')); }
   if (url.pathname === '/fpworker.js') { res.writeHead(200, { 'Content-Type': 'text/javascript' }); return res.end(FP_WORKER); }
+  if (url.pathname === '/slow-dark') { // a dark page that takes 2 s to arrive (what shows behind a new tab meanwhile)
+    return setTimeout(() => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end('<!doctype html><html style="background:#0f0f0f;color:#eee"><title>Dark</title><body>dark page</body></html>'); }, 2000);
+  }
   if (url.pathname === '/go') { res.writeHead(302, { Location: url.searchParams.get('to') || '/' }); return res.end(); }
   if (url.pathname === '/report.pdf') { res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="report.pdf"' }); return res.end('%PDF-1.4 test'); }
   if (url.pathname === '/slow.bin') { // a file that takes ~1.5 s, so a tab closed mid-download can be checked
