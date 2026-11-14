@@ -44,6 +44,7 @@ import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
+import org.mozilla.geckoview.MediaSession
 import org.mozilla.geckoview.WebExtension
 import org.mozilla.geckoview.WebExtensionController
 import org.mozilla.geckoview.WebRequestError
@@ -60,6 +61,10 @@ class Tab(var url: String, var title: String = "") {
     var progress = 100
     /** the dangerous page Oto just stopped in this tab (only that one can be opened with "Continue anyway") */
     var blocked: String? = null
+    /** opened in the background and not looked at yet: its video waits until you open the tab */
+    var unseen = false
+    /** media Oto paused because the tab hadn't been opened yet (started when you open it) */
+    var heldMedia: MediaSession? = null
 }
 
 class MainActivity : AppCompatActivity() {
@@ -560,11 +565,19 @@ class MainActivity : AppCompatActivity() {
             override fun onCanGoBack(session: GeckoSession, canGoBack: Boolean) { tabFor(session)?.canBack = canGoBack; refreshBar() }
             override fun onCanGoForward(session: GeckoSession, canGoForward: Boolean) { tabFor(session)?.canForward = canGoForward }
             override fun onNewSession(session: GeckoSession, uri: String): GeckoResult<GeckoSession>? {
-                // a link that opens a new window: the engine opens this session itself, then we show it
+                // a link that opens a new window: the engine opens this session itself. It opens behind the tab you're
+                // on ("Links open in the background", on by default) with a small bar to switch to it; its video waits
+                // until you open it.
                 val ns = newSession()
                 val idx = cur + 1
-                tabs.add(idx, Tab(uri).also { it.session = ns })
-                root.post { select(idx) }
+                val bg = prefs.getBoolean("linksBg", true)
+                val t = Tab(uri).also { it.session = ns; it.unseen = bg && prefs.getBoolean("holdMedia", true) }
+                tabs.add(idx, t)
+                if (bg) root.post {
+                    try { ns.setActive(false) } catch (e: Throwable) {}
+                    refreshBar(); saveTabs()
+                    openedBehind(t)
+                } else root.post { select(idx) }
                 return GeckoResult.fromValue(ns)
             }
             override fun onLoadRequest(session: GeckoSession, request: GeckoSession.NavigationDelegate.LoadRequest): GeckoResult<AllowOrDeny>? {
@@ -612,6 +625,16 @@ class MainActivity : AppCompatActivity() {
             }
         }
         s.permissionDelegate = permissionDelegate
+        // a tab opened in the background that you haven't looked at: its video/audio doesn't start by itself
+        s.mediaSessionDelegate = object : MediaSession.Delegate {
+            override fun onPlay(session: GeckoSession, mediaSession: MediaSession) {
+                val t = tabFor(session) ?: return
+                if (t.unseen && t !== current()) { t.heldMedia = mediaSession; try { mediaSession.pause() } catch (e: Throwable) {} }
+            }
+            override fun onDeactivated(session: GeckoSession, mediaSession: MediaSession) {
+                tabFor(session)?.let { if (it.heldMedia === mediaSession) it.heldMedia = null }
+            }
+        }
         s.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onProgressChange(session: GeckoSession, progress: Int) { tabFor(session)?.progress = progress; if (tabFor(session) === current()) refreshBar() }
             override fun onPageStart(session: GeckoSession, url: String) { tabFor(session)?.progress = 5; refreshBar() }
@@ -642,15 +665,23 @@ class MainActivity : AppCompatActivity() {
         cur = i.coerceIn(0, tabs.size - 1)
         val t = tabs[cur]
         var s = t.session
+        var fresh = false
         if (s == null) {
             s = newSession(); t.session = s
             s.open(runtime!!)
-            s.loadUri(t.url)
+            s.loadUri(t.url); fresh = true
         } else if (!s.isOpen) {
-            s.open(runtime!!); s.loadUri(t.url)
+            s.open(runtime!!); s.loadUri(t.url); fresh = true
         }
         gecko.releaseSession()
         gecko.setSession(s)
+        // a page that is only starting to load: Oto's dark background instead of a white flash until it draws
+        if (fresh) try { gecko.coverUntilFirstPaint(BG) } catch (e: Throwable) {}
+        try { s.setActive(true) } catch (e: Throwable) {}
+        if (t.unseen) {
+            t.unseen = false
+            t.heldMedia?.let { m -> t.heldMedia = null; try { m.play() } catch (e: Throwable) {} }
+        }
         refreshBar()
         saveTabs()
     }
@@ -803,6 +834,8 @@ class MainActivity : AppCompatActivity() {
         row("Fingerprint protection", if (prefs.getBoolean("fp", true)) "ON" else "OFF") { setFingerprint(!prefs.getBoolean("fp", true)) }
         row("Site permissions") { showSitePermissions() }
         row("Desktop site", if (prefs.getBoolean("desktop", false)) "ON" else "OFF") { setDesktop(!prefs.getBoolean("desktop", false)) }
+        row("Links open in the background", if (prefs.getBoolean("linksBg", true)) "ON" else "OFF") { val on = !prefs.getBoolean("linksBg", true); prefs.edit().putBoolean("linksBg", on).apply(); toast(if (on) "Links that open a new tab open behind this one" else "Links that open a new tab open in front") }
+        row("Videos wait until you open their tab", if (prefs.getBoolean("holdMedia", true)) "ON" else "OFF") { val on = !prefs.getBoolean("holdMedia", true); prefs.edit().putBoolean("holdMedia", on).apply() }
         row("Startup sound", if (soundOn) "ON" else "OFF") { prefs.edit().putBoolean("sound", !soundOn).apply() }
         row("Check for updates") { thread { checkForUpdate(true) } }
         row("Play the startup") { playIntro() }
@@ -893,4 +926,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+
+    /** "Opened in a new tab — SWITCH", just above the bar for a few seconds */
+    private var behindBar: View? = null
+    private fun openedBehind(t: Tab) {
+        behindBar?.let { root.removeView(it) }
+        val b = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(px(14), px(10), px(8), px(10)); background = box(RAISE, LINE2, 8)
+        }
+        b.addView(TextView(this).apply { text = "Opened in a new tab"; textSize = 13.5f; setTextColor(FG); maxLines = 1; ellipsize = TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        b.addView(mono("Switch", 10f, CREAM, 0.2f).apply {
+            gravity = Gravity.CENTER; setPadding(px(12), px(6), px(12), px(6))
+            setOnClickListener { root.removeView(b); behindBar = null; val i = tabs.indexOf(t); if (i >= 0) select(i) }
+        })
+        val lp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM).apply { setMargins(px(10), 0, px(10), bar.height + px(14)) }
+        root.addView(b, lp)
+        behindBar = b
+        b.alpha = 0f; b.translationY = 12 * dp; b.animate().alpha(1f).translationY(0f).setDuration(180).start()
+        root.postDelayed({ if (behindBar === b) { b.animate().alpha(0f).setDuration(200).withEndAction { root.removeView(b); if (behindBar === b) behindBar = null }.start() } }, 4000)
+    }
 }
