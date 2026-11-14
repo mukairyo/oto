@@ -78,7 +78,7 @@ class TabDrawer(
     private var all: List<DrawerItem> = emptyList()
     private var query = ""
     private var first = true
-    private val sky = SpaceSky(d)
+    private val sky = SpaceSky(ctx)
     private val folders = ArrayList<Folder>()
 
     private val count: TextView
@@ -106,7 +106,7 @@ class TabDrawer(
             isSingleLine = true; imeOptions = EditorInfo.IME_ACTION_GO
             inputType = EditorInfo.TYPE_CLASS_TEXT or EditorInfo.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             setPadding(pxi(14), 0, pxi(14), 0)
-            background = box(0x99070708.toInt(), MainActivity.LINE2, 6)
+            background = box(0xB3030304.toInt(), MainActivity.LINE2, 6)
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
                 override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -118,6 +118,8 @@ class TabDrawer(
 
         stack = Stack(ctx)
         scroll = ScrollView(ctx).apply { isVerticalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER; isFillViewport = true; addView(stack) }
+        // the stars drift a little as you scroll, like on the website
+        scroll.setOnScrollChangeListener { _, _, y, _, _ -> sky.scrollY = y.toFloat(); invalidate() }
         addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { setMargins(0, pxi(6), 0, 0) })
 
         addView(mono("TAP TO OPEN  ·  SWIPE SIDEWAYS TO CLOSE", 9f, MainActivity.FG3, 0.18f).apply { gravity = Gravity.CENTER; setPadding(0, pxi(4), 0, pxi(10)) },
@@ -131,10 +133,12 @@ class TabDrawer(
     override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) { super.onSizeChanged(w, h, ow, oh); sky.size(w, h) }
 
     override fun onDraw(c: Canvas) {
-        val fast = sky.draw(c)
+        val next = sky.draw(c)
         super.onDraw(c)
-        if (fast) postInvalidateOnAnimation() else postInvalidateDelayed(50)
+        if (next <= 0L) postInvalidateOnAnimation() else postInvalidateDelayed(next)
     }
+
+    override fun onDetachedFromWindow() { super.onDetachedFromWindow(); sky.release() }
 
     /** Show these tabs. [removed]: the place a folder was just taken out of (the ones in front of it slide back). */
     fun show(items: List<DrawerItem>, removed: Int = -1) {
