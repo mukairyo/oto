@@ -34,6 +34,10 @@ class DrawerItem(
     val drop: Boolean,
     /** its page is loaded right now (LIVE on its window); otherwise it's asleep until you open it */
     val live: Boolean = false,
+    /** pinned: kept safe (the back button and × never close it) and marked with ◆ */
+    val pinned: Boolean = false,
+    /** the constellation you put it in yourself (null = its site's constellation) */
+    val group: String? = null,
 )
 
 /**
@@ -47,7 +51,15 @@ class TabDrawer(
     private val onClose: (Int) -> Unit,
     private val onNew: () -> Unit,
     private val onDismiss: () -> Unit,
+    /** pin or unpin a tab */
+    private val onPin: (Int) -> Unit,
+    /** put a tab in one of your constellations (null = back to its site's) */
+    private val onGroup: (Int, String?) -> Unit,
+    /** rename one of your constellations */
+    private val onRename: (String, String) -> Unit,
 ) : LinearLayout(ctx) {
+
+    private var items: List<DrawerItem> = emptyList()
 
     private val d = resources.displayMetrics.density
     private fun pxi(v: Int) = (v * d).toInt()
@@ -67,9 +79,9 @@ class TabDrawer(
 
         // "— 音 OTO // TABS ———— 05", like the sidebar labels on Windows
         val head = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(pxi(4), pxi(2), pxi(4), pxi(12)) }
-        head.addView(mono("—  音  OTO // TABS", 10f, MainActivity.FG2, 0.24f))
+        head.addView(mono("—  音  OTO // TABS", 11f, MainActivity.FG, 0.22f))
         head.addView(View(ctx).apply { setBackgroundColor(MainActivity.LINE2) }, LinearLayout.LayoutParams(0, max(1, d.toInt()), 1f).apply { setMargins(pxi(10), 0, pxi(10), 0) })
-        count = mono("", 10f, MainActivity.FG2, 0.2f)
+        count = mono("", 11f, MainActivity.FG, 0.2f)
         head.addView(count)
         addView(head)
 
@@ -81,7 +93,7 @@ class TabDrawer(
 
         // find a tab, like "Find a tab in any space…" on Windows: the sky flies to it
         search = EditText(ctx).apply {
-            hint = "Find a tab…"; textSize = 14f; setTextColor(MainActivity.FG); setHintTextColor(MainActivity.FG3)
+            hint = "Find a tab…"; textSize = 15f; setTextColor(MainActivity.FG); setHintTextColor(MainActivity.FG2)
             isSingleLine = true; imeOptions = EditorInfo.IME_ACTION_GO
             inputType = EditorInfo.TYPE_CLASS_TEXT or EditorInfo.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             setPadding(pxi(14), 0, pxi(14), 0)
@@ -91,7 +103,7 @@ class TabDrawer(
                 override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
                 override fun afterTextChanged(s: Editable?) { map.search(s?.toString() ?: "") }
             })
-            setOnEditorActionListener { _, _, _ -> map.firstMatch()?.let { onOpen(it.index) }; true }
+            setOnEditorActionListener { _, _, _ -> map.firstMatch()?.let { hideKeyboard(); map.openWithZoom(it.index) }; true }
         }
         addView(search, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, pxi(42)))
 
@@ -106,7 +118,7 @@ class TabDrawer(
         }, FrameLayout.LayoutParams(pxi(40), pxi(40), Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, pxi(4), pxi(8)) })
         addView(mapBox, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { setMargins(0, pxi(6), 0, 0) })
 
-        addView(mono("TAP A WINDOW TO OPEN  ·  × TO CLOSE", 8.5f, MainActivity.FG3, 0.14f).apply { gravity = Gravity.CENTER; setPadding(0, pxi(6), 0, pxi(10)) },
+        addView(mono("TAP TO OPEN  ·  HOLD FOR MORE  ·  × CLOSES", 9.5f, MainActivity.FG2, 0.12f).apply { gravity = Gravity.CENTER; setPadding(0, pxi(6), 0, pxi(10)) },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         val btns = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
         btns.addView(button("Close", false) { onDismiss() }, LinearLayout.LayoutParams(0, pxi(40), 1f).apply { setMargins(0, 0, pxi(6), 0) })
@@ -126,9 +138,13 @@ class TabDrawer(
 
     /** Show these tabs. [removed]: the tab that was just closed. */
     fun show(items: List<DrawerItem>, removed: Int = -1) {
+        this.items = items
         count.text = String.format("%02d", items.size)
         map.show(items, removed)
     }
+
+    /** Fly to a tab's star (after it moved to another constellation). */
+    fun focus(index: Int) = map.focusTab(index)
 
     /** A new tab: its star is born, the view locks on and dives in, then [then] opens it. */
     fun birth(index: Int, then: () -> Unit) { dismissCard(); map.birth(index, then) }
@@ -140,33 +156,87 @@ class TabDrawer(
         (context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(search.windowToken, 0)
     }
 
-    // ------------------------------------------------------------------ hold a star: a small card with the page
+    // ------------------------------------------------------------------ hold a star: its menu
+    // The page's picture, then OPEN · PIN, CONSTELLATION… · CLOSE. "Constellation…" puts the tab in one of your own
+    // constellations (or a new one with a made-up name you can rename), or back with its site.
     private fun showCard(item: DrawerItem, x: Float, y: Float) {
         dismissCard()
         val holder = FrameLayout(context).apply { setOnClickListener { dismissCard() } } // tap anywhere else to put it away
-        val cw = pxi(232)
+        val cw = pxi(240)
         val panel = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL; isClickable = true
             setPadding(pxi(10), pxi(10), pxi(10), pxi(10))
-            background = box(0xF0101012.toInt(), MainActivity.LINE2, 8)
+            background = box(0xF2101012.toInt(), MainActivity.LINE2, 8)
         }
-        item.thumb?.takeIf { !it.isRecycled }?.let { b ->
-            panel.addView(ImageView(context).apply {
-                setImageBitmap(b); scaleType = ImageView.ScaleType.MATRIX
-                imageMatrix = android.graphics.Matrix().apply { val s = (cw - pxi(20)).toFloat() / b.width; setScale(s, s) }
-                clipToOutline = true; outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
-                background = box(0xFF000000.toInt(), MainActivity.LINE, 4)
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, pxi(120)).apply { setMargins(0, 0, 0, pxi(8)) })
+        var mainPage: () -> Unit = {}
+        var groupPage: () -> Unit = {}
+        var renamePage: (String) -> Unit = {}
+        mainPage = {
+            panel.removeAllViews()
+            item.thumb?.takeIf { !it.isRecycled }?.let { b ->
+                panel.addView(ImageView(context).apply {
+                    setImageBitmap(b); scaleType = ImageView.ScaleType.MATRIX
+                    imageMatrix = android.graphics.Matrix().apply { val s = (cw - pxi(20)).toFloat() / b.width; setScale(s, s) }
+                    clipToOutline = true; outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+                    background = box(0xFF000000.toInt(), MainActivity.LINE, 4)
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, pxi(120)).apply { setMargins(0, 0, 0, pxi(8)) })
+            }
+            panel.addView(TextView(context).apply {
+                text = (if (item.pinned) "◆ " else "") + item.title; textSize = 14.5f; setTextColor(MainActivity.FG); setTypeface(typeface, Typeface.BOLD)
+                maxLines = 2; ellipsize = TextUtils.TruncateAt.END
+            })
+            panel.addView(mono(item.host + (item.group?.let { "  ·  $it" } ?: ""), 10f, MainActivity.FG2, 0.1f).apply { isAllCaps = false; setPadding(0, pxi(3), 0, pxi(10)) })
+            fun row(vararg b: View) {
+                val r = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+                b.forEachIndexed { i, v -> r.addView(v, LinearLayout.LayoutParams(0, pxi(36), 1f).apply { if (i < b.size - 1) setMargins(0, 0, pxi(6), 0) }) }
+                panel.addView(r, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 0, 0, pxi(6)) })
+            }
+            row(button("Open", true) { dismissCard(); map.openWithZoom(item.index) },
+                button(if (item.pinned) "Unpin" else "◆ Pin", false) { dismissCard(); onPin(item.index) })
+            row(button("Constellation…", false) { groupPage() },
+                button("Close", false) { dismissCard(); map.fadeOut(item.index) { onClose(item.index) } })
         }
-        panel.addView(TextView(context).apply {
-            text = item.title; textSize = 14f; setTextColor(MainActivity.FG); setTypeface(typeface, Typeface.BOLD)
-            maxLines = 2; ellipsize = TextUtils.TruncateAt.END
-        })
-        panel.addView(mono(item.host, 9f, MainActivity.FG3, 0.12f).apply { isAllCaps = false; setPadding(0, pxi(2), 0, pxi(10)) })
-        val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
-        row.addView(button("Open", true) { dismissCard(); onOpen(item.index) }, LinearLayout.LayoutParams(0, pxi(34), 1f).apply { setMargins(0, 0, pxi(6), 0) })
-        row.addView(button("Close tab", false) { dismissCard(); map.fadeOut(item.index) { onClose(item.index) } }, LinearLayout.LayoutParams(0, pxi(34), 1f))
-        panel.addView(row)
+        groupPage = {
+            panel.removeAllViews()
+            panel.addView(mono("—  PUT IT IN A CONSTELLATION", 10f, MainActivity.FG2, 0.18f).apply { setPadding(pxi(2), 0, 0, pxi(10)) })
+            fun option(label: String, cream: Boolean = false, onClick: () -> Unit) {
+                panel.addView(button(label, cream, onClick), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, pxi(36)).apply { setMargins(0, 0, 0, pxi(6)) })
+            }
+            val mine = items.mapNotNull { it.group }.distinct().sorted()
+            mine.filter { it != item.group }.forEach { g -> option("→  $g") { dismissCard(); onGroup(item.index, g) } }
+            option("+  New constellation", true) {
+                dismissCard(); onGroup(item.index, StarMap.newConstellationName(items.mapNotNull { it.group }.toSet()))
+            }
+            item.group?.let { g ->
+                option("Rename “$g”") { renamePage(g) }
+                option("Back to ${StarMap.constellationName(item.host)}") { dismissCard(); onGroup(item.index, null) }
+            }
+            option("‹  Back") { mainPage() }
+        }
+        renamePage = { old ->
+            panel.removeAllViews()
+            panel.addView(mono("—  RENAME CONSTELLATION", 10f, MainActivity.FG2, 0.18f).apply { setPadding(pxi(2), 0, 0, pxi(10)) })
+            val field = EditText(context).apply {
+                setText(old); setSelection(old.length); textSize = 15f; setTextColor(MainActivity.FG); isSingleLine = true
+                setPadding(pxi(12), 0, pxi(12), 0); background = box(0x14FFFFFF, MainActivity.LINE2, 6)
+                filters = arrayOf(android.text.InputFilter.LengthFilter(24))
+            }
+            panel.addView(field, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, pxi(42)).apply { setMargins(0, 0, 0, pxi(8)) })
+            val done = {
+                val n = field.text.toString().trim()
+                hideKeyboard(); dismissCard()
+                if (n.isNotEmpty() && n != old) onRename(old, n)
+            }
+            field.imeOptions = EditorInfo.IME_ACTION_DONE
+            field.setOnEditorActionListener { _, _, _ -> done(); true }
+            val r = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+            r.addView(button("Cancel", false) { hideKeyboard(); groupPage() }, LinearLayout.LayoutParams(0, pxi(36), 1f).apply { setMargins(0, 0, pxi(6), 0) })
+            r.addView(button("Save", true) { done() }, LinearLayout.LayoutParams(0, pxi(36), 1f))
+            panel.addView(r)
+            field.requestFocus()
+            (context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(field, InputMethodManager.SHOW_IMPLICIT)
+        }
+        mainPage()
         holder.addView(panel, FrameLayout.LayoutParams(cw, ViewGroup.LayoutParams.WRAP_CONTENT))
         mapBox.addView(holder, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         card = holder
@@ -177,6 +247,10 @@ class TabDrawer(
             panel.y = if (below + panel.height < mapBox.height - pxi(4)) below else (y - pxi(40) - panel.height).coerceAtLeast(pxi(4).toFloat())
             panel.alpha = 0f; panel.scaleX = 0.94f; panel.scaleY = 0.94f
             panel.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(140).start()
+        }
+        // keep it on the screen when it changes size (constellation list, rename)
+        panel.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            if (v.y + v.height > mapBox.height - pxi(4)) v.y = (mapBox.height - pxi(4) - v.height).toFloat().coerceAtLeast(pxi(4).toFloat())
         }
     }
 

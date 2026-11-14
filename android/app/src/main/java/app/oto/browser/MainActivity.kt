@@ -73,6 +73,13 @@ class Tab(var url: String, var title: String = "") {
     var fresh = false
     /** already shown in the tab window (a new tab flies in as a shooting star the first time) */
     var dropped = true
+    /** pinned in the tab window: the back button and × never close it */
+    var pinned = false
+    /** the constellation you put it in yourself (null = its site's) */
+    var group: String? = null
+    /** where and when its picture was last saved (it's saved again when the page changes, at most every 30 s) */
+    var thumbSavedUrl: String? = null
+    var thumbSavedAt = 0L
 }
 
 class MainActivity : AppCompatActivity() {
@@ -142,8 +149,8 @@ class MainActivity : AppCompatActivity() {
         intent.dataString?.let { if (it.startsWith("http")) openTab(it) }
     }
 
-    override fun onPause() { super.onPause(); saveTabs(); linkHandler.removeCallbacks(linkTick) }
-    override fun onResume() { super.onResume(); linkHandler.removeCallbacks(linkTick); linkHandler.postDelayed(linkTick, 1500) }
+    override fun onPause() { if (sheet == null) captureThumb(shown, null); super.onPause(); saveTabs(); linkHandler.removeCallbacks(linkTick); linkHandler.removeCallbacks(thumbTick) }
+    override fun onResume() { super.onResume(); linkHandler.removeCallbacks(linkTick); linkHandler.postDelayed(linkTick, 1500); linkHandler.removeCallbacks(thumbTick); linkHandler.postDelayed(thumbTick, 6000) }
 
     // ------------------------------------------------------------------ Oto account: this phone ⇄ your PC
     private val linkHandler = Handler(Looper.getMainLooper())
@@ -600,7 +607,10 @@ class MainActivity : AppCompatActivity() {
         )
         s.navigationDelegate = object : GeckoSession.NavigationDelegate {
             override fun onLocationChange(session: GeckoSession, url: String?, perms: MutableList<GeckoSession.PermissionDelegate.ContentPermission>, hasUserGesture: Boolean) {
-                tabFor(session)?.let { it.url = url ?: it.url; if (it === current()) refreshBar() }
+                tabFor(session)?.let {
+                    it.url = url ?: it.url; if (it === current()) refreshBar()
+                    if (it === shown) { linkHandler.removeCallbacks(thumbSoon); linkHandler.postDelayed(thumbSoon, 1500) }
+                }
             }
             override fun onCanGoBack(session: GeckoSession, canGoBack: Boolean) { tabFor(session)?.canBack = canGoBack; refreshBar() }
             override fun onCanGoForward(session: GeckoSession, canGoForward: Boolean) { tabFor(session)?.canForward = canGoForward }
@@ -681,7 +691,7 @@ class MainActivity : AppCompatActivity() {
             override fun onPageStart(session: GeckoSession, url: String) { tabFor(session)?.progress = 5; refreshBar() }
             override fun onPageStop(session: GeckoSession, success: Boolean) {
                 tabFor(session)?.progress = 100; refreshBar(); saveTabs(); linkSoon()
-                if (tabFor(session) === current()) { linkHandler.removeCallbacks(thumbSoon); linkHandler.postDelayed(thumbSoon, 1200) }
+                if (tabFor(session) === shown) { linkHandler.removeCallbacks(thumbSoon); linkHandler.postDelayed(thumbSoon, 1200) }
             }
         }
         s.contentDelegate = object : GeckoSession.ContentDelegate {
@@ -726,7 +736,28 @@ class MainActivity : AppCompatActivity() {
         select(tabs.size - 1)
     }
 
+    /** the tab whose page is on screen (Oto takes its picture just before switching away from it) */
+    private var shown: Tab? = null
+    private var switchTo: Tab? = null
+
     private fun select(i: Int) {
+        if (tabs.isEmpty()) { openTab(); return }
+        val target = tabs[i.coerceIn(0, tabs.size - 1)]
+        val old = shown
+        if (switchTo != null) { switchTo = target; return } // already switching: go to the latest choice
+        if (old != null && old !== target && tabs.contains(old) && old.session?.isOpen == true) {
+            switchTo = target
+            captureThumb(old, null) {
+                val to = switchTo; switchTo = null
+                val j = if (to != null) tabs.indexOf(to) else -1
+                showTab(if (j >= 0) j else cur.coerceIn(0, tabs.size - 1))
+            }
+            return
+        }
+        showTab(tabs.indexOf(target))
+    }
+
+    private fun showTab(i: Int) {
         if (tabs.isEmpty()) { openTab(); return }
         cur = i.coerceIn(0, tabs.size - 1)
         val t = tabs[cur]
@@ -741,6 +772,7 @@ class MainActivity : AppCompatActivity() {
         }
         gecko.releaseSession()
         gecko.setSession(s)
+        shown = t
         // a page that is only starting to load: Oto's dark background instead of a white flash until it draws
         if (fresh) try { gecko.coverUntilFirstPaint(BG) } catch (e: Throwable) {}
         try { s.setActive(true) } catch (e: Throwable) {}
@@ -756,6 +788,8 @@ class MainActivity : AppCompatActivity() {
     private fun closeTab(i: Int) {
         val t = tabs.getOrNull(i) ?: return
         if (i == cur) gecko.releaseSession()
+        if (t === shown) shown = null
+        if (t === switchTo) switchTo = null
         t.session?.close()
         tabs.removeAt(i)
         dropThumb(t.url)
@@ -783,20 +817,28 @@ class MainActivity : AppCompatActivity() {
         if (urlEdit.visibility == View.VISIBLE) { endEdit(); return }
         val t = current()
         if (t?.canBack == true) { t.session?.goBack(); return }
-        if (tabs.size > 1 && t != null && t.url != NEWTAB) { closeTab(cur); return }
+        if (tabs.size > 1 && t != null && t.url != NEWTAB && !t.pinned) { closeTab(cur); return }
         moveTaskToBack(true)
     }
 
     private fun saveTabs() {
         val arr = JSONArray()
-        tabs.forEach { arr.put(JSONObject().put("u", it.url).put("t", it.title)) }
+        tabs.forEach { t ->
+            val o = JSONObject().put("u", t.url).put("t", t.title)
+            if (t.pinned) o.put("p", true)
+            t.group?.let { o.put("g", it) }
+            arr.put(o)
+        }
         prefs.edit().putString("tabs", arr.toString()).putInt("cur", cur).apply()
     }
 
     private fun restoreTabs() {
         try {
             val arr = JSONArray(prefs.getString("tabs", "[]"))
-            for (i in 0 until arr.length()) { val o = arr.getJSONObject(i); tabs.add(Tab(o.getString("u"), o.optString("t"))) }
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                tabs.add(Tab(o.getString("u"), o.optString("t")).also { t -> t.pinned = o.optBoolean("p"); t.group = o.optString("g").takeIf { it.isNotBlank() } })
+            }
         } catch (e: Exception) {}
         if (tabs.isEmpty()) tabs.add(Tab(NEWTAB))
         select(prefs.getInt("cur", 0))
@@ -844,7 +886,7 @@ class MainActivity : AppCompatActivity() {
         t.url.startsWith(CARD) -> "oto card"
         else -> Uri.parse(t.url).host?.removePrefix("www.") ?: prettyUrl(t.url)
     }
-    private fun drawerItems() = tabs.mapIndexed { i, t -> DrawerItem(i, tabTitle(t), tabHost(t), t.thumb, i == cur, t.fresh, !t.dropped, t.session?.isOpen == true) }
+    private fun drawerItems() = tabs.mapIndexed { i, t -> DrawerItem(i, tabTitle(t), tabHost(t), t.thumb, i == cur, t.fresh, !t.dropped, t.session?.isOpen == true, t.pinned, t.group) }
 
     /** Every open tab as a star in a star map (the tabs of one site make a constellation), with a search box on top. */
     private fun showTabs() {
@@ -853,7 +895,10 @@ class MainActivity : AppCompatActivity() {
             onOpen = { i -> closeSheet(); select(i) },
             onClose = { i -> closeTab(i); drawer?.show(drawerItems(), removed = i) },
             onNew = { newTabInSky() },
-            onDismiss = { closeSheet() })
+            onDismiss = { closeSheet() },
+            onPin = { i -> tabs.getOrNull(i)?.let { t -> t.pinned = !t.pinned; saveTabs(); drawer?.show(drawerItems()); toast(if (t.pinned) "Pinned: the back button won't close it" else "Unpinned") } },
+            onGroup = { i, g -> tabs.getOrNull(i)?.let { t -> t.group = g; saveTabs(); drawer?.show(drawerItems()); drawer?.focus(i) } },
+            onRename = { old, new -> tabs.forEach { if (it.group == old) it.group = new }; saveTabs(); drawer?.show(drawerItems()) })
         drawer = d
         root.addView(d, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         sheet = d
@@ -861,7 +906,7 @@ class MainActivity : AppCompatActivity() {
         tabs.forEach { it.dropped = true }
         d.alpha = 0f; d.animate().alpha(1f).setDuration(160).start()
         // a fresh picture of the tab you were just on
-        captureThumb { t, b -> drawer?.setThumb(tabs.indexOf(t), b) }
+        captureThumb(shown, { t, b -> drawer?.setThumb(tabs.indexOf(t), b) })
     }
 
     /** A new tab is a new star: it flies in, the tab window locks on to it and dives in, then the page opens. */
@@ -875,24 +920,40 @@ class MainActivity : AppCompatActivity() {
         d.birth(tabs.indexOf(t)) { val i = tabs.indexOf(t); if (i >= 0 && drawer === d) { closeSheet(); select(i) } }
     }
 
-    private val thumbSoon = Runnable { if (sheet == null) captureThumb(null) }
+    private val thumbSoon = Runnable { if (sheet == null) captureThumb(shown, null) }
 
-    /** Take a small picture of the page on screen for its star (only the top of the page, kept small). */
-    private fun captureThumb(then: ((Tab, Bitmap) -> Unit)?) {
-        val t = current() ?: return
+    // The picture of a page is retaken whenever it may have changed, so its window shows it the way you left it
+    // (a video you were watching on YouTube, not YouTube's start page): just before you switch away from it, a moment
+    // after it moves to another page (YouTube does this without loading a new page), every few seconds while you look
+    // at it, and when Oto goes to the background.
+    private val thumbTick = object : Runnable {
+        override fun run() { if (sheet == null) captureThumb(shown, null); linkHandler.postDelayed(this, 6000) }
+    }
+
+    /** Take a small picture of the page on screen for its star (only the top of the page, kept small).
+     *  [done] always runs once, picture or not (at most a third of a second later). */
+    private fun captureThumb(target: Tab?, then: ((Tab, Bitmap) -> Unit)?, done: (() -> Unit)? = null) {
+        var finished = false
+        val finish = { if (!finished) { finished = true; done?.invoke() } }
+        val t = target
+        if (t == null || t.session?.isOpen != true || t !== shown) { finish(); return }
+        if (done != null) linkHandler.postDelayed({ finish() }, 300)
         try {
             gecko.capturePixels().accept({ b ->
-                if (b == null || b.width <= 0 || b.height <= 0) return@accept
                 try {
-                    val cropH = minOf(b.height, (b.width * 1.25f).toInt())
-                    val w = minOf(320, b.width)
-                    val small = Bitmap.createScaledBitmap(Bitmap.createBitmap(b, 0, 0, b.width, cropH), w, maxOf(1, cropH * w / b.width), true)
-                    t.thumb = small
-                    then?.invoke(t, small)
-                    saveThumb(t.url, small)
+                    if (b != null && b.width > 0 && b.height > 0) {
+                        val cropH = minOf(b.height, (b.width * 1.25f).toInt())
+                        val w = minOf(320, b.width)
+                        val small = Bitmap.createScaledBitmap(Bitmap.createBitmap(b, 0, 0, b.width, cropH), w, maxOf(1, cropH * w / b.width), true)
+                        t.thumb = small
+                        then?.invoke(t, small)
+                        val now = System.currentTimeMillis()
+                        if (t.thumbSavedUrl != t.url || now - t.thumbSavedAt > 30000) { t.thumbSavedUrl = t.url; t.thumbSavedAt = now; saveThumb(t.url, small) }
+                    }
                 } catch (e: Throwable) {}
-            }, { _ -> })
-        } catch (e: Throwable) {}
+                finish()
+            }, { _ -> finish() })
+        } catch (e: Throwable) { finish() }
     }
 
     // The pictures are kept in Oto's own private cache (only Oto can read it), one small file per page, so the tab

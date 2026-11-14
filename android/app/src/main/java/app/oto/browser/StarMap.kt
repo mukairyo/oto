@@ -58,8 +58,14 @@ class StarMap(
 
     private var items: List<DrawerItem> = emptyList()
     private val groups = ArrayList<Group>()
+    /** every tab's star in one list (made when the sky is laid out, not every frame) */
+    private var allStars: List<StarPt> = emptyList()
+    private var words: List<String> = emptyList()
     /** made-up constellations that fill the sky around your tabs (scenery: not tabs, not tappable) */
-    private class Decor(val name: String, val x: FloatArray, val y: FloatArray, val parent: IntArray, val size: FloatArray, val bright: FloatArray)
+    private class Decor(val name: String, val x: FloatArray, val y: FloatArray, val parent: IntArray, val size: FloatArray, val bright: FloatArray) {
+        val phase = FloatArray(x.size) { (it * 2.7f + name.hashCode() % 7) }
+        val speed = FloatArray(x.size) { 0.7f + ((it * 37 + name.length * 11) % 10) / 16f }
+    }
     private val decor = ArrayList<Decor>()
     private val closeRect = HashMap<Int, android.graphics.RectF>()
     private var worldW = 0f
@@ -84,18 +90,30 @@ class StarMap(
     private val core = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFAF2.toInt() }
     private val glow = Paint(Paint.ANTI_ALIAS_FLAG)
     private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = px(1.2f) }
-    private val tStar = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(8.5f); letterSpacing = 0.1f; textAlign = Paint.Align.CENTER }
-    private val tDecor = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC); textSize = sp(13f); color = 0xFFEFE7D8.toInt(); textAlign = Paint.Align.CENTER }
-    private val tName = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC); textSize = sp(17f); color = 0xE6EFE7D8.toInt(); textAlign = Paint.Align.CENTER }
-    private val tNew = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(8f); letterSpacing = 0.14f; color = 0xE6E68C6E.toInt(); textAlign = Paint.Align.CENTER }
+    private val tStar = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(9.5f); letterSpacing = 0.08f; textAlign = Paint.Align.CENTER }
+    private val pinPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF7FE3FF.toInt() }
+    private val pinPath = Path()
+    private val dash = DashPathEffect(floatArrayOf(px(1.5f), px(4f)), 0f)
+    private val tri = Path().apply { moveTo(px(10f), 0f); lineTo(-px(4f), -px(8f)); lineTo(-px(4f), px(8f)); close() }
+    private val body = Path()
+    private val scanShader = android.graphics.LinearGradient(0f, -1f, 0f, 0f, 0x007FE3FF, 0x387FE3FF, Shader.TileMode.CLAMP)
+    private val scanM = android.graphics.Matrix()
+    private val headCache = HashMap<String, String>()
+    private val tDecor = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC); textSize = sp(14f); color = 0xFFEFE7D8.toInt(); textAlign = Paint.Align.CENTER }
+    private val tName = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC); textSize = sp(19f); color = 0xFFF4EDE0.toInt(); textAlign = Paint.Align.CENTER }
+    private val tNew = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(9.5f); letterSpacing = 0.14f; color = 0xFFF09A7C.toInt(); textAlign = Paint.Align.CENTER }
     private val arrow = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xF2D66042.toInt() }
     private val trail = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
 
     // the small windows that show what's inside a star
     /** a new tab being born: its star arrives, Oto locks on, zooms in and opens the page */
-    private class Dive(val index: Int, val start: Long, val then: () -> Unit) { var z0 = -1f; var ticked = false; var opened = false }
+    /** a dive into a star: the brackets lock on from [lockAt] for [lockMs], the zoom runs from [zoomAt] for [zoomMs] */
+    private class Dive(val index: Int, val start: Long, val then: () -> Unit,
+                       val lockAt: Long, val lockMs: Long, val zoomAt: Long, val zoomMs: Long, val label: String) {
+        var z0 = -1f; var ticked = false; var opened = false
+    }
     private var dive: Dive? = null
-    private val tLock = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(8f); letterSpacing = 0.16f; color = MainActivity.CREAM; textAlign = Paint.Align.CENTER }
+    private val tLock = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(9.5f); letterSpacing = 0.16f; color = MainActivity.CREAM; textAlign = Paint.Align.CENTER }
     private val flash = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private var dragWin: StarPt? = null
@@ -109,10 +127,10 @@ class StarMap(
     private val winFill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val winLine = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = px(1f) }
     private val winPic = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
-    private val tHud = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(7f); letterSpacing = 0.14f }
+    private val tHud = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(8f); letterSpacing = 0.12f }
     private val scan = Paint()
     private val tWinBig = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL); textSize = sp(30f); color = 0x33ECE8E1; textAlign = Paint.Align.CENTER }
-    private val tWinHint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(7f); letterSpacing = 0.1f; color = 0x61ECE8E1; textAlign = Paint.Align.CENTER }
+    private val tWinHint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(8f); letterSpacing = 0.1f; color = 0xB3ECE8E1.toInt(); textAlign = Paint.Align.CENTER }
     private val sparkle = Path().apply {
         // a four-pointed star, like the stars on a chart (unit size)
         moveTo(0f, -1f); quadTo(0f, 0f, 1f, 0f); quadTo(0f, 0f, 0f, 1f); quadTo(0f, 0f, -1f, 0f); quadTo(0f, 0f, 0f, -1f); close()
@@ -165,6 +183,9 @@ class StarMap(
             return "Ulvarion"
         }
 
+        /** a made-up name for a new constellation of your own (never a real one, never one you already have) */
+        fun newConstellationName(taken: Set<String>): String = madeUpName(Rng(java.util.Random().nextInt(2_000_000_000)), taken)
+
         /** "youtube.com" → "Youtube", "bbc.co.uk" → "Bbc", "oto" → "Oto" */
         fun constellationName(host: String): String {
             if (host == "oto") return "Oto"
@@ -189,8 +210,8 @@ class StarMap(
         }
         override fun onSingleTapUp(e: MotionEvent): Boolean {
             arrowHit(e.x, e.y)?.let { glideTo(it); return true }
-            windowAt(e.x, e.y)?.let { s -> onOpen(s.item.index); return true }
-            starAt(e.x, e.y)?.let { s -> onOpen(s.item.index) }
+            windowAt(e.x, e.y)?.let { s -> openWithZoom(s.item.index); return true }
+            starAt(e.x, e.y)?.let { s -> openWithZoom(s.item.index) }
             return true
         }
         override fun onLongPress(e: MotionEvent) {
@@ -227,13 +248,23 @@ class StarMap(
         val now = SystemClock.uptimeMillis()
         val st = max(now, born + (SpaceSky.WARP * 0.6f).toLong())
         arrivals[index] = st
-        dive = Dive(index, st, then)
+        dive = Dive(index, st, then, 700, 350, 1050, 700, "LOCKED // NEW TAB")
         postDelayed({ star(index)?.let { glideTo(it) } }, st - now)
+        invalidate()
+    }
+
+    /** Opening a tab: fly to its star, lock on, zoom in smoothly, then [onOpen] opens it. */
+    fun openWithZoom(index: Int) {
+        if (dive != null) return
+        val s = star(index) ?: return onOpen(index)
+        dive = Dive(index, SystemClock.uptimeMillis(), { onOpen(index) }, 0, 300, 300, 480, "OPENING // " + s.item.host.uppercase())
+        glideTo(s, 320)
         invalidate()
     }
 
     fun search(q: String) {
         query = q.trim().lowercase()
+        words = query.split(Regex("\\s+")).filter { it.isNotEmpty() }
         if (query.isNotEmpty()) matches().firstOrNull()?.let { glideTo(it) }
         invalidate()
     }
@@ -241,6 +272,9 @@ class StarMap(
     fun firstMatch(): DrawerItem? = (if (query.isEmpty()) emptyList() else matches()).firstOrNull()?.item
 
     fun setThumb(index: Int, b: Bitmap) { items.firstOrNull { it.index == index }?.thumb = b }
+
+    /** Fly to a tab's star. */
+    fun focusTab(index: Int) { post { star(index)?.let { glideTo(it) } } }
 
     /** Fly to the tab you're on. */
     fun home() { current()?.let { glideTo(it) } }
@@ -257,29 +291,29 @@ class StarMap(
     }
 
     private fun matches(): List<StarPt> {
-        val words = query.split(Regex("\\s+")).filter { it.isNotEmpty() }
-        return groups.flatMap { it.stars }.filter { s -> val t = (s.item.title + " " + s.item.host).lowercase(); words.all { t.contains(it) } }
+        return allStars.filter { s -> val t = (s.item.title + " " + s.item.host).lowercase(); words.all { t.contains(it) } }
     }
     private fun isMatch(s: StarPt): Boolean {
         if (query.isEmpty()) return true
         val t = (s.item.title + " " + s.item.host).lowercase()
-        return query.split(Regex("\\s+")).filter { it.isNotEmpty() }.all { t.contains(it) }
+        return words.all { t.contains(it) }
     }
 
-    private fun current() = groups.flatMap { it.stars }.firstOrNull { it.item.current }
-    private fun star(index: Int) = groups.flatMap { it.stars }.firstOrNull { it.item.index == index }
+    private fun current() = allStars.firstOrNull { it.item.current }
+    private fun star(index: Int) = allStars.firstOrNull { it.item.index == index }
 
     /** Each site gets a place in the sky (from its name) and a constellation shape (from its name and how many tabs). */
     private fun layoutSky() {
         groups.clear()
+        // your own constellations first, then one per site
         val byHost = LinkedHashMap<String, ArrayList<DrawerItem>>()
-        items.forEach { byHost.getOrPut(it.host) { ArrayList() }.add(it) }
+        items.forEach { byHost.getOrPut(it.group?.let { g -> "★$g" } ?: it.host) { ArrayList() }.add(it) }
         val cols = max(4, ceil(sqrt(byHost.size * 1.3)).toInt())
         val rows = cols + 1
         val cell = px(CELL)
         worldW = cols * cell; worldH = rows * cell
         val used = HashSet<Int>()
-        tStar.textSize = sp(8.5f)
+        tStar.textSize = sp(9.5f)
         byHost.forEach { (host, tabs) ->
             var i = abs(hash(host) % (cols * rows))
             while (i in used) i = (i + 1) % (cols * rows)
@@ -296,8 +330,10 @@ class StarMap(
             // two stars side by side: the second one's name goes above it so the names don't run into each other
             stars.forEachIndexed { k, st -> st.labelUp = (0 until k).any { j -> val o = stars[j]; !o.labelUp && abs(o.x - st.x) < px(115f) && abs(o.y - st.y) < px(36f) } }
             val dr = Rng(hash(host) xor 77)
-            groups.add(Group(host, constellationName(host), stars, FloatArray(stars.size) { 0.3f + dr.next() * 0.4f }))
+            groups.add(Group(host, if (host.startsWith("★")) host.substring(1) else constellationName(host), stars, FloatArray(stars.size) { 0.3f + dr.next() * 0.4f }))
         }
+        allStars = groups.flatMap { it.stars }
+        headCache.clear()
         // the rest of the sky: made-up constellations of 1 to 18 stars, each with an invented name
         decor.clear()
         val r = Rng(skySeed)
@@ -360,12 +396,12 @@ class StarMap(
 
     private fun screenOf(s: StarPt) = Pair(s.x * zoom - vx, s.y * zoom - vy)
 
-    private fun glideTo(s: StarPt) {
+    private fun glideTo(s: StarPt, ms: Long = 520) {
         glide?.cancel(); scroller.forceFinished(true)
         val fx = vx; val fy = vy
         val tx = s.x * zoom - width / 2f; val ty = s.y * zoom - height * 0.45f
         glide = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 520; interpolator = DecelerateInterpolator(1.6f)
+            duration = ms; interpolator = DecelerateInterpolator(1.6f)
             addUpdateListener { val t = it.animatedValue as Float; moveTo(fx + (tx - fx) * t, fy + (ty - fy) * t) }
             start()
         }
@@ -407,7 +443,7 @@ class StarMap(
                 MotionEvent.ACTION_UP -> {
                     if (!dragMoved) {
                         if (closeRect[w.item.index]?.contains(e.x, e.y) == true) fadeOut(w.item.index) { onCloseTab(w.item.index) }
-                        else onOpen(w.item.index)
+                        else openWithZoom(w.item.index)
                     }
                     else {
                         // dropped back on its star (or where it started from): it goes back to normal
@@ -452,7 +488,7 @@ class StarMap(
         return floatArrayOf(ax, ay, a)
     }
 
-    private fun arrowHit(x: Float, y: Float): StarPt? = groups.flatMap { it.stars }.filter { it.item.fresh }.firstOrNull { s ->
+    private fun arrowHit(x: Float, y: Float): StarPt? = allStars.filter { it.item.fresh }.firstOrNull { s ->
         val a = arrowFor(s); a != null && hypot(a[0] - x, a[1] - y) < px(30f)
     }
 
@@ -471,8 +507,8 @@ class StarMap(
             val t = now - dv.start
             val target = star(dv.index)
             if (target == null) dive = null
-            else if (t >= 1050) {
-                diveT = ((t - 1050) / 700f).coerceIn(0f, 1f)
+            else if (t >= dv.zoomAt) {
+                diveT = ((t - dv.zoomAt) / dv.zoomMs.toFloat()).coerceIn(0f, 1f)
                 if (dv.z0 < 0f) { dv.z0 = zoom; glide?.cancel(); scroller.forceFinished(true) }
                 val e = diveT * diveT * diveT
                 zoom = dv.z0 + (7f - dv.z0) * e
@@ -480,11 +516,10 @@ class StarMap(
                 onMove(vx, vy)
                 if (diveT >= 1f && !dv.opened) { dv.opened = true; post { dv.then() } }
             }
-            if (target != null && t >= 1000 && !dv.ticked) { dv.ticked = true; performHapticFeedback(if (android.os.Build.VERSION.SDK_INT >= 30) android.view.HapticFeedbackConstants.CONFIRM else android.view.HapticFeedbackConstants.LONG_PRESS) }
+            if (target != null && t >= dv.lockAt + dv.lockMs - 50 && !dv.ticked) { dv.ticked = true; performHapticFeedback(if (android.os.Build.VERSION.SDK_INT >= 30) android.view.HapticFeedbackConstants.CONFIRM else android.view.HapticFeedbackConstants.LONG_PRESS) }
         }
         c.save()
         c.translate(-vx, -vy); c.scale(zoom, zoom)
-        val dash = DashPathEffect(floatArrayOf(px(1.5f), px(4f)), 0f)
         line.pathEffect = dash
         val rx0 = vx / zoom - px(160f); val rx1 = (vx + width) / zoom + px(160f)
         val ry0 = vy / zoom - px(160f); val ry1 = (vy + height) / zoom + px(160f)
@@ -496,14 +531,14 @@ class StarMap(
             line.alpha = (70 * decorA).toInt()
             for (k in 1 until dc.x.size) { val p = dc.parent[k]; if (p >= 0) c.drawLine(dc.x[p], dc.y[p], dc.x[k], dc.y[k], line) }
             for (k in dc.x.indices) {
-                val a = decorA * dc.bright[k]
+                val a = decorA * dc.bright[k] * (0.6f + 0.4f * sin(now / 900f * dc.speed[k] + dc.phase[k]))
                 glow.shader = glowCool
                 c.save(); c.translate(dc.x[k], dc.y[k]); c.scale(dc.size[k] * 3.5f, dc.size[k] * 3.5f); glow.alpha = (200 * a).toInt(); c.drawCircle(0f, 0f, 1f, glow); c.restore()
                 c.save(); c.translate(dc.x[k], dc.y[k]); c.scale(dc.size[k] * 2.2f, dc.size[k] * 2.2f); core.alpha = (230 * a).toInt(); c.drawPath(sparkle, core); c.restore()
             }
             var top = dc.y[0]; var sx = 0f
             for (k in dc.x.indices) { if (dc.y[k] < top) top = dc.y[k]; sx += dc.x[k] }
-            tDecor.alpha = (120 * decorA).toInt()
+            tDecor.alpha = (150 * decorA).toInt()
             c.drawText(dc.name, sx / dc.x.size, top - px(16f), tDecor)
         }
         for (g in groups) {
@@ -523,13 +558,20 @@ class StarMap(
             for (s in g.stars) {
                 val a = if (dv != null && s.item.index == dv.index) appear * starAlpha(s, now) else gAlpha * starAlpha(s, now) * (if (isMatch(s)) 1f else 0.3f)
                 if (a <= 0.01f) continue
-                val size = px(if (s.item.current) 3.4f else 2.4f) * (if (s.item.index == fading) 1f - fadeT else 1f)
+                val tw = 0.84f + 0.16f * sin(now / 650f + s.item.index * 2.39f + s.x * 0.013f)
+                val size = px(if (s.item.current) 3.4f else 2.4f) * (if (s.item.index == fading) 1f - fadeT else 1f) * (0.94f + 0.06f * tw)
                 glow.shader = if (s.item.current) glowWarm else glowCool
-                c.save(); c.translate(s.x, s.y); c.scale(size * 4f, size * 4f); glow.alpha = (255 * a).toInt(); c.drawCircle(0f, 0f, 1f, glow); c.restore()
+                c.save(); c.translate(s.x, s.y); c.scale(size * 4f, size * 4f); glow.alpha = (255 * a * tw).toInt(); c.drawCircle(0f, 0f, 1f, glow); c.restore()
                 c.save(); c.translate(s.x, s.y); c.scale(size * 2.6f, size * 2.6f); core.alpha = (255 * a).toInt(); c.drawPath(sparkle, core); c.restore()
                 if (s.item.current) { ring.color = MainActivity.CREAM; ring.alpha = (255 * a * (1f - (winA[s.item.index] ?: 0f))).toInt(); c.drawCircle(s.x, s.y, px(15f), ring) }
+                if (s.item.pinned) {
+                    // ◆ pinned: a small diamond above and to the right of the star
+                    val dx = s.x + px(11f); val dy = s.y - px(11f); val q = px(3.2f)
+                    pinPath.reset(); pinPath.moveTo(dx, dy - q); pinPath.lineTo(dx + q, dy); pinPath.lineTo(dx, dy + q); pinPath.lineTo(dx - q, dy); pinPath.close()
+                    pinPaint.alpha = (255 * a).toInt(); c.drawPath(pinPath, pinPaint)
+                }
                 if (s.item.fresh) { ring.color = 0xFFD66042.toInt(); ring.alpha = (230 * a * pulse).toInt(); c.drawCircle(s.x, s.y, px(15f), ring); busy = true }
-                tStar.color = if (s.item.current) 0xFFFFF8EC.toInt() else 0x9EECE8E1.toInt()
+                tStar.color = if (s.item.current) 0xFFFFF8EC.toInt() else 0xE0ECE8E1.toInt()
                 tStar.alpha = (tStar.alpha * a).toInt()
                 c.drawText(s.label, s.x, if (s.labelUp) s.y - px(19f) else s.y + px(28f), tStar)
             }
@@ -541,7 +583,7 @@ class StarMap(
                 val winTop = s.y - (px(34f) + px(112f) * zoom.coerceIn(0.9f, 1.3f) + px(10f)) / zoom
                 if (abs(s.x - mid) < px(150f) && winTop < nameY) nameY = winTop
             }
-            tName.alpha = (230 * gAlpha).toInt()
+            tName.alpha = (255 * gAlpha).toInt()
             c.drawText(g.name, mid, nameY, tName)
         }
         c.restore()
@@ -553,8 +595,8 @@ class StarMap(
         if (dv != null) star(dv.index)?.let { s ->
             val t = now - dv.start
             val (sx, sy) = screenOf(s)
-            if (t >= 700) {
-                val lk = ((t - 700) / 350f).coerceIn(0f, 1f)
+            if (t >= dv.lockAt) {
+                val lk = ((t - dv.lockAt) / dv.lockMs.toFloat()).coerceIn(0f, 1f)
                 val e = 1f - (1f - lk) * (1f - lk)
                 val rr = px(64f) - (px(64f) - px(18f)) * e
                 val tk = px(7f)
@@ -567,8 +609,8 @@ class StarMap(
                 }
                 c.restore(); ring.strokeWidth = px(1.2f)
                 if (lk >= 1f) {
-                    tLock.alpha = (255 * fade * (if ((t / 90) % 2 == 0L || t > 1250) 1f else 0.4f)).toInt()
-                    c.drawText("LOCKED // NEW TAB", sx, sy + px(42f), tLock)
+                    tLock.alpha = (255 * fade * (if ((t / 90) % 2 == 0L || t > dv.zoomAt + 200) 1f else 0.4f)).toInt()
+                    c.drawText(dv.label, sx, sy + px(42f), tLock)
                 }
             }
             if (diveT > 0f) {
@@ -605,7 +647,6 @@ class StarMap(
             busy = true
             c.save(); c.translate(a[0], a[1]); c.rotate((a[2] * 180 / PI).toFloat())
             arrow.alpha = (242 * appear).toInt()
-            val tri = Path().apply { moveTo(px(10f), 0f); lineTo(-px(4f), -px(8f)); lineTo(-px(4f), px(8f)); close() }
             c.drawPath(tri, arrow)
             arrow.alpha = (242 * appear * pulse).toInt()
             c.drawCircle(-px(12f), 0f, px(3f), arrow)
@@ -614,7 +655,7 @@ class StarMap(
             c.drawText("NEW", a[0] - cos(a[2]) * px(12f), a[1] - sin(a[2]) * px(12f) + px(20f), tNew)
         }
 
-        if (busy) postInvalidateOnAnimation() else postInvalidateDelayed(80)
+        if (busy) postInvalidateOnAnimation() else postInvalidateDelayed(33) // the stars twinkle
     }
 
     /** Returns true while a window is still easing in or out (or its scan line is moving). */
@@ -622,7 +663,7 @@ class StarMap(
         if (appear < 1f) return false
         var moving = false
         val now = SystemClock.uptimeMillis()
-        val all = groups.flatMap { it.stars }
+        val all = allStars
         // the focus: the star nearest the middle of the screen
         var focus: StarPt? = null; var fd = px(130f)
         val mx = width / 2f; val my = height * 0.5f
@@ -680,7 +721,7 @@ class StarMap(
             }
 
             // the body, with two corners cut off
-            val body = Path().apply {
+            body.reset(); body.apply {
                 moveTo(r.left + cut, r.top); lineTo(r.right, r.top); lineTo(r.right, r.bottom - cut)
                 lineTo(r.right - cut, r.bottom); lineTo(r.left, r.bottom); lineTo(r.left, r.top + cut); close()
             }
@@ -697,24 +738,32 @@ class StarMap(
             val (stText, stCol) = when {
                 s.item.fresh -> Pair("NEW", 0xFFE0694A.toInt())
                 s.item.live -> Pair("LIVE", CYAN)
-                else -> Pair("ASLEEP", 0x80E7DFD1.toInt())
+                else -> Pair("ASLEEP", 0xC0E7DFD1.toInt())
             }
-            // × closes the tab
+            // × closes the tab (a pinned tab shows ◆ instead: unpin it first, from its menu)
             val xb = android.graphics.RectF(r.right - px(19f), r.top + px(2f), r.right - px(3f), r.top + px(16f))
-            winLine.color = MainActivity.CREAM; winLine.alpha = al; winLine.strokeWidth = px(1.3f)
-            val xi = px(4f)
-            c.drawLine(xb.centerX() - xi, xb.centerY() - xi, xb.centerX() + xi, xb.centerY() + xi, winLine)
-            c.drawLine(xb.centerX() - xi, xb.centerY() + xi, xb.centerX() + xi, xb.centerY() - xi, winLine)
-            closeRect[s.item.index] = android.graphics.RectF(xb.left - px(10f), r.top - px(8f), r.right + px(8f), xb.bottom + px(8f))
+            if (s.item.pinned) {
+                val q = px(3.4f)
+                pinPath.reset(); pinPath.moveTo(xb.centerX(), xb.centerY() - q); pinPath.lineTo(xb.centerX() + q, xb.centerY()); pinPath.lineTo(xb.centerX(), xb.centerY() + q); pinPath.lineTo(xb.centerX() - q, xb.centerY()); pinPath.close()
+                pinPaint.alpha = al; c.drawPath(pinPath, pinPaint)
+            } else {
+                winLine.color = MainActivity.CREAM; winLine.alpha = al; winLine.strokeWidth = px(1.3f)
+                val xi = px(4f)
+                c.drawLine(xb.centerX() - xi, xb.centerY() - xi, xb.centerX() + xi, xb.centerY() + xi, winLine)
+                c.drawLine(xb.centerX() - xi, xb.centerY() + xi, xb.centerX() + xi, xb.centerY() - xi, winLine)
+                closeRect[s.item.index] = android.graphics.RectF(xb.left - px(10f), r.top - px(8f), r.right + px(8f), xb.bottom + px(8f))
+            }
             winLine.strokeWidth = px(1f)
             tHud.textAlign = Paint.Align.RIGHT; tHud.color = stCol; tHud.alpha = al * android.graphics.Color.alpha(stCol) / 255
             c.drawText(stText, xb.left - px(5f), r.top + px(12f), tHud)
             val stW = tHud.measureText(stText) + px(16f)
             winFill.color = stCol; winFill.alpha = (al * (0.6f + 0.4f * sin(now / 300f))).toInt()
             c.drawCircle(xb.left - px(5f) - (stW - px(16f)) - px(6f), r.top + px(9.5f), px(2.2f), winFill)
-            tHud.textAlign = Paint.Align.LEFT; tHud.color = 0xD9E7DFD1.toInt(); tHud.alpha = al * 0xD9 / 255
+            tHud.textAlign = Paint.Align.LEFT; tHud.color = 0xFFEFE7D8.toInt(); tHud.alpha = al
             val head = "TAB " + String.format("%02d", s.item.index + 1) + " // " + s.item.host.uppercase()
-            c.drawText(TextUtils.ellipsize(head, tHud, r.width() - px(34f) - stW, TextUtils.TruncateAt.END).toString(), r.left + px(12f), r.top + px(12f), tHud)
+            val hw = r.width() - px(34f) - stW
+            val hk = head + "|" + hw.toInt()
+            c.drawText(headCache.getOrPut(hk) { TextUtils.ellipsize(head, tHud, hw, TextUtils.TruncateAt.END).toString() }, r.left + px(12f), r.top + px(12f), tHud)
             winFill.color = 0x40E7DFD1; winFill.alpha = al * 0x40 / 255
             c.drawRect(r.left + px(6f), r.top + px(17f), r.right - px(6f), r.top + px(18f), winFill)
 
@@ -732,21 +781,21 @@ class StarMap(
                     winFill.color = 0xFF0A0B0C.toInt(); winFill.alpha = al; c.drawRect(pic, winFill)
                     val letter = s.item.host.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "音"
                     tWinBig.alpha = al * 0x40 / 255; c.drawText(letter, pic.centerX(), pic.centerY() + px(4f), tWinBig)
-                    tWinHint.alpha = al * 0x80 / 255; c.drawText("NO SIGNAL · OPEN IT ONCE", pic.centerX(), pic.bottom - px(7f), tWinHint)
+                    tWinHint.alpha = al * 0xB3 / 255; c.drawText("NO SIGNAL · OPEN IT ONCE", pic.centerX(), pic.bottom - px(7f), tWinHint)
                 }
                 winFill.color = 0x0D7FE3FF; winFill.alpha = al * 0x0D / 255; c.drawRect(pic, winFill)
                 winFill.color = 0x38000000; winFill.alpha = al * 0x38 / 255
                 var yy = pic.top; while (yy < pic.bottom) { c.drawRect(pic.left, yy, pic.right, yy + px(1f), winFill); yy += px(3f) }
                 val scanY = pic.top + pic.height() * ((now % 2600) / 2600f)
-                scan.shader = android.graphics.LinearGradient(0f, scanY - px(14f), 0f, scanY, 0x007FE3FF, 0x387FE3FF, Shader.TileMode.CLAMP)
+                scanM.setScale(1f, px(14f)); scanM.postTranslate(0f, scanY); scanShader.setLocalMatrix(scanM); scan.shader = scanShader
                 scan.alpha = al; c.drawRect(pic.left, scanY - px(14f), pic.right, scanY, scan)
                 winFill.color = 0x807FE3FF.toInt(); winFill.alpha = al / 2; c.drawRect(pic.left, scanY, pic.right, scanY + px(1f), winFill)
                 c.restore()
             }
             // footer
-            tHud.color = 0x99E7DFD1.toInt(); tHud.alpha = al * 0x99 / 255
-            c.drawText(if (pin != null) "◆ PINNED  ▸ OPEN" else "▸ TAP TO OPEN", r.left + px(12f), r.bottom - px(5f), tHud)
-            tHud.textAlign = Paint.Align.RIGHT; tHud.color = 0x59E7DFD1; tHud.alpha = al * 0x59 / 255
+            tHud.color = 0xD9E7DFD1.toInt(); tHud.alpha = al * 0xD9 / 255
+            c.drawText(when { s.item.pinned -> "◆ PINNED  ▸ OPEN"; pin != null -> "▣ MOVED  ▸ OPEN"; else -> "▸ TAP TO OPEN" }, r.left + px(12f), r.bottom - px(5f), tHud)
+            tHud.textAlign = Paint.Align.RIGHT; tHud.color = 0x99E7DFD1.toInt(); tHud.alpha = al * 0x99 / 255
             c.drawText(String.format("%03d:%03d", (s.x / d).toInt() % 1000, (s.y / d).toInt() % 1000), r.right - px(14f), r.bottom - px(5f), tHud)
             tHud.textAlign = Paint.Align.LEFT
         }
@@ -755,7 +804,7 @@ class StarMap(
 
     private fun windowAt(x: Float, y: Float): StarPt? {
         val hit = winRect.entries.filter { (winA[it.key] ?: 0f) > 0.5f && it.value.contains(x, y) }.map { it.key }
-        return groups.flatMap { it.stars }.firstOrNull { it.item.index in hit }
+        return allStars.firstOrNull { it.item.index in hit }
     }
 
     /** a new star only shows once its shooting star has arrived */
