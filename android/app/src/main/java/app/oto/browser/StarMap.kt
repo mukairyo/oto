@@ -85,6 +85,12 @@ class StarMap(
     private val trail = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
 
     // the small windows that show what's inside a star
+    /** a new tab being born: its star arrives, Oto locks on, zooms in and opens the page */
+    private class Dive(val index: Int, val start: Long, val then: () -> Unit) { var z0 = -1f; var ticked = false; var opened = false }
+    private var dive: Dive? = null
+    private val tLock = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = sp(8f); letterSpacing = 0.16f; color = MainActivity.CREAM; textAlign = Paint.Align.CENTER }
+    private val flash = Paint(Paint.ANTI_ALIAS_FLAG)
+
     private var dragWin: StarPt? = null
     private var dragX0 = 0f
     private var dragY0 = 0f
@@ -174,6 +180,16 @@ class StarMap(
         if (!placed && width > 0) place()
         val newOne = list.lastOrNull { it.drop }
         if (placed && newOne != null && removed < 0) postDelayed({ star(newOne.index)?.let { glideTo(it) } }, 120)
+        invalidate()
+    }
+
+    /** A new tab: a new star flies in, the view locks on to it, dives in, and then [then] opens the page. */
+    fun birth(index: Int, then: () -> Unit) {
+        val now = SystemClock.uptimeMillis()
+        val st = max(now, born + (SpaceSky.WARP * 0.6f).toLong())
+        arrivals[index] = st
+        dive = Dive(index, st, then)
+        postDelayed({ star(index)?.let { glideTo(it) } }, st - now)
         invalidate()
     }
 
@@ -311,6 +327,7 @@ class StarMap(
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(e: MotionEvent): Boolean {
+        if (dive != null) return true
         // grab a window: drag it anywhere (it stays open there, linked to its star); just tap it to open the tab
         if (e.actionMasked == MotionEvent.ACTION_DOWN) {
             val w = windowAt(e.x, e.y)
@@ -385,6 +402,25 @@ class StarMap(
         if (appear <= 0f) { postInvalidateOnAnimation(); return }
         var busy = appear < 1f || fading >= 0
         val pulse = 0.6f + 0.4f * sin(now / 260f)
+        // the dive into a new star: 0–0.7 s it arrives, 0.7–1.05 s lock on, 1.05–1.75 s zoom in, then the page opens
+        val dv = dive
+        var diveT = 0f
+        if (dv != null) {
+            busy = true
+            val t = now - dv.start
+            val target = star(dv.index)
+            if (target == null) dive = null
+            else if (t >= 1050) {
+                diveT = ((t - 1050) / 700f).coerceIn(0f, 1f)
+                if (dv.z0 < 0f) { dv.z0 = zoom; glide?.cancel(); scroller.forceFinished(true) }
+                val e = diveT * diveT * diveT
+                zoom = dv.z0 + (7f - dv.z0) * e
+                vx = target.x * zoom - width / 2f; vy = target.y * zoom - height * 0.45f
+                onMove(vx, vy)
+                if (diveT >= 1f && !dv.opened) { dv.opened = true; post { dv.then() } }
+            }
+            if (target != null && t >= 1000 && !dv.ticked) { dv.ticked = true; performHapticFeedback(if (android.os.Build.VERSION.SDK_INT >= 30) android.view.HapticFeedbackConstants.CONFIRM else android.view.HapticFeedbackConstants.LONG_PRESS) }
+        }
         c.save()
         c.translate(-vx, -vy); c.scale(zoom, zoom)
         val dash = DashPathEffect(floatArrayOf(px(1.5f), px(4f)), 0f)
@@ -394,7 +430,7 @@ class StarMap(
         for (g in groups) {
             val gx = g.stars.first().x; val gy = g.stars.first().y
             if (gx < rx0 - px(150f) || gx > rx1 + px(150f) || gy < ry0 - px(150f) || gy > ry1 + px(150f)) continue
-            val gAlpha = appear * (if (query.isEmpty() || g.stars.any { isMatch(it) }) 1f else 0.25f)
+            val gAlpha = appear * (if (query.isEmpty() || g.stars.any { isMatch(it) }) 1f else 0.25f) * (1f - diveT)
             // dotted lines and a little star dust along them
             g.stars.forEachIndexed { k, s ->
                 if (s.parent < 0) return@forEachIndexed
@@ -406,7 +442,7 @@ class StarMap(
             }
             // the stars
             for (s in g.stars) {
-                val a = gAlpha * starAlpha(s, now) * (if (isMatch(s)) 1f else 0.3f)
+                val a = if (dv != null && s.item.index == dv.index) appear * starAlpha(s, now) else gAlpha * starAlpha(s, now) * (if (isMatch(s)) 1f else 0.3f)
                 if (a <= 0.01f) continue
                 val size = px(if (s.item.current) 3.4f else 2.4f) * (if (s.item.index == fading) 1f - fadeT else 1f)
                 glow.shader = if (s.item.current) glowWarm else glowCool
@@ -433,6 +469,36 @@ class StarMap(
 
         // a small window above the star nearest the middle (and above every star when you zoom in): what's inside it
         if (drawWindows(c, appear)) busy = true
+
+        // locking on to a new star, then its light filling the screen as Oto dives in
+        if (dv != null) star(dv.index)?.let { s ->
+            val t = now - dv.start
+            val (sx, sy) = screenOf(s)
+            if (t >= 700) {
+                val lk = ((t - 700) / 350f).coerceIn(0f, 1f)
+                val e = 1f - (1f - lk) * (1f - lk)
+                val rr = px(64f) - (px(64f) - px(18f)) * e
+                val tk = px(7f)
+                val fade = 1f - diveT
+                ring.color = MainActivity.CREAM; ring.alpha = (255 * fade).toInt(); ring.strokeWidth = px(1.4f)
+                c.save(); c.rotate(45f * (1f - e), sx, sy)
+                for (dx in intArrayOf(-1, 1)) for (dy in intArrayOf(-1, 1)) {
+                    c.drawLine(sx + dx * rr, sy + dy * (rr - tk), sx + dx * rr, sy + dy * rr, ring)
+                    c.drawLine(sx + dx * rr, sy + dy * rr, sx + dx * (rr - tk), sy + dy * rr, ring)
+                }
+                c.restore(); ring.strokeWidth = px(1.2f)
+                if (lk >= 1f) {
+                    tLock.alpha = (255 * fade * (if ((t / 90) % 2 == 0L || t > 1250) 1f else 0.4f)).toInt()
+                    c.drawText("LOCKED // NEW TAB", sx, sy + px(42f), tLock)
+                }
+            }
+            if (diveT > 0f) {
+                val rad = max(width, height) * (0.15f + 1.3f * diveT)
+                val fa = (diveT * diveT * 255).toInt().coerceIn(0, 255)
+                flash.shader = RadialGradient(sx, sy, rad, intArrayOf(android.graphics.Color.argb(fa, 255, 246, 232), android.graphics.Color.argb(fa * 2 / 3, 231, 223, 209), android.graphics.Color.argb(0, 11, 11, 12)), floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP)
+                c.drawRect(0f, 0f, width.toFloat(), height.toFloat(), flash)
+            }
+        }
 
         // new tabs flying in as shooting stars
         for ((idx, t0) in arrivals.toList()) {
@@ -491,7 +557,7 @@ class StarMap(
             val pin = pinned[pinKey(s.item)]
             val ox = pin?.get(0) ?: 0f; val oy = pin?.get(1) ?: 0f
             val onScreen = (sx + ox) > -ww && (sx + ox) < width + ww && (sy + oy) > -wh && (sy + oy) < height + wh * 2
-            val want = if (onScreen && isMatch(s) && s.item.index != fading && (s === focus || zoomedIn || pin != null)) 1f else 0f
+            val want = if (dive == null && onScreen && isMatch(s) && s.item.index != fading && (s === focus || zoomedIn || pin != null)) 1f else 0f
             val cur = winA[s.item.index] ?: 0f
             val a = if (abs(want - cur) < 0.04f) want else cur + (want - cur) * 0.24f
             if (a != want) moving = true

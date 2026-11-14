@@ -852,14 +852,7 @@ class MainActivity : AppCompatActivity() {
         val d = TabDrawer(this,
             onOpen = { i -> closeSheet(); select(i) },
             onClose = { i -> closeTab(i); drawer?.show(drawerItems(), removed = i) },
-            onNew = {
-                // the new tab flies into the sky as a shooting star, then opens
-                val t = Tab(NEWTAB).also { it.dropped = false }
-                tabs.add(t)
-                drawer?.show(drawerItems()); t.dropped = true
-                refreshBar()
-                root.postDelayed({ val i = tabs.indexOf(t); if (i >= 0 && drawer != null) { closeSheet(); select(i) } }, 1150)
-            },
+            onNew = { newTabInSky() },
             onDismiss = { closeSheet() })
         drawer = d
         root.addView(d, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -869,6 +862,17 @@ class MainActivity : AppCompatActivity() {
         d.alpha = 0f; d.animate().alpha(1f).setDuration(160).start()
         // a fresh picture of the tab you were just on
         captureThumb { t, b -> drawer?.setThumb(tabs.indexOf(t), b) }
+    }
+
+    /** A new tab is a new star: it flies in, the tab window locks on to it and dives in, then the page opens. */
+    private fun newTabInSky() {
+        if (drawer == null) showTabs()
+        val d = drawer ?: return openTab()
+        val t = Tab(NEWTAB).also { it.dropped = false }
+        tabs.add(t)
+        d.show(drawerItems()); t.dropped = true
+        refreshBar()
+        d.birth(tabs.indexOf(t)) { val i = tabs.indexOf(t); if (i >= 0 && drawer === d) { closeSheet(); select(i) } }
     }
 
     private val thumbSoon = Runnable { if (sheet == null) captureThumb(null) }
@@ -957,7 +961,7 @@ class MainActivity : AppCompatActivity() {
         }
         if (t?.canForward == true) row("Forward") { t.session?.goForward() }
         row("Reload") { t?.session?.reload() }
-        row("New tab") { openTab() }
+        row("New tab") { newTabInSky() }
         if (t != null && t.url != NEWTAB) row("Share") {
             startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t.url), "Share"))
         }

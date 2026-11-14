@@ -129,6 +129,9 @@ class TabDrawer(
         map.show(items, removed)
     }
 
+    /** A new tab: its star is born, the view locks on and dives in, then [then] opens it. */
+    fun birth(index: Int, then: () -> Unit) { dismissCard(); map.birth(index, then) }
+
     /** A fresh picture of a tab's page arrived (shown when you hold its star). */
     fun setThumb(index: Int, b: Bitmap) = map.setThumb(index, b)
 
