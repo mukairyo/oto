@@ -369,8 +369,14 @@ class StarMap(
             }
             // the constellation's name, above its highest star
             val top = g.stars.minOf { it.y }; val mid = g.stars.sumOf { it.x.toDouble() }.toFloat() / g.stars.size
+            var nameY = top - px(24f)
+            // a star's window is open: the name moves up above it instead of hiding under it
+            g.stars.filter { (winA[it.item.index] ?: 0f) > 0f }.forEach { s ->
+                val winTop = s.y - (px(22f) + px(136f) * zoom.coerceIn(0.9f, 1.3f) * 0.74f + px(8f)) / zoom
+                if (abs(s.x - mid) < px(150f) && winTop < nameY) nameY = winTop
+            }
             tName.alpha = (230 * gAlpha).toInt()
-            c.drawText(g.name, mid, top - px(24f), tName)
+            c.drawText(g.name, mid, nameY, tName)
         }
         c.restore()
 
