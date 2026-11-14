@@ -9,6 +9,7 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 
 **Fixed**
 - **YouTube's top bar turned flat grey over the ambient light.** Its frosted-glass layer blurred the colourful light into grey. While ambient light is on, the top bar now lets the light through, with a soft dark shade at the very top so the logo and buttons stay readable. To keep YouTube's own top bar, switch off "Top bar lets the light through" (Shield › YouTube › More settings).
+- **Dark wedges in the page's corners** while the glow lit Oto's window: the light left a square gap around the page, and the page's rounded corners didn't fill it. The light now follows the page's rounded corners.
 
 ## 1.6.4 — 2026-11-14
 

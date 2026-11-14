@@ -193,7 +193,11 @@ function ambFrameShow(f, box, zoom = 1) {
     }
   }
   // everything except the page area (a frame with a hole)
-  const hole = `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${box.left}px ${box.top}px, ${box.right}px ${box.top}px, ${box.right}px ${box.bottom}px, ${box.left}px ${box.bottom}px, ${box.left}px ${box.top}px)`;
+  // the hole has the page's own rounded corners, so the light runs right into them (a square hole left dark wedges)
+  const content = document.getElementById('content');
+  const rad = Math.max(0, Math.min(40, parseFloat(content ? getComputedStyle(content).borderTopLeftRadius : '0') || 0));
+  const L = box.left, T = box.top, R = box.right, B = box.bottom, r = Math.min(rad, (R - L) / 2, (B - T) / 2);
+  const hole = `path(evenodd, 'M0 0H${innerWidth}V${innerHeight}H0Z M${L + r} ${T}H${R - r}A${r} ${r} 0 0 1 ${R} ${T + r}V${B - r}A${r} ${r} 0 0 1 ${R - r} ${B}H${L + r}A${r} ${r} 0 0 1 ${L} ${B - r}V${T + r}A${r} ${r} 0 0 1 ${L + r} ${T}Z')`;
   el.style.clipPath = hole; AMBF.wash.style.clipPath = hole;
   el.style.setProperty('--af-a', String(f.strength * 0.9));
   AMBF.wash.style.setProperty('--af-a', String(f.strength * 0.85));
