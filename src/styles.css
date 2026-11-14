@@ -894,7 +894,7 @@ body.rail:not(.rail-open) #sidebar :is(.tab .title, .tab .x, .tab .audio, #btnNe
   .sb-url-row, .sb-ws-row, #wsTitle, #navGroup, #btnMenu, #headSpacer, .ws-add) { display: none !important; }
 body.rail:not(.rail-open) .sb-head { justify-content: center; padding: 0; }
 body.rail:not(.rail-open) .tab, body.rail:not(.rail-open) .new-tab { justify-content: center; padding: 0; gap: 0; }
-body.rail:not(.rail-open) .essentials { grid-template-columns: 1fr; gap: 4px; padding: 2px 0 8px; }
+body.rail:not(.rail-open) .essentials { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 2px 0 8px; }
 body.rail:not(.rail-open) .ess { height: 38px; }
 body.rail:not(.rail-open) .sb-foot { justify-content: center; }
 body.rail:not(.rail-open) .ws-switch { flex-direction: column; flex-wrap: nowrap; }
@@ -1588,6 +1588,10 @@ body.skin-rt .tab-list { counter-reset: rt-tab; }
 body.skin-rt .tab { counter-increment: rt-tab; border-radius: 4px; gap: 10px; }
 body.skin-rt .tab::before { content: counter(rt-tab, decimal-leading-zero); font: 500 9px var(--rt-mono); color: var(--rt-fg3); width: 14px; flex: none; letter-spacing: .05em; }
 body.skin-rt.rail:not(.rail-open) .tab::before { display: none; }
+/* the icon strip has no room for the section headings ("01 ESSENTIALS" …): they forced the icon column wider than
+   the strip, so the icons were cut off and the heading spilled out after Ctrl+B or collapsing (1.6.6) */
+body.skin-rt.rail:not(.rail-open) .essentials::before, body.skin-rt.rail:not(.rail-open) #pinned::before,
+body.skin-rt.rail:not(.rail-open) .divider::before { display: none; }
 body.skin-rt .tab:hover { background: rgba(255,255,255,.04); }
 body.skin-rt .tab.active { background: var(--rt-cream); color: var(--rt-ink); box-shadow: none; }
 body.skin-rt .tab.active::before { color: rgba(19,19,19,.5); }

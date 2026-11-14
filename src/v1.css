@@ -134,7 +134,7 @@ body.v1:not(.skin-rt) #content { box-shadow: 0 0 0 1px rgba(255, 255, 255, .45),
 
 /* icon-strip sidebar (rail): keep it compact */
 body.v1.rail:not(.rail-open) .v1-lab, body.v1.rail:not(.rail-open) .v1-zz { display: none !important; }
-body.v1.rail:not(.rail-open) .essentials { grid-template-columns: 1fr; }
+body.v1.rail:not(.rail-open) .essentials { grid-template-columns: minmax(0, 1fr); }
 body.v1.rail:not(.rail-open) .ess { height: 40px; border-radius: 11px; }
 body.v1.rail:not(.rail-open) .tab.active::before { left: -6px; }
 

@@ -14,7 +14,7 @@ module.exports = async (t) => {
     let px = null; try { const d = c.getContext('2d').getImageData(32, 18, 1, 1).data; px = [d[0], d[1], d[2]]; } catch (e) { px = String(e); }
     return { on: !!L && L.classList.contains('on'), attr: document.documentElement.hasAttribute('oto-ambient'), opacity: L ? getComputedStyle(L).opacity : null,
       layer: L ? rect(L) : null, canvas: box ? rect(box) : null, blur: mid ? getComputedStyle(mid).filter : null, copies: L ? L.querySelectorAll('canvas').length : 0, video: rect(document.querySelector('video')),
-      appBg: getComputedStyle(app).backgroundColor, cinematics: getComputedStyle(document.getElementById('cinematics')).display, px, noApi: typeof window.oto === 'undefined' && typeof require === 'undefined' };
+      appBg: getComputedStyle(app).backgroundColor, appPos: getComputedStyle(app).position, appZ: getComputedStyle(app).zIndex, layerZ: L ? getComputedStyle(L).zIndex : null, cinematics: getComputedStyle(document.getElementById('cinematics')).display, px, noApi: typeof window.oto === 'undefined' && typeof require === 'undefined' };
   })()`);
   const near = (px, rgb) => Array.isArray(px) && px.every((v, i) => Math.abs(v - rgb[i]) < 40);
   const wait = (ms) => t.sleep(ms);
@@ -26,6 +26,17 @@ module.exports = async (t) => {
   t.check('…placed on the picture and reaching past it on every side', JSON.stringify(a.layer) === JSON.stringify(a.video) && a.canvas[0] < a.layer[0] && a.canvas[1] < a.layer[1] && a.canvas[2] > a.layer[2] && a.canvas[3] > a.layer[3], `layer ${a.layer} video ${a.video} glow ${a.canvas}`);
   t.check('the light is the picture drawn several times, each copy bigger (spread 100%, edge 12%: 8 bigger copies + 2 under the picture), reaching equally far on every side', a.copies === 11 && Math.abs((a.canvas[1] + a.canvas[3]) - (a.layer[1] + a.layer[3]) - 307) <= 2, `copies ${a.copies}, reach below ${(a.canvas[1] + a.canvas[3]) - (a.layer[1] + a.layer[3])} (expected 307: half of 12% x 8 of the width 640; the left side stops at the page edge)`);
   t.check('…in the video\'s colour (red)', near(a.px, [224, 32, 74]), String(a.px));
+  // 1.6.6: the glow lies under the page; YouTube's own layout isn't changed (moving its app element up a layer made
+  // YouTube put hover previews too low on the watch page)
+  t.check("YouTube's layout is left as it is: its app element isn't moved or put on another layer", a.appPos === 'static' && a.appZ === 'auto' && a.layerZ === '-1', `app ${a.appPos}/${a.appZ}, glow ${a.layerZ}`);
+  {
+    const { webContents } = require('electron');
+    const tabWc = webContents.fromId(await t.js('V.get(activeTab().id).wv.getWebContentsId()'));
+    const g = JSON.parse(await t.page(`JSON.stringify((() => { const r = document.querySelector('video').getBoundingClientRect(); return [Math.round(r.right + 20), Math.round(r.top + r.height / 2)]; })())`));
+    const img = await tabWc.capturePage({ x: g[0], y: g[1], width: 1, height: 1 });
+    const bm = img.toBitmap(); const rgb = [bm[2], bm[1], bm[0]]; // BGRA
+    t.check('…and the glow still shows on screen next to the video, under the page (not the plain dark background)', rgb[0] > 40 && rgb[0] > rgb[1] + 15, String(rgb));
+  }
   await t.page('window.__paint("#20c040")'); await wait(700);
   a = await look();
   t.check('it follows the picture: the video turns green, so does the glow', near(a.px, [32, 192, 64]), String(a.px));

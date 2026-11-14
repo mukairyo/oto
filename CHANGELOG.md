@@ -3,6 +3,12 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.6.7 — 2026-11-14
+
+**Fixed**
+- **YouTube hover previews** in the list next to a video now play right on top of their thumbnail. With the ambient light on, they used to appear too low. The glow now lies under the page, so YouTube's own layout stays exactly as YouTube makes it.
+- **The icon-strip sidebar** (collapsed, and after Ctrl+B brings it back) shows only its icons again. The "01 ESSENTIALS" heading no longer squeezes in and pushes the icons past the edge of the strip.
+
 ## 1.6.6 — 2026-11-14
 
 *Security update. Nothing to do: it updates itself.*

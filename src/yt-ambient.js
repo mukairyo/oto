@@ -71,10 +71,13 @@ function otoYtAmbient(opts) {
   const style = doc.createElement('style'), look = doc.createElement('style');
   style.id = 'oto-ambient-css'; look.id = 'oto-ambient-look';
   const IMM = 'html[oto-ambient][oto-immersive][oto-theater]:not([oto-scrolled])';
+  // The glow sits under the whole page (z-index -1: above the page's own dark background, below everything else) and
+  // YouTube's own layout is left alone. (Until 1.6.6 YouTube's app element was moved up a layer instead, which made
+  // YouTube place its hover previews too low, under the thumbnail they belong to.)
   style.textContent = `
-html[oto-ambient] ytd-app{background:transparent!important;position:relative;z-index:1}
+html[oto-ambient] body,html[oto-ambient] ytd-app{background:transparent!important}
 html[oto-ambient] #cinematics,html[oto-ambient] #cinematics-container{display:none!important}
-#oto-ambient{position:absolute;left:0;top:0;width:0;height:0;z-index:0;pointer-events:none;opacity:0;transition:opacity var(--oa-fade,600ms) ease;contain:layout style size}
+#oto-ambient{position:absolute;left:0;top:0;width:0;height:0;z-index:-1;pointer-events:none;opacity:0;transition:opacity var(--oa-fade,600ms) ease;contain:layout style size}
 #oto-ambient.on{opacity:var(--oa-strength,.85)}
 #oto-ambient .oa-wrap{position:absolute}
 #oto-ambient .oa-mid{position:absolute;inset:0;filter:blur(var(--oa-blur,54px)) saturate(var(--oa-colors,1.35)) brightness(var(--oa-bright,1))}
