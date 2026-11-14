@@ -51,7 +51,7 @@ object OtoLink {
     fun signOut(c: Context) {
         val p = prefs(c); val token = try { access(c) } catch (e: Exception) { null }
         if (token != null) try { http("POST", "/auth/v1/logout", null, token) } catch (e: Exception) {}
-        p.edit().remove("uid").remove("key").remove("access").remove("refresh").remove("exp").apply()
+        p.edit().remove("uid").remove("key").remove("access").remove("refresh").remove("exp").remove("card").apply()
     }
 
     // ------------------------------------------------------------ Keystore-locked storage
@@ -155,6 +155,43 @@ object OtoLink {
         } catch (e: LinkError) { e.message } catch (e: Exception) { "Couldn’t sign in (${e.javaClass.simpleName})" }
     }
     private fun signOutQuiet(c: Context) { prefs(c).edit().remove("uid").remove("key").remove("access").remove("refresh").apply() }
+
+    // ------------------------------------------------------------ your Oto Card (from your PC, read only)
+    /**
+     * Background thread. Reads your synced Oto data, decrypts it with your key (on the phone, like the PC does) and
+     * keeps only what the card needs: the card itself, XP stats, badges, the day you started and your spaces' colours.
+     * Nothing is written back, so the phone can never change your PC's data. Returns the card JSON, or null.
+     */
+    fun pullCard(c: Context): JSONObject? {
+        if (!signedIn(c)) return null
+        val uid = prefs(c).getString("uid", "")!!
+        val rows = http("GET", "/rest/v1/oto_sync?user_id=eq.${enc(uid)}&select=blob", null, access(c)) as JSONArray
+        if (rows.length() == 0) return null
+        val k = unseal(prefs(c).getString("key", null)) ?: throw LinkError("Please sign in again", auth = true)
+        val all = decrypt(rows.getJSONObject(0).getString("blob"), unb64(k))
+        val sec = all.optJSONObject("sections") ?: JSONObject()
+        val card = sec.optJSONObject("card")?.optJSONObject("data") ?: JSONObject()
+        val spaces = sec.optJSONObject("spaces")?.optJSONObject("data")?.optJSONArray("workspaces") ?: JSONArray()
+        val settings = sec.optJSONObject("settings")?.optJSONObject("data")?.optJSONObject("settings") ?: JSONObject()
+        val ws = JSONArray()
+        for (i in 0 until minOf(spaces.length(), 40)) {
+            val w = spaces.optJSONObject(i) ?: continue
+            ws.put(JSONObject().put("id", w.opt("id")).put("colors", w.optJSONArray("colors") ?: JSONArray()).put("color", w.optString("color", "")))
+        }
+        val out = JSONObject()
+            .put("card", card.optJSONObject("card") ?: JSONObject())
+            .put("badges", card.optJSONObject("badges") ?: JSONObject())
+            .put("xpBonus", card.optInt("xpBonus", 0))
+            .put("since", card.optLong("since", 0))
+            .put("stats", card.optJSONObject("stats") ?: JSONObject())
+            .put("workspaces", ws)
+            .put("userName", settings.optString("userName", ""))
+            .put("at", all.optLong("at", 0))
+        prefs(c).edit().putString("card", out.toString()).apply()
+        return out
+    }
+    /** the card as last fetched (shown straight away; refreshed in the background) */
+    fun savedCard(c: Context): JSONObject? = try { prefs(c).getString("card", null)?.let { JSONObject(it) } } catch (e: Exception) { null }
 
     // ------------------------------------------------------------ this phone ⇄ your PCs
     fun info(c: Context, tabs: List<Pair<String, String>>, active: String): JSONObject {

@@ -70,8 +70,10 @@ class Tab(var url: String, var title: String = "") {
 class MainActivity : AppCompatActivity() {
     companion object {
         const val NEWTAB = "resource://android/assets/newtab.html"
+        const val CARD = "resource://android/assets/card/card.html"
         private var runtime: GeckoRuntime? = null
         private var shieldExt: WebExtension? = null
+        private var ambientExt: WebExtension? = null
         private var introPlayed = false
 
         // Oto theme
@@ -115,6 +117,7 @@ class MainActivity : AppCompatActivity() {
                 .build()
         ).also { rt -> try { rt.settings.setFingerprintingProtection(prefs.getBoolean("fp", true)) } catch (e: Throwable) {} }
         installShieldExt()
+        installAmbientExt()
         buildUi()
         restoreTabs()
         intent?.dataString?.let { if (it.startsWith("http")) openTab(it) }
@@ -262,6 +265,35 @@ class MainActivity : AppCompatActivity() {
                 if (ext != null && ext.metaData.enabled != want) switchShieldExt(want) {}
             }, { e -> android.util.Log.w("Oto", "Oto Shield's own blocker could not start", e) })
         } catch (e: Throwable) { android.util.Log.w("Oto", "Oto Shield's own blocker could not start", e) }
+    }
+
+    // The YouTube ambient light (assets/ambient): the same light as Oto for Windows, in a second small built-in
+    // extension that only runs on YouTube. It follows the "YouTube ambient light" switch (on by default).
+    private fun installAmbientExt() {
+        val rt = runtime ?: return
+        if (ambientExt != null) return
+        try {
+            rt.webExtensionController.ensureBuiltIn("resource://android/assets/ambient/", "ambient@oto.app").accept({ ext ->
+                ambientExt = ext
+                val want = prefs.getBoolean("ambient", true)
+                if (ext != null && ext.metaData.enabled != want) switchExt(ext, want) { e -> ambientExt = e }
+            }, { e -> android.util.Log.w("Oto", "The YouTube ambient light could not start", e) })
+        } catch (e: Throwable) { android.util.Log.w("Oto", "The YouTube ambient light could not start", e) }
+    }
+
+    private fun switchExt(ext: WebExtension, on: Boolean, done: (WebExtension) -> Unit) {
+        val ctl = runtime?.webExtensionController ?: return
+        try {
+            val r = if (on) ctl.enable(ext, WebExtensionController.EnableSource.APP) else ctl.disable(ext, WebExtensionController.EnableSource.APP)
+            r.accept({ e -> if (e != null) done(e) }, { })
+        } catch (e: Throwable) { }
+    }
+
+    private fun setAmbient(on: Boolean) {
+        prefs.edit().putBoolean("ambient", on).apply()
+        val ext = ambientExt
+        if (ext != null) switchExt(ext, on) { e -> ambientExt = e; runOnUiThread { if (current()?.url?.contains("youtube.com") == true) current()?.session?.reload() } }
+        toast(if (on) "YouTube ambient light on (YouTube's dark theme)" else "YouTube ambient light off")
     }
 
     private fun switchShieldExt(on: Boolean, then: () -> Unit) {
@@ -515,7 +547,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun startEdit() {
         val t = current() ?: return
-        urlEdit.setText(if (t.url == NEWTAB) "" else t.url)
+        urlEdit.setText(if (t.url == NEWTAB || t.url.startsWith(CARD)) "" else t.url)
         // the address text underneath was showing through what you type: hide it while editing
         pillRow.visibility = View.INVISIBLE
         pill.background = box(0x0DFFFFFF, CREAM)
@@ -534,7 +566,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshBar() {
         val t = current()
-        urlText.text = if (t == null || t.url == NEWTAB) "" else prettyUrl(t.url)
+        urlText.text = if (t == null || t.url == NEWTAB) "" else if (t.url.startsWith(CARD)) "Oto Card" else prettyUrl(t.url)
         tabsBtn.text = String.format("%02d", tabs.size).takeLast(2)
         backBtn.alpha = if (t?.canBack == true) 1f else 0.35f
         val p = t?.progress ?: 100
@@ -654,6 +686,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun tabFor(s: GeckoSession): Tab? = tabs.firstOrNull { it.session === s }
+
+    // ------------------------------------------------------------------ your Oto Card
+    // The card you made on your PC (with your level and badges), drawn by the same code as Oto for Windows
+    // (assets/card). The last card fetched shows straight away; a fresh one is fetched and the page updates if changed.
+    private fun cardUrl(d: org.json.JSONObject?): String {
+        if (d == null) return CARD
+        val b = android.util.Base64.encodeToString(d.toString().toByteArray(Charsets.UTF_8), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING)
+        return "$CARD#d=$b"
+    }
+    private fun showCard() {
+        val saved = OtoLink.savedCard(this)
+        val existing = tabs.indexOfFirst { it.url.startsWith(CARD) }
+        if (existing >= 0) { tabs[existing].url = cardUrl(saved); select(existing); tabs[existing].session?.loadUri(tabs[existing].url) } else openTab(cardUrl(saved))
+        if (!OtoLink.signedIn(this)) return
+        thread {
+            val fresh = try { OtoLink.pullCard(applicationContext) } catch (e: Throwable) { null }
+            if (fresh != null && fresh.toString() != saved?.toString()) runOnUiThread {
+                val i = tabs.indexOfFirst { it.url.startsWith(CARD) }
+                if (i >= 0) { tabs[i].url = cardUrl(fresh); tabs[i].session?.loadUri(tabs[i].url) }
+            }
+        }
+    }
 
     private fun openTab(url: String = NEWTAB) {
         tabs.add(Tab(url))
@@ -829,8 +883,10 @@ class MainActivity : AppCompatActivity() {
         val linked = OtoLink.signedIn(this)
         if (linked && t != null && t.url.startsWith("http")) pcs().forEach { d -> row("Send to ${d.name}", ago(d.seen).let { if (it == "ONLINE") "ON" else "" }) { sendToPc(d) } }
         row("Oto account", if (linked) "LINKED" else "SIGN IN") { if (linked) linkBeat { showAccount() } else showAccount() }
+        row("Oto Card", if (linked) "YOURS" else "") { showCard() }
         row("Oto Shield", if (shieldOn) "ON" else "OFF") { setShield(!shieldOn) }
         row("Dangerous-site warnings", if (prefs.getBoolean("danger", true)) "ON" else "OFF") { setDanger(!prefs.getBoolean("danger", true)) }
+        row("YouTube ambient light", if (prefs.getBoolean("ambient", true)) "ON" else "OFF") { setAmbient(!prefs.getBoolean("ambient", true)) }
         row("Fingerprint protection", if (prefs.getBoolean("fp", true)) "ON" else "OFF") { setFingerprint(!prefs.getBoolean("fp", true)) }
         row("Site permissions") { showSitePermissions() }
         row("Desktop site", if (prefs.getBoolean("desktop", false)) "ON" else "OFF") { setDesktop(!prefs.getBoolean("desktop", false)) }
