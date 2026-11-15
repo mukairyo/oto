@@ -3,6 +3,15 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.7.1 — Sky looks like Oto for Android, and zooms into the Galaxy
+
+- **The Android look.** Sky now matches the star map on Oto for Android: the website's own starfield behind it, four-pointed stars with tab names in small capitals, dotted constellations with their names in italics, and made-up constellations (with invented names) filling the sky around your Spaces.
+- **Spaces as HUD frames.** Each Space is a frame with corner brackets and a readout along the top (`SPACE 01 // HOME ——— 04 TABS`), instead of a coloured glow. Names never run into each other any more.
+- **Windows on the stars.** Zoom in and every star you can see gets a little window above it with the page as you left it, LIVE or ASLEEP, and a × to close it; click a window to open the tab. Pointing at a star shows the same window with Open, Pin and Move to Space.
+- **Zoom to travel.** Keep zooming out in Sky and you rise into the Galaxy. Zoom into a star (or an arm) in the Galaxy and you come down into Sky, landing on that tab in its Space. The − and + buttons cross over the same way, and the Grid · Sky · Galaxy switch follows along.
+- **Other galaxies in the distance.** Far-off galaxies now sit behind both views: small, faint ones far away and a few bigger ones closer. They drift slower than your tabs when you move, so the sky has depth.
+- With reduce motion on, the switch happens straight away without the zoom-through.
+
 ## 1.7.0 — 2026-11-15
 
 **New**

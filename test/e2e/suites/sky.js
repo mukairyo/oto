@@ -48,6 +48,13 @@ module.exports = async (t) => {
   t.check('the preview window has Open, Pin and Move to Space', a.buttons.join('|') === 'Open|Pin|Move to Space ▾', JSON.stringify(a));
   await shot('2-preview');
 
+  // zoom in: every star you can see gets its little window (what's inside it), as on Android
+  await t.js(`skyHideCard(), SKY.hover = null, SKY.sel = null, skyFocusStar(${JSON.stringify(fine.id)}, 1.6), 1`); await t.sleep(1100);
+  a = await J('return { wins: (SKY.winHit || []).map((w) => w.id), z: SKY.cam.z };');
+  t.check('zooming in opens a window over the stars', a.wins.length >= 1 && a.wins.includes(fine.id), JSON.stringify(a));
+  await shot('2b-windows');
+  await t.js('SKY.cam.z = 1, skyDraw(), 1');
+
   // 5 · the layout stays put: reopening the overview keeps every star where it was
   const before = await J('return [...SKY.starById.values()].map((s) => [s.id, Math.round(s.x), Math.round(s.y)]);');
   await t.js('v1CloseOverview(), 1'); await t.sleep(300); await t.js('v1Overview(), 1'); await t.sleep(700);

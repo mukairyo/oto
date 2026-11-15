@@ -65,5 +65,25 @@ module.exports = async (t) => {
   await t.js("[...document.querySelectorAll('.v1-ovsw .b')].find((b) => /^sky$/i.test(b.textContent.trim())).click(), 1"); await t.sleep(600);
   a = await J('return { mode: SKY.mode, on: SKY.on };');
   t.check('Sky is one click away', a.on && a.mode === 'sky', JSON.stringify(a));
+
+  // zooming moves between the views: out of Sky into the Galaxy, into a star in the Galaxy down into Sky on that tab
+  const wheel = (x, y, dy) => t.js(`(() => { const r = SKY.canvas.getBoundingClientRect(); SKY.canvas.dispatchEvent(new WheelEvent('wheel', { deltaY: ${dy}, clientX: ${x} || r.left + r.width / 2, clientY: ${y} || r.top + r.height / 2, bubbles: true, cancelable: true })); })(), 1`);
+  await t.js('Object.assign(SKY.cam, skyFitAll()), SKY.cam.z = 0.25, skyDraw(), 1'); await t.sleep(200);
+  await wheel(0, 0, 120); await t.sleep(80); await wheel(0, 0, 120); await t.sleep(250);
+  await shot('g4-rising');
+  await t.sleep(700);
+  a = await J("return { mode: SKY.mode, view: S.settings.overviewView, on: document.querySelector('.v1-ovsw .b.on').textContent, deep: SKY_DEEP.list && SKY_DEEP.list.length };");
+  t.check('zooming out of Sky rises into the Galaxy (and the switch follows)', a.mode === 'galaxy' && a.view === 'galaxy' && /galaxy/i.test(a.on), JSON.stringify(a));
+  t.check('far-off galaxies sit behind the view', a.deep >= 8, JSON.stringify(a));
+  await shot('g5-galaxy-deep');
+  const nav = id('nav.site');
+  await t.js(`skyFocusStar(${JSON.stringify(nav)}, 1.8), 1`); await t.sleep(600);
+  p = await starXY(nav);
+  await wheel(p[0], p[1], -120); await t.sleep(80); await wheel(p[0], p[1], -120); await t.sleep(250);
+  await shot('g6-diving');
+  await t.sleep(700);
+  a = await J(`const s = SKY.starById.get(${JSON.stringify(nav)}); return { mode: SKY.mode, view: S.settings.overviewView, on: document.querySelector('.v1-ovsw .b.on').textContent, dx: s && Math.round(SKY.cam.x - s.x), dy: s && Math.round(SKY.cam.y - s.y) };`);
+  t.check('zooming into a star in the Galaxy comes down into Sky on that tab', a.mode === 'sky' && a.view === 'sky' && /sky/i.test(a.on) && Math.abs(a.dx) < 8 && Math.abs(a.dy) < 8, JSON.stringify(a));
+  await shot('g7-sky-landed');
   await t.js('v1CloseOverview(), 1');
 };

@@ -22,38 +22,55 @@ body .v1-ov.sky { padding: 0; background: #07080B !important; backdrop-filter: n
 .v1-ov.sky .srch { width: min(560px, 46vw); height: 42px; border-radius: 10px; background: #111318 !important; box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .1) !important; color: #AAA8A5; }
 .v1-ov.sky .srch input { color: #F1EEE8; font-size: 14px; }
 .v1-ov.sky .srch input::placeholder { color: #AAA8A5; }
-.sky-box { position: absolute; inset: 0; overflow: hidden; }
+.sky-box { position: absolute; inset: 0; overflow: hidden; background: #030304; }
 .sky-box svg.galaxy-bg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .75; pointer-events: none; }
 .sky-canvas { position: absolute; inset: 0; cursor: grab; outline: none; }
 /* (no outline on the sky itself: the selected star's dashed ring shows where the keyboard is) */
 
 /* the preview window */
-.sky-card { position: absolute; z-index: 4; width: 300px; box-sizing: border-box; padding: 14px; background: #111318; color: #F1EEE8;
-  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
-  box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .16); filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .55)); animation: skyCard .18s ease; }
-@keyframes skyCard { from { opacity: 0; transform: translateY(4px); } }
-@media (prefers-reduced-motion: reduce) { .sky-card { animation: none; } }
-.sky-card .hd { display: flex; align-items: center; gap: 10px; }
-.sky-card .hd .fav, .sky-card .hd .fav-letter { width: 20px; height: 20px; border-radius: 5px; flex: none; font-size: 11px; }
-.sky-card .tt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.sky-card .tt b { font: 600 14px "Inter", "Segoe UI", system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sky-card .tt small { font: 12px ui-monospace, Consolas, monospace; color: #AAA8A5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sky-card .st { flex: none; font: 600 11px ui-monospace, Consolas, monospace; letter-spacing: .1em; padding: 3px 8px; border-radius: 10px; color: #AAA8A5; box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .16); }
-.sky-card .st.live, .sky-card .st.active { color: #A8E7F3; background: rgba(168, 231, 243, .12); box-shadow: none; }
-.sky-card .x { flex: none; width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: #AAA8A5; display: grid; place-items: center; cursor: pointer; }
-.sky-card .x:hover { background: rgba(216, 121, 121, .16); color: #D87979; }
-.sky-card .x svg.i { width: 14px; height: 14px; }
-.sky-card .img { height: 150px; margin-top: 12px; border-radius: 6px; background: #0b0c10 center top / cover no-repeat; box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .06); position: relative; }
-.sky-card .img.none::after { content: attr(data-why); position: absolute; inset: 0; display: grid; place-items: center; font: 12px ui-monospace, Consolas, monospace; color: #AAA8A5; letter-spacing: .06em; }
-.sky-card .img.none:not([data-why])::after { content: 'No picture yet'; }
-.sky-card .meta { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; font: 12px ui-monospace, Consolas, monospace; color: #AAA8A5; }
+/* a star's window, as on Android: a dark HUD panel with two corners cut, brackets on the other two, a readout,
+   the picture with scanlines and a sweeping scan line, then the tab's name and its buttons */
+.sky-card { position: absolute; z-index: 4; width: 268px; color: #EFE7D8; animation: skyCard .2s steps(4, end); filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .6)); }
+.sky-card::before, .sky-card::after { content: ''; position: absolute; width: 12px; height: 12px; border: 1.6px solid #ECE8E1; pointer-events: none; }
+.sky-card::before { top: -3px; right: -3px; border-left: 0; border-bottom: 0; }
+.sky-card::after { bottom: -3px; left: -3px; border-right: 0; border-top: 0; }
+@keyframes skyCard { 0% { opacity: 0; transform: scaleY(.06); } 50% { opacity: .5; } 100% { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sky-card { animation: none; } .sky-card .img::after { animation: none; display: none; } }
+.sky-card .bd { box-sizing: border-box; padding: 8px 8px 10px; background: rgba(6, 8, 10, .94);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  box-shadow: inset 0 0 0 1px rgba(231, 223, 209, .38); }
+.sky-card .hd { display: flex; align-items: center; gap: 8px; padding: 0 0 6px 6px; border-bottom: 1px solid rgba(231, 223, 209, .22);
+  font: 10px ui-monospace, Consolas, "DejaVu Sans Mono", monospace; letter-spacing: .12em; }
+.sky-card .tag { background: none; padding: 0; border-radius: 0; height: auto; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #EFE7D8; }
+.sky-card .st { flex: none; color: rgba(231, 223, 209, .75); display: flex; align-items: center; gap: 6px; }
+.sky-card .st::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: skyBlink 1.9s ease-in-out infinite; }
+.sky-card .st.live, .sky-card .st.active { color: #7FE3FF; }
+@keyframes skyBlink { 50% { opacity: .35; } }
+.sky-card .x { flex: none; width: 20px; height: 18px; border: 0; padding: 0; background: transparent; color: #ECE8E1; display: grid; place-items: center; cursor: pointer; }
+.sky-card .x:hover { color: #F09A7C; }
+.sky-card .x svg.i { width: 12px; height: 12px; }
+.sky-card .img { height: 140px; margin-top: 6px; background: #0A0B0C center top / cover no-repeat; position: relative; overflow: hidden; }
+.sky-card .img::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, .22) 0 1px, transparent 1px 3px), rgba(127, 227, 255, .05); pointer-events: none; }
+.sky-card .img::after { content: ''; position: absolute; left: 0; right: 0; top: -15px; height: 15px; border-bottom: 1px solid rgba(127, 227, 255, .5);
+  background: linear-gradient(to bottom, rgba(127, 227, 255, 0), rgba(127, 227, 255, .22)); animation: skyScan 2.6s linear infinite; pointer-events: none; }
+@keyframes skyScan { to { top: 100%; } }
+.sky-card .img.none { display: grid; place-items: center; }
+.sky-card .img.none > i { display: none; }
+.sky-card .img.none { font: 9px ui-monospace, Consolas, monospace; letter-spacing: .1em; color: rgba(236, 232, 225, .7); }
+.sky-card .img.none::before { content: 'NO SIGNAL · ' attr(data-why); display: grid; place-items: end center; padding-bottom: 8px; text-transform: uppercase; }
+.sky-card .img.none:not([data-why])::before { content: 'NO SIGNAL · NO PICTURE YET'; }
+.sky-card .tt { display: flex; align-items: center; gap: 8px; margin: 9px 4px 0; min-width: 0; }
+.sky-card .tt .fav, .sky-card .tt .fav-letter { width: 16px; height: 16px; border-radius: 4px; flex: none; font-size: 10px; }
+.sky-card .tt b { flex: 1; min-width: 0; font: 600 14px "Inter", "Segoe UI", system-ui, sans-serif; color: #F4EDE0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sky-card .meta { display: flex; justify-content: space-between; gap: 10px; margin: 4px 4px 0; font: 9.5px ui-monospace, Consolas, monospace; letter-spacing: .1em; color: rgba(231, 223, 209, .62); }
 .sky-card .meta span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sky-card .acts { display: flex; gap: 8px; margin-top: 12px; }
-.sky-card .b { height: 32px; padding: 0 12px; border-radius: 6px; border: 0; cursor: pointer; font: 500 13px "Inter", "Segoe UI", system-ui, sans-serif; color: #F1EEE8; background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px rgba(241, 238, 232, .18); }
-.sky-card .b:hover { background: rgba(255, 255, 255, .09); }
-.sky-card .b.pri { background: #F1EEE8; color: #111318; box-shadow: none; }
-.sky-card .b.pri:hover { background: #fff; }
-.sky-card button:focus-visible { outline: 2px solid #A8E7F3; outline-offset: 2px; }
+.sky-card .acts { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 6px; margin-top: 10px; }
+.sky-card .b { height: 30px; padding: 0 6px; border: 1px solid rgba(231, 223, 209, .3); border-radius: 0; background: transparent; cursor: pointer;
+  font: 10.5px ui-monospace, Consolas, "DejaVu Sans Mono", monospace; letter-spacing: .14em; text-transform: uppercase; color: #ECE8E1; white-space: nowrap; }
+.sky-card .b:hover { background: rgba(236, 232, 225, .08); border-color: rgba(231, 223, 209, .55); }
+.sky-card .b.pri { background: #E7DFD1; border-color: #E7DFD1; color: #0B0B0C; }
+.sky-card .b.pri:hover { background: #F4EDE0; }
+.sky-card button:focus-visible { outline: 2px solid #7FE3FF; outline-offset: 2px; }
 
 /* corner controls and first-run help */
 .sky-ctl { position: absolute; z-index: 3; right: 24px; bottom: 22px; display: flex; align-items: center; gap: 6px; }
