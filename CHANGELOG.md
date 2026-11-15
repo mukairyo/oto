@@ -3,14 +3,15 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
-## 1.7.1 — Sky looks like Oto for Android, and zooms into the Galaxy
+## 1.7.1 — A free sky: put your stars anywhere and join them into groups
 
-- **The Android look.** Sky now matches the star map on Oto for Android: the website's own starfield behind it, four-pointed stars with tab names in small capitals, dotted constellations with their names in italics, and made-up constellations (with invented names) filling the sky around your Spaces.
-- **Spaces as HUD frames.** Each Space is a frame with corner brackets and a readout along the top (`SPACE 01 // HOME ——— 04 TABS`), instead of a coloured glow. Names never run into each other any more.
-- **Windows on the stars.** Zoom in and every star you can see gets a little window above it with the page as you left it, LIVE or ASLEEP, and a × to close it; click a window to open the tab. Pointing at a star shows the same window with Open, Pin and Move to Space.
-- **Zoom to travel.** Keep zooming out in Sky and you rise into the Galaxy. Zoom into a star (or an arm) in the Galaxy and you come down into Sky, landing on that tab in its Space. The − and + buttons cross over the same way, and the Grid · Sky · Galaxy switch follows along.
-- **Other galaxies in the distance.** Far-off galaxies now sit behind both views: small, faint ones far away and a few bigger ones closer. They drift slower than your tabs when you move, so the sky has depth.
-- With reduce motion on, the switch happens straight away without the zoom-through.
+- **One free sky.** Sky no longer splits into Space regions. Drag a star anywhere you like and it stays there.
+- **Make your own groups.** Drop a star on another star to join them with a line, or Shift-drag from one star to another to draw a line without moving anything. Stars joined by lines are a group, drawn like a constellation on a star chart: thin white lines between the stars. Drag a group's name to move the whole group. Right-click to rename a group, take a star out of it, or remove a line.
+- **It looks after itself.** A new tab joins the stars of its site. Closing a tab that held a group together joins its neighbours, so the group stays in one piece. The ⟲ button sorts everything by site again, and you can undo it.
+- **The Android look.** The website's own starfield behind the sky, and made-up constellations with invented names filling the sky around your stars. Tab names are in small capitals and group names in italics.
+- **Windows on the stars.** Zoom in and every star you can see gets a little window above it with the page as you left it, LIVE or ASLEEP, and a × to close it. Click a window to open the tab. Pointing at a star shows the same window with Open, Pin and Move to Space.
+- **Zoom to travel.** Keep zooming out in Sky and you rise into the Galaxy. Zoom into a star (or an arm) in the Galaxy and you come down into Sky, onto that tab. The Grid · Sky · Galaxy switch follows along. With reduce motion on, the switch happens straight away.
+- **Other galaxies in the distance**, in the Galaxy view: small, faint ones far away and a few bigger ones closer, drifting slower than your tabs.
 
 ## 1.7.0 — 2026-11-15
 

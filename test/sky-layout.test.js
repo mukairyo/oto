@@ -96,3 +96,52 @@ test('galaxy: rings for 1 hour, 1 day and 1 week, in order', () => {
   assert.deepStrictEqual(g.rings.map((x) => x[0]), ['1 HOUR', '1 DAY', '1 WEEK']);
   assert.ok(g.rings[0][1] < g.rings[1][1] && g.rings[1][1] < g.rings[2][1]);
 });
+
+// ---- the free sky (1.7.1): stars stay where you put them; groups are the lines you draw
+const { skyFree } = require('../src/sky.js');
+const T = (id, key) => ({ id, key, keyName: key });
+const at = (l) => Object.fromEntries(l.stars.map((s) => [s.id, [s.x, s.y]]));
+
+test('free sky: stars keep the places you gave them', () => {
+  const one = skyFree([T('a', 'x'), T('b', 'y')], {});
+  one.state.pos.a = [999, -40];
+  const two = skyFree([T('a', 'x'), T('b', 'y'), T('c', 'z')], one.state);
+  assert.deepStrictEqual(at(two).a, [999, -40]);
+  assert.deepStrictEqual(at(two).b, at(one).b);
+});
+
+test('free sky: a new tab joins its site’s stars with a line, a new site stands alone', () => {
+  const one = skyFree([T('a', 'yt'), T('b', 'gh')], {});
+  const two = skyFree([T('a', 'yt'), T('b', 'gh'), T('c', 'yt')], one.state);
+  assert.ok(two.edges.some((e) => e.join() === 'a,c'));
+  const g = two.groups.find((x) => x.ids.includes('c'));
+  assert.deepStrictEqual(g.ids.sort(), ['a', 'c']);
+  assert.strictEqual(g.name, 'yt');
+  assert.ok(two.groups.find((x) => x.ids.includes('b')).lone);
+  // never on top of another star
+  const p = at(two); assert.ok(Math.hypot(p.c[0] - p.a[0], p.c[1] - p.a[1]) >= 90);
+});
+
+test('free sky: joining stars of different sites makes one group with an invented name that stays', () => {
+  const one = skyFree([T('a', 'yt'), T('b', 'gh')], {});
+  one.state.edges.push(['a', 'b']);
+  const two = skyFree([T('a', 'yt'), T('b', 'gh')], one.state);
+  assert.strictEqual(two.groups.length, 1);
+  const name = two.groups[0].name;
+  assert.ok(name !== 'yt' && name !== 'gh' && name.length >= 4);
+  assert.strictEqual(skyFree([T('a', 'yt'), T('b', 'gh'), T('n', 'zz')], two.state).groups.find((g) => g.ids.includes('a')).name, name);
+});
+
+test('free sky: closing the star that held a group together keeps the group whole', () => {
+  const s0 = { pos: { a: [0, 0], b: [100, 0], c: [200, 0] }, edges: [['a', 'b'], ['b', 'c']], names: { a: 'Velis', b: 'Velis', c: 'Velis' } };
+  const l = skyFree([T('a', 'x'), T('c', 'y')], s0);
+  assert.deepStrictEqual(l.edges, [['a', 'c']]);
+  assert.strictEqual(l.groups.length, 1);
+  assert.strictEqual(l.groups[0].name, 'Velis');
+});
+
+test('free sky: the first time, every star starts where the old layout had it', () => {
+  const l = skyFree([T('a', 'x'), T('b', 'x')], {}, { pos: { a: [10, 20], b: [110, 20] }, edges: [['a', 'b']] });
+  assert.deepStrictEqual(at(l), { a: [10, 20], b: [110, 20] });
+  assert.strictEqual(l.groups.length, 1);
+});

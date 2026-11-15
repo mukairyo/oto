@@ -1,7 +1,7 @@
 'use strict';
-// Sky View (src/sky.js): the SKY side of the space overview. Real tabs show as stars, a click opens the tab, a star
-// dragged into another Space moves the tab there, search and the arrow keys find tabs, a hover shows the preview window,
-// and the layout stays put: reopening the overview or closing a tab doesn't move the other stars.
+// Sky View (src/sky.js): the SKY side of the space overview. Real tabs show as stars in one free sky (no Space regions):
+// a click opens the tab, a star can be put anywhere, dropping it on another star joins them into a group (and Shift-drag
+// draws a line), search and the arrow keys find tabs, a hover shows the preview window, and the layout stays put.
 const fs = require('fs');
 const path = require('path');
 
@@ -21,10 +21,10 @@ module.exports = async (t) => {
 
   // 1 · real tabs as stars
   await t.js('v1Overview(), 1'); await t.sleep(900);
-  let a = await J("return { sky: !!document.querySelector('#v1Ov.sky .sky-canvas'), stars: SKY.starById.size, tabs: S.tabs.length, spaces: SKY.lay.spaces.length, view: S.settings.overviewView || 'sky' };");
+  let a = await J("return { sky: !!document.querySelector('#v1Ov.sky .sky-canvas'), stars: SKY.starById.size, tabs: S.tabs.length, spaces: SKY.lay.spaces.length, v: S.sky.v, groups: SKY.lay.groups.filter((g) => !g.lone).length, view: S.settings.overviewView || 'sky' };");
   t.check('the space overview opens in Sky View', a.sky, JSON.stringify(a));
   t.check('every tab is a star', a.stars === a.tabs && a.tabs >= 5, JSON.stringify(a));
-  t.check('every Space is a region of the sky', a.spaces >= 2, JSON.stringify(a));
+  t.check('one free sky: no Space regions', a.spaces === 0 && a.v === 2, JSON.stringify(a));
   await shot('1-sky');
 
   // 3 · search flies to the match; arrows move between tabs
@@ -60,27 +60,44 @@ module.exports = async (t) => {
   await t.js('v1CloseOverview(), 1'); await t.sleep(300); await t.js('v1Overview(), 1'); await t.sleep(700);
   const after = await J('return [...SKY.starById.values()].map((s) => [s.id, Math.round(s.x), Math.round(s.y)]);');
   t.check('reopening the overview keeps every star in its place', JSON.stringify(before) === JSON.stringify(after), `${JSON.stringify(before).slice(0, 120)} / ${JSON.stringify(after).slice(0, 120)}`);
-  a = await J('return { saved: !!(S.sky && S.sky.cells && Object.keys(S.sky.slots).length) };');
+  a = await J('return { saved: !!(S.sky && S.sky.pos && Object.keys(S.sky.pos).length === S.tabs.length) };');
   t.check('the layout is saved with the rest of Oto’s state', a.saved, JSON.stringify(a));
 
-  // 2 · drag a star into the other Space: the tab moves there
+  // put a star anywhere: drag it to empty sky and it stays there
   const news = ids.find((x) => x.host === 'news.site');
+  const open1 = ids.find((x) => x.host === 'open.site');
   await t.js('skyHideCard(), Object.assign(SKY.cam, skyFitAll()), skyDraw(), 1'); await t.sleep(200);
   p = await starXY(news.id);
-  const target = await J(`const sp = SKY.spaceById.get(${JSON.stringify(wsIds[1])}); const [x, y] = skyToScreen(sp.cx, sp.cy + sp.ry * 0.3); const r = SKY.canvas.getBoundingClientRect(); return [x + r.left, y + r.top];`);
+  const empty = await J(`const s = SKY.starById.get(${JSON.stringify(news.id)}); const b = SKY.canvas.getBoundingClientRect(); let best = null; for (let k = 0; k < 40 && !best; k++) { const x = b.left + 160 + (k * 97) % (b.width - 320), y = b.top + 140 + (k * 61) % (b.height - 300); const [wx, wy] = skyToWorld(x - b.left, y - b.top); if ([...SKY.starById.values()].every((o) => Math.hypot(o.x - wx, o.y - wy) > 160 / SKY.cam.z)) best = [x, y, wx, wy]; } return best;`);
   await mouse('mouseDown', p[0], p[1]);
-  for (let k = 1; k <= 8; k++) { await mouse('mouseMove', p[0] + (target[0] - p[0]) * k / 8, p[1] + (target[1] - p[1]) * k / 8); await t.sleep(30); }
-  await shot('3-drag');
-  await mouse('mouseUp', target[0], target[1]); await t.sleep(500);
-  a = await J(`return { ws: tabById(${JSON.stringify(news.id)}).ws };`);
-  t.check('dragging a star into another Space moves the tab there', a.ws === wsIds[1], JSON.stringify(a));
+  for (let k = 1; k <= 8; k++) { await mouse('mouseMove', p[0] + (empty[0] - p[0]) * k / 8, p[1] + (empty[1] - p[1]) * k / 8); await t.sleep(30); }
+  await mouse('mouseUp', empty[0], empty[1]); await t.sleep(400);
+  a = await J(`const s = SKY.starById.get(${JSON.stringify(news.id)}); return { dx: Math.round(s.x - ${empty[2]}), dy: Math.round(s.y - ${empty[3]}), saved: S.sky.pos[${JSON.stringify(news.id)}] };`);
+  t.check('a star can be put anywhere (and stays there)', Math.abs(a.dx) < 6 && Math.abs(a.dy) < 6, JSON.stringify(a));
 
-  // a click on empty sky inside a Space flies into that Space
+  // drop it on another star: they're joined by a line into one group
+  p = await starXY(news.id);
+  let q = await starXY(open1.id);
+  await mouse('mouseDown', p[0], p[1]);
+  for (let k = 1; k <= 8; k++) { await mouse('mouseMove', p[0] + (q[0] - p[0]) * k / 8, p[1] + (q[1] - p[1]) * k / 8); await t.sleep(30); }
+  await shot('3-join');
+  await mouse('mouseUp', q[0], q[1]); await t.sleep(400);
+  a = await J(`const s = SKY.starById.get(${JSON.stringify(news.id)}), o = SKY.starById.get(${JSON.stringify(open1.id)}); return { joined: S.sky.edges.some(([x, y]) => [x, y].sort().join() === [${JSON.stringify(news.id)}, ${JSON.stringify(open1.id)}].sort().join()), same: s.group === o.group, name: s.g.name, gap: Math.round(Math.hypot(s.x - o.x, s.y - o.y)) };`);
+  t.check('dropping a star on another joins them into a group', a.joined && a.same && a.gap > 60, JSON.stringify(a));
+
+  // Shift-drag from a star to another draws a line without moving either
+  const quiet0 = ids.find((x) => x.host === 'quiet.site');
   await t.js('Object.assign(SKY.cam, skyFitAll()), skyDraw(), 1'); await t.sleep(200);
-  const inside = await J(`const sp = SKY.spaceById.get(${JSON.stringify(wsIds[0])}); const [x, y] = skyToScreen(sp.cx + sp.rx * 0.55, sp.cy + sp.ry * 0.55); const r = SKY.canvas.getBoundingClientRect(); return [x + r.left, y + r.top];`);
-  await mouse('mouseDown', inside[0], inside[1]); await mouse('mouseUp', inside[0], inside[1]); await t.sleep(700);
-  a = await J(`const sp = SKY.spaceById.get(${JSON.stringify(wsIds[0])}); return { dx: Math.round(SKY.cam.x - sp.cx), dy: Math.round(SKY.cam.y - sp.cy) };`);
-  t.check('clicking inside a Space flies into it', Math.abs(a.dx) < 5 && Math.abs(a.dy) < 5, JSON.stringify(a));
+  const before2 = await J(`const s = SKY.starById.get(${JSON.stringify(quiet0.id)}); return [Math.round(s.x), Math.round(s.y)];`);
+  p = await starXY(quiet0.id); q = await starXY(news.id);
+  await mouse('mouseDown', p[0], p[1], { modifiers: ['shift'] });
+  for (let k = 1; k <= 8; k++) { await mouse('mouseMove', p[0] + (q[0] - p[0]) * k / 8, p[1] + (q[1] - p[1]) * k / 8, { modifiers: ['shift'] }); await t.sleep(30); }
+  await shot('3b-line');
+  await mouse('mouseUp', q[0], q[1], { modifiers: ['shift'] }); await t.sleep(400);
+  a = await J(`const s = SKY.starById.get(${JSON.stringify(quiet0.id)}); return { joined: S.sky.edges.some(([x, y]) => [x, y].sort().join() === [${JSON.stringify(quiet0.id)}, ${JSON.stringify(news.id)}].sort().join()), at: [Math.round(s.x), Math.round(s.y)], group: s.g.ids.length };`);
+  t.check('Shift-drag draws a line between two stars (neither moves)', a.joined && JSON.stringify(a.at) === JSON.stringify(before2) && a.group >= 3, JSON.stringify(a));
+  await t.js('Object.assign(SKY.cam, skyFitAll()), skyDraw(), 1'); await t.sleep(200);
+  await shot('3c-group');
 
   // closing a tab doesn't move the other stars
   const keep = await J(`return [...SKY.starById.values()].filter((s) => s.id !== ${JSON.stringify(fine.id)}).map((s) => [s.id, Math.round(s.x), Math.round(s.y)]).sort();`);

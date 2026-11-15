@@ -11,8 +11,9 @@
    functions the sidebar uses (activate, closeTab, togglePin, moveToWorkspace-like moves). Page titles and addresses
    come from websites, so they're only ever drawn as canvas text or DOM text nodes, never as HTML.
 
-   Saved in S.sky: cells (Space → place in the sky), groups (Space|constellation → place in its Space), slots (tab →
-   place in its constellation), offsets (tab → where you dragged its star), cam (where you were looking). */
+   Saved in S.sky (since 1.7.1, v: 2): pos (tab → where its star is), edges (the lines between stars: a group is stars
+   joined by lines), names (tab → its group's name), cam / gcam (where you were looking in Sky / Galaxy). Older skies
+   (v: 1, one region per Space) are turned into this the first time, every star staying where it was. */
 
 // ------------------------------------------------------------------ layout engine (pure: no DOM, testable)
 const SKY_L = {
@@ -129,6 +130,84 @@ function skyLayout(tabs, spaces, saved = {}) {
 }
 
 /**
+ * The free sky (Sky View since 1.7.1): every star sits wherever you put it, and groups are the lines you draw between
+ * stars (like a constellation on a star chart). Nothing moves on its own: a new tab's star appears next to the stars of
+ * its site (joined to them by a line), or near the middle of the sky if it's the first of its site. Closing a tab that
+ * held a group together joins its neighbours to each other, so the group stays one group.
+ * tabs: [{id, key, keyName}] (key = site or folder), saved: { pos: {id: [x, y]}, edges: [[a, b]], names: {id: name} }.
+ * seed (first time only): { pos, edges } from the old layout. Returns { stars, edges, groups, state }.
+ */
+function skyFree(tabs, saved = {}, seed = null) {
+  const ids = new Set(tabs.map((t) => t.id));
+  const first = !saved.pos || !Object.keys(saved.pos).length;
+  const srcPos = first && seed ? seed.pos : (saved.pos || {});
+  let srcEdges = first && seed ? seed.edges : (saved.edges || []);
+  // closed tabs: their neighbours are joined in a chain, so a group never falls apart because one star went
+  const adj = new Map();
+  const link = (a, b) => { if (a === b) return; (adj.get(a) || adj.set(a, new Set()).get(a)).add(b); (adj.get(b) || adj.set(b, new Set()).get(b)).add(a); };
+  for (const e of srcEdges) if (Array.isArray(e) && e.length === 2) link(e[0], e[1]);
+  for (const gone of [...adj.keys()].filter((k) => !ids.has(k))) {
+    const nb = [...(adj.get(gone) || [])].filter((k) => k !== gone).sort();
+    for (const k of nb) adj.get(k).delete(gone);
+    adj.delete(gone);
+    for (let i = 1; i < nb.length; i++) link(nb[i - 1], nb[i]);
+  }
+  const edges = [], seen = new Set();
+  for (const [a, set] of adj) for (const b of set) {
+    const k = a < b ? `${a}|${b}` : `${b}|${a}`;
+    if (!seen.has(k) && ids.has(a) && ids.has(b)) { seen.add(k); edges.push(a < b ? [a, b] : [b, a]); }
+  }
+  const pos = {};
+  for (const t of tabs) { const p = srcPos[t.id]; if (Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1])) pos[t.id] = [Math.round(p[0]), Math.round(p[1])]; }
+  // new tabs: a free spot next to their site's stars (joined to the nearest one), else near the middle of everything
+  const GAP = 95;
+  const freeAt = (x, y) => Object.values(pos).every((q) => Math.hypot(q[0] - x, q[1] - y) >= GAP);
+  for (const t of tabs) {
+    if (pos[t.id]) continue;
+    const mates = tabs.filter((o) => o.id !== t.id && o.key === t.key && pos[o.id]);
+    const all = Object.values(pos);
+    const anchor = mates.length ? pos[mates[mates.length - 1].id] : all.length ? [all.reduce((a, q) => a + q[0], 0) / all.length, all.reduce((a, q) => a + q[1], 0) / all.length] : [0, 0];
+    const a0 = ((skyHash(String(t.id)) >>> 0) % 628) / 100;
+    let spot = null;
+    for (let ring = mates.length ? 1 : 0; ring < 40 && !spot; ring++) {
+      const r = ring * 105, n = Math.max(1, ring * 7);
+      for (let k = 0; k < n && !spot; k++) { const a = a0 + (k / n) * Math.PI * 2; const x = anchor[0] + Math.cos(a) * r, y = anchor[1] + Math.sin(a) * r * 0.8; if (freeAt(x, y)) spot = [Math.round(x), Math.round(y)]; }
+    }
+    pos[t.id] = spot || [Math.round(anchor[0]), Math.round(anchor[1])];
+    if (mates.length) {
+      const near = mates.map((o) => ({ o, d: Math.hypot(pos[o.id][0] - pos[t.id][0], pos[o.id][1] - pos[t.id][1]) })).sort((a, b) => a.d - b.d)[0].o;
+      const e = near.id < t.id ? [near.id, t.id] : [t.id, near.id];
+      if (!seen.has(e.join('|'))) { seen.add(e.join('|')); edges.push(e); }
+    }
+  }
+  // groups: stars joined by lines. A group keeps the name it had (or you gave it); a new one is named after its site,
+  // or, if it mixes sites, gets an invented star-chart name
+  const comp = new Map(), byId = new Map(tabs.map((t) => [t.id, t]));
+  const nb = new Map(); for (const [a, b] of edges) { (nb.get(a) || nb.set(a, []).get(a)).push(b); (nb.get(b) || nb.set(b, []).get(b)).push(a); }
+  const groups = [], names = {}, oldNames = saved.names || {};
+  const taken = new Set(Object.values(oldNames));
+  for (const t of tabs) {
+    if (comp.has(t.id)) continue;
+    const list = [], q = [t.id]; comp.set(t.id, groups.length);
+    while (q.length) { const x = q.shift(); list.push(x); for (const y of nb.get(x) || []) if (!comp.has(y)) { comp.set(y, groups.length); q.push(y); } }
+    let name;
+    if (list.length > 1) {
+      const votes = {}; for (const x of list) if (oldNames[x]) votes[oldNames[x]] = (votes[oldNames[x]] || 0) + 1;
+      name = Object.keys(votes).sort((a, b) => votes[b] - votes[a] || a.localeCompare(b))[0];
+      if (!name) {
+        const keys = new Set(list.map((x) => byId.get(x).key));
+        name = keys.size === 1 ? byId.get(list[0]).keyName : skyMadeUpName(skyRng(skyHash([...list].sort().join(','))), taken);
+        taken.add(name);
+      }
+      for (const x of list) names[x] = name;
+    } else name = byId.get(list[0]).keyName;
+    groups.push({ name, ids: list, lone: list.length === 1, key: byId.get(list[0]).key });
+  }
+  const stars = tabs.map((t) => ({ id: t.id, x: pos[t.id][0], y: pos[t.id][1], group: comp.get(t.id) }));
+  return { stars, edges, groups, state: { pos, edges, names, cam: saved.cam || null, gcam: saved.gcam || null, v: 2 } };
+}
+
+/**
  * The galaxy: every Space is a spiral arm and time runs outwards — the middle is now, and the longer ago you last used a
  * tab, the further out along its Space's arm it sits (1 hour, 1 day, 1 week rings). Essentials circle the core.
  * tabs: [{id, ws, essential, active, lastActive}], spaces: [{id}], now: ms. Positions are polar (r, th) so the galaxy
@@ -155,7 +234,7 @@ function galaxyLayout(tabs, spaces, now = Date.now()) {
 }
 
 // (the unit tests load this file in Node: below here only declares things; nothing runs until the overview mounts it)
-if (typeof module !== 'undefined') module.exports = { skyLayout, skyAssign, skySlots, skyShape, skySpiral, SKY_L, galaxyLayout, GAL };
+if (typeof module !== 'undefined') module.exports = { skyLayout, skyAssign, skySlots, skyShape, skySpiral, SKY_L, galaxyLayout, GAL, skyFree };
 
 // ------------------------------------------------------------------ the view
 const SKY = {
@@ -179,17 +258,24 @@ function skyTabInfo(t) {
 
 function skyRelayout() {
   if (SKY.mode === 'galaxy') return galaxyRelayout();
-  const spaces = S.workspaces.map((w) => ({ id: w.id }));
-  // Essentials belong to every Space: they get a small region of their own, "Essentials"
-  const ESS = '__essentials';
-  if (essentials().length) spaces.unshift({ id: ESS });
-  const tabs = S.tabs.map((t) => ({ id: t.id, ws: t.essential ? ESS : t.ws, ...skyTabInfo(t) }));
-  SKY.lay = skyLayout(tabs, spaces, S.sky || {});
-  S.sky = SKY.lay.state; save();
+  const tabs = S.tabs.map((t) => ({ id: t.id, ...skyTabInfo(t) }));
+  let seed = null;
+  if (!S.sky || S.sky.v !== 2) { // from the Space layout of 1.6.8–1.7.0: every star starts where it was, lines and all
+    const spaces = S.workspaces.map((w) => ({ id: w.id }));
+    if (essentials().length) spaces.unshift({ id: '__essentials' });
+    const old = skyLayout(S.tabs.map((t) => ({ id: t.id, ws: t.essential ? '__essentials' : t.ws, ...skyTabInfo(t) })), spaces, (S.sky && S.sky.v === 1) ? S.sky : {});
+    seed = { pos: {}, edges: [] };
+    // (the Spaces' regions are gone, so they're drawn in closer together: every constellation keeps its shape)
+    const cen = new Map(old.spaces.map((q) => [q.id, q]));
+    for (const g of old.groups) g.stars.forEach((st) => { const q = cen.get(g.ws) || { cx: 0, cy: 0 }; seed.pos[st.id] = [st.x - q.cx * 0.5, st.y - q.cy * 0.5]; if (st.parent >= 0) seed.edges.push([g.stars[st.parent].id, st.id]); });
+    S.sky = { cam: null, gcam: (S.sky && S.sky.gcam) || null };
+  }
+  const lay = skyFree(tabs, S.sky || {}, seed);
+  S.sky = lay.state; save();
+  SKY.lay = { stars: lay.stars, edges: lay.edges, groups: lay.groups, spaces: [] };
   SKY.starById = new Map();
-  for (const g of SKY.lay.groups) for (const s of g.stars) SKY.starById.set(s.id, { ...s, g });
-  SKY.spaceById = new Map(SKY.lay.spaces.map((s) => [s.id, s]));
-  skyScenery();
+  for (const st of lay.stars) SKY.starById.set(st.id, { ...st, g: lay.groups[st.group] });
+  SKY.spaceById = new Map();
 }
 
 function galaxyRelayout() {
@@ -249,12 +335,15 @@ function skyFitAll() {
     const z = clamp(Math.min((SKY.w - 120) / (2 * R), (SKY.h - 220) / (2 * R * GAL.TILT + 70)), 0.22, 1.2);
     return { x: 0, y: -10 / z, z };
   }
-  const sp = SKY.lay.spaces;
-  if (!sp.length) return { x: 0, y: 0, z: 1 };
-  const x0 = Math.min(...sp.map((s) => s.cx - s.rx)), x1 = Math.max(...sp.map((s) => s.cx + s.rx));
-  const y0 = Math.min(...sp.map((s) => s.cy - s.ry)), y1 = Math.max(...sp.map((s) => s.cy + s.ry));
-  const z = clamp(Math.min((SKY.w - 80) / (x1 - x0), (SKY.h - 60) / (y1 - y0)), 0.3, 1.1);
-  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, z };
+  return skyFitStars([...SKY.starById.values()]);
+}
+/** A view with all these stars in it (clear of the top bar and the controls). */
+function skyFitStars(list) {
+  if (!list.length) return { x: 0, y: 0, z: 1 };
+  const x0 = Math.min(...list.map((q) => q.x)) - 190, x1 = Math.max(...list.map((q) => q.x)) + 190;
+  const y0 = Math.min(...list.map((q) => q.y)) - 120, y1 = Math.max(...list.map((q) => q.y)) + 110;
+  const z = clamp(Math.min((SKY.w - 80) / (x1 - x0), (SKY.h - 200) / (y1 - y0)), 0.3, 1.1);
+  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 + 10 / z, z };
 }
 
 function skyGlideTo(to, ms = 260) {
@@ -274,6 +363,11 @@ function skyGoSpace(id, ms = 380) {
     if (st.length) skyGlideTo({ x: st.reduce((a, s) => a + s.x, 0) / st.length, y: st.reduce((a, s) => a + s.y, 0) / st.length, z: 1 }, ms);
     return;
   }
+  if (SKY.mode === 'sky') { // Sky has no Space regions: show that Space's stars
+    const list = [...SKY.starById.values()].filter((st) => { const t = tabById(st.id); return t && (id === '__essentials' ? t.essential : !t.essential && t.ws === id); });
+    if (list.length) { skyGlideTo(skyFitStars(list), ms); setTimeout(() => { skyUpdateZoom(); skySaveCam(); }, ms + 20); }
+    return;
+  }
   const sp = SKY.spaceById.get(id); if (sp) { skyGlideTo({ x: sp.cx, y: sp.cy, z: clamp(Math.min((SKY.w - 80) / (sp.rx * 2), (SKY.h - 140) / (sp.ry * 2)), 0.4, 1.4) }, ms); setTimeout(() => { skyUpdateZoom(); skySaveCam(); }, ms + 20); } }
 function skyFocusStar(id, z) { const s = SKY.starById.get(id); if (s) skyGlideTo({ x: s.x, y: s.y, z: z || Math.max(SKY.cam.z, 0.9) }); }
 
@@ -281,7 +375,7 @@ function skyFocusStar(id, z) { const s = SKY.starById.get(id); if (s) skyGlideTo
 // The same space as Oto for Android and the website: the black sky (#030304) with the site's starfield (img/space.webp,
 // the 2400 px picture shown as a 1200 px tile), drifting a little slower than your tabs as you look around.
 const SKY_FIELD = { img: null, pat: null, ready: false };
-function skyBackdrop(c) {
+function skyBackdrop(c, deep = true) {
   const { w, h } = SKY;
   c.fillStyle = '#030304'; c.fillRect(0, 0, w, h);
   if (!SKY_FIELD.img && typeof Image === 'function') {
@@ -297,7 +391,7 @@ function skyBackdrop(c) {
       c.fillStyle = SKY_FIELD.pat; c.fillRect(0, 0, w, h);
     }
   }
-  skyDeepField(c);
+  if (deep) skyDeepField(c);
 }
 
 // Made-up constellations that fill the sky around your tabs, like on Android: 1 to 18 faint stars each, with an
@@ -343,25 +437,25 @@ function skyDecorShape(r, n, stepMin, stepVar, minGap, reach) {
   }
   return pts;
 }
-/** The scenery around your Spaces (outside them, so it never gets in the way of your tabs). */
-function skyScenery() {
-  const sp = SKY.lay.spaces; SKY.decor = [];
-  if (!sp.length) return;
-  const M = 700, CELL = 380;
-  const x0 = Math.min(...sp.map((q) => q.cx - q.rx)) - M, x1 = Math.max(...sp.map((q) => q.cx + q.rx)) + M;
-  const y0 = Math.min(...sp.map((q) => q.cy - q.ry)) - M, y1 = Math.max(...sp.map((q) => q.cy + q.ry)) + M;
-  const r = skyRng(SKY_SEED), names = new Set();
-  for (let cy = y0 + CELL / 2; cy < y1; cy += CELL) for (let cx = x0 + CELL / 2; cx < x1; cx += CELL) {
-    const skip = r() < 0.2, n = 1 + Math.min(17, Math.floor(r() * 18)), jx = (r() - 0.5) * 70, jy = (r() - 0.5) * 70;
-    if (skip) continue;
-    const px = cx + jx, py = cy + jy;
-    if (sp.some((q) => ((px - q.cx) / (q.rx + 170)) ** 2 + ((py - q.cy) / (q.ry + 150)) ** 2 < 1)) continue;
+/** The scenery: an endless sky in squares, each made once (the same all session), never too close to your stars. */
+const SKY_SCN = new Map();
+const SKY_SCN_CELL = 380;
+function skySceneryCell(i, j) {
+  const key = `${i},${j}`;
+  if (SKY_SCN.has(key)) return SKY_SCN.get(key);
+  const r = skyRng(SKY_SEED ^ Math.imul(i, 73856093) ^ Math.imul(j, 19349663));
+  let dc = null;
+  if (r() >= 0.22) {
+    const n = 1 + Math.min(17, Math.floor(r() * 18));
+    const px = (i + 0.5) * SKY_SCN_CELL + (r() - 0.5) * 70, py = (j + 0.5) * SKY_SCN_CELL + (r() - 0.5) * 70;
     const pts = skyDecorShape(r, n, 36, 30, 32, 48 + n * 5.5);
-    const name = skyMadeUpName(r, names); names.add(name);
-    SKY.decor.push({ name, pts: pts.map(([x, y, p], k) => ({ x: px + x, y: py + y, p, size: 1 + r() * 1.1, a: 0.35 + r() * 0.45, ph: k * 2.7 + (skyHash(name) % 7), sp: 0.7 + ((k * 37 + name.length * 11) % 10) / 16 })) });
+    const name = skyMadeUpName(r, new Set());
+    dc = { name, cx: px, cy: py, pts: pts.map(([x, y, p], k) => ({ x: px + x, y: py + y, p, size: 1 + r() * 1.1, a: 0.35 + r() * 0.45, ph: k * 2.7 + (skyHash(name) % 7), sp: 0.7 + ((k * 37 + name.length * 11) % 10) / 16 })) };
   }
+  SKY_SCN.set(key, dc);
+  return dc;
 }
-/** One soft star picture, drawn once: the scenery's stars are just this, placed and faded. */
+function skyScenery() { /* made as you look around (skySceneryCell) */ }
 let SKY_DOT = null;
 function skyDotSprite() {
   if (SKY_DOT) return SKY_DOT;
@@ -373,8 +467,14 @@ function skyDotSprite() {
   return (SKY_DOT = cv);
 }
 function skyDrawScenery(c, now) {
-  if (!SKY.decor || !SKY.decor.length) return;
   const z = SKY.cam.z, { w, h } = SKY, dot = skyDotSprite();
+  const [wx0, wy0] = skyToWorld(-80, -80), [wx1, wy1] = skyToWorld(w + 80, h + 80);
+  const stars = [...SKY.starById.values()];
+  SKY.decor = [];
+  for (let j = Math.floor(wy0 / SKY_SCN_CELL) - 1; j <= Math.floor(wy1 / SKY_SCN_CELL) + 1; j++) for (let i = Math.floor(wx0 / SKY_SCN_CELL) - 1; i <= Math.floor(wx1 / SKY_SCN_CELL) + 1; i++) {
+    const dc = skySceneryCell(i, j);
+    if (dc && !stars.some((st) => Math.abs(st.x - dc.cx) < 300 && Math.abs(st.y - dc.cy) < 240)) SKY.decor.push(dc);
+  }
   const A = (SKY.words.length ? 0.4 : 1) * (SKY.dive ? 1 - SKY.dive.p : 1), tw = skyMotion();
   c.lineWidth = 1; c.lineCap = 'round'; c.setLineDash([1.5, 4]);
   for (const dc of SKY.decor) {
@@ -523,79 +623,59 @@ function skyDraw(now = performance.now()) {
   const c = SKY.ctx; if (!c || !SKY.lay) return;
   const { w, h, dpr } = SKY;
   c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  skyBackdrop(c);
+  skyBackdrop(c, false); // (no far-off galaxies here: in Sky we're inside one)
   const z = SKY.cam.z;
   const act = activeTab();
-  const SANS = '"Inter","Segoe UI",system-ui,sans-serif', MONO = 'ui-monospace,Consolas,"DejaVu Sans Mono",monospace', SERIF = 'Georgia,"Times New Roman",serif';
-  const tw = skyMotion();
+  const MONO = 'ui-monospace,Consolas,"DejaVu Sans Mono",monospace', SERIF = 'Georgia,"Times New Roman",serif';
   skyDrawScenery(c, now);
   const boxes = []; // [cx, cy, half width, half height] of every name already written, so names never run into each other
   const free = (b) => !boxes.some((o) => Math.abs(o[0] - b[0]) < o[2] + b[2] && Math.abs(o[1] - b[1]) < o[3] + b[3]);
-  // Spaces: a HUD frame (corner brackets) with its readout along the top edge, like Android's "— 音 OTO // TABS ——— 07"
-  SKY.lay.spaces.forEach((sp) => {
-    const col = skySpaceColor(sp.id);
-    const [x, y] = skyToScreen(sp.cx, sp.cy);
-    const rx = sp.rx * z * 0.94, ry = sp.ry * z * 0.9;
-    if (x + rx < -60 || x - rx > w + 60 || y + ry < -60 || y - ry > h + 60) return;
-    const hot = SKY.drag && SKY.drag.moved && SKY.drag.over === sp.id && SKY.drag.ws !== sp.id;
-    if (hot) { // dropping a star here: the Space lights up in its colour
-      c.save(); c.translate(x, y); c.scale(rx / ry, 1);
-      const g = c.createRadialGradient(0, 0, 0, 0, 0, ry); g.addColorStop(0, skyRgba(col, 0.22)); g.addColorStop(1, skyRgba(col, 0));
-      c.fillStyle = g; c.beginPath(); c.arc(0, 0, ry, 0, 7); c.fill(); c.restore();
-    }
-    const x0 = x - rx, x1 = x + rx, y0 = y - ry, y1 = y + ry, bl = clamp(30 * z + 6, 12, 34);
-    c.strokeStyle = hot ? skyRgba(col, 0.95) : 'rgba(231,223,209,.34)'; c.lineWidth = hot ? 1.8 : 1.2;
-    for (const [cx0, cy0, dx, dy] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]]) {
-      c.beginPath(); c.moveTo(cx0, cy0 + dy * bl); c.lineTo(cx0, cy0); c.lineTo(cx0 + dx * bl, cy0); c.stroke();
-    }
-    const ws = skyWs(sp.id), ess = sp.id === '__essentials';
-    const n = S.tabs.filter((t) => (ess ? t.essential : !t.essential && t.ws === sp.id)).length;
-    const i = S.workspaces.findIndex((x2) => x2.id === sp.id);
-    c.font = `${Math.round(clamp(12 * (z + 0.3), 10, 13))}px ${MONO}`; c.textBaseline = 'middle';
-    if (c.letterSpacing !== undefined) c.letterSpacing = '1.6px';
-    const right = `${sp.id === S.activeWs ? 'CURRENT · ' : ''}${String(n).padStart(2, '0')} TAB${n === 1 ? '' : 'S'}`;
-    const rw = c.measureText(right).width, room = rx * 2 - bl * 2 - rw - 50;
-    const left = skyEll(c, `${ess ? 'ESSENTIALS' : `SPACE ${String(i + 1).padStart(2, '0')}`} // ${ess ? 'ALWAYS HERE' : ((ws && ws.name) || 'Space').toUpperCase()}`, Math.max(40, room));
-    const lw = c.measureText(left).width;
-    c.textAlign = 'left'; c.fillStyle = skyRgba(col, 0.98); c.fillText(left, x0 + bl + 10, y0);
-    c.textAlign = 'right'; c.fillStyle = sp.id === S.activeWs ? skyRgba(col, 0.9) : 'rgba(231,223,209,.62)'; c.fillText(right, x1 - bl - 10, y0);
-    c.strokeStyle = 'rgba(231,223,209,.16)'; c.lineWidth = 1;
-    if (x1 - bl - 20 - rw > x0 + bl + 20 + lw) { c.beginPath(); c.moveTo(x0 + bl + 20 + lw, y0); c.lineTo(x1 - bl - 20 - rw, y0); c.stroke(); }
-    if (c.letterSpacing !== undefined) c.letterSpacing = '0px';
-    c.textBaseline = 'alphabetic';
-    boxes.push([x, y0, rx, 10]);
-  });
-  // constellations: dotted lines with a little star dust, the constellation's name, then the stars and their names
-  const labels = z >= 0.5;
-  const list = [];
+  const fade = SKY.dive ? 1 - SKY.dive.p * 0.6 : 1;
+  const P = new Map(); for (const st of SKY.starById.values()) P.set(st.id, skyToScreen(st.x, st.y));
+  // where a star being dragged is drawn (it follows the pointer)
+  if (SKY.drag && SKY.drag.moved && !SKY.drag.link) P.set(SKY.drag.id, [SKY.drag.mx, SKY.drag.my]);
+  if (SKY.gdrag && SKY.gdrag.moved) for (const id of SKY.gdrag.ids) { const st = SKY.starById.get(id); if (st) P.set(id, skyToScreen(st.x + SKY.gdrag.dx, st.y + SKY.gdrag.dy)); }
+  const matchOf = (id) => { const t = tabById(id); return t && skyMatch(t); };
+  // the lines: thin, solid and bright, like a constellation on a star chart
+  c.lineCap = 'round';
+  for (const [a, b] of SKY.lay.edges) {
+    const pa = P.get(a), pb = P.get(b); if (!pa || !pb) continue;
+    if (Math.max(pa[0], pb[0]) < -20 || Math.min(pa[0], pb[0]) > w + 20 || Math.max(pa[1], pb[1]) < -20 || Math.min(pa[1], pb[1]) > h + 20) continue;
+    const hot = SKY.hoverEdge && SKY.hoverEdge[0] === a && SKY.hoverEdge[1] === b;
+    const dim = SKY.words.length && !(matchOf(a) || matchOf(b));
+    c.strokeStyle = hot ? 'rgba(240,154,124,.95)' : `rgba(255,255,255,${(dim ? 0.2 : 0.62) * fade})`; c.lineWidth = hot ? 2 : 1.3;
+    c.beginPath(); c.moveTo(pa[0], pa[1]); c.lineTo(pb[0], pb[1]); c.stroke();
+  }
+  // drawing a new line (Shift-drag, or "Connect to…"): it follows the pointer to the star you join it to
+  const linkFrom = SKY.drag && SKY.drag.link && SKY.drag.moved ? SKY.drag.id : SKY.linking ? SKY.linking.id : null;
+  if (linkFrom && P.get(linkFrom)) {
+    const [ax, ay] = P.get(linkFrom), tx = SKY.drag && SKY.drag.link ? SKY.drag.mx : SKY.linking.mx, ty = SKY.drag && SKY.drag.link ? SKY.drag.my : SKY.linking.my;
+    const tgt = SKY.drag && SKY.drag.link ? SKY.drag.over : SKY.linking.over;
+    const [bx, by] = tgt && P.get(tgt) ? P.get(tgt) : [tx, ty];
+    c.strokeStyle = tgt ? 'rgba(127,227,255,.95)' : 'rgba(255,255,255,.75)'; c.lineWidth = 1.4; c.setLineDash([5, 5]);
+    c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by); c.stroke(); c.setLineDash([]);
+  }
+  // group names above their highest star (drag a name to move the whole group)
+  SKY.nameHit = [];
   for (const g of SKY.lay.groups) {
-    const pts = g.stars.map((st) => skyToScreen(st.x, st.y));
-    if (pts.every(([x, y]) => x < -150 || x > w + 150 || y < -100 || y > h + 100)) continue;
-    const dimG = SKY.words.length && !g.stars.some((st) => { const t = tabById(st.id); return t && skyMatch(t); });
-    const fade = SKY.dive ? 1 - SKY.dive.p * 0.6 : 1;
-    c.globalAlpha = (dimG ? 0.25 : 1) * fade;
-    c.strokeStyle = 'rgba(236,232,225,.55)'; c.lineWidth = 1.1; c.setLineDash([1.5, 4]); c.lineCap = 'round';
-    g.stars.forEach((st, k) => {
-      if (st.parent < 0) return; const a = pts[st.parent], b = pts[k];
-      c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke();
-      const f = 0.3 + ((skyHash(st.id) >>> 3) % 40) / 100; c.fillStyle = 'rgba(255,250,242,.7)'; c.beginPath(); c.arc(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, 0.9, 0, 7); c.fill();
-    });
-    c.setLineDash([]);
-    if (z >= 0.3) {
-      const top = Math.min(...pts.map((q) => q[1])), mx = pts.reduce((a, q) => a + q[0], 0) / pts.length;
-      c.font = `italic ${Math.round(clamp(21 * z, 14, 23))}px ${SERIF}`; c.textAlign = 'center'; c.fillStyle = 'rgba(244,237,224,.95)';
-      let ny = top - Math.max(26, 36 * z);
-      const nw = c.measureText(g.name).width / 2 + 6;
-      if (!free([mx, ny - 6, nw, 12])) ny -= 22; // under a Space's readout: lift it clear
-      c.fillText(g.name, mx, ny); boxes.push([mx, ny - 6, nw, 12]);
-    }
-    c.globalAlpha = 1;
-    g.stars.forEach((st, k) => list.push({ st, x: pts[k][0], y: pts[k][1], dim: dimG }));
+    if (g.lone || z < 0.3) continue;
+    const pts = g.ids.map((id) => P.get(id)).filter(Boolean);
+    if (!pts.length || pts.every(([x, y]) => x < -150 || x > w + 150 || y < -100 || y > h + 100)) continue;
+    const dimG = SKY.words.length && !g.ids.some(matchOf);
+    const top = Math.min(...pts.map((q) => q[1])), mx = pts.reduce((a, q) => a + q[0], 0) / pts.length;
+    c.font = `italic ${Math.round(clamp(21 * z, 14, 23))}px ${SERIF}`; c.textAlign = 'center';
+    c.fillStyle = `rgba(244,237,224,${(dimG ? 0.25 : 0.95) * fade})`;
+    const ny = top - Math.max(26, 34 * z), nw = c.measureText(g.name).width / 2 + 6;
+    c.fillText(g.name, mx, ny); boxes.push([mx, ny - 6, nw, 12]);
+    SKY.nameHit.push({ g, x0: mx - nw, x1: mx + nw, y0: ny - 20, y1: ny + 6 });
   }
   // names go under their star; if that's taken, above it; if that's taken too they wait until you zoom in or point
   // at it (the tab you're on, and the one you point at, always get one)
-  const strongOf = (st) => (act && st.id === act.id) || SKY.hover === st.id || SKY.sel === st.id;
+  const list = [...SKY.starById.values()].map((st) => { const [x, y] = P.get(st.id); return { st, x, y }; })
+    .filter(({ x, y }) => x > -150 && x < w + 150 && y > -100 && y < h + 100);
+  const strongOf = (st) => (act && st.id === act.id) || SKY.hover === st.id || SKY.sel === st.id || (SKY.drag && SKY.drag.over === st.id);
   list.sort((a, b) => strongOf(b.st) - strongOf(a.st));
+  const labels = z >= 0.38;
   c.font = `12px ${MONO}`; if (c.letterSpacing !== undefined) c.letterSpacing = '1px';
   for (const it of list) {
     const t = tabById(it.st.id); if (!t) continue;
@@ -610,7 +690,12 @@ function skyDraw(now = performance.now()) {
     }
   }
   if (c.letterSpacing !== undefined) c.letterSpacing = '0px';
-  for (const it of list) { const t = tabById(it.st.id); if (t) skyPaintTab(c, t, it.x, it.y, now, { labels: !!it.label, up: it.label === 'up', dim: it.dim }); }
+  for (const it of list) {
+    const t = tabById(it.st.id); if (!t) continue;
+    skyPaintTab(c, t, it.x, it.y, now, { labels: !!it.label, up: it.label === 'up' });
+    // the star you're about to join it to
+    if (SKY.drag && SKY.drag.over === it.st.id || SKY.linking && SKY.linking.over === it.st.id) { c.strokeStyle = '#7FE3FF'; c.lineWidth = 1.5; c.beginPath(); c.arc(it.x, it.y, 18, 0, 7); c.stroke(); }
+  }
   skyWindows(c, now);
   skyOverlays(c, w, h);
 }
@@ -702,7 +787,7 @@ function skyPaintTab(c, t, x, y, now, { labels = true, up = false, dim = false, 
   const base = (dim || !skyMatch(t)) ? 0.25 : 1;
   c.globalAlpha = base * (SKY.drag && SKY.drag.id === t.id && SKY.drag.moved ? 0.25 : 1) * (SKY.dive && SKY.dive.id !== t.id ? 1 - SKY.dive.p * 0.7 : 1);
   const twk = skyMotion() ? 0.84 + 0.16 * Math.sin(now / 650 + (skyHash(t.id) % 100) + x * 0.013) : 1;
-  const size = on ? 3.4 : hov || sel ? 3.1 : asleep ? 1.9 : 2.4;
+  const size = on ? 3.5 : hov || sel ? 3.2 : asleep ? 2.1 : 2.6;
   skyStar(c, x, y, size * (0.94 + 0.06 * twk), (asleep && !on && !hov && !sel ? 0.55 : 1) * twk, on);
   const win = (SKY.winA && SKY.winA.get(t.id)) || 0;
   if (on) { c.strokeStyle = `rgba(236,232,225,${1 - win})`; c.lineWidth = 1.2; c.beginPath(); c.arc(x, y, 15, 0, 7); c.stroke(); }
@@ -876,17 +961,20 @@ function skyOverlays(c, w, h) {
   }
   // a star being dragged
   if (SKY.drag && SKY.drag.moved) {
-    const t = tabById(SKY.drag.id);
-    skyStar(c, SKY.drag.mx, SKY.drag.my, 3.4, 1, false);
-    c.strokeStyle = 'rgba(236,232,225,.9)'; c.lineWidth = 1.2; c.setLineDash([3, 3]); c.beginPath(); c.arc(SKY.drag.mx, SKY.drag.my, 15, 0, 7); c.stroke(); c.setLineDash([]);
-    const to = SKY.drag.over && SKY.drag.over !== SKY.drag.ws ? skyWs(SKY.drag.over) : null;
-    c.font = `600 13px ${SANS}`; c.textAlign = 'center'; c.fillStyle = to ? SKY_C.hi : SKY_C.tx;
-    c.fillText(to ? (to.ess ? 'Add to Essentials' : `Move to ${to.name}`) : skyEll(c, (t && t.title) || '', 190), SKY.drag.mx, SKY.drag.my + 32);
+    const t = tabById(SKY.drag.id), d = SKY.drag;
+    if (SKY.mode === 'galaxy') { skyStar(c, d.mx, d.my, 3.4, 1, false); c.strokeStyle = 'rgba(236,232,225,.9)'; c.lineWidth = 1.2; c.setLineDash([3, 3]); c.beginPath(); c.arc(d.mx, d.my, 15, 0, 7); c.stroke(); c.setLineDash([]); }
+    let hint;
+    if (SKY.mode === 'galaxy') { const to = d.over && d.over !== d.ws ? skyWs(d.over) : null; hint = to ? (to.ess ? 'Add to Essentials' : `Move to ${to.name}`) : null; }
+    else if (d.over) { const o = tabById(d.over); hint = `Connect to ${(o && (o.title || prettyUrl(o.url))) || 'this star'}`; }
+    else if (d.link) hint = 'Drop on a star to connect';
+    c.font = `600 13px ${SANS}`; c.textAlign = 'center'; c.fillStyle = hint ? '#7FE3FF' : SKY_C.tx;
+    if (hint || SKY.mode === 'galaxy') c.fillText(skyEll(c, hint || (t && t.title) || '', 230), d.mx, d.my + (SKY.mode === 'galaxy' ? 32 : 50));
   }
 }
 
+/** A tab's star: a four-pointed star with a soft glow (warmer for the tab you're on), like on Oto for Android. */
 function skyStar(c, x, y, s, a, warm) {
-  c.globalAlpha *= 1; const keep = c.globalAlpha;
+  const keep = c.globalAlpha;
   c.globalAlpha = keep * a;
   const col = warm ? '255,243,220' : '232,238,255';
   const g = c.createRadialGradient(x, y, 0, x, y, s * 4.5);
@@ -906,13 +994,15 @@ function skyEll(c, t, max) {
 }
 
 // ------------------------------------------------------------------ finding things under the pointer
-function skyStarAt(x, y) {
+function skyStarAt(x, y, skip = null) {
   let best = null, bd = 18;
-  for (const s of SKY.starById.values()) { const [sx, sy] = skyToScreen(s.x, s.y); const d = Math.hypot(sx - x, sy - y); if (d < bd) { bd = d; best = s; } }
+  for (const s of SKY.starById.values()) {
+    if (s.id === skip) continue; const [sx, sy] = skyToScreen(s.x, s.y); const d = Math.hypot(sx - x, sy - y); if (d < bd) { bd = d; best = s; } }
   return best;
 }
 function skySpaceAt(x, y) {
   if (SKY.mode === 'galaxy') return galaxyArmAt(x, y);
+  if (!SKY.lay.spaces.length) return null;
   const [wx, wy] = skyToWorld(x, y);
   let best = null, bd = Infinity;
   for (const s of SKY.lay.spaces) { const d = ((wx - s.cx) / s.rx) ** 2 + ((wy - s.cy) / s.ry) ** 2; if (d <= 1.15 && d < bd) { bd = d; best = s.id; } }
@@ -966,7 +1056,6 @@ function skyMove(id, toWs) {
     t.ws = toWs; t.essential = false;
     toast(`Moved to ${(skyWs(toWs) || {}).name || 'Space'}`, { icon: 'layers', timeout: 1500 });
   }
-  if (S.sky) { delete S.sky.offsets[id]; delete S.sky.slots[id]; }
   save(); render(); skyRelayout(); skyDraw();
 }
 function skyClose(id) {
@@ -974,6 +1063,53 @@ function skyClose(id) {
   closeTab(id);
   setTimeout(() => { if (SKY.on) { skyRelayout(); skyDraw(); } }, 420);
 }
+
+// ------------------------------------------------------------------ the free sky: put stars anywhere, join them into groups
+function skySetPos(id, wx, wy) { if (!S.sky || !S.sky.pos) return; S.sky.pos[id] = [Math.round(wx), Math.round(wy)]; save(); skyRelayout(); skyDraw(); }
+/** A free spot about one star-step from (tx, ty), towards angle a first. */
+function skySpotNear(tx, ty, a, skip) {
+  const others = [...SKY.starById.values()].filter((st) => st.id !== skip);
+  for (let ring = 1; ring < 8; ring++) for (let k = 0; k < 12; k++) {
+    const ang = a + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (Math.PI / 6), r = 100 * ring;
+    const x = tx + Math.cos(ang) * r, y = ty + Math.sin(ang) * r;
+    if (others.every((o) => Math.hypot(o.x - x, o.y - y) >= 90)) return [x, y];
+  }
+  return [tx + Math.cos(a) * 100, ty + Math.sin(a) * 100];
+}
+function skyConnect(a, b) {
+  if (!S.sky || a === b || !tabById(a) || !tabById(b)) return;
+  const e = a < b ? [a, b] : [b, a];
+  if (!S.sky.edges.some(([x, y]) => x === e[0] && y === e[1])) { S.sky.edges.push(e); save(); }
+  skyRelayout(); skyDraw();
+  const st = SKY.starById.get(a);
+  if (st && st.g && !st.g.lone) toast(`Joined: ${st.g.name}`, { icon: 'star', timeout: 1500 });
+}
+function skyUnlink(a, b) { if (!S.sky) return; S.sky.edges = S.sky.edges.filter(([x, y]) => !((x === a && y === b) || (x === b && y === a))); save(); SKY.hoverEdge = null; skyRelayout(); skyDraw(); }
+function skyDisconnect(id) { if (!S.sky) return; S.sky.edges = S.sky.edges.filter(([x, y]) => x !== id && y !== id); delete S.sky.names[id]; save(); skyRelayout(); skyDraw(); }
+function skyBreakGroup(g) { if (!S.sky) return; const set = new Set(g.ids); S.sky.edges = S.sky.edges.filter(([x, y]) => !set.has(x) && !set.has(y)); for (const id of g.ids) delete S.sky.names[id]; save(); skyRelayout(); skyDraw(); }
+async function skyRenameGroup(g) {
+  const n = typeof v1AskText === 'function' ? await v1AskText('Rename constellation', 'Give this group of stars a name.') : null;
+  if (!n || !n.trim() || !S.sky) return;
+  for (const id of g.ids) S.sky.names[id] = n.trim().slice(0, 40);
+  save(); if (SKY.on) { skyRelayout(); skyDraw(); }
+}
+/** Start drawing a line from a star: the next star you click is joined to it (Esc or a click on empty sky stops). */
+function skyStartLink(id, mx, my) { SKY.linking = { id, mx, my, over: null }; if (SKY.canvas) SKY.canvas.style.cursor = 'crosshair'; skyDraw(); }
+function skyEdgeAt(x, y) {
+  if (SKY.mode !== 'sky' || !SKY.lay || !SKY.lay.edges) return null;
+  let best = null, bd = 6;
+  for (const e of SKY.lay.edges) {
+    const a = SKY.starById.get(e[0]), b = SKY.starById.get(e[1]); if (!a || !b) continue;
+    const [ax, ay] = skyToScreen(a.x, a.y), [bx, by] = skyToScreen(b.x, b.y);
+    const L = (bx - ax) ** 2 + (by - ay) ** 2; if (L < 1) continue;
+    const k = clamp(((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / L, 0, 1);
+    if (k < 0.12 || k > 0.88) continue; // (near the stars themselves the star wins)
+    const d = Math.hypot(x - (ax + (bx - ax) * k), y - (ay + (by - ay) * k));
+    if (d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+function skyNameAt(x, y) { return SKY.mode === 'sky' ? (SKY.nameHit || []).find((r) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1) || null : null; }
 
 // ------------------------------------------------------------------ the preview window (cached pictures only)
 function skyShowCard(id) {
@@ -1042,13 +1178,19 @@ function skyMoveMenu(t, x, y) {
 }
 function skyStarMenu(t, x, y) {
   skyHideCard();
+  const st = SKY.starById.get(t.id), sky = SKY.mode === 'sky';
+  const inGroup = sky && st && st.g && !st.g.lone;
+  const r = SKY.canvas.getBoundingClientRect();
   showMenu(x, y, [
     { label: 'Open', icon: 'tab', run: () => skyOpen(t.id) },
     t.essential ? null : { label: t.pinned ? 'Unpin' : 'Pin', icon: 'pin', run: () => { togglePin(t.id); skyDraw(); } },
     '-',
+    sky ? { label: 'Connect to another star…', icon: 'route', run: () => skyStartLink(t.id, x - r.left, y - r.top) } : null,
+    inGroup ? { label: 'Rename group…', icon: 'edit', run: () => skyRenameGroup(st.g) } : null,
+    inGroup ? { label: 'Take out of the group', icon: 'x', run: () => skyDisconnect(t.id) } : null,
+    sky ? '-' : null,
     { header: 'Move to Space' },
     ...S.workspaces.filter((w) => t.essential || w.id !== t.ws).map((w) => ({ label: w.name, icon: 'layers', run: () => skyMove(t.id, w.id) })),
-    { label: 'Put its star back in place', icon: 'reload', run: () => { if (S.sky) delete S.sky.offsets[t.id]; skyRelayout(); skyDraw(); } },
     '-',
     { label: 'Close tab', icon: 'trash', danger: true, run: () => skyClose(t.id) },
   ]);
@@ -1057,8 +1199,8 @@ function skyStarMenu(t, x, y) {
 // ------------------------------------------------------------------ mounting into the space overview
 function skyMount(layer, search, mode = 'sky') {
   SKY.mode = mode === 'galaxy' ? 'galaxy' : 'sky'; SKY.turn = SKY.turn || 0; SKY.lastT = 0; SKY.trans = null; SKY.pull = null;
-  if (!S.sky) S.sky = { cells: {}, groups: {}, slots: {}, offsets: {}, cam: null, gcam: null, v: 1 };
-  SKY.on = true; SKY.layer = layer; SKY.hover = null; SKY.sel = null; SKY.drag = null; SKY.pan = null;
+  if (!S.sky) S.sky = { cam: null, gcam: null };
+  SKY.on = true; SKY.layer = layer; SKY.hover = null; SKY.sel = null; SKY.drag = null; SKY.pan = null; SKY.gdrag = null; SKY.linking = null; SKY.hoverEdge = null;
   SKY.query = search.value.trim(); SKY.words = typeof words === 'function' ? words(SKY.query) : SKY.query.toLowerCase().split(/\s+/).filter(Boolean);
   document.body.classList.add('v1-sky-open');
   const box = h('div', { class: 'sky-box' });
@@ -1097,7 +1239,14 @@ function skyMount(layer, search, mode = 'sky') {
       return;
     }
     const s = skyStarAt(x, y);
-    if (s) { const t = tabById(s.id); SKY.drag = { id: s.id, ws: t && t.essential ? '__essentials' : t && t.ws, x0: x, y0: y, mx: x, my: y, moved: false, over: null }; skyHideCard(); }
+    if (SKY.linking) { // drawing a line: a star joins it, anything else stops
+      const from = SKY.linking.id; SKY.linking = null; canvas.style.cursor = '';
+      if (s && s.id !== from) skyConnect(from, s.id); else skyDraw();
+      return;
+    }
+    const nm = !s && skyNameAt(x, y);
+    if (s) { const t = tabById(s.id); SKY.drag = { id: s.id, ws: t && t.essential ? '__essentials' : t && t.ws, x0: x, y0: y, mx: x, my: y, moved: false, over: null, link: SKY.mode === 'sky' && e.shiftKey }; skyHideCard(); }
+    else if (nm) SKY.gdrag = { ids: nm.g.ids, g: nm.g, x0: x, y0: y, dx: 0, dy: 0, moved: false };
     else SKY.pan = { x0: x, y0: y, cx: SKY.cam.x, cy: SKY.cam.y, moved: false };
   });
   SKY.onMove = (e) => {
@@ -1108,13 +1257,26 @@ function skyMount(layer, search, mode = 'sky') {
       SKY.cam.x = SKY.pan.cx - (x - SKY.pan.x0) / SKY.cam.z; SKY.cam.y = SKY.pan.cy - (y - SKY.pan.y0) / SKY.cam.z;
       skyHideCard(); skyDraw(); return;
     }
-    if (SKY.drag) {
-      if (Math.hypot(x - SKY.drag.x0, y - SKY.drag.y0) > 5) SKY.drag.moved = true;
-      SKY.drag.mx = x; SKY.drag.my = y; SKY.drag.over = skySpaceAt(x, y);
+    if (SKY.gdrag) { // moving a whole group by its name
+      if (Math.hypot(x - SKY.gdrag.x0, y - SKY.gdrag.y0) > 4) SKY.gdrag.moved = true;
+      SKY.gdrag.dx = (x - SKY.gdrag.x0) / SKY.cam.z; SKY.gdrag.dy = (y - SKY.gdrag.y0) / SKY.cam.z;
       canvas.style.cursor = 'grabbing'; skyDraw(); return;
     }
+    if (SKY.drag) {
+      if (Math.hypot(x - SKY.drag.x0, y - SKY.drag.y0) > 5) SKY.drag.moved = true;
+      SKY.drag.mx = x; SKY.drag.my = y;
+      if (SKY.mode === 'galaxy') SKY.drag.over = skySpaceAt(x, y);
+      else { const o = skyStarAt(x, y, SKY.drag.id); SKY.drag.over = o ? o.id : null; }
+      canvas.style.cursor = SKY.drag.link ? 'crosshair' : 'grabbing'; skyDraw(); return;
+    }
+    if (SKY.linking) { const o = skyStarAt(x, y, SKY.linking.id); SKY.linking.mx = x; SKY.linking.my = y; SKY.linking.over = o ? o.id : null; skyDraw(); return; }
     if (e.target !== canvas) return;
     if (skyWindowAt(x, y)) { canvas.style.cursor = 'pointer'; return; }
+    if (!skyStarAt(x, y)) {
+      const ed = skyEdgeAt(x, y), nm = skyNameAt(x, y);
+      if (ed !== SKY.hoverEdge) { SKY.hoverEdge = ed; skyDraw(); }
+      if (ed || nm) { canvas.style.cursor = nm ? 'grab' : 'context-menu'; if (SKY.hover) { SKY.hover = null; skyDraw(); skyHideCardSoon(); } return; }
+    } else if (SKY.hoverEdge) { SKY.hoverEdge = null; skyDraw(); }
     const s = skyStarAt(x, y);
     const id = s ? s.id : null;
     canvas.style.cursor = s ? 'pointer' : 'grab';
@@ -1132,29 +1294,34 @@ function skyMount(layer, search, mode = 'sky') {
       if (!moved) { SKY.sel = null; const sp = skySpaceAt(x0, y0); if (sp) skyGoSpace(sp, 420); else skyDraw(); }
       return;
     }
+    if (SKY.gdrag) {
+      const g = SKY.gdrag; SKY.gdrag = null; canvas.style.cursor = '';
+      if (g.moved && S.sky && S.sky.pos) { for (const id of g.ids) { const q = S.sky.pos[id]; if (q) S.sky.pos[id] = [Math.round(q[0] + g.dx), Math.round(q[1] + g.dy)]; } save(); skyRelayout(); skyDraw(); }
+      else if (!g.moved) { skyGlideTo(skyFitStars(g.ids.map((id) => SKY.starById.get(id)).filter(Boolean)), 420); setTimeout(() => { skyUpdateZoom(); skySaveCam(); }, 440); }
+      return;
+    }
     if (SKY.drag) {
       const d = SKY.drag; SKY.drag = null; canvas.style.cursor = '';
       if (!d.moved) { if (e.button === 0) skyOpen(d.id); return; }
-      if (d.over && d.over !== d.ws) skyMove(d.id, d.over);
-      else if (d.over === d.ws && SKY.mode !== 'galaxy') {
-        // dropped inside its own Space: its star stays where you put it (saved)
-        const s = SKY.starById.get(d.id);
-        if (s && S.sky) {
-          const [wx, wy] = skyToWorld(d.mx, d.my);
-          const o = S.sky.offsets[d.id] || [0, 0];
-          S.sky.offsets[d.id] = [Math.round(o[0] + wx - s.x), Math.round(o[1] + wy - s.y)];
-          save(); skyRelayout();
-        }
-      }
-      skyDraw();
+      if (SKY.mode === 'galaxy') { if (d.over && d.over !== d.ws) skyMove(d.id, d.over); skyDraw(); return; }
+      if (d.over) { // dropped on another star: joined to it (and, if it was moved, set down right next to it)
+        if (!d.link) { const tg = SKY.starById.get(d.over), me = SKY.starById.get(d.id); if (tg && me && S.sky) { const sp = skySpotNear(tg.x, tg.y, Math.atan2(me.y - tg.y, me.x - tg.x), d.id); S.sky.pos[d.id] = [Math.round(sp[0]), Math.round(sp[1])]; } }
+        skyConnect(d.id, d.over);
+      } else if (!d.link) { const [wx, wy] = skyToWorld(d.mx, d.my); skySetPos(d.id, wx, wy); } // anywhere you like
+      else skyDraw();
     }
   };
   addEventListener('mousemove', SKY.onMove);
   addEventListener('mouseup', SKY.onUp);
   canvas.addEventListener('contextmenu', (e) => {
     e.preventDefault(); e.stopPropagation();
-    const r = canvas.getBoundingClientRect(); const s = skyStarAt(e.clientX - r.left, e.clientY - r.top);
-    const t = s && tabById(s.id); if (t) skyStarMenu(t, e.clientX, e.clientY);
+    const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top; const s = skyStarAt(x, y);
+    if (SKY.linking) { SKY.linking = null; canvas.style.cursor = ''; skyDraw(); return; }
+    const t = s && tabById(s.id); if (t) { skyStarMenu(t, e.clientX, e.clientY); return; }
+    const ed = skyEdgeAt(x, y);
+    if (ed) { showMenu(e.clientX, e.clientY, [{ label: 'Remove this line', icon: 'x', run: () => skyUnlink(ed[0], ed[1]) }]); return; }
+    const nm = skyNameAt(x, y);
+    if (nm) showMenu(e.clientX, e.clientY, [{ label: 'Rename group…', icon: 'edit', run: () => skyRenameGroup(nm.g) }, { label: 'Break up the group', icon: 'x', run: () => skyBreakGroup(nm.g) }]);
   });
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -1170,7 +1337,7 @@ function skyMount(layer, search, mode = 'sky') {
     skyHideCard(); skyDraw(); skySaveCamSoon(); skyUpdateZoom();
   }, { passive: false });
   canvas.addEventListener('mouseleave', () => { if (SKY.hover) { SKY.hover = null; skyDraw(); skyHideCardSoon(); } });
-  canvas.addEventListener('keydown', (e) => skyKey(e));
+  canvas.addEventListener('keydown', (e) => { if (e.key === 'Escape' && SKY.linking) { e.preventDefault(); e.stopPropagation(); SKY.linking = null; canvas.style.cursor = ''; skyDraw(); return; } skyKey(e); });
 
   // corner controls: zoom, back to the tab you're on, reset layout, help
   const zoomTxt = h('span', { class: 'zt' }, '100%');
@@ -1181,7 +1348,7 @@ function skyMount(layer, search, mode = 'sky') {
     h('button', { title: 'Zoom in', 'aria-label': 'Zoom in', onclick: () => skyZoomBy(1.25) }, '+'),
     h('button', { title: 'Show everything', 'aria-label': 'Show everything', onclick: () => skyGlideTo(skyFitAll()), html: icon('grid') }),
     h('button', { title: 'Back to the tab you’re on', 'aria-label': 'Back to the tab you’re on', onclick: () => { const a = activeTab(); if (a) skyFocusStar(a.id, 1); } }, '◎'),
-    h('button', { class: 'rst', hidden: SKY.mode === 'galaxy', title: 'Reset layout', 'aria-label': 'Reset layout', onclick: () => skyResetLayout() }, '⟲'),
+    h('button', { class: 'rst', hidden: SKY.mode === 'galaxy', title: 'Sort the stars by site again (you can undo it)', 'aria-label': 'Sort the stars by site again', onclick: () => skyResetLayout() }, '⟲'),
     h('button', { class: 'q', title: 'How to use Sky View', 'aria-label': 'How to use Sky View', onclick: () => skyHelp(true) }, '?'));
   layer.append(ctl);
   skyUpdateZoom();
@@ -1198,8 +1365,10 @@ function skyZoomBy(f) {
 function skySaveCam() { if (S.sky) { S.sky[SKY.mode === 'galaxy' ? 'gcam' : 'cam'] = { x: Math.round(SKY.cam.x), y: Math.round(SKY.cam.y), z: +SKY.cam.z.toFixed(3) }; save(); } }
 function skySaveCamSoon() { clearTimeout(SKY.camT); SKY.camT = setTimeout(skySaveCam, 400); }
 function skyResetLayout() {
-  S.sky = { cells: {}, groups: {}, slots: {}, offsets: {}, cam: null, v: 1 };
-  skyRelayout(); skyGlideTo(skyFitAll()); toast('Layout reset', { icon: 'reload', timeout: 1400 });
+  const before = JSON.parse(JSON.stringify(S.sky || {}));
+  S.sky = { cam: null, gcam: before.gcam || null }; // (sorted again by site, the way a new sky starts)
+  skyRelayout(); skyGlideTo(skyFitAll());
+  toast('Stars sorted by site', { icon: 'reload', timeout: 6000, action: { label: 'Undo', run: () => { S.sky = before; save(); if (SKY.on) { skyRelayout(); skyGlideTo(skyFitAll()); } } } });
 }
 
 /** The controls, shown the first few times (then only behind the ? button). */
@@ -1211,7 +1380,7 @@ function skyHelp(force) {
   if (!force) { S.settings[key] = seen + 1; save(); }
   const tips = SKY.mode === 'galaxy'
     ? [['The middle', 'is now'], ['Further out', 'longer ago'], ['Each arm', 'is a Space'], ['Hover', 'preview'], ['Drag a star', 'to another arm']]
-    : [['Scroll', 'zoom'], ['Drag', 'pan'], ['Hover', 'preview'], ['Right-click', 'options'], ['Drag a star', 'move it to another Space']];
+    : [['Drag a star', 'put it anywhere'], ['Drop on a star', 'join them'], ['Shift-drag', 'draw a line'], ['Right-click', 'more']];
   SKY.help = h('div', { class: 'sky-help' }, ...tips.map(([k, t]) => h('span', {}, h('kbd', {}, k), t)),
     h('button', { class: 'ok', onclick: () => { S.settings[key] = 3; save(); if (SKY.help) { SKY.help.remove(); SKY.help = null; } } }, 'Got it'));
   SKY.layer.append(SKY.help);
