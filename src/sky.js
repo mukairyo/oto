@@ -476,14 +476,14 @@ function skyDecorShape(r, n, stepMin, stepVar, minGap, reach) {
 }
 /** The scenery: an endless sky in squares, each made once (the same all session), never too close to your stars. */
 const SKY_SCN = new Map(), SKY_SCN_NAMES = new Set();
-const SKY_SCN_CELL = 380;
+const SKY_SCN_CELL = 680; // (one made-up constellation in about every third square: a few here and there, not a crowd)
 function skySceneryCell(i, j) {
   const key = `${i},${j}`;
   if (SKY_SCN.has(key)) return SKY_SCN.get(key);
   const r = skyRng(SKY_SEED ^ Math.imul(i, 73856093) ^ Math.imul(j, 19349663));
   let dc = null;
-  if (r() >= 0.22) {
-    const n = 1 + Math.min(17, Math.floor(r() * 18));
+  if (r() < 0.34) {
+    const n = 1 + Math.min(17, Math.floor(Math.pow(r(), 1.7) * 18)); // mostly small ones, the odd big one
     const px = (i + 0.5) * SKY_SCN_CELL + (r() - 0.5) * 70, py = (j + 0.5) * SKY_SCN_CELL + (r() - 0.5) * 70;
     const pts = skyDecorShape(r, n, 36, 30, 32, 48 + n * 5.5);
     const name = skyMadeUpName(r, SKY_SCN_NAMES); SKY_SCN_NAMES.add(name); // (no two the same in one sky)
@@ -512,7 +512,8 @@ function skyDrawScenery(c, now) {
     const dc = skySceneryCell(i, j);
     if (dc && !stars.some((st) => Math.abs(st.x - dc.cx) < 300 && Math.abs(st.y - dc.cy) < 240)) SKY.decor.push(dc);
   }
-  const A = (SKY.words.length ? 0.4 : 1) * (SKY.dive ? 1 - SKY.dive.p : 1), tw = skyMotion();
+  // fainter when you zoom far out, so your own stars stand out
+  const A = (SKY.words.length ? 0.4 : 1) * (SKY.dive ? 1 - SKY.dive.p : 1) * clamp((z - 0.12) / 0.4, 0.65, 1), tw = skyMotion();
   c.lineWidth = 1; c.lineCap = 'round'; c.setLineDash([1.5, 4]);
   for (const dc of SKY.decor) {
     const P = dc.pts.map((q) => skyToScreen(q.x, q.y));

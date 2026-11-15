@@ -26,6 +26,7 @@ module.exports = async (t) => {
   t.check('every tab is a star', a.stars === a.tabs && a.tabs >= 5, JSON.stringify(a));
   t.check('one free sky: no Space regions', a.spaces === 0 && a.v === 3, JSON.stringify(a));
   await shot('1-sky');
+  if (shots) { await t.js('SKY.cam.z = 0.25, skyDraw(), 1'); await t.sleep(150); await shot('1b-far'); await t.js('Object.assign(SKY.cam, skyFitAll()), skyDraw(), 1'); }
 
   // 3 · search flies to the match; arrows move between tabs
   const nav = ids.find((x) => x.host === 'nav.site');

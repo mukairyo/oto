@@ -3,6 +3,10 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.7.3 — A calmer sky
+
+- **Far fewer made-up constellations.** There's now only one here and there around your stars, mostly small, instead of a crowd filling the whole sky. They also fade a little when you zoom far out, so your own stars stand out.
+
 ## 1.7.2 — Stars scattered across the sky
 
 - **Natural, not in a row.** Stars are spread around the sky at random, like real stars, instead of standing next to each other in a line. Your groups keep their shape and are moved as one piece.
