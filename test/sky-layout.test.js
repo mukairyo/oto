@@ -140,8 +140,25 @@ test('free sky: closing the star that held a group together keeps the group whol
   assert.strictEqual(l.groups[0].name, 'Velis');
 });
 
-test('free sky: the first time, every star starts where the old layout had it', () => {
+test('free sky: the first time, groups keep their shape and stars are scattered (not in a row)', () => {
   const l = skyFree([T('a', 'x'), T('b', 'x')], {}, { pos: { a: [10, 20], b: [110, 20] }, edges: [['a', 'b']] });
-  assert.deepStrictEqual(at(l), { a: [10, 20], b: [110, 20] });
+  const p = at(l);
+  assert.deepStrictEqual([p.b[0] - p.a[0], p.b[1] - p.a[1]], [100, 0]);
   assert.strictEqual(l.groups.length, 1);
+  assert.strictEqual(l.state.v, 3);
+});
+
+test('free sky: lone stars land at random around the sky, never in a straight row, never on top of each other', () => {
+  const tabs = 'abcdefghij'.split('').map((id) => T(id, `site-${id}`));
+  const row = {}; tabs.forEach((t, i) => { row[t.id] = [i * 150, 0]; });
+  const l = skyFree(tabs, { pos: row, edges: [], names: {}, v: 2 });
+  const ys = l.stars.map((s) => s.y);
+  assert.ok(Math.max(...ys) - Math.min(...ys) > 200, `spread ${Math.max(...ys) - Math.min(...ys)}`);
+  for (const a of l.stars) for (const b of l.stars) if (a !== b) assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= 120);
+  // and from then on they stay put
+  assert.deepStrictEqual(at(skyFree(tabs, l.state)), at(l));
+  // a new site's tab also lands somewhere random but free
+  const m = skyFree([...tabs, T('k', 'new')], l.state);
+  const k = m.stars.find((s) => s.id === 'k');
+  for (const s of m.stars) if (s.id !== 'k') assert.ok(Math.hypot(s.x - k.x, s.y - k.y) >= 110);
 });

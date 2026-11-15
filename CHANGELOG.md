@@ -3,6 +3,12 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.7.2 — Stars scattered across the sky
+
+- **Natural, not in a row.** Stars are spread around the sky at random, like real stars, instead of standing next to each other in a line. Your groups keep their shape and are moved as one piece.
+- New tabs land in a random free spot too (near their site's stars, or somewhere in the sky for a new site), never on top of another star.
+- The made-up constellations around your stars no longer repeat a name.
+
 ## 1.7.1 — A free sky: put your stars anywhere and join them into groups
 
 - **One free sky.** Sky no longer splits into Space regions. Drag a star anywhere you like and it stays there.

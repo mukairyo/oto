@@ -11,7 +11,7 @@
    functions the sidebar uses (activate, closeTab, togglePin, moveToWorkspace-like moves). Page titles and addresses
    come from websites, so they're only ever drawn as canvas text or DOM text nodes, never as HTML.
 
-   Saved in S.sky (since 1.7.1, v: 2): pos (tab → where its star is), edges (the lines between stars: a group is stars
+   Saved in S.sky (since 1.7.1; v: 3 since 1.7.2, when the stars were scattered at random): pos (tab → where its star is), edges (the lines between stars: a group is stars
    joined by lines), names (tab → its group's name), cam / gcam (where you were looking in Sky / Galaxy). Older skies
    (v: 1, one region per Space) are turned into this the first time, every star staying where it was. */
 
@@ -159,21 +159,27 @@ function skyFree(tabs, saved = {}, seed = null) {
   }
   const pos = {};
   for (const t of tabs) { const p = srcPos[t.id]; if (Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1])) pos[t.id] = [Math.round(p[0]), Math.round(p[1])]; }
-  // new tabs: a free spot next to their site's stars (joined to the nearest one), else near the middle of everything
-  const GAP = 95;
+  // a sky from before 1.7.2 (stars in rows): scattered around the sky at random, every group keeping its shape
+  if (saved.v !== 3) Object.assign(pos, skyScatter(tabs.map((t) => t.id).filter((id) => pos[id]), pos, edges));
+  // new tabs: a random free spot near their site's stars (joined to the nearest one), else somewhere random in the sky
+  const GAP = 110;
   const freeAt = (x, y) => Object.values(pos).every((q) => Math.hypot(q[0] - x, q[1] - y) >= GAP);
   for (const t of tabs) {
     if (pos[t.id]) continue;
     const mates = tabs.filter((o) => o.id !== t.id && o.key === t.key && pos[o.id]);
     const all = Object.values(pos);
-    const anchor = mates.length ? pos[mates[mates.length - 1].id] : all.length ? [all.reduce((a, q) => a + q[0], 0) / all.length, all.reduce((a, q) => a + q[1], 0) / all.length] : [0, 0];
-    const a0 = ((skyHash(String(t.id)) >>> 0) % 628) / 100;
+    const mid = all.length ? [all.reduce((a, q) => a + q[0], 0) / all.length, all.reduce((a, q) => a + q[1], 0) / all.length] : [0, 0];
+    const anchor = mates.length ? pos[mates[mates.length - 1].id] : mid;
+    const r = skyRng(skyHash(String(t.id)) ^ all.length);
+    const spread = mates.length ? 110 : 160 + Math.sqrt(all.length + 1) * 150;
     let spot = null;
-    for (let ring = mates.length ? 1 : 0; ring < 40 && !spot; ring++) {
-      const r = ring * 105, n = Math.max(1, ring * 7);
-      for (let k = 0; k < n && !spot; k++) { const a = a0 + (k / n) * Math.PI * 2; const x = anchor[0] + Math.cos(a) * r, y = anchor[1] + Math.sin(a) * r * 0.8; if (freeAt(x, y)) spot = [Math.round(x), Math.round(y)]; }
+    for (let k = 0; k < 400 && !spot; k++) {
+      const grow = 1 + k / 40, a = r() * Math.PI * 2;
+      const d = mates.length ? (110 + r() * 70) * grow : (all.length ? 0.35 + 0.65 * Math.sqrt(r()) : Math.sqrt(r()) * 0.3) * spread * grow;
+      const x = anchor[0] + Math.cos(a) * d, y = anchor[1] + Math.sin(a) * d * 0.72;
+      if (freeAt(x, y)) spot = [Math.round(x), Math.round(y)];
     }
-    pos[t.id] = spot || [Math.round(anchor[0]), Math.round(anchor[1])];
+    pos[t.id] = spot || [Math.round(anchor[0] + 120), Math.round(anchor[1])];
     if (mates.length) {
       const near = mates.map((o) => ({ o, d: Math.hypot(pos[o.id][0] - pos[t.id][0], pos[o.id][1] - pos[t.id][1]) })).sort((a, b) => a.d - b.d)[0].o;
       const e = near.id < t.id ? [near.id, t.id] : [t.id, near.id];
@@ -204,7 +210,38 @@ function skyFree(tabs, saved = {}, seed = null) {
     groups.push({ name, ids: list, lone: list.length === 1, key: byId.get(list[0]).key });
   }
   const stars = tabs.map((t) => ({ id: t.id, x: pos[t.id][0], y: pos[t.id][1], group: comp.get(t.id) }));
-  return { stars, edges, groups, state: { pos, edges, names, cam: saved.cam || null, gcam: saved.gcam || null, v: 2 } };
+  return { stars, edges, groups, state: { pos, edges, names, cam: saved.cam || null, gcam: saved.gcam || null, v: 3 } };
+}
+
+/**
+ * Scatter stars around the sky at random (not in rows): each group (stars joined by lines) is moved as one piece, so it
+ * keeps its shape, and lone stars land wherever there's room. The sky grows with the number of stars.
+ */
+function skyScatter(ids, pos, edges, seed = 2026) {
+  const nb = new Map(); for (const [a, b] of edges) { (nb.get(a) || nb.set(a, []).get(a)).push(b); (nb.get(b) || nb.set(b, []).get(b)).push(a); }
+  const seen = new Set(), comps = [];
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    const list = [], q = [id]; seen.add(id);
+    while (q.length) { const x = q.shift(); list.push(x); for (const y of nb.get(x) || []) if (!seen.has(y) && pos[y]) { seen.add(y); q.push(y); } }
+    comps.push(list);
+  }
+  comps.sort((a, b) => b.length - a.length);
+  const r = skyRng(seed ^ ids.length), out = {}, placed = [];
+  const R0 = 220 + Math.sqrt(ids.length) * 170;
+  for (const list of comps) {
+    const cx0 = list.reduce((a, id) => a + pos[id][0], 0) / list.length, cy0 = list.reduce((a, id) => a + pos[id][1], 0) / list.length;
+    const shape = list.map((id) => [id, pos[id][0] - cx0, pos[id][1] - cy0]);
+    let at = null;
+    for (let k = 0; k < 600 && !at; k++) {
+      const a = r() * Math.PI * 2, d = (placed.length ? Math.sqrt(r()) : 0.25 * r()) * R0 * (1 + k / 80);
+      const cx = Math.cos(a) * d, cy = Math.sin(a) * d * 0.72;
+      if (shape.every(([, dx, dy]) => placed.every((p) => Math.hypot(p[0] - cx - dx, p[1] - cy - dy) >= 130))) at = [cx, cy];
+    }
+    if (!at) at = [R0 * (1 + placed.length * 0.1), 0];
+    for (const [id, dx, dy] of shape) { const p = [Math.round(at[0] + dx), Math.round(at[1] + dy)]; out[id] = p; placed.push(p); }
+  }
+  return out;
 }
 
 /**
@@ -234,7 +271,7 @@ function galaxyLayout(tabs, spaces, now = Date.now()) {
 }
 
 // (the unit tests load this file in Node: below here only declares things; nothing runs until the overview mounts it)
-if (typeof module !== 'undefined') module.exports = { skyLayout, skyAssign, skySlots, skyShape, skySpiral, SKY_L, galaxyLayout, GAL, skyFree };
+if (typeof module !== 'undefined') module.exports = { skyLayout, skyAssign, skySlots, skyShape, skySpiral, SKY_L, galaxyLayout, GAL, skyFree, skyScatter };
 
 // ------------------------------------------------------------------ the view
 const SKY = {
@@ -260,7 +297,7 @@ function skyRelayout() {
   if (SKY.mode === 'galaxy') return galaxyRelayout();
   const tabs = S.tabs.map((t) => ({ id: t.id, ...skyTabInfo(t) }));
   let seed = null;
-  if (!S.sky || S.sky.v !== 2) { // from the Space layout of 1.6.8–1.7.0: every star starts where it was, lines and all
+  if (!S.sky || !S.sky.v || S.sky.v < 2) { // from the Space layout of 1.6.8–1.7.0: every group keeps its shape and lines (then scattered)
     const spaces = S.workspaces.map((w) => ({ id: w.id }));
     if (essentials().length) spaces.unshift({ id: '__essentials' });
     const old = skyLayout(S.tabs.map((t) => ({ id: t.id, ws: t.essential ? '__essentials' : t.ws, ...skyTabInfo(t) })), spaces, (S.sky && S.sky.v === 1) ? S.sky : {});
@@ -438,7 +475,7 @@ function skyDecorShape(r, n, stepMin, stepVar, minGap, reach) {
   return pts;
 }
 /** The scenery: an endless sky in squares, each made once (the same all session), never too close to your stars. */
-const SKY_SCN = new Map();
+const SKY_SCN = new Map(), SKY_SCN_NAMES = new Set();
 const SKY_SCN_CELL = 380;
 function skySceneryCell(i, j) {
   const key = `${i},${j}`;
@@ -449,7 +486,7 @@ function skySceneryCell(i, j) {
     const n = 1 + Math.min(17, Math.floor(r() * 18));
     const px = (i + 0.5) * SKY_SCN_CELL + (r() - 0.5) * 70, py = (j + 0.5) * SKY_SCN_CELL + (r() - 0.5) * 70;
     const pts = skyDecorShape(r, n, 36, 30, 32, 48 + n * 5.5);
-    const name = skyMadeUpName(r, new Set());
+    const name = skyMadeUpName(r, SKY_SCN_NAMES); SKY_SCN_NAMES.add(name); // (no two the same in one sky)
     dc = { name, cx: px, cy: py, pts: pts.map(([x, y, p], k) => ({ x: px + x, y: py + y, p, size: 1 + r() * 1.1, a: 0.35 + r() * 0.45, ph: k * 2.7 + (skyHash(name) % 7), sp: 0.7 + ((k * 37 + name.length * 11) % 10) / 16 })) };
   }
   SKY_SCN.set(key, dc);
@@ -1368,7 +1405,7 @@ function skyResetLayout() {
   const before = JSON.parse(JSON.stringify(S.sky || {}));
   S.sky = { cam: null, gcam: before.gcam || null }; // (sorted again by site, the way a new sky starts)
   skyRelayout(); skyGlideTo(skyFitAll());
-  toast('Stars sorted by site', { icon: 'reload', timeout: 6000, action: { label: 'Undo', run: () => { S.sky = before; save(); if (SKY.on) { skyRelayout(); skyGlideTo(skyFitAll()); } } } });
+  toast('Stars sorted by site and scattered again', { icon: 'reload', timeout: 6000, action: { label: 'Undo', run: () => { S.sky = before; save(); if (SKY.on) { skyRelayout(); skyGlideTo(skyFitAll()); } } } });
 }
 
 /** The controls, shown the first few times (then only behind the ? button). */

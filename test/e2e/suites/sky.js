@@ -24,7 +24,7 @@ module.exports = async (t) => {
   let a = await J("return { sky: !!document.querySelector('#v1Ov.sky .sky-canvas'), stars: SKY.starById.size, tabs: S.tabs.length, spaces: SKY.lay.spaces.length, v: S.sky.v, groups: SKY.lay.groups.filter((g) => !g.lone).length, view: S.settings.overviewView || 'sky' };");
   t.check('the space overview opens in Sky View', a.sky, JSON.stringify(a));
   t.check('every tab is a star', a.stars === a.tabs && a.tabs >= 5, JSON.stringify(a));
-  t.check('one free sky: no Space regions', a.spaces === 0 && a.v === 2, JSON.stringify(a));
+  t.check('one free sky: no Space regions', a.spaces === 0 && a.v === 3, JSON.stringify(a));
   await shot('1-sky');
 
   // 3 · search flies to the match; arrows move between tabs
