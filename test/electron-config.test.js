@@ -116,7 +116,11 @@ test('the page preload for websites only asks fixed, flags-only questions', () =
   const pp = read('page-preload.js');
   const calls = pp.match(/ipcRenderer\.\w+\(\s*'[^']+'/g) || [];
   // oto:page from pages and frames; oto:worker from service workers only (a number: the per-site fingerprint seed)
-  assert.deepStrictEqual([...new Set(calls)], ["ipcRenderer.sendSync('oto:page'", "ipcRenderer.once('oto:shown'", "ipcRenderer.sendSync('oto:worker'"]);
+  assert.deepStrictEqual([...new Set(calls)], ["ipcRenderer.sendSync('oto:page'", "ipcRenderer.send('oto:yt-wall'", "ipcRenderer.once('oto:shown'", "ipcRenderer.sendSync('oto:worker'"]);
+  // oto:yt-wall (1.7.4): "YouTube's ad-blocker wall is still up", with no data; main.js only takes it from the top
+  // frame of a YouTube tab, at most once a minute, and only shows an offer in Oto's window
+  assert.match(pp, /ipcRenderer\.send\('oto:yt-wall'\)/);
+  assert.match(main, /ipcMain\.on\('oto:yt-wall', \(e\) => \{[\s\S]{0,400}getType\(\) !== 'webview' \|\| !f \|\| f\.parent\) return;[\s\S]{0,200}youtube\\\.com\$\/\.test/);
   // the one message a page can receive: "this background tab was opened" (1.6.7), with no data in it
   assert.match(pp, /ipcRenderer\.once\('oto:shown', \(\) => /);
   assert.doesNotMatch(pp, /exposeInMainWorld/, 'websites get no Oto API');

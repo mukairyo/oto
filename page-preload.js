@@ -71,7 +71,28 @@ if (inPage) try {
     });
   }
   if (site.fp) run(otoFarble, site.fp, !!site.fpStrict);
-  if (site.yt) run(otoYouTubeAds);
+  if (site.yt) {
+    run(otoYouTubeAds);
+    // If YouTube still puts up its "Ad blockers violate YouTube's Terms of Service" wall and the page couldn't get past
+    // it (otoYouTubeAds tries first), Oto offers to pause Shield on YouTube. Only the wall's own markers are looked
+    // for; nothing is read from the page or sent anywhere but Oto.
+    if (window === window.top) {
+      let told = '';
+      const wallUp = () => {
+        const pop = document.querySelector('ytd-enforcement-message-view-model');
+        if (pop && pop.getClientRects().length) return true;
+        const a = document.querySelector('#error-screen a[href*="support.google.com/youtube/answer/3037019"], yt-playability-error-supported-renderers a[href*="support.google.com/youtube/answer/3037019"]');
+        return !!(a && a.getClientRects().length);
+      };
+      let timer = 0;
+      const check = () => {
+        if (timer || told === location.href || !wallUp()) return;
+        timer = setTimeout(() => { timer = 0; if (told !== location.href && wallUp()) { told = location.href; try { ipcRenderer.send('oto:yt-wall'); } catch {} } }, 4000);
+      };
+      const start = () => { try { new MutationObserver(check).observe(document.documentElement, { childList: true, subtree: true }); } catch {} };
+      if (document.documentElement) start(); else document.addEventListener('DOMContentLoaded', start, { once: true });
+    }
+  }
   if (site.autoplay) {
     const hold = () => {
       const P = HTMLMediaElement.prototype, play = P.play;
@@ -295,6 +316,14 @@ function otoFarble(seed, strict) {
 
 // Runs in YouTube pages before YouTube's own scripts.
 function otoYouTubeAds() {
+  // Ways YouTube notices an ad blocker, each answered the way uBlock Origin's own YouTube fixes do:
+  // 1. The player's data is changed as text before it's read: "adPlacements"/"adSlots" become "no_ads", so the player
+  //    simply has no ads (nothing deleted for it to miss). The JSON pruning below stays as the second line.
+  // 2. Its "abnormality detected" check (the one that leads to the wall) is given a callback that does nothing.
+  // 3. The 17-second wait it adds when it thinks ads were blocked is cut short.
+  // 4. If the wall shows anyway: the pop-up is closed and the video goes on; a blocked player loads the video again.
+  const AD_URL = /\/youtubei\/v1\/(player|get_watch)|\/watch\?|\/playlist\?list=/;
+  const noAds = (t) => (typeof t === 'string' && (t.includes('"adPlacements"') || t.includes('"adSlots"')) ? t.replace(/"adPlacements"/g, '"no_ads"').replace(/"adSlots"/g, '"no_ads"') : t);
   const KEYS = ['adPlacements', 'playerAds', 'adSlots', 'adBreakHeartbeatParams'];
   const strip = (o) => { if (o && typeof o === 'object') for (const k of KEYS) if (k in o) { try { delete o[k]; } catch (e) {} } };
   const prune = (o) => {
@@ -305,11 +334,50 @@ function otoYouTubeAds() {
     } catch (e) {}
     return o;
   };
-  const disguise = (fn, orig) => { try { const s = Function.prototype.toString.call(orig); Object.defineProperty(fn, 'toString', { value: () => s, configurable: true }); } catch (e) {} return fn; };
+  // A changed function still reads like the browser's own, however a script asks (also Function.prototype.toString.call),
+  // with the same name and number of arguments.
+  const fts = Function.prototype.toString, fakes = new WeakMap();
+  const ts2 = function toString() { return fakes.has(this) ? fakes.get(this) : fts.call(this); };
+  const disguise = (fn, orig) => {
+    try { fakes.set(fn, fts.call(orig)); Object.defineProperty(fn, 'name', { value: orig.name, configurable: true }); Object.defineProperty(fn, 'length', { value: orig.length, configurable: true }); } catch (e) {}
+    return fn;
+  };
+  try { Function.prototype.toString = disguise(ts2, fts); } catch (e) {}
   const jp = JSON.parse;
   JSON.parse = disguise(function parse() { return prune(jp.apply(this, arguments)); }, jp);
+  const rt = Response.prototype.text;
+  Response.prototype.text = disguise(function text() { const p = rt.apply(this, arguments); return AD_URL.test(this.url || '') ? p.then(noAds) : p; }, rt);
   const rj = Response.prototype.json;
-  Response.prototype.json = disguise(function json() { return rj.apply(this, arguments).then(prune); }, rj);
+  Response.prototype.json = disguise(function json() {
+    if (AD_URL.test(this.url || '')) return rt.call(this).then((t) => prune(jp(noAds(t))));
+    return rj.apply(this, arguments).then(prune);
+  }, rj);
+  try { // the same for XMLHttpRequest
+    const X = XMLHttpRequest.prototype, open = X.open, urls = new WeakMap();
+    X.open = disguise(function open2(m, u) { try { urls.set(this, String(u)); } catch (e) {} return open.apply(this, arguments); }, open);
+    for (const prop of ['responseText', 'response']) {
+      const d = Object.getOwnPropertyDescriptor(X, prop);
+      if (!d || !d.get) continue;
+      const get = d.get;
+      Object.defineProperty(X, prop, { ...d, get: disguise(function () { const v = get.call(this); return typeof v === 'string' && AD_URL.test(urls.get(this) || '') ? noAds(v) : v; }, get) });
+    }
+  } catch (e) {}
+  try { // 2. the abnormality check
+    const then = Promise.prototype.then, seen = new WeakMap(); // (each function is looked at once)
+    const quiet = function () {};
+    const bad = (f) => { let v = seen.get(f); if (v === undefined) { try { v = fts.call(f).includes('onAbnormalityDetected'); } catch (e) { v = false; } seen.set(f, v); } return v; };
+    Promise.prototype.then = disguise(function then2(a, b) {
+      if (typeof a === 'function' && bad(a)) a = quiet;
+      return then.call(this, a, b);
+    }, then);
+  } catch (e) {}
+  try { // 3. the 17-second wait
+    const st = window.setTimeout;
+    window.setTimeout = disguise(function setTimeout(fn, ms) {
+      try { if (Number(ms) === 17000 && typeof fn === 'function' && fts.call(fn).includes('[native code]')) arguments[1] = 17; } catch (e) {}
+      return st.apply(this, arguments);
+    }, st);
+  } catch (e) {}
   // The first video's data is written straight into the page
   for (const name of ['ytInitialPlayerResponse', 'playerResponse']) {
     let val;
@@ -317,7 +385,28 @@ function otoYouTubeAds() {
   }
   // Safety net: if an ad still starts, jump to its end and press Skip; sound comes back for the real video.
   let mutedByOto = false;
+  const retried = new Map(); // video → times it was loaded again
   setInterval(() => {
+    try { // 4. the wall: a pop-up is closed and the video goes on; a blocked player loads the video again (twice at most)
+      const pop = document.querySelector('ytd-enforcement-message-view-model');
+      const inPlayer = pop && pop.closest('#error-screen, yt-playability-error-supported-renderers, #player, #movie_player');
+      if (pop && !inPlayer) { // the pop-up over the page: closed, and the video goes on
+        const dlg = pop.closest('tp-yt-paper-dialog, ytd-popup-container > *') || pop;
+        dlg.remove();
+        for (const b of document.querySelectorAll('tp-yt-iron-overlay-backdrop')) b.remove();
+        const v0 = document.querySelector('.html5-video-player video');
+        if (v0 && v0.paused) v0.play().catch(() => {});
+      }
+      const mp = document.getElementById('movie_player');
+      const r = mp && mp.getPlayerResponse && mp.getPlayerResponse();
+      const ps = r && r.playabilityStatus;
+      const es = ps && ps.status !== 'OK' ? JSON.stringify(ps.errorScreen || {}) : '';
+      if (inPlayer || es.includes('support.google.com/youtube/answer/3037019') || es.includes('enforcementMessageViewModel')) { // the wall in place of the video
+        const id = r.videoDetails && r.videoDetails.videoId;
+        const n = retried.get(id) || 0;
+        if (id && n < 2 && mp.loadVideoById) { retried.set(id, n + 1); const t0 = (r.playerConfig && r.playerConfig.playbackStartConfig && r.playerConfig.playbackStartConfig.startSeconds) || 0; mp.loadVideoById(id, t0); }
+      }
+    } catch (e) {}
     try {
       const p = document.querySelector('.html5-video-player');
       if (!p) return;

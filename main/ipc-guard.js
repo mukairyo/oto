@@ -5,6 +5,8 @@
 // extension pages or Oto-app windows are refused before the handler runs.
 // A few channels are meant for pages and libraries and stay open; each validates its own input:
 //   oto:page        page-preload.js asks once per frame what protection applies (returns flags only)
+//   oto:yt-wall     page-preload.js on YouTube: its ad-blocker wall is still up (no data; main.js checks the sender
+//                   is a YouTube tab's top frame and only shows an offer in Oto's window)
 //   crx-*           electron-chrome-extensions (extension APIs, checks its own senders)
 //   @ghostery/*     the ad blocker's cosmetic filters
 //   chromeWebstore.* / chrome.*   electron-chrome-web-store: Oto lets through only the exact Chrome Web Store origin
@@ -15,7 +17,7 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { checkArgs } = require('./ipc-schema.js');
 
-const OPEN = /^(oto:page$|crx-|@ghostery\/|chromeWebstore\.|chrome\.)/;
+const OPEN = /^(oto:page$|oto:yt-wall$|crx-|@ghostery\/|chromeWebstore\.|chrome\.)/;
 const WEBSTORE_CH = /^(chromeWebstore\.|chrome\.)/;
 const WEBSTORE_ORIGIN = 'https://chromewebstore.google.com';
 // Size limits per message (counted like memory: 2 bytes per character): 1 MB normally; only the channels that carry

@@ -157,6 +157,9 @@ const extraFilters = (level, opts) => [
   ...((opts && typeof opts.recorders === 'boolean' ? opts.recorders : level !== 'basic') ? [...Object.values(RECORDERS).flat().map(third), ...RECORDER_PARTS.flatMap((p) => p.rules.map((r) => `${r}$third-party`))] : []),
   ...EXTRA_SCRIPTS.map((r) => `${r.has}$script${r.site ? `,domain=${r.site}` : ''}`),
   ...EXTRA_COSMETIC.map((sel) => `##${sel}`),
+  // YouTube's own watch statistics, on YouTube only: blocking them is one of the ways YouTube spots an ad blocker
+  // (then it stops the video), and they're what keeps watch history and "continue watching" working.
+  '@@||youtube.com/api/stats/$xhr,ping,image,domain=youtube.com',
 ];
 // The script rules for Oto's small built-in blocker (used while the full lists load):
 // true when a page on pageHost may not load this script.

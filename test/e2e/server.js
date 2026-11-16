@@ -180,6 +180,8 @@ setInterval(() => { x.fillStyle = '#000'; x.fillRect(0, 0, 320, 180); x.fillStyl
 const v = document.querySelector('video'); v.srcObject = c.captureStream(30); v.play();
 window.__playerClicks = 0; document.getElementById('movie_player').addEventListener('click', () => window.__playerClicks++);</script></body></html>`);
   }
+  // What YouTube's player asks for (the youtube suite): its data, with ads in it
+  if (url.pathname === '/youtubei/v1/player') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end('{"playabilityStatus":{"status":"OK"},"adPlacements":[{"ad":1}],"adSlots":[{"slot":1}],"playerAds":[{"x":1}],"videoDetails":{"videoId":"abc"}}'); }
   if (url.pathname === '/echo-lang') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end(String(req.headers['accept-language'] || '')); }
   if (url.pathname === '/fpworker.js') { res.writeHead(200, { 'Content-Type': 'text/javascript' }); return res.end(FP_WORKER); }
   if (url.pathname === '/links') { // a link that opens a video page in a new tab

@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.7.4 — YouTube's ad-blocker wall
+
+- **Harder for YouTube to notice Oto Shield.** The ads are now taken out of the player's data the way uBlock Origin does it today (changed as text, so nothing is missing for YouTube to spot), YouTube's "abnormality detected" check is quietly skipped, and the 17-second wait it adds is cut short. The functions Oto changes still look like the browser's own.
+- **If the wall shows anyway**, Oto closes the pop-up and the video goes on, or loads a blocked video again.
+- **And if YouTube still won't play**, Oto says so with one button: *Pause Shield on YouTube*. It reloads the video with blocking off on YouTube only, and you can turn it back on in Shield → Blocking.
+- YouTube's own watch statistics are no longer blocked on YouTube: blocking them is one of the signs YouTube looks for, and they keep your watch history and "continue watching" working.
+
 ## 1.7.3 — A calmer sky
 
 - **Far fewer made-up constellations.** There's now only one here and there around your stars, mostly small, instead of a crowd filling the whole sky. They also fade a little when you zoom far out, so your own stars stand out.

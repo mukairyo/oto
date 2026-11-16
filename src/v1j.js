@@ -654,6 +654,17 @@ function initV1j() {
     };
     for (const ms of [150, 700, 1500, 3000]) setTimeout(show, ms); // a slow PC can link the tab to its page late
   });
+  // YouTube's "Ad blockers violate YouTube's Terms of Service" wall stayed up even after Oto's own fixes: one click
+  // pauses Shield on YouTube (Settings → Shield lists it, and it can be turned back on there) and reloads the video.
+  oto.on('yt-wall', (d) => {
+    const tabId = d && wcToTab.get(d.wcId), t = tabId && tabById(tabId);
+    if (!t) return;
+    toast('YouTube noticed Oto Shield and stopped the video', { icon: 'shield', timeout: 15000, action: { label: 'Pause Shield on YouTube', run: async () => {
+      await oto.shield.site('https://www.youtube.com/', true);
+      const v = V.get(tabId); try { v && v.wv && v.wv.reload(); } catch {}
+      toast('Shield is paused on YouTube. Turn it back on in Shield → Blocking', { icon: 'shield', timeout: 4000 });
+    } } });
+  });
   oto.on('screen:pick', (p) => v1ScreenPick(p));
   oto.on('screen:cancel', (id) => { if (SCR.open && SCR.open.id === id) { SCR.open.layer.remove(); SCR.open = null; } SCR.queue = SCR.queue.filter((x) => x.id !== id); });
   Object.assign(ICONS, SHP_ICONS);

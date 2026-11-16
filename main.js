@@ -1211,6 +1211,20 @@ function setupIPC(ses) {
     try { r.cookies = cookieBlockHosts.length > 0 && cookieBlocked(new URL(String(frameOrigin)).hostname); } catch {}
     e.returnValue = r;
   });
+  // page-preload.js: YouTube's ad-blocker wall stayed up even after Oto tried to get past it. Only YouTube's own top
+  // frame may say so, at most once a minute per tab; Oto's window then offers to pause Shield on YouTube.
+  const ytWallAt = new WeakMap();
+  ipcMain.on('oto:yt-wall', (e) => {
+    try {
+      const wc = e.sender, f = e.senderFrame;
+      if (!wc || wc.isDestroyed() || wc.getType() !== 'webview' || !f || f.parent) return;
+      if (!/^(www\.|m\.)?youtube\.com$/.test(new URL(wc.getURL()).hostname)) return;
+      if (Date.now() - (ytWallAt.get(wc) || 0) < 60000) return;
+      ytWallAt.set(wc, Date.now());
+      const host = wc.hostWebContents;
+      if (host) sendVia(host, 'yt-wall', { wcId: wc.id });
+    } catch {}
+  });
   ipcMain.handle('site:clear', async (_e, origin) => {
     try {
       const o = new URL(origin).origin;
