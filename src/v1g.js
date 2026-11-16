@@ -86,6 +86,15 @@ async function v1ShieldMenu() {
         seg.querySelectorAll('button').forEach((b) => { b.disabled = false; });
         toast(`${l} protection. Reload pages to apply`, { icon: 'shield', timeout: 2200 });
       } }, l)))),
+    st.mode === 'full' ? h('div', { class: 'lists' },
+      h('span', {}, h('b', {}, 'Filter lists'), h('small', {}, `Updated ${typeof shpAgo === 'function' ? shpAgo(st.listsAt) : 'recently'} · every day by themselves`)),
+      h('button', { title: 'Download the newest filter lists and reload this page', onclick: async (e) => {
+        const b = e.currentTarget; b.disabled = true; b.textContent = 'Updating…';
+        const r = await oto.shield.update();
+        v1ClosePop();
+        if (r.ok) { const v = V.get(t.id); try { v && v.wv && v.wv.reload(); } catch {} }
+        toast(r.ok ? 'Filter lists updated, page reloaded' : 'Couldn’t download the lists. Kept the ones you have', { icon: 'shield', timeout: 2400 });
+      } }, 'Refresh')) : null,
     /(^|\.)youtube\.com$/.test(st.host) ? h('button', { class: 'yt', onclick: () => { v1ClosePop(); v1ShieldPage('youtube'); } }, h('span', { html: icon('ytube') }), h('span', {}, h('b', {}, 'YouTube switches'), h('small', {}, 'Hide Shorts, comments, suggestions…')), h('span', { class: 'go', html: icon('chev') })) : null,
     h('div', { class: 'ft' },
       h('button', { onclick: () => { v1ClosePop(); v1ShieldPage('overview'); } }, 'Dashboard'),

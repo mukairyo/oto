@@ -381,7 +381,7 @@ function shpBlocking() {
     h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'Warn me about dangerous sites'), h('small', {}, st.dangerCount ? `${shpN(st.dangerCount)} known malware and phishing sites · list updated ${shpAgo(st.dangerAt)} · checked on this PC, nothing is sent anywhere` : 'Malware and phishing lists from URLhaus (abuse.ch), updated twice a day · checked on this PC')),
       shpSwitch(st.danger !== false, async (v) => { st.danger = await oto.shield.danger(v); toast(v ? 'Dangerous-site warnings on' : 'Dangerous-site warnings off', { icon: 'shield', timeout: 2000 }); })),
     shpLbl('FILTER LISTS'),
-    h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'uBlock Origin, EasyList, EasyPrivacy + Oto’s extra list'), h('small', {}, SHP.busy === 'upd' ? 'Downloading the newest lists…' : `Updated ${shpAgo(st.listsAt)} · they also update by themselves every week`)),
+    h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'uBlock Origin, EasyList, EasyPrivacy + Oto’s extra list'), h('small', {}, SHP.busy === 'upd' ? 'Downloading the newest lists…' : `Updated ${shpAgo(st.listsAt)} · they also update by themselves every day`)),
       h('button', { class: 'sh-btn', disabled: !on || !!SHP.busy, onclick: async () => {
         SHP.busy = 'upd'; shpPaint();
         const r = await oto.shield.update();

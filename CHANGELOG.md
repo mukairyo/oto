@@ -3,6 +3,12 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.7.5 — Filter lists that stay fresh
+
+- **Updated every day by themselves.** Oto Shield's filter lists (uBlock Origin, EasyList, EasyPrivacy) are downloaded fresh once they're a day old, instead of once a week, and also while Oto stays open. The people who make these lists fix sites that fight ad blockers all the time, so fresh lists mean fewer "turn off your ad blocker" pages.
+- **No gap while updating.** The new lists are made ready next to the old ones and swapped in at once, so blocking never stops for a moment. If the download fails, you keep the lists you have.
+- **Refresh in one click.** The Shield pop-up on any page now shows when the lists were updated, with a *Refresh* button that downloads the newest ones and reloads the page.
+
 ## 1.7.4 — YouTube's ad-blocker wall
 
 - **Harder for YouTube to notice Oto Shield.** The ads are now taken out of the player's data the way uBlock Origin does it today (changed as text, so nothing is missing for YouTube to spot), YouTube's "abnormality detected" check is quietly skipped, and the 17-second wait it adds is cut short. The functions Oto changes still look like the browser's own.

@@ -46,3 +46,9 @@ body.skin-rt .v1-shield .power.on { background: radial-gradient(circle at 35% 30
 .v1-site .v1-prow .v1-seg3 button { white-space: nowrap; }
 .v1-site .allp { display: block; width: 100%; padding: 8px 4px 2px; font-size: 12px; color: var(--fg-2); text-align: center; }
 .v1-site .allp:hover { color: var(--fg); }
+/* filter lists: when they were updated, and a one-click refresh (1.7.5) */
+.v1-shield .lists { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--input); text-align: left; }
+.v1-shield .lists > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.v1-shield .lists b { font-size: 12.5px; } .v1-shield .lists small { font-size: 11px; color: var(--fg-3); }
+.v1-shield .lists button { flex: none; padding: 6px 12px; border-radius: 8px; background: var(--input-hover); font-size: 12px; font-weight: 600; }
+.v1-shield .lists button:disabled { opacity: .6; }

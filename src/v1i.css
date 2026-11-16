@@ -114,6 +114,10 @@ body.skin-rt .v1-shield .site b { font: 400 24px var(--rt-serif); }
 body.skin-rt .v1-shield .nums > div, body.skin-rt .v1-shield .tools button { border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line); }
 body.skin-rt .v1-shield .nums b { font: 400 30px/1 var(--rt-serif); }
 body.skin-rt .v1-shield .nums small, body.skin-rt .v1-shield .tools button { font: 600 9px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; }
+body.skin-rt .v1-shield .lists { border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line); }
+body.skin-rt .v1-shield .lists b, body.skin-rt .v1-shield .lists button { font: 600 9.5px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; }
+body.skin-rt .v1-shield .lists button { border-radius: 3px; box-shadow: inset 0 0 0 1px var(--rt-line); background: transparent; }
+body.skin-rt .v1-shield .lists button:hover { background: var(--hover); }
 body.skin-rt .v1-shield .ft button { font: 600 9.5px var(--rt-mono); letter-spacing: .14em; text-transform: uppercase; border-radius: 3px; }
 body.skin-rt .v1-shield-flt .flt { border-radius: 4px; background: rgba(255,255,255,.03); box-shadow: inset 0 0 0 1px var(--rt-line2); font-family: var(--rt-mono); }
 body.skin-rt .v1-shield-flt .chip { border-radius: 3px; background: transparent; box-shadow: inset 0 0 0 1px var(--rt-line2); }

@@ -108,6 +108,7 @@ module.exports = function createShield(ctx) {
     applied: [],
   };
   // Protection level: Basic = ads, Balanced = ads + trackers, Strict = everything incl. annoyances & cookie banners.
+  const LISTS_MAX_AGE = 864e5; // filter lists are downloaded fresh once they're a day old (was a week before 1.7.5)
   const SHIELD_LEVELS = { basic: ['fromPrebuiltAdsOnly', 'adblock-engine-ads.bin'], balanced: ['fromPrebuiltAdsAndTracking', 'adblock-engine.bin'], strict: ['fromPrebuiltFull', 'adblock-engine-full.bin'] };
   // Standard / Strict / Custom and what each switches on: main/shield-levels.js
   const LV = require('./shield-levels.js');
@@ -223,7 +224,7 @@ module.exports = function createShield(ctx) {
         const { ElectronBlocker } = require('@ghostery/adblocker-electron');
         const [maker, file] = SHIELD_LEVELS[shieldLevel()];
         const cache = userFile(file);
-        try { if (Date.now() - fs.statSync(cache).mtimeMs > 7 * 864e5) fs.unlinkSync(cache); } catch {}
+        try { if (Date.now() - fs.statSync(cache).mtimeMs > LISTS_MAX_AGE) fs.unlinkSync(cache); } catch {}
         const fetchFn = (url, opts) => net.fetch(url, opts);
         const opts = { path: cache, read: fs.promises.readFile, write: fs.promises.writeFile };
         const b = await ElectronBlocker[maker](fetchFn, opts);
@@ -244,6 +245,47 @@ module.exports = function createShield(ctx) {
       return (blockingMode = 'basic');
     } finally { blockerP = null; }
   }
+  // Fresh filter lists without a moment of no blocking: the new engine is built next to the running one (its lists
+  // downloaded into a new file), then swapped in for every session at once. If the download fails, nothing changes.
+  // Runs by itself once a day (the lists' makers fix sites that fight ad blockers all the time) and from the
+  // "Update now" / "Refresh" buttons.
+  let refreshing = null;
+  function shieldRefresh() {
+    if (!blocker) return Promise.resolve(false);
+    if (refreshing) return refreshing;
+    refreshing = (async () => {
+      const [maker, file] = SHIELD_LEVELS[shieldLevel()];
+      const f = userFile(file), tmp = `${f}.new`;
+      try { fs.unlinkSync(tmp); } catch {}
+      try {
+        const { ElectronBlocker } = require('@ghostery/adblocker-electron');
+        const b = await ElectronBlocker[maker]((url, opts) => net.fetch(url, opts), { path: tmp, read: fs.promises.readFile, write: fs.promises.writeFile });
+        if (!blocker || SHIELD_LEVELS[shieldLevel()][0] !== maker) return false; // turned off, or the level changed meanwhile
+        b.on('request-blocked', (req) => notifyBlocked(req.tabId, req.url, req.domain));
+        b.on('request-redirected', (req) => notifyBlocked(req.tabId, req.url, req.domain));
+        shieldPatch(b);
+        const old = blocker;
+        for (const x of blockerSessions) {
+          if (!old.isBlockingEnabled(x)) continue;
+          try { old.disableBlockingInSession(x); } catch {}
+          try { b.enableBlockingInSession(x); } catch {}
+        }
+        blocker = b;
+        SHIELD.applied = [];
+        shieldApplyCustom();
+        try { fs.renameSync(tmp, f); } catch { try { fs.copyFileSync(tmp, f); fs.unlinkSync(tmp); } catch {} }
+        try { const now = new Date(); fs.utimesSync(f, now, now); } catch {}
+        return true;
+      } catch (e) {
+        console.warn('[oto] filter lists not updated:', e && e.message);
+        try { fs.unlinkSync(tmp); } catch {}
+        return false;
+      }
+    })().finally(() => { refreshing = null; });
+    return refreshing;
+  }
+  const shieldAutoRefresh = () => { if (blocker && blockingMode === 'full' && Date.now() - shieldListsAt() > LISTS_MAX_AGE) shieldRefresh().catch(() => {}); };
+  setInterval(shieldAutoRefresh, 3600e3); // looked at every hour, downloaded when a day old
   // Switch lists (annoyances on/off): rebuild the engine and put it back in every session.
   async function shieldRebuild() {
     const sess = [...blockerSessions].filter((x) => blocker && blocker.isBlockingEnabled(x));
@@ -323,14 +365,10 @@ module.exports = function createShield(ctx) {
     ipcMain.handle('shield:annoy', (_e, on) => change(() => LV.setFeature(SHIELD.conf, 'annoyances', !!on)));
     ipcMain.handle('shield:level', (_e, lvl) => setLevel(String(lvl || '')));
     ipcMain.handle('shield:feature', (_e, name, value) => change(() => LV.setFeature(SHIELD.conf, String(name || ''), value)));
-    // Download fresh filter lists now (they also refresh by themselves every 7 days). Keeps the old ones if offline.
+    // Download fresh filter lists now (they also refresh by themselves every day). Keeps the old ones if offline.
     ipcMain.handle('shield:update', async () => {
       if (!blocker) return { ok: false, off: true, listsAt: shieldListsAt(), mode: blockingMode };
-      const f = userFile(SHIELD_LEVELS[shieldLevel()][1]), bak = `${f}.old`;
-      try { fs.renameSync(f, bak); } catch {}
-      await shieldRebuild();
-      const ok = blockingMode === 'full' && fs.existsSync(f);
-      if (ok) { try { fs.unlinkSync(bak); } catch {} } else { try { fs.renameSync(bak, f); } catch {} await shieldRebuild(); }
+      const ok = await shieldRefresh();
       return { ok, listsAt: shieldListsAt(), mode: blockingMode };
     });
     ipcMain.handle('shield:danger', (_e, on) => { SHIELD.conf.danger = !!on; (ctx.saveOrWarn || writeJSON)('shield.json', SHIELD.conf, 'Oto Shield settings'); return SHIELD.conf.danger; });
