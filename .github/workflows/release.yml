@@ -151,7 +151,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-files
           path: dist
@@ -162,7 +162,7 @@ jobs:
 
       # gh attestation verify Oto-Setup-X.exe --repo mukairyo/oto
       - name: Build provenance
-        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: dist/Oto-Setup-${{ needs.build.outputs.version }}.exe
 
