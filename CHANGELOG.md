@@ -3,6 +3,15 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.7.6 — Two modes: Oto Shield or uBlock Origin Lite
+
+- **Pick how Shield blocks.** Shield → Blocking → *Mode* now has two choices:
+  - **Oto Shield**: what you had: Oto's engine with uBlock Origin's filter lists, plus Oto's own YouTube fixes.
+  - **uBlock Origin Lite**: uBlock Origin Lite's own rules and site fixes. Its network rules block, and its "scriptlets" (the small fixes that get past sites fighting ad blockers, YouTube's included) run in every page before the page's own scripts, exactly as uBOL runs them.
+- **uBOL updates every day.** A copy of uBOL's rules comes with Oto; the newest are downloaded from uBOL's GitHub once a day (or with *Update now* / *Refresh*). Oto only switches to a complete set where every file checks out.
+- Everything else in Shield works in both modes: the per-site off switch, your own filters, Zap and Hide, dangerous-site warnings, fingerprint protection and the YouTube switches. The Shield pop-up shows which mode is on.
+- uBlock Origin Lite is by Raymond Hill and contributors, under the GPLv3; its license comes with Oto (vendor-ubol).
+
 ## 1.7.5 — Filter lists that stay fresh
 
 - **Updated every day by themselves.** Oto Shield's filter lists (uBlock Origin, EasyList, EasyPrivacy) are downloaded fresh once they're a day old, instead of once a week, and also while Oto stays open. The people who make these lists fix sites that fight ad blockers all the time, so fresh lists mean fewer "turn off your ad blocker" pages.

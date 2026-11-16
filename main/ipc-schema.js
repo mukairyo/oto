@@ -49,7 +49,7 @@ const SCHEMAS = {
   'clipboard:write': [str(8 * 1024 * 1024)],
   'devices:send': [str(128), URL_, optStr(1024)],
   // Oto Shield
-  'shield:site': [URL_, bool], 'shield:pick': [URL_, str(4096)], 'shield:dangerAllow': [str(512)],
+  'shield:site': [URL_, bool], 'shield:engine': [str(16)], 'shield:pick': [URL_, str(4096)], 'shield:dangerAllow': [str(512)],
   'shield:filters': [optStr(4 * 1024 * 1024)], 'shield:level': [optStr(16)],
   'shield:feature': [str(16), (v) => typeof v === 'boolean' || str(16)(v)],
   // saved state

@@ -1195,12 +1195,16 @@ function setupIPC(ses) {
   });
   // page-preload.js asks this once per page: should media wait for a click, and may this frame write cookies?
   ipcMain.on('oto:page', (e, frameOrigin) => {
-    const r = { autoplay: false, cookies: false, fp: 0, fpStrict: false, yt: false, hold: unseen.has(e.sender) };
+    const r = { autoplay: false, cookies: false, fp: 0, fpStrict: false, yt: false, ytWall: false, ubol: false, hold: unseen.has(e.sender) };
     // YouTube (also its players embedded on other sites): strip the ads out of the player's data before it reads it,
     // so the player never waits for an ad Oto blocked (that left an empty player until you reloaded).
     try {
       const fh = new URL(String(frameOrigin)).hostname, top = shieldHost(e.sender.getURL());
-      r.yt = /(^|\.)(youtube\.com|youtube-nocookie\.com)$/.test(fh) && SH.mode() !== 'off' && !shieldAllowed(top || fh);
+      const on = SH.mode() !== 'off' && !shieldAllowed(top || fh);
+      // uBlock Origin Lite mode: uBOL's scriptlets run in this frame (they carry their own YouTube fixes, so Oto's step back)
+      r.ubol = on && SH.mode() === 'full' && SH.engine() === 'ubol';
+      r.ytWall = /(^|\.)(youtube\.com|youtube-nocookie\.com)$/.test(fh) && on;
+      r.yt = r.ytWall && !r.ubol;
     } catch {}
     // Fingerprint protection: a number that's the same for one site during one session, different everywhere else.
     try {

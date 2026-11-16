@@ -73,6 +73,7 @@ Oto for Android is new (version 0.1): tabs, Oto Shield, the Oto look, desktop-si
 <summary><b>Privacy & security</b></summary>
 
 - **Oto Shield**: uBlock Origin's filter lists, element zapper, your own filters, annoyance lists for cookie banners and "turn off your adblocker" walls.
+  Two modes: **Oto Shield** (Oto's engine and fixes) or **uBlock Origin Lite** (uBOL's own rules and site fixes, updated daily; uBOL is by Raymond Hill, GPLv3, see `vendor-ubol/README.md`).
 - Cookie pop-ups clicked away for you, tracking bits removed when you copy a link.
 - **Avocado** 🥑 (`Ctrl+Shift+N`) — a private window that forgets everything when you close it.
 - Sites must ask before using your camera, mic, location or notifications. Review it all in the site panel (click the lock).

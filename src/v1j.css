@@ -132,6 +132,7 @@
 /* blocking */
 .v1-shp .sh-levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .v1-shp .sh-levels.dim { opacity: .45; }
+.v1-shp .sh-levels.two { grid-template-columns: repeat(2, 1fr); } /* the two modes (1.7.6) */
 .v1-shp .lv { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px 16px 16px; border: 0; border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--k-line2); cursor: pointer; text-align: left; transition: background .15s; }
 .v1-shp .lv:hover:not(.on) { background: rgba(255,255,255,.035); }
 .v1-shp .lv small { font: 600 9px var(--k-mono); letter-spacing: .2em; color: var(--k-fg3); }

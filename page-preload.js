@@ -71,8 +71,8 @@ if (inPage) try {
     });
   }
   if (site.fp) run(otoFarble, site.fp, !!site.fpStrict);
-  if (site.yt) {
-    run(otoYouTubeAds);
+  if (site.yt || site.ytWall) {
+    if (site.yt) run(otoYouTubeAds); // (in uBlock Origin Lite mode, uBOL's own YouTube scriptlets do this instead)
     // If YouTube still puts up its "Ad blockers violate YouTube's Terms of Service" wall and the page couldn't get past
     // it (otoYouTubeAds tries first), Oto offers to pause Shield on YouTube. Only the wall's own markers are looked
     // for; nothing is read from the page or sent anywhere but Oto.

@@ -116,6 +116,36 @@ module.exports = function createShield(ctx) {
   const shieldLevel = () => features().lists;
   const shieldListsAt = () => { try { return fs.statSync(userFile(SHIELD_LEVELS[shieldLevel()][1])).mtimeMs; } catch { return 0; } };
   const FP_SESSION = require('crypto').randomBytes(16).toString('hex');
+  // Two modes (1.7.6): 'oto' = Oto Shield (the engine's own prebuilt lists and fixes); 'ubol' = uBlock Origin Lite's
+  // rules and scriptlets (main/ubol.js). Element hiding uses the same lists in both.
+  const engineMode = () => (SHIELD.conf.engine === 'ubol' ? 'ubol' : 'oto');
+  const UBOL = require('./ubol.js')({
+    appDir: require('path').join(__dirname, '..'), userFile,
+    fetchBuf: async (url) => { const r = await net.fetch(url, { cache: 'no-store' }); if (!r.ok) { const e = new Error(`${r.status} ${url}`); e.status = r.status; throw e; } return Buffer.from(await r.arrayBuffer()); },
+  });
+  // Build the running engine from the prebuilt one (made or read from cachePath). In uBOL mode: uBOL's network rules
+  // (turned into filters), the prebuilt engine's element hiding without its scriptlets (uBOL's run instead, from the
+  // preload below), and its redirect resources (uBOL's "neutered script" stand-ins have the same names).
+  async function makeEngine(cachePath) {
+    const { ElectronBlocker } = require('@ghostery/adblocker-electron');
+    const [maker] = SHIELD_LEVELS[shieldLevel()];
+    const fetchFn = (url, opts) => net.fetch(url, opts);
+    const base = await ElectronBlocker[maker](fetchFn, { path: cachePath, read: fs.promises.readFile, write: fs.promises.writeFile });
+    if (engineMode() !== 'ubol') return base;
+    const net2 = ElectronBlocker.parse(UBOL.networkLines(shieldLevel()).join('\n'), { loadCosmeticFilters: false });
+    const { cosmeticFilters } = base.getFilters();
+    const b = new ElectronBlocker({ networkFilters: net2.getFilters().networkFilters, cosmeticFilters: cosmeticFilters.filter((f) => !f.isScriptInject()), config: base.config });
+    b.resources = base.resources;
+    b.otoUbol = UBOL.current().version;
+    return b;
+  }
+  // uBOL's scriptlets: a preload in every session Shield covers (uBOL mode only).
+  function ubolPreload(ses, on) {
+    try { ses.unregisterPreloadScript('oto-ubol'); } catch {}
+    if (!on) return;
+    try { ses.registerPreloadScript({ id: 'oto-ubol', type: 'frame', filePath: UBOL.preloadFile(shieldLevel()) }); } catch (e) { console.warn('[oto] uBOL scriptlets not set up:', e && e.message); }
+  }
+  const ubolPreloadAll = () => { for (const x of blockerSessions) ubolPreload(x, engineMode() === 'ubol' && !!blocker); };
   const shieldHost = (u) => { try { return new URL(u).hostname.toLowerCase().replace(/\.+$/, '').replace(/^www\./, ''); } catch { return ''; } };
   const shieldAllowed = (host) => { if (!host) return false; let h = host; while (h) { if (SHIELD.allow.has(h)) return true; const i = h.indexOf('.'); if (i < 0) break; h = h.slice(i + 1); } return false; };
   const pageHostOf = (wcId) => { try { return shieldHost(pageUrlOf(wcId)); } catch { return ''; } }; // also knows the page a new tab is still opening (below)
@@ -218,16 +248,13 @@ module.exports = function createShield(ctx) {
     // the built-in list and the dangerous-site check run until the engine takes over (1.4.0 fix).
     if (!blocker && !fallbackSessions.has(ses)) enableFallback(ses);
     if (!blocker && blockerP) { try { await blockerP; } catch {} }
-    if (blocker) { if (fallbackSessions.has(ses)) { ses.webRequest.onBeforeRequest(null); fallbackSessions.delete(ses); } if (!blocker.isBlockingEnabled(ses)) blocker.enableBlockingInSession(ses); return (blockingMode = 'full'); }
+    if (blocker) { if (fallbackSessions.has(ses)) { ses.webRequest.onBeforeRequest(null); fallbackSessions.delete(ses); } if (!blocker.isBlockingEnabled(ses)) blocker.enableBlockingInSession(ses); ubolPreload(ses, engineMode() === 'ubol'); return (blockingMode = 'full'); }
     try {
       blockerP = (async () => {
-        const { ElectronBlocker } = require('@ghostery/adblocker-electron');
-        const [maker, file] = SHIELD_LEVELS[shieldLevel()];
+        const [, file] = SHIELD_LEVELS[shieldLevel()];
         const cache = userFile(file);
         try { if (Date.now() - fs.statSync(cache).mtimeMs > LISTS_MAX_AGE) fs.unlinkSync(cache); } catch {}
-        const fetchFn = (url, opts) => net.fetch(url, opts);
-        const opts = { path: cache, read: fs.promises.readFile, write: fs.promises.writeFile };
-        const b = await ElectronBlocker[maker](fetchFn, opts);
+        const b = await makeEngine(cache);
         b.on('request-blocked', (req) => notifyBlocked(req.tabId, req.url, req.domain));
         b.on('request-redirected', (req) => notifyBlocked(req.tabId, req.url, req.domain)); // trackers swapped for harmless stubs
         shieldPatch(b);
@@ -238,6 +265,7 @@ module.exports = function createShield(ctx) {
       shieldApplyCustom();
       for (const x of blockerSessions) if (fallbackSessions.has(x)) { x.webRequest.onBeforeRequest(null); fallbackSessions.delete(x); }
       for (const x of blockerSessions) { try { if (!blocker.isBlockingEnabled(x)) blocker.enableBlockingInSession(x); } catch {} }
+      ubolPreloadAll();
       return (blockingMode = 'full');
     } catch (err) {
       console.warn('[oto] full blocker unavailable, using built-in list:', err && err.message);
@@ -254,13 +282,13 @@ module.exports = function createShield(ctx) {
     if (!blocker) return Promise.resolve(false);
     if (refreshing) return refreshing;
     refreshing = (async () => {
-      const [maker, file] = SHIELD_LEVELS[shieldLevel()];
+      const [maker, file] = SHIELD_LEVELS[shieldLevel()], mode = engineMode();
       const f = userFile(file), tmp = `${f}.new`;
       try { fs.unlinkSync(tmp); } catch {}
       try {
-        const { ElectronBlocker } = require('@ghostery/adblocker-electron');
-        const b = await ElectronBlocker[maker]((url, opts) => net.fetch(url, opts), { path: tmp, read: fs.promises.readFile, write: fs.promises.writeFile });
-        if (!blocker || SHIELD_LEVELS[shieldLevel()][0] !== maker) return false; // turned off, or the level changed meanwhile
+        if (mode === 'ubol') await UBOL.update(true); // uBOL's newest rules first (kept as they are if that fails)
+        const b = await makeEngine(tmp);
+        if (!blocker || SHIELD_LEVELS[shieldLevel()][0] !== maker || engineMode() !== mode) return false; // turned off, or the level or mode changed meanwhile
         b.on('request-blocked', (req) => notifyBlocked(req.tabId, req.url, req.domain));
         b.on('request-redirected', (req) => notifyBlocked(req.tabId, req.url, req.domain));
         shieldPatch(b);
@@ -275,6 +303,7 @@ module.exports = function createShield(ctx) {
         shieldApplyCustom();
         try { fs.renameSync(tmp, f); } catch { try { fs.copyFileSync(tmp, f); fs.unlinkSync(tmp); } catch {} }
         try { const now = new Date(); fs.utimesSync(f, now, now); } catch {}
+        ubolPreloadAll(); // (a newer uBOL version: new pages get its scriptlets)
         return true;
       } catch (e) {
         console.warn('[oto] filter lists not updated:', e && e.message);
@@ -284,18 +313,24 @@ module.exports = function createShield(ctx) {
     })().finally(() => { refreshing = null; });
     return refreshing;
   }
-  const shieldAutoRefresh = () => { if (blocker && blockingMode === 'full' && Date.now() - shieldListsAt() > LISTS_MAX_AGE) shieldRefresh().catch(() => {}); };
+  const shieldAutoRefresh = () => {
+    if (!blocker || blockingMode !== 'full') return;
+    if (Date.now() - shieldListsAt() > LISTS_MAX_AGE) shieldRefresh().catch(() => {});
+    else if (engineMode() === 'ubol') UBOL.update(false).then((newer) => { if (newer) shieldRefresh().catch(() => {}); }).catch(() => {}); // uBOL publishes on its own days
+  };
   setInterval(shieldAutoRefresh, 3600e3); // looked at every hour, downloaded when a day old
   // Switch lists (annoyances on/off): rebuild the engine and put it back in every session.
   async function shieldRebuild() {
     const sess = [...blockerSessions].filter((x) => blocker && blocker.isBlockingEnabled(x));
     for (const x of sess) { try { blocker.disableBlockingInSession(x); } catch {} }
     blocker = null;
+    for (const x of sess) ubolPreload(x, false);
     for (const x of sess) await enableBlocking(x);
   }
 
   function disableBlocking(ses) {
     if (blocker && blocker.isBlockingEnabled(ses)) blocker.disableBlockingInSession(ses);
+    ubolPreload(ses, false);
     blockerSessions.delete(ses);
     if (fallbackSessions.has(ses)) { ses.webRequest.onBeforeRequest(null); fallbackSessions.delete(ses); }
     ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, dangerOnly); // dangerous-site warnings stay on with blocking off
@@ -319,7 +354,7 @@ module.exports = function createShield(ctx) {
     ipcMain.handle('shield:state', (_e, url) => {
       const host = shieldHost(url);
       const ft = features();
-      return { host, allowed: shieldAllowed(host), fp: ft.fp, protection: ft.mode, features: { trackers: ft.lists !== 'basic', annoyances: ft.lists === 'strict', recorders: ft.recorders, fp: ft.fp, webrtc: ft.webrtc }, danger: SHIELD.conf.danger !== false, dangerAt: DANGER.at, dangerCount: DANGER.malware.size + DANGER.phishing.size, annoy: shieldLevel() === 'strict', level: shieldLevel(), listsAt: shieldListsAt(), mode: blockingMode, filters: shieldLines().length, allow: [...SHIELD.allow].sort() };
+      return { engine: engineMode(), ubol: { version: UBOL.current().version, at: UBOL.current().at, bundled: UBOL.current().bundled }, host, allowed: shieldAllowed(host), fp: ft.fp, protection: ft.mode, features: { trackers: ft.lists !== 'basic', annoyances: ft.lists === 'strict', recorders: ft.recorders, fp: ft.fp, webrtc: ft.webrtc }, danger: SHIELD.conf.danger !== false, dangerAt: DANGER.at, dangerCount: DANGER.malware.size + DANGER.phishing.size, annoy: shieldLevel() === 'strict', level: shieldLevel(), listsAt: shieldListsAt(), mode: blockingMode, filters: shieldLines().length, allow: [...SHIELD.allow].sort() };
     });
     ipcMain.handle('shield:site', (_e, url, allow) => {
       const host = shieldHost(url);
@@ -364,6 +399,16 @@ module.exports = function createShield(ctx) {
     const setLevel = (lvl) => change(() => { if (!LV.setMode(SHIELD.conf, lvl)) LV.setMode(SHIELD.conf, 'standard'); });
     ipcMain.handle('shield:annoy', (_e, on) => change(() => LV.setFeature(SHIELD.conf, 'annoyances', !!on)));
     ipcMain.handle('shield:level', (_e, lvl) => setLevel(String(lvl || '')));
+    // Oto Shield or uBlock Origin Lite: saved, then the running engine is rebuilt in the new mode.
+    ipcMain.handle('shield:engine', async (_e, mode) => {
+      const want = mode === 'ubol' ? 'ubol' : 'oto';
+      if (want !== engineMode()) {
+        SHIELD.conf.engine = want;
+        (ctx.saveOrWarn || writeJSON)('shield.json', SHIELD.conf, 'Oto Shield settings');
+        if (blocker) await shieldRebuild();
+      }
+      return { engine: engineMode(), mode: blockingMode, ubol: { version: UBOL.current().version, at: UBOL.current().at, bundled: UBOL.current().bundled }, listsAt: shieldListsAt() };
+    });
     ipcMain.handle('shield:feature', (_e, name, value) => change(() => LV.setFeature(SHIELD.conf, String(name || ''), value)));
     // Download fresh filter lists now (they also refresh by themselves every day). Keeps the old ones if offline.
     ipcMain.handle('shield:update', async () => {
@@ -384,6 +429,7 @@ module.exports = function createShield(ctx) {
     dangerOf: (host) => (SHIELD.conf.danger === false ? '' : dangerOf(host)),
     SHIELD, DANGER, FP_SESSION, features, rtcApply, rtcRefresh, markWeb,
     mode: () => blockingMode,
+    engine: engineMode,
     flushStats() { if (pstatsTimer) pstatsSave(); },
   };
 };

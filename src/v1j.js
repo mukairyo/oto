@@ -322,6 +322,11 @@ function shpOverview() {
 }
 
 // ---------------------------------------------------------------- 02 blocking
+// The two modes of Oto Shield (1.7.6): Oto's own engine and fixes, or uBlock Origin Lite's rules and site fixes.
+const SHP_ENGINES = [
+  ['oto', 'Oto Shield', 'Oto’s engine with uBlock Origin’s filter lists, plus Oto’s own YouTube fixes.'],
+  ['ubol', 'uBlock Origin Lite', 'uBlock Origin Lite’s own rules and site fixes, YouTube’s included. Updated from uBOL every day.'],
+];
 const SHP_LEVELS = [
   ['standard', 'Standard', 'Ads, trackers and session recorders blocked. Fingerprint protection. Recommended.'],
   ['strict', 'Strict', 'Standard, plus cookie banners, popups and “turn off your adblocker” walls, and calls learn less about your network. A few sites may break.'],
@@ -362,6 +367,14 @@ function shpBlocking() {
     h('p', { class: 'sub' }, 'Oto Shield uses uBlock Origin’s filter lists. Pick how strict it is, and turn it off where a site needs it.'),
     h('div', { class: 'sh-row big' }, h('span', { class: 'tt' }, h('b', {}, 'Block ads & trackers'), h('small', {}, on ? (st.mode === 'basic' ? 'Using the built-in list until the full lists load' : 'On everywhere, except the sites below') : 'Off everywhere')),
       shpSwitch(on, async (v) => { setPref('blockTrackers', v); INFO.blocking = await oto.setBlocking(v); updateChrome(); SHP.st = await oto.shield.state('https://oto.local/'); shpPaint(); toast(v ? 'Blocking on. Reload pages to apply' : 'Blocking off', { icon: 'shield', timeout: 1800 }); })),
+    shpLbl('MODE', h('span', { class: 'leg' }, st.engine === 'ubol' && st.ubol && st.ubol.version ? `UBOL ${st.ubol.version}` : '')),
+    h('div', { class: `sh-levels two${on ? '' : ' dim'}` }, ...SHP_ENGINES.map(([id, name, desc], i) => h('button', { class: `lv${(st.engine || 'oto') === id ? ' on' : ''}`, disabled: !!SHP.busy, onclick: async () => {
+      if ((st.engine || 'oto') === id || SHP.busy) return;
+      SHP.busy = 'engine'; st.engine = id; shpPaint();
+      const r = await oto.shield.engine(id);
+      SHP.busy = false; Object.assign(st, r); shpPaint();
+      toast(`${name} mode. Reload pages to apply`, { icon: 'shield', timeout: 2400 });
+    } }, h('small', {}, String(i + 1).padStart(2, '0')), h('b', {}, name), h('span', {}, desc)))),
     shpLbl('PROTECTION LEVEL'),
     h('div', { class: `sh-levels${on ? '' : ' dim'}` }, ...SHP_LEVELS.map(([id, name, desc], i) => h('button', { class: `lv${prot === id ? ' on' : ''}`, disabled: SHP.busy, onclick: async () => {
       if (prot === id || SHP.busy) return;
@@ -381,7 +394,7 @@ function shpBlocking() {
     h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'Warn me about dangerous sites'), h('small', {}, st.dangerCount ? `${shpN(st.dangerCount)} known malware and phishing sites · list updated ${shpAgo(st.dangerAt)} · checked on this PC, nothing is sent anywhere` : 'Malware and phishing lists from URLhaus (abuse.ch), updated twice a day · checked on this PC')),
       shpSwitch(st.danger !== false, async (v) => { st.danger = await oto.shield.danger(v); toast(v ? 'Dangerous-site warnings on' : 'Dangerous-site warnings off', { icon: 'shield', timeout: 2000 }); })),
     shpLbl('FILTER LISTS'),
-    h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'uBlock Origin, EasyList, EasyPrivacy + Oto’s extra list'), h('small', {}, SHP.busy === 'upd' ? 'Downloading the newest lists…' : `Updated ${shpAgo(st.listsAt)} · they also update by themselves every day`)),
+    h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, st.engine === 'ubol' ? 'uBlock Origin Lite rules + Oto’s extra list' : 'uBlock Origin, EasyList, EasyPrivacy + Oto’s extra list'), h('small', {}, SHP.busy === 'upd' ? 'Downloading the newest lists…' : st.engine === 'ubol' && st.ubol ? `uBOL ${st.ubol.version}${st.ubol.at ? `, downloaded ${shpAgo(st.ubol.at)}` : ' (came with Oto)'} · lists updated ${shpAgo(st.listsAt)} · both update by themselves every day` : `Updated ${shpAgo(st.listsAt)} · they also update by themselves every day`)),
       h('button', { class: 'sh-btn', disabled: !on || !!SHP.busy, onclick: async () => {
         SHP.busy = 'upd'; shpPaint();
         const r = await oto.shield.update();

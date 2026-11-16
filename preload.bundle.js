@@ -454,6 +454,7 @@ contextBridge.exposeInMainWorld('oto', {
     level: (lvl) => ipcRenderer.invoke('shield:level', lvl),
     feature: (name, value) => ipcRenderer.invoke('shield:feature', name, value),
     update: () => ipcRenderer.invoke('shield:update'),
+    engine: (mode) => ipcRenderer.invoke('shield:engine', mode),
     stats: () => ipcRenderer.invoke('shield:stats'),
     fp: (on) => ipcRenderer.invoke('shield:fp', on),
     danger: (on) => ipcRenderer.invoke('shield:danger', on),
