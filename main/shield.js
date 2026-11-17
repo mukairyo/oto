@@ -128,21 +128,16 @@ module.exports = function createShield(ctx) {
   // preload below), and its redirect resources (uBOL's "neutered script" stand-ins have the same names).
   async function makeEngine(cachePath) {
     const { ElectronBlocker } = require('@ghostery/adblocker-electron');
+    const { withoutYouTubeScriptlets } = require('./yt-scriptlets.js');
     const [maker] = SHIELD_LEVELS[shieldLevel()];
     const fetchFn = (url, opts) => net.fetch(url, opts);
     const base = await ElectronBlocker[maker](fetchFn, { path: cachePath, read: fs.promises.readFile, write: fs.promises.writeFile });
     if (engineMode() !== 'ubol') {
       // On YouTube, uBOL's scriptlets run (both modes): the engine's own YouTube scriptlets are left out so the two
       // don't both change the same things. (If that can't be done, the engine is used as it came.)
-      try {
-        const { networkFilters, cosmeticFilters } = base.getFilters();
-        const yt = cosmeticFilters.filter((f) => f.isScriptInject() && /youtube/.test(f.toString()));
-        if (!yt.length) return base;
-        const drop = new Set(yt);
-        const b = new ElectronBlocker({ networkFilters, cosmeticFilters: cosmeticFilters.filter((f) => !drop.has(f)), config: base.config });
-        b.resources = base.resources;
-        return b;
-      } catch { return base; }
+      // (Before 1.7.9 these were picked by the word "youtube" in the filter's text, which the engine doesn't keep, so
+      // almost none were dropped and both sets ran.)
+      try { return withoutYouTubeScriptlets(ElectronBlocker, base); } catch { return base; }
     }
     const net2 = ElectronBlocker.parse(UBOL.networkLines(shieldLevel()).join('\n'), { loadCosmeticFilters: false });
     const { cosmeticFilters } = base.getFilters();

@@ -9,6 +9,7 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 - **Your devices are stars.** Every device signed in to your Oto account circles the galaxy as a bright star, named with what it runs: WINDOWS, ANDROID, IOS, LINUX or MACOS. Point at one to see whether it's online, when it was last on, and its open tabs (click one to open it here), or send it the tab you're on. Clicking a phone opens its panel.
 - **Keeps turning.** The galaxy no longer stops when you look around or point at a star. A star's window moves along with it. Only dragging a star or opening one holds it still.
 - This PC now tells your other devices it's on Linux or macOS when it is, instead of always saying Windows.
+- **YouTube's home page loads again (Oto Shield mode).** It could stay a grid of grey boxes. Since 1.7.8, YouTube runs uBlock Origin Lite's YouTube fixes in both Shield modes, and Oto Shield's own copies were meant to be switched off there. They were picked out by the word "youtube" in the filter, which the engine doesn't keep, so almost all of them still ran. Both sets changed the same page data and wrapped the same browser functions twice. Now they're picked out by the sites they apply to, so only one set runs on YouTube. Element hiding on YouTube and every other site's fixes stay as they were.
 
 ## 1.7.8 — YouTube videos start right away
 
