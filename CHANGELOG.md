@@ -3,6 +3,11 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.7.7 — Cleaner edges on YouTube's ambient light
+
+- **No more bright corners.** The glow behind the video now has the player's rounded corners. Before, its square corners peeked out past the video's round ones as small bright tips, easy to see with Blur set low.
+- **No hard frame around the video.** However low you set Blur, there's now always just enough to melt the glow into one soft light. With very little blur, the edges of the glow's layers used to show as a thin frame around the video.
+
 ## 1.7.6 — Two modes: Oto Shield or uBlock Origin Lite
 
 - **Pick how Shield blocks.** Shield → Blocking → *Mode* now has two choices:

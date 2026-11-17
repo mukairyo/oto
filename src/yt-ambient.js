@@ -176,12 +176,20 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     const y0 = Math.max(r.top + scrollY - ey, 0) - scrollY, y1 = r.top + r.height + ey;
     const w = wrap.style, c = mid.style;
     w.left = `${x0 - r.left}px`; w.top = `${y0 - r.top}px`; w.width = `${Math.max(1, x1 - x0)}px`; w.height = `${Math.max(1, y1 - y0)}px`;
+    // The copies get the player's rounded corners: square ones peeked out past the picture's round corners as little
+    // bright tips, seen with little blur (1.7.7).
+    let rad = 0;
+    for (let e = video || p, k = 0; e && k < 8 && !rad; e = e.parentElement, k++) { try { rad = parseFloat(getComputedStyle(e).borderTopLeftRadius) || 0; } catch (err) {} if (e === p) break; }
     for (const l of levels) {
       const sx = Math.max(0.02, 1 + step * l.pos), sy = Math.max(0.02, 1 + step * l.pos * (r.width / r.height)), st = l.el.style;
       st.left = `${r.left - x0}px`; st.top = `${r.top - y0}px`; st.width = `${r.width}px`; st.height = `${r.height}px`;
       st.transform = `scale(${sx.toFixed(4)},${sy.toFixed(4)})`;
+      st.borderRadius = rad ? `${rad}px` : '';
     }
-    layer.style.setProperty('--oa-blur', `${Math.round(r.height * 0.0025 * n(o.blur, 0, 100, 30))}px`);
+    // However low Blur is set, there's always enough to melt the copies into one glow: with too little, each copy's
+    // edge showed as a hard frame around the video (1.7.7). The floor is a third of the gap between two copies.
+    const blurPx = Math.max(Math.round(r.height * 0.0025 * n(o.blur, 0, 100, 30)), outer ? Math.round((r.width * step) / 2 * 0.34) : 0); // (no copies around the picture: nothing to melt)
+    layer.style.setProperty('--oa-blur', `${blurPx}px`);
     // The fade-out: full light up to `fadeStart` % of the spread, then fading along a curve to nothing at its end.
     const mx = fadeMask('to right', r.left - x0, r.width, ex), my = fadeMask('to bottom', r.top - y0, r.height, ey);
     w.maskImage = mx; w.webkitMaskImage = mx;
@@ -379,7 +387,7 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     let bin = '';
     for (let i = 0; i < d.length; i += 4) bin += String.fromCharCode(d[i], d[i + 1], d[i + 2]);
     return { w: 128, h: 72, rgb: btoa(bin), pic: geo.pic.map((v) => Math.round(v)), ex: Math.round(geo.ex), step: geo.step, outer: geo.outer, inner: geo.inner,
-      blur: Math.round(geo.pic[3] * 0.0025 * n(o.blur, 0, 100, 30)), fadeStart: n(o.fadeStart, -50, 100, 15), fadeCurve: n(o.fadeCurve, 1, 100, 35),
+      blur: Math.max(Math.round(geo.pic[3] * 0.0025 * n(o.blur, 0, 100, 30)), geo.outer ? Math.round((geo.pic[2] * geo.step) / 2 * 0.34) : 0), fadeStart: n(o.fadeStart, -50, 100, 15), fadeCurve: n(o.fadeCurve, 1, 100, 35),
       strength: n(o.strength, 0, 100, 85) / 100, bright: n(o.brightness, 50, 150, 100) / 100, colors: n(o.colors, 0, 200, 135) / 100 };
   };
   window.__otoAmbient = { set, take, frame };

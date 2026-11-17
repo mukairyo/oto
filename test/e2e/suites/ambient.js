@@ -45,6 +45,14 @@ module.exports = async (t) => {
   await run({ strength: 40, blur: 0, spread: 0, fade: 0 }); await wait(200);
   a = await look();
   t.check('settings apply at once: brightness 40%, blur 0, spread 0 (glow exactly on the picture)', a.opacity === '0.4' && /blur\(0px\)/.test(a.blur) && JSON.stringify(a.canvas) === JSON.stringify(a.layer), `opacity ${a.opacity} ${a.blur} glow ${a.canvas} layer ${a.layer}`);
+  // little blur with the glow spread out: still one soft glow (each copy's edge used to show as a hard frame), and
+  // the copies have the player's rounded corners (square ones peeked out past the picture's corners)
+  await t.page("(() => { const v = document.querySelector('video'); v.style.borderRadius = '12px'; })(), 1");
+  await run({ spread: 100, blur: 3 }); await wait(250);
+  a = await look();
+  const low = JSON.parse(await t.page("JSON.stringify((() => { const L = document.getElementById('oto-ambient'); const c = [...L.querySelectorAll('canvas')]; return { blur: getComputedStyle(L.querySelector('.oa-mid')).filter, radius: c.map((x) => x.style.borderRadius) }; })())"));
+  const lowPx = +((low.blur.match(/blur\(([\d.]+)px\)/) || [])[1] || 0);
+  t.check('little blur still melts the copies into one glow, and they have the player’s round corners', lowPx >= 0.34 * 0.12 * a.video[2] / 2 - 1 && low.radius.every((x) => x === '12px'), `${low.blur} video ${a.video[2]} ${low.radius.join(',')}`);
   await run({ spread: 400, blur: 100 }); await wait(200);
   a = await look();
   const pageW = await t.page('document.documentElement.clientWidth');
