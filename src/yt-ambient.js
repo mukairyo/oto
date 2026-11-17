@@ -179,7 +179,8 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     // The copies get the player's rounded corners: square ones peeked out past the picture's round corners as little
     // bright tips, seen with little blur (1.7.7).
     let rad = 0;
-    for (let e = video || p, k = 0; e && k < 8 && !rad; e = e.parentElement, k++) { try { rad = parseFloat(getComputedStyle(e).borderTopLeftRadius) || 0; } catch (err) {} if (e === p) break; }
+    // (YouTube rounds and clips a box a few levels above the player, #ytd-player, so look up to the watch page itself)
+    for (let e = video || p, k = 0; e && k < 10 && !rad && e.tagName !== 'YTD-WATCH-FLEXY'; e = e.parentElement, k++) { try { rad = parseFloat(getComputedStyle(e).borderTopLeftRadius) || 0; } catch (err) {} }
     for (const l of levels) {
       const sx = Math.max(0.02, 1 + step * l.pos), sy = Math.max(0.02, 1 + step * l.pos * (r.width / r.height)), st = l.el.style;
       st.left = `${r.left - x0}px`; st.top = `${r.top - y0}px`; st.width = `${r.width}px`; st.height = `${r.height}px`;

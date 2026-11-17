@@ -3,6 +3,11 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.7.8 — YouTube videos start right away
+
+- **No more grey video.** Opening a video from YouTube's own pages could leave the player grey for several seconds, or until you reloaded the tab. Oto's home-made YouTube ad fixes (from 1.7.4) were the cause. YouTube now gets uBlock Origin Lite's YouTube fixes in **both** Shield modes, the ones uBlock Origin's makers keep up to date as YouTube changes. Oto's own YouTube code is only kept as a fallback for when Shield's full engine can't start.
+- **Ambient light corners, for real.** 1.7.7 looked for the player's rounded corners on the wrong part of the page, so the glow's corners stayed square. It now finds YouTube's rounded box.
+
 ## 1.7.7 — Cleaner edges on YouTube's ambient light
 
 - **No more bright corners.** The glow behind the video now has the player's rounded corners. Before, its square corners peeked out past the video's round ones as small bright tips, easy to see with Blur set low.

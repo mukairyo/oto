@@ -1201,9 +1201,11 @@ function setupIPC(ses) {
     try {
       const fh = new URL(String(frameOrigin)).hostname, top = shieldHost(e.sender.getURL());
       const on = SH.mode() !== 'off' && !shieldAllowed(top || fh);
-      // uBlock Origin Lite mode: uBOL's scriptlets run in this frame (they carry their own YouTube fixes, so Oto's step back)
-      r.ubol = on && SH.mode() === 'full' && SH.engine() === 'ubol';
+      // uBOL's scriptlets run in this frame: everywhere in uBlock Origin Lite mode, and on YouTube in both modes (1.7.8):
+      // uBlock Origin's makers keep YouTube's fixes current; Oto's own (r.yt) made videos opened from YouTube's own
+      // pages wait grey before playing, so they're only a fallback now, for when the full engine isn't running.
       r.ytWall = /(^|\.)(youtube\.com|youtube-nocookie\.com)$/.test(fh) && on;
+      r.ubol = on && SH.mode() === 'full' && (SH.engine() === 'ubol' || r.ytWall);
       r.yt = r.ytWall && !r.ubol;
     } catch {}
     // Fingerprint protection: a number that's the same for one site during one session, different everywhere else.

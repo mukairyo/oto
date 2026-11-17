@@ -68,3 +68,11 @@ test('a daily uBOL update only takes a complete set that looks like uBOL’s', a
   assert.ok(ub.current().bundled);
   fs.rmSync(tmp, { recursive: true, force: true });
 });
+
+test('YouTube gets uBOL’s scriptlets in both modes, and Oto’s own YouTube code only as a fallback (1.7.8)', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+  assert.match(main, /r\.ubol = on && SH\.mode\(\) === 'full' && \(SH\.engine\(\) === 'ubol' \|\| r\.ytWall\);/);
+  assert.match(main, /r\.yt = r\.ytWall && !r\.ubol;/);
+  const sh = fs.readFileSync(path.join(__dirname, '..', 'main', 'shield.js'), 'utf8');
+  assert.match(sh, /const ubolPreloadAll = \(\) => \{ for \(const x of blockerSessions\) ubolPreload\(x, !!blocker\); \};/);
+});

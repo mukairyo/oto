@@ -131,7 +131,19 @@ module.exports = function createShield(ctx) {
     const [maker] = SHIELD_LEVELS[shieldLevel()];
     const fetchFn = (url, opts) => net.fetch(url, opts);
     const base = await ElectronBlocker[maker](fetchFn, { path: cachePath, read: fs.promises.readFile, write: fs.promises.writeFile });
-    if (engineMode() !== 'ubol') return base;
+    if (engineMode() !== 'ubol') {
+      // On YouTube, uBOL's scriptlets run (both modes): the engine's own YouTube scriptlets are left out so the two
+      // don't both change the same things. (If that can't be done, the engine is used as it came.)
+      try {
+        const { networkFilters, cosmeticFilters } = base.getFilters();
+        const yt = cosmeticFilters.filter((f) => f.isScriptInject() && /youtube/.test(f.toString()));
+        if (!yt.length) return base;
+        const drop = new Set(yt);
+        const b = new ElectronBlocker({ networkFilters, cosmeticFilters: cosmeticFilters.filter((f) => !drop.has(f)), config: base.config });
+        b.resources = base.resources;
+        return b;
+      } catch { return base; }
+    }
     const net2 = ElectronBlocker.parse(UBOL.networkLines(shieldLevel()).join('\n'), { loadCosmeticFilters: false });
     const { cosmeticFilters } = base.getFilters();
     const b = new ElectronBlocker({ networkFilters: net2.getFilters().networkFilters, cosmeticFilters: cosmeticFilters.filter((f) => !f.isScriptInject()), config: base.config });
@@ -145,7 +157,8 @@ module.exports = function createShield(ctx) {
     if (!on) return;
     try { ses.registerPreloadScript({ id: 'oto-ubol', type: 'frame', filePath: UBOL.preloadFile(shieldLevel()) }); } catch (e) { console.warn('[oto] uBOL scriptlets not set up:', e && e.message); }
   }
-  const ubolPreloadAll = () => { for (const x of blockerSessions) ubolPreload(x, engineMode() === 'ubol' && !!blocker); };
+  // (in both modes: in Oto Shield mode the preload only runs uBOL's scriptlets on YouTube, see oto:page in main.js)
+  const ubolPreloadAll = () => { for (const x of blockerSessions) ubolPreload(x, !!blocker); };
   const shieldHost = (u) => { try { return new URL(u).hostname.toLowerCase().replace(/\.+$/, '').replace(/^www\./, ''); } catch { return ''; } };
   const shieldAllowed = (host) => { if (!host) return false; let h = host; while (h) { if (SHIELD.allow.has(h)) return true; const i = h.indexOf('.'); if (i < 0) break; h = h.slice(i + 1); } return false; };
   const pageHostOf = (wcId) => { try { return shieldHost(pageUrlOf(wcId)); } catch { return ''; } }; // also knows the page a new tab is still opening (below)
@@ -248,7 +261,7 @@ module.exports = function createShield(ctx) {
     // the built-in list and the dangerous-site check run until the engine takes over (1.4.0 fix).
     if (!blocker && !fallbackSessions.has(ses)) enableFallback(ses);
     if (!blocker && blockerP) { try { await blockerP; } catch {} }
-    if (blocker) { if (fallbackSessions.has(ses)) { ses.webRequest.onBeforeRequest(null); fallbackSessions.delete(ses); } if (!blocker.isBlockingEnabled(ses)) blocker.enableBlockingInSession(ses); ubolPreload(ses, engineMode() === 'ubol'); return (blockingMode = 'full'); }
+    if (blocker) { if (fallbackSessions.has(ses)) { ses.webRequest.onBeforeRequest(null); fallbackSessions.delete(ses); } if (!blocker.isBlockingEnabled(ses)) blocker.enableBlockingInSession(ses); ubolPreload(ses, true); return (blockingMode = 'full'); }
     try {
       blockerP = (async () => {
         const [, file] = SHIELD_LEVELS[shieldLevel()];
