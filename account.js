@@ -386,7 +386,7 @@ module.exports = function setupAccount(ctx) {
     try {
       const t = await token(), key = devKey(), uid = encodeURIComponent(A.userId);
       const tabs = (Array.isArray(info.tabs) ? info.tabs : []).slice(0, 40).map((x) => ({ t: String(x.t || '').slice(0, 140), u: String(x.u || '').slice(0, 1000) })).filter((x) => /^https?:/i.test(x.u));
-      const me = { name: device(), kind: 'pc', os: `Windows ${require('os').release()}`, app: OTO_VERSION, tabs, active: String(info.active || '').slice(0, 1000) };
+      const me = { name: device(), kind: 'pc', os: `${{ win32: 'Windows', linux: 'Linux', darwin: 'macOS' }[process.platform] || process.platform} ${require('os').release()}`, app: OTO_VERSION, tabs, active: String(info.active || '').slice(0, 1000) };
       const sig = JSON.stringify(me);
       // write this PC's row when something changed, and at least every 2 minutes (that's "online")
       if (sig !== lastBeat.sig || Date.now() - lastBeat.at > 120000 || info.force) {

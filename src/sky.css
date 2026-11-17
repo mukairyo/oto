@@ -86,3 +86,9 @@ body .v1-ov.sky { padding: 0; background: #07080B !important; backdrop-filter: n
 
 /* menus open above Sky View */
 body.v1-sky-open .menu-layer { z-index: 400; }
+
+/* a device's window in the Galaxy (1.7.9): its open tabs, one per line */
+.sky-card .devtabs { display: flex; flex-direction: column; gap: 2px; margin: 8px 0 0; }
+.sky-card .devtabs button { text-align: left; border: 0; background: transparent; color: #E6E0D4; font: 12.5px "Inter", "Segoe UI", system-ui, sans-serif; padding: 5px 6px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sky-card .devtabs button:hover { background: rgba(236, 232, 225, .08); }
+.sky-card.dev .acts { grid-template-columns: 1fr 1fr; }

@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.7.9 — A real-looking galaxy, with your devices
+
+- **Looks like a real galaxy.** The Galaxy view is now a spiral galaxy like a picture of the Milky Way: a blue-white disc of stars, two big arms and two smaller ones with pink star-forming knots and dark dust lanes, and a warm yellow bar in the middle. Your Spaces are its arms, each traced by a thin line in its colour.
+- **Your devices are stars.** Every device signed in to your Oto account circles the galaxy as a bright star, named with what it runs: WINDOWS, ANDROID, IOS, LINUX or MACOS. Point at one to see whether it's online, when it was last on, and its open tabs (click one to open it here), or send it the tab you're on. Clicking a phone opens its panel.
+- **Keeps turning.** The galaxy no longer stops when you look around or point at a star. A star's window moves along with it. Only dragging a star or opening one holds it still.
+- This PC now tells your other devices it's on Linux or macOS when it is, instead of always saying Windows.
+
 ## 1.7.8 — YouTube videos start right away
 
 - **No more grey video.** Opening a video from YouTube's own pages could leave the player grey for several seconds, or until you reloaded the tab. Oto's home-made YouTube ad fixes (from 1.7.4) were the cause. YouTube now gets uBlock Origin Lite's YouTube fixes in **both** Shield modes, the ones uBlock Origin's makers keep up to date as YouTube changes. Oto's own YouTube code is only kept as a fallback for when Shield's full engine can't start.

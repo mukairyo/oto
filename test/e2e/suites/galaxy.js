@@ -37,6 +37,14 @@ module.exports = async (t) => {
   a = await J("const c = document.querySelector('.sky-card'); return { id: c && c.dataset.id };");
   t.check('hovering a star shows its preview window', a.id === fine, JSON.stringify(a));
   await shot('g2-preview');
+  // the galaxy keeps turning while you point at a star, and its window follows the star (1.7.9)
+  a = await J('return { t0: SKY.turn, motion: skyMotion(), left: SKY.card && SKY.card.style.left };');
+  await t.sleep(1500);
+  const b2 = await J('return { t1: SKY.turn, left: SKY.card && SKY.card.style.left };');
+  t.check('the galaxy keeps turning while you point at a star (its window comes along)', a.motion ? b2.t1 > a.t0 : b2.t1 === a.t0, JSON.stringify({ ...a, ...b2 }));
+  // your devices: at least this PC, named with what it is
+  a = await J("return (SKY.devs || []).map((d) => ({ me: !!d.me, plat: d.plat, x: Math.round(d.sx || 0) }));");
+  t.check('your devices are stars circling the galaxy (this PC at least, with what it runs)', a.some((d) => d.me && /WINDOWS|LINUX|MACOS|PC/.test(d.plat)), JSON.stringify(a));
 
   // drag a star onto the other arm: the tab moves to that Space
   await t.js('skyHideCard(), SKY.hover = null, Object.assign(SKY.cam, skyFitAll()), skyDraw(), 1'); await t.sleep(200);
