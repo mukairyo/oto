@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>New Tab</title>
+<style>
+  :root {
+    --bg: #0b0b0c; --panel: #0f0f11; --line: rgba(255,255,255,.075); --line2: rgba(255,255,255,.14);
+    --fg: #ece8e1; --fg2: rgba(236,232,225,.64); --fg3: rgba(236,232,225,.38); --cream: #e7dfd1;
+    --mono: 'Roboto Mono', 'Droid Sans Mono', monospace;
+    --serif: 'Noto Serif', Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { display: flex; flex-direction: column; justify-content: center; padding: 24px 22px 40px; min-height: 100vh; }
+  #sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  main { position: relative; z-index: 1; width: 100%; max-width: 560px; margin: 0 auto; transform: translateY(-6%); }
+  .crumb { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; font: 600 10px var(--mono); letter-spacing: .28em; color: var(--fg2); white-space: nowrap; }
+  .crumb .d { width: 16px; height: 1px; background: var(--fg2); flex: none; }
+  .crumb .k { font: 400 13px sans-serif; letter-spacing: 0; color: var(--fg); }
+  .crumb .r { flex: 1; height: 1px; background: var(--line2); max-width: 90px; }
+  h1 { margin: 0 0 10px; font: 400 52px/1 var(--serif); letter-spacing: -1px; }
+  p.sub { margin: 0 0 26px; color: var(--fg2); font-size: 15px; line-height: 1.45; }
+  form { display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 14px; border-radius: 6px; background: rgba(255,255,255,.025); box-shadow: inset 0 0 0 1px var(--line2); }
+  form svg { width: 17px; height: 17px; flex: none; stroke: var(--fg3); }
+  input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: none; color: var(--fg); font: 16px system-ui, sans-serif; }
+  input::placeholder { color: var(--fg3); }
+  .hints { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font: 500 9px var(--mono); letter-spacing: .18em; color: var(--fg3); text-transform: uppercase; }
+  .hints b { color: var(--fg2); font-weight: 500; }
+  .clock { margin-top: 26px; font: 500 10.5px var(--mono); letter-spacing: .2em; color: var(--fg3); }
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<main>
+  <div class="crumb"><span class="d"></span><span class="k">音</span><span>HOME / BROWSE</span><span class="r"></span><span>01</span></div>
+  <h1 id="greet">Good evening</h1>
+  <p class="sub">Pick up where you left off, or find the next thing worth reading.</p>
+  <form id="f" autocomplete="off">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" enterkeyhint="go" placeholder="Search or enter address" autocapitalize="off" spellcheck="false">
+  </form>
+  <div class="hints"><span><b>Tabs</b> bottom right</span><span><b>Shield</b> blocks ads</span></div>
+  <div class="clock" id="clock"></div>
+</main>
+<script>
+  const h = new Date().getHours();
+  document.getElementById('greet').textContent = h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : h < 22 ? 'Good evening' : 'Good night';
+  const clock = () => { document.getElementById('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toUpperCase(); };
+  clock(); setInterval(clock, 15000);
+  const go = (t) => {
+    t = t.trim(); if (!t) return;
+    const looksUrl = /^[a-z]+:\/\//i.test(t) || (/^[^\s]+\.[a-z]{2,}(\/|$|:|\?)/i.test(t) && !t.includes(' '));
+    location.href = looksUrl ? (/^[a-z]+:\/\//i.test(t) ? t : 'https://' + t) : 'https://duckduckgo.com/?q=' + encodeURIComponent(t);
+  };
+  document.getElementById('f').addEventListener('submit', (e) => { e.preventDefault(); go(document.getElementById('q').value); });
+  // a few stars, very faint, so the page sits in space like the desktop theme
+  const c = document.getElementById('sky'), x = c.getContext('2d');
+  const draw = () => {
+    const d = devicePixelRatio || 1; c.width = innerWidth * d; c.height = innerHeight * d; x.scale(d, d);
+    let s = 2026; const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 140; i++) { x.globalAlpha = 0.12 + r() * 0.35; x.fillStyle = '#fffaf2'; x.beginPath(); x.arc(r() * innerWidth, r() * innerHeight, 0.3 + r() * 0.8, 0, 7); x.fill(); }
+  };
+  draw(); addEventListener('resize', draw);
+</script>
+</body>
+</html>

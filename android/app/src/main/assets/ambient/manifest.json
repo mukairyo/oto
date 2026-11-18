@@ -1,0 +1,15 @@
+{
+  "manifest_version": 2,
+  "name": "Oto ambient light",
+  "version": "1.0.0",
+  "description": "A soft glow in the video's own colours around YouTube's player, like Oto for Windows.",
+  "browser_specific_settings": { "gecko": { "id": "ambient@oto.app" } },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["yt-ambient.js", "start.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}
