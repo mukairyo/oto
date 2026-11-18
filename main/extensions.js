@@ -22,6 +22,40 @@ module.exports = function createExtensions(ctx) {
   // The Web Store library downloads extensions (installs and updates) with the global fetch and doesn't check their
   // signatures. Every extension package it receives is checked here first (main/crx-verify.js): CRX3 only, signed by
   // the extension's own key AND by the Chrome Web Store, every signature valid. Anything else never reaches the disk.
+  // (1.7.13) Web Store updates that ask for more: see main/ext-perms.js. The first time Oto sees an extension (installed
+  // before 1.7.13) what it has now counts as approved. Afterwards, a version asking for anything new is switched off
+  // at once and Oto asks; until you say yes it stays off (and is asked about again at the next start).
+  let approvalStore = null;
+  const approvals = () => approvalStore || (approvalStore = require('./ext-perms.js').store(userFile('extension-approvals.json')));
+  const asking = new Set();
+  function watchStoreUpdates(ses) {
+    const api = extApi(ses);
+    if (!api || typeof api.on !== 'function' || api.otoWatching) return;
+    api.otoWatching = true;
+    const P = require('./ext-perms.js');
+    api.on('extension-loaded', (_e, ext) => {
+      try {
+        if (!ext || !ext.path || !inside(userFile('Extensions'), ext.path)) return; // Web Store installs only (files/folders are asked about when added)
+        const now = P.permsOf(ext.manifest), was = approvals().get(ext.id);
+        if (!was) { approvals().set(ext.id, now); return; }
+        const extra = P.added(was, now);
+        if (!extra.length || asking.has(ext.id)) return;
+        asking.add(ext.id);
+        try { api.removeExtension(ext.id); } catch {}
+        send('ext:changed');
+        const words = manifestPermissions(ext.manifest);
+        dialog.showMessageBox(ctx.win, {
+          type: 'warning', buttons: ['Keep it off', 'Allow and turn it on'], defaultId: 0, cancelId: 0, noLink: true, title: 'Extension wants more access',
+          message: `“${words.name}” updated and now asks for more than you allowed.`,
+          detail: `Oto switched it off. New: ${extra.map((p) => p.replace(/^(site|api):/, '')).slice(0, 8).join(', ')}${extra.length > 8 ? ' …' : ''}\n\nIt now asks to:\n${words.text}`,
+        }).then(async (r) => {
+          if (r.response === 1) { approvals().set(ext.id, now); try { await api.loadExtension(ext.path, { allowFileAccess: false }); } catch (err) { console.warn('[oto] could not turn the extension back on:', err && err.message); } send('ext:changed'); }
+          else console.warn('[oto] extension kept off after asking for more access:', ext.id);
+        }, () => {}).finally(() => asking.delete(ext.id));
+      } catch (err) { console.warn('[oto] extension permission check failed:', err && err.message); }
+    });
+  }
+
   function guardCrxDownloads() {
     if (typeof globalThis.fetch !== 'function' || globalThis.fetch.otoCrxGuard) return;
     const { verifyCrx } = require('./crx-verify.js');
@@ -73,6 +107,7 @@ module.exports = function createExtensions(ctx) {
     }
     try {
       guardCrxDownloads();
+      watchStoreUpdates(ses);
       const { installChromeWebStore } = require('electron-chrome-web-store');
       await installChromeWebStore({
         session: ses,
@@ -84,7 +119,7 @@ module.exports = function createExtensions(ctx) {
             detail: `From the Chrome Web Store. It asks to:\n${manifestPermissions(details.manifest).text}\n\nOto keeps it updated from the Web Store, and checks every download is signed by its developer and by the Chrome Web Store.`,
             icon: details.icon,
           });
-          if (r.response === 0) setTimeout(() => send('ext:changed'), 1500);
+          if (r.response === 0) { setTimeout(() => send('ext:changed'), 1500); try { approvals().set(details.id, require('./ext-perms.js').permsOf(details.manifest)); } catch {} }
           return { action: r.response === 0 ? 'allow' : 'deny' };
         },
       });

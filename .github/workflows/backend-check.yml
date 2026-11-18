@@ -1,6 +1,7 @@
 # Oto Accounts (Supabase) access check: every account's rows must stay private (Row-Level Security).
 # Weekly, on demand, and whenever the check itself changes. See scripts/rls-check.js.
-# Two-account checks run when the dedicated TEST account secrets are set (never use a real account):
+# Needs the dedicated TEST account secrets (never use a real account); without them the check FAILS (1.7.13), and the
+# same check gates every release (release.yml, job backend):
 #   OTO_RLS_A_EMAIL, OTO_RLS_A_PASSWORD, OTO_RLS_B_EMAIL, OTO_RLS_B_PASSWORD
 name: Backend access check
 
@@ -9,7 +10,7 @@ on:
   schedule:
     - cron: '17 6 * * 1'
   push:
-    paths: ['scripts/rls-check.js', '.github/workflows/backend-check.yml']
+    paths: ['scripts/rls-check.js', '.github/workflows/backend-check.yml', 'test/rls-check.test.js']
 
 permissions:
   contents: read

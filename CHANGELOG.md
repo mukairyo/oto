@@ -3,6 +3,15 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.7.13 — More security fixes, and stricter release checks
+
+From a second security review. Details and what's still open: `docs/SECURITY_REVIEW_1.7.13.md`.
+
+- **A permission question can't outlive its site.** If a site asked for something (camera, mouse lock…) and the tab then went to another site, the question stayed up, and a yes was saved for the first site. Now the question goes away when the tab leaves.
+- **Extensions that want more access are switched off until you say yes.** Web Store extensions update by themselves; an update that asks for more than you allowed (say, every website) is now turned off and Oto asks you, like Chrome does.
+- **Oto's internal messages are checked more strictly.** Every message channel is now listed and checked for what it may carry, and no extension library can slip past the check.
+- **Releases are checked more.** Before a release goes out, the tests now also run on Linux, and Oto Accounts' privacy (two test accounts mustn't see each other's data) is checked live. Each release also lists every package inside it.
+
 ## 1.7.12 — Security fixes from a review
 
 A security review of 1.7.11 found real problems; this fixes the confirmed ones. Details, and what's still open:

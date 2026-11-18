@@ -103,5 +103,8 @@ module.exports = function guardIPC(ipcMain, appDir) {
   ipcMain.handleOnce = wrap('handle', ipcMain.handleOnce);
   ipcMain.on = wrap('on', ipcMain.on);
   ipcMain.once = wrap('on', ipcMain.once);
+  // (1.7.13) the other ways of adding a listener go through the same gate (on and addListener are the same function in
+  // Node, but replacing ipcMain.on doesn't replace addListener: a library using it would have skipped the checks)
+  for (const name of ['addListener', 'prependListener', 'prependOnceListener']) if (typeof ipcMain[name] === 'function') ipcMain[name] = wrap('on', ipcMain[name]);
   return { trusted };
 };

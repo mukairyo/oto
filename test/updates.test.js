@@ -150,3 +150,37 @@ test('the update source can’t be redirected: no feed overrides anywhere in Oto
   assert.deepStrictEqual(pkg.build.publish, [{ provider: 'github', owner: 'mukairyo', repo: 'oto' }].map((p) => ({ ...p, ...Object.fromEntries(Object.entries(pkg.build.publish[0]).filter(([k]) => !['provider', 'owner', 'repo'].includes(k))) })));
   assert.ok(!pkg.build.publish.some((p) => p.url || p.provider === 'generic'), 'no generic/custom update server');
 });
+
+test('a checked update that changes on disk before it installs is deleted, never installed (1.7.13)', async () => {
+  const A = require('../main/attest.js');
+  const real = A.verifyInstaller;
+  A.verifyInstaller = async (file) => ({ ok: true, digest: A.fileSha256Sync(file) }); // this file "passes" the build-record check
+  const s = setup();
+  try {
+    const file = tmpFile('MZ checked installer');
+    s.updater.emit('update-downloaded', { version: '1.4.0', downloadedFile: file });
+    await settled(s);
+    assert.strictEqual(s.last().state, 'ready');
+    fs.appendFileSync(file, 'tampered'); // something changes it after the check
+    await s.tryInstall();
+    assert.strictEqual(s.updater.installs, 0, 'not installed');
+    assert.match(s.last().message, /changed on disk after Oto checked it/);
+    assert.ok(!fs.existsSync(file), 'deleted');
+    assert.strictEqual(s.updater.autoInstallOnAppQuit, false, 'won\'t install on quit either');
+  } finally { s.done(); A.verifyInstaller = real; }
+});
+
+test('a checked update that is unchanged installs (control, 1.7.13)', async () => {
+  const A = require('../main/attest.js');
+  const real = A.verifyInstaller;
+  A.verifyInstaller = async (file) => ({ ok: true, digest: A.fileSha256Sync(file) });
+  const s = setup();
+  try {
+    const file = tmpFile('MZ checked installer');
+    s.updater.emit('update-downloaded', { version: '1.4.0', downloadedFile: file });
+    await settled(s);
+    await s.tryInstall();
+    await new Promise((r) => setImmediate(r));
+    assert.strictEqual(s.updater.installs, 1);
+  } finally { s.done(); A.verifyInstaller = real; }
+});

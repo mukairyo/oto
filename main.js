@@ -709,14 +709,20 @@ function setupSession(part = PARTITION) {
     // dropped and never answered: there is nothing left to answer, and answering a mouse-lock or keyboard-lock
     // request for a page that is gone crashed all of Oto (an Electron bug, fixed upstream in 45.3).
     const gone = () => { try { return !!wc && wc.isDestroyed(); } catch { return true; } };
-    const drop = () => { const p = pendingPerms.get(id); if (!p) return; pendingPerms.delete(id); clearTimeout(p.timer); send('perm:cancel', id); };
-    const off = () => { try { if (wc && !wc.isDestroyed()) wc.removeListener('destroyed', drop); } catch {} };
+    const drop = () => { const p = pendingPerms.get(id); if (!p) return; pendingPerms.delete(id); clearTimeout(p.timer); try { p.off(); } catch {} send('perm:cancel', id); };
+    // (1.7.13) Also when the tab leaves the site that asked: the question would otherwise still say "A wants…" while
+    // you look at site B's page, and a yes would be saved for A. Dropped, never answered, like a closed tab.
+    const left = (ev, url, _inPlace, isMain) => {
+      const main = ev && typeof ev.isMainFrame === 'boolean' ? ev.isMainFrame : isMain, same = ev && ev.isSameDocument;
+      if (main && !same && originOf((ev && ev.url) || url) !== origin) drop();
+    };
+    const off = () => { try { if (wc && !wc.isDestroyed()) { wc.removeListener('destroyed', drop); wc.removeListener('did-start-navigation', left); } } catch {} };
     const timer = setTimeout(() => {
       if (gone()) return drop();
       if (pendingPerms.delete(id)) { off(); callback(false); send('perm:cancel', id); }
     }, 90000);
     pendingPerms.set(id, { callback, keys, timer, gone, off });
-    try { if (wc) wc.once('destroyed', drop); } catch {}
+    try { if (wc) { wc.once('destroyed', drop); wc.on('did-start-navigation', left); } } catch {}
     send('perm:ask', {
       id, origin, permission, mediaTypes: details.mediaTypes || [],
       externalURL: details.externalURL || '', wcId: wc ? wc.id : 0,

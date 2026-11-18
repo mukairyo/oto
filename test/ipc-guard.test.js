@@ -135,3 +135,17 @@ test('every channel with rules exists in the preload with a matching number of a
     assert.strictEqual(n, schema.length, `${ch}: preload sends ${n}, rules expect ${schema.length}`);
   }
 });
+
+test('listeners added with addListener / prependListener are guarded too (1.7.13)', () => {
+  const ipc = fakeIpcMain();
+  guardIPC(ipc, APP);
+  let ran = 0;
+  ipc.addListener('pw:list', (e) => { ran++; e.returnValue = 'secret'; });
+  ipc.prependListener('state:load', (e) => { ran++; e.returnValue = 'state'; });
+  const silence = console.warn; console.warn = () => {};
+  try {
+    for (const ch of ['pw:list', 'state:load']) { const e = ev('webview', 'https://evil.example/'); ipc.emit(ch, e); assert.strictEqual(e.returnValue, null, ch); }
+  } finally { console.warn = silence; }
+  assert.strictEqual(ran, 0);
+  const ok = ev('window', UI); ipc.emit('pw:list', ok); assert.strictEqual(ok.returnValue, 'secret');
+});

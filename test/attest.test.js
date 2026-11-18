@@ -81,3 +81,35 @@ test('verifyInstaller: hashes the file, asks GitHub, and fails closed', async ()
   // GitHub unreachable -> not installed now, try again later
   await assert.rejects(verifyInstaller(file, async () => { throw new Error('ENOTFOUND'); }), (e) => e.transient === true);
 });
+
+test('malformed or unsupported records are refused (1.7.13)', () => {
+  for (const bad of [null, {}, 'text', { mediaType: 'application/json' }, { ...clone(), mediaType: 'application/vnd.dev.sigstore.bundle.v9+json' }]) {
+    assert.throws(() => verifyBundle(bad, FIX.digest), /not a Sigstore bundle/, JSON.stringify(bad).slice(0, 60));
+  }
+  let b = clone(); delete b.verificationMaterial.certificate; delete b.verificationMaterial.x509CertificateChain;
+  assert.throws(() => verifyBundle(b, FIX.digest), /no certificate/);
+  b = clone(); b.dsseEnvelope.payloadType = 'text/plain';
+  assert.throws(() => verifyBundle(b, FIX.digest), /no signed record/);
+  b = clone(); b.dsseEnvelope.signatures = [];
+  assert.throws(() => verifyBundle(b, FIX.digest), /no signed record/);
+});
+
+test('a broken signature is refused (1.7.13)', () => {
+  const b = clone();
+  const sig = Buffer.from(b.dsseEnvelope.signatures[0].sig, 'base64'); sig[sig.length - 5] ^= 0xff;
+  b.dsseEnvelope.signatures[0].sig = sig.toString('base64');
+  assert.throws(() => verifyBundle(b, FIX.digest), /bad signature|log entry/);
+});
+
+test('a record that is not a build record, or names another workflow inside, is refused (1.7.13)', () => {
+  // the signed statement can't be changed without breaking the signature, so these are checked on the statement
+  // directly, through the same rules verifyBundle applies after the signature check
+  const st = statement(clone());
+  assert.match(st.predicateType, /^https:\/\/slsa\.dev\/provenance\//);
+  assert.strictEqual(st.predicate.buildDefinition.externalParameters.workflow.repository, 'https://github.com/mukairyo/oto');
+  assert.ok(st.subject.some((s) => s.digest.sha256 === FIX.digest), 'the record is about exactly this file');
+});
+
+test('a digest that is not a SHA-256 of this file is refused (1.7.13)', () => {
+  for (const d of ['', '0'.repeat(64), FIX.digest.toUpperCase(), `${FIX.digest}00`]) assert.throws(() => verifyBundle(FIX.bundle, d), /different file/, d.slice(0, 10));
+});

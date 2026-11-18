@@ -11,8 +11,22 @@ const optObj = (v) => v == null || obj(v);
 const id = (v) => str(128)(v) || int(v);
 const permVal = (v) => v === null || v === undefined || typeof v === 'boolean' || str(16)(v);
 const URL_ = str(8192), EMAIL = str(320), PASS = str(1024);
+const boolish = (v) => v == null || typeof v === 'boolean' || v === 0 || v === 1;
+const arrOf = (max, each) => (v) => Array.isArray(v) && v.length <= max && v.every(each);
 
 const SCHEMAS = {
+  // (1.7.13) every sensitive channel has its arguments written down, including "none" (see docs/IPC_INVENTORY.md;
+  // test/ipc-inventory.test.js fails if a sensitive channel is added without one)
+  'account:peek': [], 'account:startFresh': [], 'account:status': [],
+  'app:changelog': [], 'app:default-browser': [], 'app:icon': [str(16 * 1024 * 1024)], 'app:info': [], 'app:mode': [], 'app:relaunch': [], 'app:versions': [],
+  'dl:exists': [arrOf(5000, optStr(4096))],
+  'ext:active': [int], 'ext:install-file': [], 'ext:list': [], 'ext:load-folder': [], 'ext:tab-ready': [int, int],
+  'owner:status': [], 'perm:list': [], 'state:load': [],
+  'update:check': [], 'update:install': [], 'update:status': [],
+  'clipboard:image': [str(64 * 1024 * 1024)], 'devices:beat': [optObj], 'devices:forget': [str(128)],
+  'shield:annoy': [boolish], 'shield:danger': [boolish], 'shield:fp': [boolish], 'shield:dangerUpdate': [], 'shield:state': [optStr(8192)],
+  'shield:stats': [], 'shield:statsReset': [], 'shield:update': [],
+  'shot:full': [int], 'tab:freeze': [int, boolish],
   // passwords
   'pw:save': [URL_, optStr(512), str(4096)],
   'pw:check': [URL_, optStr(512), str(4096)],

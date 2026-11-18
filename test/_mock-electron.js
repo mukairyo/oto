@@ -9,6 +9,7 @@ function fakeIpcMain() {
     handlers, listeners,
     handle(ch, fn) { handlers.set(ch, fn); }, handleOnce(ch, fn) { handlers.set(ch, fn); }, removeHandler(ch) { handlers.delete(ch); },
     on(ch, fn) { listeners.set(ch, fn); }, once(ch, fn) { listeners.set(ch, fn); },
+    addListener(ch, fn) { listeners.set(ch, fn); }, prependListener(ch, fn) { listeners.set(ch, fn); }, prependOnceListener(ch, fn) { listeners.set(ch, fn); },
     invoke(ch, e, ...a) { return handlers.get(ch)(e, ...a); },
     emit(ch, e, ...a) { return listeners.get(ch)(e, ...a); },
   };

@@ -114,14 +114,16 @@ jobs:
         shell: bash
         run: |
           v="${{ steps.check.outputs.version }}"
-          cd dist && sha256sum "Oto-Setup-$v.exe" "Oto-Setup-$v.exe.blockmap" latest*.yml | tee SHA256SUMS.txt
+          # (1.7.13) software bill of materials: every npm package Oto ships, with versions and lockfile hashes (CycloneDX)
+          npm sbom --sbom-format cyclonedx --omit dev --package-lock-only > dist/oto-sbom.cdx.json
+          cd dist && sha256sum "Oto-Setup-$v.exe" "Oto-Setup-$v.exe.blockmap" oto-sbom.cdx.json latest*.yml | tee SHA256SUMS.txt
 
       - name: Hand the files to the release job
         if: steps.check.outputs.skip != 'true'
         shell: bash
         run: |
           v="${{ steps.check.outputs.version }}"
-          mkdir out && cp "dist/Oto-Setup-$v.exe" "dist/Oto-Setup-$v.exe.blockmap" dist/SHA256SUMS.txt out/
+          mkdir out && cp "dist/Oto-Setup-$v.exe" "dist/Oto-Setup-$v.exe.blockmap" dist/SHA256SUMS.txt dist/oto-sbom.cdx.json out/
           for f in dist/*.yml; do [ "$(basename "$f")" = builder-debug.yml ] || cp "$f" out/; done
           ls -la out
 
@@ -133,11 +135,58 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
+  # (1.7.13) Linux end-to-end tests are a release gate too, on the exact commit being released, in this same run: the
+  # build job above runs the unit tests and the Windows end-to-end tests; nothing is published unless both pass. (The
+  # separate "Checks" workflow is a fast signal on every push, not the release gate.)
+  e2e-linux:
+    needs: build
+    if: needs.build.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - run: sudo apt-get update -q && sudo apt-get install -y -q xvfb
+      - name: Install (with Electron)
+        shell: bash
+        run: n=0; until npm ci && node -e "require('fs').accessSync(require('electron'))"; do n=$((n+1)); [ $n -ge 5 ] && exit 1; echo "retrying in $((n*30)) s"; sleep $((n*30)); done
+      - name: End-to-end tests (Linux)
+        run: npm run test:e2e
+
+  # (1.7.13) Release gate: Oto Accounts' Row-Level Security, checked live with the two dedicated TEST accounts, in both
+  # directions (scripts/rls-check.js, which fails closed: missing test accounts or an unreachable backend stop the
+  # release). Plain Node, no npm packages, so no third-party code ever runs next to the test-account secrets.
+  backend:
+    needs: build
+    if: needs.build.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Accounts can't see each other's data
+        env:
+          OTO_RLS_A_EMAIL: ${{ secrets.OTO_RLS_A_EMAIL }}
+          OTO_RLS_A_PASSWORD: ${{ secrets.OTO_RLS_A_PASSWORD }}
+          OTO_RLS_B_EMAIL: ${{ secrets.OTO_RLS_B_EMAIL }}
+          OTO_RLS_B_PASSWORD: ${{ secrets.OTO_RLS_B_PASSWORD }}
+        run: node scripts/rls-check.js
+
   # Publishing: a short job that runs no packages, tests or build tools. It gets the files from the build job, checks
   # them against the build job's checksums, makes the signed GitHub build record (who built this installer, from which
   # commit) and publishes the release. Only this job has write access and the build-record token.
   release:
-    needs: build
+    needs: [build, e2e-linux, backend]
     if: needs.build.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -172,7 +221,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           v="${{ needs.build.outputs.version }}"
-          files=("dist/Oto-Setup-$v.exe" "dist/Oto-Setup-$v.exe.blockmap" "dist/SHA256SUMS.txt")
+          files=("dist/Oto-Setup-$v.exe" "dist/Oto-Setup-$v.exe.blockmap" "dist/SHA256SUMS.txt" "dist/oto-sbom.cdx.json")
           for f in dist/*.yml; do files+=("$f"); done
           # tester builds (e.g. 0.10.0-beta.1) are pre-releases: only Beta/Alpha testers get them
           pre=(); [[ "$v" == *-* ]] && pre=(--prerelease)
