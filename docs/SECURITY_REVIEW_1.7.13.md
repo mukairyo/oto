@@ -15,8 +15,9 @@ test that fails on 1.7.12 and passes now. Every result below was produced on the
 - IPC: full inventory of every channel (`docs/IPC_INVENTORY.md`, kept current by a test); every sensitive channel has an
   argument schema; listeners added through `addListener`/`prependListener` can no longer skip the gatekeeper.
 - New runtime boundary tests (navigation, frames, popups, Space separation), extra update-verifier negative tests.
+- Backend account isolation verified live with two test accounts (both directions), and it gates every release.
 - Not done (needs the owner, real Windows hardware or money): Windows-backed password re-authentication, Authenticode
-  signing, the backend test accounts. Release recommendation in section E.
+  signing. Release recommendation in section E.
 
 ## B. Findings
 
@@ -52,7 +53,8 @@ test that fails on 1.7.12 and passes now. Every result below was produced on the
 | End-to-end incl. `boundaries` and the new `permissions` checks | Windows (GitHub runner, Checks run 44373908528) | 294/294 pass |
 | `npm audit --omit=dev --audit-level=high` | Linux | 0 vulnerabilities |
 | `npm audit` (all) | Linux | 6 moderate, all in electron-builder's build-time chain (minimatch ReDoS); npm's "fix" is a downgrade to electron-builder 24.13.3 (breaking). Build-only, not shipped: accepted, revisit when electron-builder updates. |
-| Backend check | GitHub runner (Backend access check run 44373908533) | 12/12 anonymous checks pass against the live backend; exit 2 "not run" for the two-account part (no test accounts yet), so the workflow fails, as designed |
+| Backend check, before test accounts | GitHub runner (Backend access check run 44373908533) | 12/12 anonymous checks pass against the live backend; exit 2 "not run" for the two-account part, so the workflow failed, as designed |
+| Backend check, full | GitHub runner (Backend access check run 44392596115) | all pass: 12 anonymous + 67 two-account checks (oto_sync, oto_devices, oto_inbox; read/change/delete/forge/move, both directions; damaged, made-up and unsigned tokens refused; a signed-out refresh token refused) |
 
 ## D. Remaining limitations
 
@@ -60,7 +62,7 @@ test that fails on 1.7.12 and passes now. Every result below was produced on the
 |---|---|---|
 | Windows-backed password re-authentication | Not implemented. Reveal is still a confirmation (Cancel default, 1 minute, cleared on lock/minimise). | Owner's choice of fallback for PCs without Windows Hello, and testing on real Windows with and without Hello. |
 | Authenticode signing | Not done | Owner picks a provider (paid certificate, or SignPath Foundation's free open-source programme) and completes their identity checks. |
-| Backend two-account test | Script and release gate ready; **releases fail until the secrets exist** | Owner creates two test-only Oto accounts and adds `OTO_RLS_A_EMAIL/_PASSWORD`, `OTO_RLS_B_EMAIL/_PASSWORD` as repository secrets. |
+| Backend two-account test | **Done**: test accounts configured by the owner; full check passes and gates every release. | — |
 | Access-token revocation | Supabase access tokens stay valid until they expire (up to an hour) after sign-out; refresh tokens are revoked (checked). | Platform property; documented. |
 | Extension update window | Between the library loading a new version and Oto unloading it there is a moment (milliseconds) where it runs. | Upstream hook in electron-chrome-web-store. |
 | Local tampering | Per-user install: code running as the user can change Oto's files; checks inside those files can't prevent that. The update file is re-hashed right before launch, but the moment between hash and launch isn't closed. | Machine-wide install option + signing. |
@@ -71,9 +73,9 @@ test that fails on 1.7.12 and passes now. Every result below was produced on the
 
 - Development builds: approved.
 - Public beta: approved, with the limits above stated (don't rely on Oto as the only password manager for
-  high-value accounts yet). Note: until the backend test accounts exist, the release workflow stops at the backend gate.
-- High-security production: **not approved** — Windows re-authentication, signing, the two-account backend run and an
-  independent review are still missing.
+  high-value accounts yet). 
+- High-security production: **not approved** — Windows re-authentication, signing and an independent review are still
+  missing.
 
 ## F. Since 1.7.12
 
