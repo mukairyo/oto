@@ -63,7 +63,9 @@ for (const f of files) {
 // 4. both version fields agree
 {
   const p = require(path.join(ROOT, 'package.json'));
-  if (p.otoVersion && p.version !== p.otoVersion && !/^\d+\.\d+\.\d{3}$/.test(p.version)) fail(`package.json version (${p.version}) and otoVersion (${p.otoVersion}) disagree`);
+  // (the updater's number shown the way people see it must be otoVersion: 1.7.900 = 1.7.9, 1.7.1000 = 1.7.10)
+  const { display } = require(path.join(ROOT, 'main', 'version.js'));
+  if (p.otoVersion && display(p.version) !== p.otoVersion) fail(`package.json version (${p.version}) and otoVersion (${p.otoVersion}) disagree`);
   const log = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
   if (!log.includes(`## ${p.otoVersion || p.version} `)) fail(`CHANGELOG.md has no section for ${p.otoVersion || p.version}`);
 }

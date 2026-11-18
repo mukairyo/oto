@@ -316,34 +316,16 @@ function skyRelayout() {
 }
 
 function galaxyRelayout() {
-  const act = activeTab();
-  const tabs = S.tabs.map((t) => ({ id: t.id, ws: t.ws, essential: !!t.essential, active: !!(act && act.id === t.id), lastActive: t.lastActive || 0 }));
-  SKY.gal = galaxyLayout(tabs, S.workspaces.map((w) => ({ id: w.id })), Date.now());
+  // (1.7.10) The Galaxy shows the galaxy and your devices only: your tabs live in Sky. The galaxy's shape is fixed.
+  SKY.gal = { arms: [], rings: [], offs: [-Math.PI / 2, Math.PI / 2], rMax: GAL.RMAX };
   SKY.lay = { spaces: [], groups: [] }; SKY.decor = [];
   SKY.spaceById = new Map();
   SKY.starById = new Map();
-  for (const st of SKY.gal.stars) SKY.starById.set(st.id, { ...st, x: 0, y: 0, g: { name: (skyWs(st.ws) || {}).name || '' } });
-  galaxyPlace();
 }
 /** Where the stars are now that the galaxy has turned. */
 function galaxyPlace() {
   for (const s of SKY.starById.values()) { s.x = Math.cos(s.th + SKY.turn) * s.r; s.y = Math.sin(s.th + SKY.turn) * s.r * GAL.TILT; }
 }
-/** Which arm (Space) a screen point is on: the arm passing nearest to it at that distance from the middle. */
-function galaxyArmAt(x, y) {
-  const [wx, wy] = skyToWorld(x, y);
-  const r = Math.hypot(wx, wy / GAL.TILT), ang = Math.atan2(wy / GAL.TILT, wx);
-  if (r < 95) return essentials().length ? '__essentials' : null;
-  let best = null, bd = 0.75;
-  for (const arm of SKY.gal.arms) {
-    if (r > arm.end + 80) continue;
-    let d = (ang - galTh(r, arm.off) - SKY.turn) % (Math.PI * 2);
-    if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2;
-    if (Math.abs(d) < bd) { bd = Math.abs(d); best = arm.ws; }
-  }
-  return best;
-}
-
 const skyWs = (id) => (id === '__essentials' ? { id, name: 'Essentials', ess: true } : S.workspaces.find((w) => w.id === id));
 function skySpaceColor(id) {
   if (id === '__essentials') return '#E7DFD1';
@@ -416,10 +398,19 @@ function skyBackdrop(c, deep = true) {
     SKY_FIELD.img.src = 'img/space.webp';
   }
   if (SKY_FIELD.ready) {
-    if (!SKY_FIELD.pat) SKY_FIELD.pat = c.createPattern(SKY_FIELD.img, 'repeat');
-    const k = 0.12, sc = 0.5;
+    // (the tile is shrunk once, at the screen's pixel size, so each frame only copies it instead of resampling the
+    // whole 2400 px picture: that was most of a frame's work, 1.7.10)
+    const dpr = SKY.dpr || 1, k = 0.12;
+    if (!SKY_FIELD.pat || SKY_FIELD.patDpr !== dpr) {
+      const tw = Math.round(SKY_FIELD.img.naturalWidth * 0.5 * dpr), th = Math.round(SKY_FIELD.img.naturalHeight * 0.5 * dpr);
+      const tile = document.createElement('canvas'); tile.width = tw; tile.height = th;
+      const tc = tile.getContext('2d'); tc.imageSmoothingQuality = 'high'; tc.drawImage(SKY_FIELD.img, 0, 0, tw, th);
+      SKY_FIELD.pat = c.createPattern(tile, 'repeat'); SKY_FIELD.patDpr = dpr;
+    }
     if (SKY_FIELD.pat && SKY_FIELD.pat.setTransform && typeof DOMMatrix === 'function') {
-      SKY_FIELD.pat.setTransform(new DOMMatrix([sc, 0, 0, sc, -SKY.cam.x * k, -SKY.cam.y * k]));
+      // whole device pixels only, so the copy never has to blend between pixels
+      const ox = Math.round(-SKY.cam.x * k * dpr) / dpr, oy = Math.round(-SKY.cam.y * k * dpr) / dpr;
+      SKY_FIELD.pat.setTransform(new DOMMatrix([1 / dpr, 0, 0, 1 / dpr, ox, oy]));
       c.fillStyle = SKY_FIELD.pat; c.fillRect(0, 0, w, h);
     }
   }
@@ -603,7 +594,7 @@ function skySwitchMode(to, { focusId = null, ws = null, fx = SKY.w / 2, fy = SKY
   if (snap) SKY.trans = { img: snap, t0: performance.now(), dir: to === 'sky' ? 'in' : 'out', fx, fy, ms: 520 };
   // the switch at the top follows along, and so do the controls
   document.querySelectorAll('.v1-ovsw .b').forEach((b) => { const on = b.textContent.trim().toLowerCase() === to; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
-  const rst = SKY.layer && SKY.layer.querySelector('.sky-ctl .rst'); if (rst) rst.hidden = to === 'galaxy';
+  for (const sel of ['.rst', '.me']) { const b = SKY.layer && SKY.layer.querySelector(`.sky-ctl ${sel}`); if (b) b.hidden = to === 'galaxy'; }
   setTimeout(() => { skyUpdateZoom(); skySaveCam(); }, 700);
   skyKick();
 }
@@ -626,13 +617,8 @@ function skyEdgePull(dir, x, y) {
   SKY.pull = SKY.pull && SKY.pull.dir === dir && now - SKY.pull.t < 700 ? { dir, n: SKY.pull.n + 1, t: now } : { dir, n: 1, t: now };
   if (SKY.pull.n < 2) return;
   if (dir === 'out' && SKY.mode === 'sky') skySwitchMode('galaxy', { ws: skySpaceAt(SKY.w / 2, SKY.h / 2) || S.activeWs, fx: x, fy: y });
-  if (dir === 'in' && SKY.mode === 'galaxy') {
-    // the star under the pointer, else the nearest star on the arm under it, else the nearest star at all
-    let pick = null, bd = 140;
-    for (const st of SKY.starById.values()) { const [sx, sy] = skyToScreen(st.x, st.y); const d = Math.hypot(sx - x, sy - y); if (d < bd) { bd = d; pick = st; } }
-    if (!pick) { const arm = galaxyArmAt(x, y); let bd2 = Infinity; for (const st of SKY.starById.values()) { if (arm && st.ws !== arm) continue; const [sx, sy] = skyToScreen(st.x, st.y); const d = Math.hypot(sx - x, sy - y); if (d < bd2) { bd2 = d; pick = st; } } }
-    skySwitchMode('sky', { focusId: pick ? pick.id : (activeTab() || {}).id, fx: x, fy: y });
-  }
+  // into the Galaxy far enough: down into Sky, on the tab you're on
+  if (dir === 'in' && SKY.mode === 'galaxy') skySwitchMode('sky', { focusId: (activeTab() || {}).id, fx: x, fy: y });
 }
 
 // ------------------------------------------------------------------ drawing
@@ -645,7 +631,7 @@ function skyFrame(now) {
     const dt = SKY.lastT ? Math.min(100, now - SKY.lastT) : 0; SKY.lastT = now;
     // one turn every 6 minutes. It keeps turning while you look around or point at something (1.7.9): only dragging a
     // star or opening one holds it still. A window that's open follows its star.
-    if (skyMotion() && !SKY.drag && !SKY.dive) { SKY.turn += dt * (Math.PI * 2) / 360000; galaxyPlace(); if (SKY.card) skyPlaceCard(true); }
+    if (skyMotion() && !SKY.drag && !SKY.dive && !SKY.fly) { SKY.turn += dt * (Math.PI * 2) / 360000; galaxyPlace(); if (SKY.card) skyPlaceCard(true); }
   }
   skyDraw(now);
   skyTransition(now);
@@ -832,7 +818,8 @@ function galaxyDevAt(x, y) {
 function galaxyDrawDevices(c, now) {
   const z = SKY.cam.z, T = SKY.turn, MONO = 'ui-monospace,Consolas,"DejaVu Sans Mono",monospace';
   const [cx, cy] = skyToScreen(0, 0);
-  SKY.devs = galaxyDevices();
+  // (who's online is looked at once a second, not every frame)
+  if (!SKY.devs || !SKY.devsAt || now - SKY.devsAt > 1000 || now < SKY.devsAt) { SKY.devs = galaxyDevices(); SKY.devsAt = now; }
   // their orbit
   c.strokeStyle = 'rgba(127,227,255,.16)'; c.lineWidth = 1; c.setLineDash([2, 6]);
   const DEV_R = devR();
@@ -840,21 +827,80 @@ function galaxyDrawDevices(c, now) {
   for (const d of SKY.devs) {
     const [x, y] = skyToScreen(Math.cos(d.th + T) * DEV_R, Math.sin(d.th + T) * DEV_R * GAL.TILT);
     d.sx = x; d.sy = y;
-    const hov = SKY.hoverDev === d.id, a = d.online ? 1 : 0.5;
-    const gl = c.createRadialGradient(x, y, 0, x, y, 22);
-    gl.addColorStop(0, `rgba(127,227,255,${0.55 * a})`); gl.addColorStop(1, 'rgba(127,227,255,0)');
-    c.fillStyle = gl; c.beginPath(); c.arc(x, y, 22, 0, 7); c.fill();
-    skyStar(c, x, y, hov ? 4.2 : 3.6, a, false);
-    c.strokeStyle = `rgba(127,227,255,${hov ? 0.95 : 0.55 * a})`; c.lineWidth = 1.2; c.beginPath(); c.arc(x, y, 13, 0, 7); c.stroke();
+    const hov = SKY.hoverDev === d.id, on = d.me || d.online;
+    if (on) { // on: a bright cyan star
+      const gl = c.createRadialGradient(x, y, 0, x, y, 22);
+      gl.addColorStop(0, 'rgba(127,227,255,.55)'); gl.addColorStop(1, 'rgba(127,227,255,0)');
+      c.fillStyle = gl; c.beginPath(); c.arc(x, y, 22, 0, 7); c.fill();
+      skyStar(c, x, y, hov ? 4.2 : 3.6, 1, false);
+      c.strokeStyle = `rgba(127,227,255,${hov ? 0.95 : 0.55})`;
+    } else { // the app isn't open there: a dark star
+      c.fillStyle = 'rgba(20,24,30,.92)'; c.beginPath(); c.arc(x, y, 12, 0, 7); c.fill();
+      c.fillStyle = `rgba(92,102,116,${hov ? 0.95 : 0.7})`; c.beginPath();
+      const k = hov ? 9 : 8;
+      c.moveTo(x, y - k); c.quadraticCurveTo(x, y, x + k, y); c.quadraticCurveTo(x, y, x, y + k); c.quadraticCurveTo(x, y, x - k, y); c.quadraticCurveTo(x, y, x, y - k); c.fill();
+      c.strokeStyle = `rgba(80,90,104,${hov ? 0.9 : 0.6})`;
+    }
+    c.lineWidth = 1.2; c.beginPath(); c.arc(x, y, 13, 0, 7); c.stroke();
     if (z >= 0.35 || hov) {
       c.font = `600 11px ${MONO}`; c.textAlign = 'center'; if (c.letterSpacing !== undefined) c.letterSpacing = '1.4px';
-      c.fillStyle = `rgba(127,227,255,${a})`; c.fillText(`${d.me ? 'THIS PC · ' : ''}${d.plat}`, x, y - 22);
-      c.font = `11px ${MONO}`; c.fillStyle = `rgba(236,232,225,${0.85 * a})`;
+      c.fillStyle = on ? 'rgba(127,227,255,1)' : 'rgba(110,118,130,.85)'; c.fillText(`${d.me ? 'THIS PC · ' : ''}${d.plat}`, x, y - 22);
+      c.font = `11px ${MONO}`; c.fillStyle = on ? 'rgba(236,232,225,.85)' : 'rgba(110,118,130,.75)';
       const nm = d.me ? (d.name && d.name !== 'This PC' ? d.name : '') : d.name || '';
       if (nm) c.fillText(skyEll(c, String(nm).toUpperCase(), 150), x, y + 30);
       if (c.letterSpacing !== undefined) c.letterSpacing = '0px';
     }
   }
+}
+
+// Clicking a device that's on flies you to it: the galaxy holds still, the view rushes in to the device's star while
+// its cyan light fills the screen, then you arrive: at this PC, down into Sky with your tabs; at your phone, its panel.
+// A device whose app isn't open is dark: clicking it just shows when it was last on.
+const FLY_MS = 760;
+function galaxyFlyTo(d) {
+  if (!d) return;
+  if (!d.me && !d.online) { galaxyShowDevice(d); return; }
+  const back = { ...SKY.cam }; // (the Galaxy is remembered as you left it, not zoomed in on the device)
+  const arrive = () => {
+    SKY.fly = null; Object.assign(SKY.cam, back); skySaveCam();
+    if (d.me) skySwitchMode('sky', { focusId: (activeTab() || {}).id, fx: SKY.w / 2, fy: SKY.h / 2 });
+    else if (d.kind === 'phone' && typeof v1Phone === 'function') { v1CloseOverview(); v1Phone(); }
+    else { skyDraw(); galaxyShowDevice(d); }
+  };
+  skyHideCard(); galaxyHideDevice(); SKY.hoverDev = null;
+  if (!skyMotion()) { arrive(); return; }
+  const DEV_R = devR(), wx = Math.cos(d.th + SKY.turn) * DEV_R, wy = Math.sin(d.th + SKY.turn) * DEV_R * GAL.TILT;
+  SKY.fly = { id: d.id, label: `${d.me ? 'THIS PC' : d.plat}`, wx, wy, p: 0, t0: performance.now() };
+  const from = { ...SKY.cam }, to = { x: wx, y: wy, z: 1.8 };
+  SKY.glide = (now) => {
+    const p = Math.min(1, (now - SKY.fly.t0) / FLY_MS), e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+    SKY.cam.x = from.x + (to.x - from.x) * e; SKY.cam.y = from.y + (to.y - from.y) * e; SKY.cam.z = from.z + (to.z - from.z) * e;
+    SKY.fly.p = p;
+    if (p >= 1) { SKY.glide = null; arrive(); }
+  };
+  skyKick();
+}
+/** The flight's look: brackets lock onto the device, its cyan light grows to fill the screen. */
+function galaxyDrawFly(c, w, h) {
+  const f = SKY.fly; if (!f) return;
+  const [x, y] = skyToScreen(f.wx, f.wy), p = f.p, MONO = 'ui-monospace,Consolas,"DejaVu Sans Mono",monospace';
+  c.fillStyle = `rgba(3,3,4,${Math.min(0.7, p * 0.9)})`; c.fillRect(0, 0, w, h);
+  const lk = Math.min(1, p * 2.2), rr = 58 - 38 * (1 - Math.pow(1 - lk, 2)), tk = 7;
+  c.save(); c.translate(x, y); c.rotate((1 - lk) * Math.PI / 4);
+  c.strokeStyle = `rgba(127,227,255,${1 - p * 0.6})`; c.lineWidth = 1.4;
+  for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) { c.beginPath(); c.moveTo(sx * rr, sy * (rr - tk)); c.lineTo(sx * rr, sy * rr); c.lineTo(sx * (rr - tk), sy * rr); c.stroke(); }
+  c.restore();
+  skyStar(c, x, y, 3.6 + p * 3, 1, false);
+  if (p < 0.75) {
+    c.font = `11px ${MONO}`; c.textAlign = 'center'; c.fillStyle = `rgba(127,227,255,${1 - p / 0.75})`;
+    if (c.letterSpacing !== undefined) c.letterSpacing = '2px';
+    c.fillText(`GOING TO // ${f.label}`, x, y + 48);
+    if (c.letterSpacing !== undefined) c.letterSpacing = '0px';
+  }
+  const rad = Math.max(w, h) * (0.06 + 1.2 * p * p);
+  const g = c.createRadialGradient(x, y, 0, x, y, rad);
+  g.addColorStop(0, `rgba(200,244,255,${0.2 + 0.7 * p * p})`); g.addColorStop(0.45, `rgba(127,227,255,${0.3 * p * p})`); g.addColorStop(1, 'rgba(3,3,4,0)');
+  c.fillStyle = g; c.fillRect(0, 0, w, h);
 }
 function galaxyShowDevice(d) {
   skyHideCard(); galaxyHideDevice();
@@ -890,78 +936,19 @@ function galaxyHideDeviceSoon() { clearTimeout(SKY.dcardHide); SKY.dcardHide = s
 function galaxyDraw(now) {
   const c = SKY.ctx; if (!c || !SKY.gal) return;
   const { w, h, dpr } = SKY, z = SKY.cam.z, T = SKY.turn;
-  const MONO = 'ui-monospace,Consolas,"DejaVu Sans Mono",monospace', SERIF = 'Georgia,"Times New Roman",serif';
+  const SERIF = 'Georgia,"Times New Roman",serif';
   c.setTransform(dpr, 0, 0, dpr, 0, 0);
   skyBackdrop(c);
-  const P = (r, th) => skyToScreen(Math.cos(th + T) * r, Math.sin(th + T) * r * GAL.TILT);
   const [cx, cy] = skyToScreen(0, 0);
-  // time rings: 1 hour, 1 day, 1 week
-  for (const [label, r] of SKY.gal.rings) {
-    c.strokeStyle = 'rgba(241,238,232,.07)'; c.lineWidth = 1; c.setLineDash([2, 8]);
-    c.beginPath(); c.ellipse(cx, cy, r * z, r * z * GAL.TILT, 0, 0, 7); c.stroke(); c.setLineDash([]);
-    c.font = `12px ${MONO}`; c.fillStyle = 'rgba(170,168,165,.75)'; c.textAlign = 'left';
-    if (c.letterSpacing !== undefined) c.letterSpacing = '1.4px';
-    c.fillText(label, cx + r * z + 8, cy + 4); // on the right-hand edge of its ring
-    if (c.letterSpacing !== undefined) c.letterSpacing = '0px';
-  }
-  // the galaxy itself, tilted and turned
-  const pic = galaxySprite(SKY.gal.arms.map((a) => a.off), SKY.gal.rMax);
+  // the galaxy itself, tilted and turned (one picture, made once)
+  const pic = galaxySprite(SKY.gal.offs, SKY.gal.rMax);
   c.save(); c.translate(cx, cy); c.scale(z, z * GAL.TILT); c.rotate(T);
   c.drawImage(pic.cv, -pic.R, -pic.R, pic.R * 2, pic.R * 2);
   c.restore();
-  // each Space's arm: a thin line in its colour, its name at the far end
-  SKY.gal.arms.forEach((arm, i) => {
-    const col = skySpaceColor(arm.ws);
-    const hot = SKY.drag && SKY.drag.moved && SKY.drag.over === arm.ws && SKY.drag.ws !== arm.ws;
-    if (hot) { // dropping a star here: the arm lights up
-      c.beginPath();
-      for (let r = GAL.R0; r <= arm.end; r += 6) { const [x, y] = P(r, galTh(r, arm.off)); if (r === GAL.R0) c.moveTo(x, y); else c.lineTo(x, y); }
-      c.strokeStyle = skyRgba(col, 0.2); c.lineWidth = 34 * z; c.lineCap = 'round'; c.stroke();
-    }
-    c.beginPath();
-    for (let r = GAL.R0; r <= arm.end; r += 6) { const [x, y] = P(r, galTh(r, arm.off)); if (r === GAL.R0) c.moveTo(x, y); else c.lineTo(x, y); }
-    c.strokeStyle = skyRgba(col, hot ? 0.8 : 0.42); c.lineWidth = hot ? 2 : 1; c.lineCap = 'round'; c.stroke();
-    const [nx, ny] = P(arm.end + 70, galTh(arm.end, arm.off));
-    const ws = skyWs(arm.ws), n = S.tabs.filter((t) => !t.essential && t.ws === arm.ws).length;
-    c.textAlign = 'center';
-    c.font = `${Math.max(11, Math.round(12 * Math.min(1, z + 0.3)))}px ${MONO}`; c.fillStyle = skyRgba(col, 0.95);
-    if (c.letterSpacing !== undefined) c.letterSpacing = '1.6px';
-    c.fillText(`SPACE ${String(i + 1).padStart(2, '0')}  ·  ${n} TAB${n === 1 ? '' : 'S'}${arm.ws === S.activeWs ? '  ·  CURRENT' : ''}`, nx, ny - Math.max(22, 30 * z));
-    if (c.letterSpacing !== undefined) c.letterSpacing = '0px';
-    c.font = `${Math.round(clamp(30 * z, 18, 36))}px ${SERIF}`; c.fillStyle = SKY_C.tx;
-    c.fillText((ws && ws.name) || 'Space', nx, ny);
-  });
-  // the core: now (its glow is the galaxy picture's warm middle); your devices circle it
+  // your devices circle it; 音 sits in its bright middle
   galaxyDrawDevices(c, now);
   c.textAlign = 'center'; c.fillStyle = '#2A2118'; c.font = `${Math.round(clamp(24 * z, 16, 28))}px ${SERIF}`; c.fillText('音', cx, cy + 8 * Math.min(1, z));
-  c.font = `12px ${MONO}`; c.fillStyle = 'rgba(42,33,24,.85)';
-  if (c.letterSpacing !== undefined) c.letterSpacing = '2px';
-  c.fillText('NOW', cx, cy + 28 * Math.min(1, z) + 4);
-  if (essentials().length) { c.fillStyle = 'rgba(231,223,209,.85)'; c.fillText('ESSENTIALS', cx, cy - GAL.CORE * z * GAL.TILT - 18); }
-  if (c.letterSpacing !== undefined) c.letterSpacing = '0px';
-  // the tabs. Names go under their star; one that would run into a name already placed goes above it, and if that's
-  // taken too it waits until you zoom in or point at it (the tab you're on, and the one you point at, always get one).
-  const labels = z >= 0.45;
-  const act = activeTab();
-  const boxes = [];
-  const free = (bx, by) => !boxes.some((b) => Math.abs(b[0] - bx) < 160 && Math.abs(b[1] - by) < 22);
-  const list = [...SKY.starById.values()].map((s) => { const [x, y] = skyToScreen(s.x, s.y); return { s, x, y }; })
-    .filter(({ x, y }) => x > -120 && x < w + 120 && y > -60 && y < h + 60);
-  const strongFirst = (a) => (act && a.s.id === act.id) || SKY.hover === a.s.id || SKY.sel === a.s.id ? 0 : 1;
-  list.sort((a, b) => strongFirst(a) - strongFirst(b) || a.s.r - b.s.r);
-  for (const { s, x, y } of list) {
-    const t = tabById(s.id); if (!t) continue;
-    let up = false, show = labels && s.ws !== '__essentials';
-    const strong = strongFirst({ s }) === 0;
-    if (show || strong) {
-      if (free(x, y + 26)) boxes.push([x, y + 26]);
-      else if (free(x, y - 26)) { up = true; boxes.push([x, y - 26]); }
-      else if (!strong) show = false;
-    }
-    skyPaintTab(c, t, x, y, now, { labels: show, up, maxW: 160 });
-  }
-  skyWindows(c, now);
-  skyOverlays(c, w, h);
+  galaxyDrawFly(c, w, h);
   galaxyPlaceDevice();
 }
 
@@ -1189,7 +1176,7 @@ function skyStarAt(x, y, skip = null) {
   return best;
 }
 function skySpaceAt(x, y) {
-  if (SKY.mode === 'galaxy') return galaxyArmAt(x, y);
+  if (SKY.mode === 'galaxy') return null; // (no Spaces in the Galaxy since 1.7.10)
   if (!SKY.lay.spaces.length) return null;
   const [wx, wy] = skyToWorld(x, y);
   let best = null, bd = Infinity;
@@ -1393,7 +1380,7 @@ function skyMount(layer, search, mode = 'sky') {
   document.body.classList.add('v1-sky-open');
   const box = h('div', { class: 'sky-box' });
   const canvas = h('canvas', { class: 'sky-canvas', tabindex: '0', 'aria-label': SKY.mode === 'galaxy'
-    ? 'Galaxy view: your tabs as stars on spiral arms, one arm per Space; the middle is now, further out is longer ago. Use the search box, or arrow keys to move between tabs and Enter to open one.'
+    ? 'Galaxy view: the galaxy, with the devices signed in to your Oto account circling it. Click a device to go to it; zoom in to come down to your tabs.'
     : 'Sky View: your tabs as stars. Use the search box, or arrow keys to move between tabs and Enter to open one.' });
   box.append(canvas);
   layer.append(box);
@@ -1418,7 +1405,7 @@ function skyMount(layer, search, mode = 'sky') {
   // pointer: drag empty sky to pan, drag a star to move it (into another Space, or to a new spot), wheel to zoom
   canvas.addEventListener('mousedown', (e) => {
     e.stopPropagation();
-    if (e.button !== 0) return;
+    if (e.button !== 0 || SKY.fly) return;
     canvas.focus({ preventScroll: true });
     const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     const win = skyWindowAt(x, y);
@@ -1435,52 +1422,51 @@ function skyMount(layer, search, mode = 'sky') {
     const nm = !s && skyNameAt(x, y);
     if (s) { const t = tabById(s.id); SKY.drag = { id: s.id, ws: t && t.essential ? '__essentials' : t && t.ws, x0: x, y0: y, mx: x, my: y, moved: false, over: null, link: SKY.mode === 'sky' && e.shiftKey }; skyHideCard(); }
     else if (nm) SKY.gdrag = { ids: nm.g.ids, g: nm.g, x0: x, y0: y, dx: 0, dy: 0, moved: false };
-    else if (SKY.mode === 'galaxy' && galaxyDevAt(x, y)) { // a device: a phone opens its panel, anything else shows its window
-      const dv = galaxyDevAt(x, y);
-      if (dv.kind === 'phone' && typeof v1Phone === 'function') { v1CloseOverview(); v1Phone(); } else galaxyShowDevice(dv);
-    } else SKY.pan = { x0: x, y0: y, cx: SKY.cam.x, cy: SKY.cam.y, moved: false };
+    else if (SKY.mode === 'galaxy' && galaxyDevAt(x, y)) galaxyFlyTo(galaxyDevAt(x, y)); // a device: fly to it (a dark one shows its window)
+    else SKY.pan = { x0: x, y0: y, cx: SKY.cam.x, cy: SKY.cam.y, moved: false };
   });
+  // (pointer moves only ask for a frame: the drawing happens once per screen refresh, however fast the mouse reports)
   SKY.onMove = (e) => {
-    if (!SKY.on) return;
+    if (!SKY.on || SKY.fly) return;
     const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     if (SKY.pan) {
       if (Math.hypot(x - SKY.pan.x0, y - SKY.pan.y0) > 3) SKY.pan.moved = true;
       SKY.cam.x = SKY.pan.cx - (x - SKY.pan.x0) / SKY.cam.z; SKY.cam.y = SKY.pan.cy - (y - SKY.pan.y0) / SKY.cam.z;
-      skyHideCard(); galaxyHideDevice(); skyDraw(); return;
+      skyHideCard(); galaxyHideDevice(); skyKick(); return;
     }
     if (SKY.gdrag) { // moving a whole group by its name
       if (Math.hypot(x - SKY.gdrag.x0, y - SKY.gdrag.y0) > 4) SKY.gdrag.moved = true;
       SKY.gdrag.dx = (x - SKY.gdrag.x0) / SKY.cam.z; SKY.gdrag.dy = (y - SKY.gdrag.y0) / SKY.cam.z;
-      canvas.style.cursor = 'grabbing'; skyDraw(); return;
+      canvas.style.cursor = 'grabbing'; skyKick(); return;
     }
     if (SKY.drag) {
       if (Math.hypot(x - SKY.drag.x0, y - SKY.drag.y0) > 5) SKY.drag.moved = true;
       SKY.drag.mx = x; SKY.drag.my = y;
       if (SKY.mode === 'galaxy') SKY.drag.over = skySpaceAt(x, y);
       else { const o = skyStarAt(x, y, SKY.drag.id); SKY.drag.over = o ? o.id : null; }
-      canvas.style.cursor = SKY.drag.link ? 'crosshair' : 'grabbing'; skyDraw(); return;
+      canvas.style.cursor = SKY.drag.link ? 'crosshair' : 'grabbing'; skyKick(); return;
     }
-    if (SKY.linking) { const o = skyStarAt(x, y, SKY.linking.id); SKY.linking.mx = x; SKY.linking.my = y; SKY.linking.over = o ? o.id : null; skyDraw(); return; }
+    if (SKY.linking) { const o = skyStarAt(x, y, SKY.linking.id); SKY.linking.mx = x; SKY.linking.my = y; SKY.linking.over = o ? o.id : null; skyKick(); return; }
     if (e.target !== canvas) return;
     if (skyWindowAt(x, y)) { canvas.style.cursor = 'pointer'; return; }
     if (!skyStarAt(x, y)) {
       const ed = skyEdgeAt(x, y), nm = skyNameAt(x, y);
-      if (ed !== SKY.hoverEdge) { SKY.hoverEdge = ed; skyDraw(); }
-      if (ed || nm) { canvas.style.cursor = nm ? 'grab' : 'context-menu'; if (SKY.hover) { SKY.hover = null; skyDraw(); skyHideCardSoon(); } return; }
-    } else if (SKY.hoverEdge) { SKY.hoverEdge = null; skyDraw(); }
+      if (ed !== SKY.hoverEdge) { SKY.hoverEdge = ed; skyKick(); }
+      if (ed || nm) { canvas.style.cursor = nm ? 'grab' : 'context-menu'; if (SKY.hover) { SKY.hover = null; skyKick(); skyHideCardSoon(); } return; }
+    } else if (SKY.hoverEdge) { SKY.hoverEdge = null; skyKick(); }
     const s = skyStarAt(x, y);
     const id = s ? s.id : null;
     if (SKY.mode === 'galaxy' && !s) { // your devices
       const dv = galaxyDevAt(x, y), did = dv ? dv.id : null;
       if (did !== SKY.hoverDev) {
-        SKY.hoverDev = did; skyDraw(); clearTimeout(SKY.hoverDevT);
+        SKY.hoverDev = did; skyKick(); clearTimeout(SKY.hoverDevT);
         if (dv) SKY.hoverDevT = setTimeout(() => { if (SKY.hoverDev === did) galaxyShowDevice(dv); }, 160); else galaxyHideDeviceSoon();
       }
       if (dv) { canvas.style.cursor = 'pointer'; if (SKY.hover) { SKY.hover = null; skyHideCardSoon(); } return; }
     }
     canvas.style.cursor = s ? 'pointer' : 'grab';
     if (id !== SKY.hover) {
-      SKY.hover = id; skyDraw();
+      SKY.hover = id; skyKick();
       clearTimeout(SKY.hoverT);
       if (id) SKY.hoverT = setTimeout(() => { if (SKY.hover === id) skyShowCard(id); }, 160);
       else skyHideCardSoon();
@@ -1524,6 +1510,7 @@ function skyMount(layer, search, mode = 'sky') {
   });
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
+    if (SKY.fly) return;
     const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     const [wx, wy] = skyToWorld(x, y);
     const want = SKY.cam.z * Math.exp(-e.deltaY * 0.0015);
@@ -1533,7 +1520,7 @@ function skyMount(layer, search, mode = 'sky') {
     const z = clamp(want, zMin, zMax);
     SKY.cam.z = z;
     SKY.cam.x = wx - (x - SKY.w / 2) / z; SKY.cam.y = wy - (y - SKY.h / 2) / z;
-    skyHideCard(); skyDraw(); skySaveCamSoon(); skyUpdateZoom();
+    skyHideCard(); skyKick(); skySaveCamSoon(); skyUpdateZoom();
   }, { passive: false });
   canvas.addEventListener('mouseleave', () => { if (SKY.hover) { SKY.hover = null; skyDraw(); skyHideCardSoon(); } });
   canvas.addEventListener('keydown', (e) => { if (e.key === 'Escape' && SKY.linking) { e.preventDefault(); e.stopPropagation(); SKY.linking = null; canvas.style.cursor = ''; skyDraw(); return; } skyKey(e); });
@@ -1546,7 +1533,7 @@ function skyMount(layer, search, mode = 'sky') {
     zoomTxt,
     h('button', { title: 'Zoom in', 'aria-label': 'Zoom in', onclick: () => skyZoomBy(1.25) }, '+'),
     h('button', { title: 'Show everything', 'aria-label': 'Show everything', onclick: () => skyGlideTo(skyFitAll()), html: icon('grid') }),
-    h('button', { title: 'Back to the tab you’re on', 'aria-label': 'Back to the tab you’re on', onclick: () => { const a = activeTab(); if (a) skyFocusStar(a.id, 1); } }, '◎'),
+    h('button', { class: 'me', hidden: SKY.mode === 'galaxy', title: 'Back to the tab you’re on', 'aria-label': 'Back to the tab you’re on', onclick: () => { const a = activeTab(); if (a) skyFocusStar(a.id, 1); } }, '◎'),
     h('button', { class: 'rst', hidden: SKY.mode === 'galaxy', title: 'Sort the stars by site again (you can undo it)', 'aria-label': 'Sort the stars by site again', onclick: () => skyResetLayout() }, '⟲'),
     h('button', { class: 'q', title: 'How to use Sky View', 'aria-label': 'How to use Sky View', onclick: () => skyHelp(true) }, '?'));
   layer.append(ctl);
@@ -1573,12 +1560,12 @@ function skyResetLayout() {
 /** The controls, shown the first few times (then only behind the ? button). */
 function skyHelp(force) {
   if (SKY.help) { SKY.help.remove(); SKY.help = null; if (force) return; }
-  const key = SKY.mode === 'galaxy' ? 'galaxyHelpSeen' : 'skyHelpSeen';
+  const key = SKY.mode === 'galaxy' ? 'galaxyHelpSeen2' : 'skyHelpSeen'; // (new tips for the Galaxy in 1.7.10)
   const seen = S.settings[key] || 0;
   if (!force && seen >= 3) return;
   if (!force) { S.settings[key] = seen + 1; save(); }
   const tips = SKY.mode === 'galaxy'
-    ? [['The middle', 'is now'], ['Further out', 'longer ago'], ['Each arm', 'is a Space'], ['Hover', 'preview'], ['Drag a star', 'to another arm']]
+    ? [['Your devices', 'circle the galaxy'], ['Click one', 'go to it'], ['Dark', 'its app isn’t open'], ['Zoom in', 'down to your tabs']]
     : [['Drag a star', 'put it anywhere'], ['Drop on a star', 'join them'], ['Shift-drag', 'draw a line'], ['Right-click', 'more']];
   SKY.help = h('div', { class: 'sky-help' }, ...tips.map(([k, t]) => h('span', {}, h('kbd', {}, k), t)),
     h('button', { class: 'ok', onclick: () => { S.settings[key] = 3; save(); if (SKY.help) { SKY.help.remove(); SKY.help = null; } } }, 'Got it'));
@@ -1645,7 +1632,7 @@ function skyPictureTick() {
 if (typeof setInterval === 'function' && typeof document !== 'undefined') setInterval(skyPictureTick, 30000);
 
 function skyUnmount() {
-  galaxyHideDevice(); SKY.hoverDev = null;
+  galaxyHideDevice(); SKY.hoverDev = null; SKY.fly = null;
   if (!SKY.on) return;
   skySaveCam();
   SKY.on = false;
