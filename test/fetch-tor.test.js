@@ -26,11 +26,12 @@ test('gpg status: the primary fingerprint counts; bad or expired signatures are 
 test('a file signed by the right key passes; another key, or a changed file, is refused', { skip: !hasGpg && 'no gpg' }, () => {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'oto-sig-'));
   const mk = (who) => {
-    const home = path.join(d, who); fs.mkdirSync(home, { mode: 0o700 });
-    const g = (a, o = {}) => execFileSync('gpg', ['--homedir', home, '--batch', '--no-tty', '--pinentry-mode', 'loopback', '--passphrase', '', ...a], { stdio: ['pipe', 'pipe', 'pipe'], ...o });
+    fs.mkdirSync(path.join(d, who), { mode: 0o700 });
+    // (paths relative to d: Git for Windows' gpg doesn't understand C:\... paths)
+    const g = (a, o = {}) => execFileSync('gpg', ['--homedir', who, '--batch', '--no-tty', '--pinentry-mode', 'loopback', '--passphrase', '', ...a], { cwd: d, stdio: ['pipe', 'pipe', 'pipe'], ...o });
     g(['--quick-gen-key', `${who} <${who}@example.test>`, 'ed25519', 'sign', '1d']);
     const fpr = /^fpr:+([0-9A-F]{40}):/m.exec(g(['--with-colons', '--fingerprint', who]).toString())[1];
-    return { fpr, pub: g(['--export', fpr]), sign: (file) => g(['--detach-sign', '--armor', '-o', `${file}.${who}.asc`, file]) };
+    return { fpr, pub: g(['--export', fpr]), sign: (file) => g(['--detach-sign', '--armor', '-o', `${path.basename(file)}.${who}.asc`, path.basename(file)]) };
   };
   const tor = mk('tor'), evil = mk('evil');
   const file = path.join(d, 'bundle.tar.gz'); fs.writeFileSync(file, 'tor bits');
