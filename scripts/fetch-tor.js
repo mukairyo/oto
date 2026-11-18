@@ -37,7 +37,9 @@ function signerOf(status) {
 function verify({ file, sig, keys, want = TOR_KEY, gpg = 'gpg' }) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'oto-gpg-'));
   try {
-    const run = (args, opts = {}) => execFileSync(gpg, ['--homedir', home, '--batch', '--no-tty', ...args], { stdio: ['pipe', 'pipe', 'pipe'], ...opts });
+    // (the keyring folder is given relative to its parent: Git for Windows' gpg treats C:\... as a relative path,
+    // a native gpg doesn't understand /c/..., and both understand a plain folder name)
+    const run = (args, opts = {}) => execFileSync(gpg, ['--homedir', path.basename(home), '--batch', '--no-tty', ...args], { cwd: path.dirname(home), stdio: ['pipe', 'pipe', 'pipe'], ...opts });
     const notes = [];
     for (const k of keys) {
       try { run(['--import'], { input: k }); notes.push(`imported ${k.length} bytes`); } catch (e) { notes.push(`import refused (${k.length} bytes): ${String(e.stderr || e.message).trim().split(/\r?\n/).slice(-2).join(' | ')}`); }
