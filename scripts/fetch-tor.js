@@ -89,7 +89,7 @@ async function main() {
     fs.writeFileSync(path.join(work, name), tgz); fs.writeFileSync(path.join(work, `${name}.asc`), asc);
     const signer = verify({ file: path.join(work, name), sig: path.join(work, `${name}.asc`), keys });
     const x = path.join(work, 'x'); fs.mkdirSync(x);
-    execFileSync('tar', ['-xzf', path.join(work, name), '-C', x], { stdio: 'inherit' });
+    execFileSync('tar', ['-xzf', name, '-C', 'x'], { cwd: work, stdio: 'inherit' }); // (relative: Git's tar reads C:\ as a remote host)
     if (!fs.existsSync(path.join(x, 'tor', 'tor.exe'))) throw new Error('the bundle has no tor/tor.exe');
     const out = path.join(__dirname, '..', 'vendor-tor');
     fs.rmSync(out, { recursive: true, force: true });
