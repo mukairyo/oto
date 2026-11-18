@@ -48,10 +48,11 @@ test that fails on 1.7.12 and passes now. Every result below was produced on the
 |---|---|---|
 | Unit tests (`npm test`) | Linux | 242 pass, 0 fail |
 | End-to-end (`test/e2e/run.js`, incl. new `boundaries` suite) | Linux (xvfb) | 292/292 + new checks pass |
-| End-to-end, Windows | Windows (GitHub runner) | runs in CI and in the release job; result on the CI page for this commit |
+| Unit tests | Windows (GitHub runner, Checks run 44373908528) | 242 pass, 0 fail |
+| End-to-end incl. `boundaries` and the new `permissions` checks | Windows (GitHub runner, Checks run 44373908528) | 294/294 pass |
 | `npm audit --omit=dev --audit-level=high` | Linux | 0 vulnerabilities |
 | `npm audit` (all) | Linux | 6 moderate, all in electron-builder's build-time chain (minimatch ReDoS); npm's "fix" is a downgrade to electron-builder 24.13.3 (breaking). Build-only, not shipped: accepted, revisit when electron-builder updates. |
-| Backend check | — | Not run from this machine (no route to the backend); runs in CI and now gates releases. Two-account part needs the owner's test accounts. |
+| Backend check | GitHub runner (Backend access check run 44373908533) | 12/12 anonymous checks pass against the live backend; exit 2 "not run" for the two-account part (no test accounts yet), so the workflow fails, as designed |
 
 ## D. Remaining limitations
 
