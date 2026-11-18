@@ -103,6 +103,11 @@ async function main() {
     walk(x);
     fs.mkdirSync(path.join(out, 'licenses'), { recursive: true });
     for (const f of licences) fs.copyFileSync(f, path.join(out, 'licenses', path.relative(x, f).replace(/[\\/]/g, '_')));
+    // Tor's licence (3-clause BSD, with the notices of the libraries tor.exe includes) must ship with it; the
+    // expert bundle doesn't carry it, so it comes from Tor's own source repository.
+    const lic = (await get('https://gitlab.torproject.org/tpo/core/tor/-/raw/main/LICENSE')).toString('utf8');
+    if (!/The Tor Project/.test(lic) || !/Redistribution and use in source and binary forms/.test(lic)) throw new Error('Tor\'s LICENSE looks wrong');
+    fs.writeFileSync(path.join(out, 'licenses', 'tor-LICENSE.txt'), lic);
     fs.writeFileSync(path.join(out, 'README.md'), `Tor ${v} (Tor Expert Bundle, Windows x64) from dist.torproject.org, for Oto VPN.\n` +
       `Tor is free software by The Tor Project, Inc., under the 3-clause BSD licence: https://gitlab.torproject.org/tpo/core/tor/-/blob/main/LICENSE\n` +
       `Signature checked against the Tor Browser signing key ${signer} (scripts/fetch-tor.js).\n`);
