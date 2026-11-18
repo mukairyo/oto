@@ -839,7 +839,7 @@ function galaxyDrawDevices(c, now) {
       skyStar(c, x, y, hov ? 2.2 : 1.7, hov ? 0.55 : 0.35, false);
       c.fillStyle = 'rgba(8,10,14,.55)'; c.beginPath(); c.arc(x, y, hov ? 3.4 : 2.8, 0, 7); c.fill();
     }
-    if (z >= 0.35 || hov) { // its name, small and quiet, like a name on a star chart
+    if ((z >= 0.35 || hov) && !SKY.warp) { // its name, small and quiet, like a name on a star chart (not during a jump)
       c.font = `${hov ? 600 : 500} 10px ${MONO}`; c.textAlign = 'center'; if (c.letterSpacing !== undefined) c.letterSpacing = '1.4px';
       c.shadowColor = 'rgba(3,3,6,.9)'; c.shadowBlur = 5; // (readable over the bright arms)
       const nm = d.me ? (d.name && d.name !== 'This PC' ? d.name : '') : d.name || '';
@@ -892,8 +892,8 @@ function skyWarpTick(now) {
       W.s = 0;
     } else { // the jump: speeding up into the star, everything streaming past
       const q = Math.min(1, (e - SPOOL) / JUMP);
-      SKY.cam.x = W.wx; SKY.cam.y = W.wy; SKY.cam.z = W.from.z * 1.25 * Math.pow(16, q * q * q);
-      W.s = q * q;
+      SKY.cam.x = W.wx; SKY.cam.y = W.wy; SKY.cam.z = W.from.z * 1.25 * Math.pow(11, q * q * q);
+      W.s = Math.pow(q, 1.5);
       if (q >= 1) { W.arrived = true; W.ta = now; W.arrive(); }
     }
   } else { // dropping out: the streaks slow and shorten while the new view settles
@@ -910,7 +910,7 @@ function skyDrawWarp(c, w, h, now) {
   const [fx, fy] = W.arrived ? [w / 2, h / 2] : skyToScreen(W.wx, W.wy);
   const dt = W.last ? Math.min(50, now - W.last) : 16; W.last = now;
   // zoom blur: the picture smeared outward from the target
-  if (s > 0.04 && SKY.canvas) {
+  if (s > 0.04 && SKY.canvas && !W.arrived) { // (not after the flash: it would double the new view's names)
     const dpr = SKY.dpr;
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
     for (const [k, al] of [[1 + 0.05 * s, 0.4], [1 + 0.12 * s, 0.25]]) {
@@ -924,24 +924,27 @@ function skyDrawWarp(c, w, h, now) {
   // the tunnel: darker at the edges as you speed up
   if (s > 0.02) {
     const R = Math.hypot(w, h) * 0.75, v = c.createRadialGradient(fx, fy, R * 0.15, fx, fy, R);
-    v.addColorStop(0, 'rgba(3,4,8,0)'); v.addColorStop(1, `rgba(3,4,8,${0.75 * s})`);
+    v.addColorStop(0, 'rgba(3,4,8,0)'); v.addColorStop(1, `rgba(3,4,8,${0.8 * s})`);
     c.fillStyle = v; c.fillRect(0, 0, w, h);
+    c.fillStyle = `rgba(4,6,12,${0.4 * s})`; c.fillRect(0, 0, w, h); // (the stretched-out galaxy fades behind the streaks)
   }
   // streaks: stars stretched into lines, rushing outward from the target, longer and brighter the faster you go
   const maxD = Math.hypot(Math.max(fx, w - fx), Math.max(fy, h - fy)) + 40;
   const sp = 0.25 + 9 * s;
   c.lineCap = 'round';
-  for (const [lo, hi, al, lw] of [[0, 0.5, 0.45, 1], [0.5, 2, 0.9, 1.6]]) {
-    c.beginPath();
-    for (const p of W.parts) {
-      if (p.k < lo + 0.6 || p.k >= hi + 0.6) continue;
-      p.d += p.d * sp * p.k * dt / 1000;
-      if (p.d > maxD) { p.d = 4 + Math.random() * 60; p.a = Math.random() * Math.PI * 2; }
-      if (s < 0.03) continue;
-      const len = 2 + p.d * 0.45 * s * p.k, ca = Math.cos(p.a), sa = Math.sin(p.a);
-      c.moveTo(fx + ca * p.d, fy + sa * p.d); c.lineTo(fx + ca * (p.d + len), fy + sa * (p.d + len));
+  for (const p of W.parts) { // (moved once per frame, drawn in two passes below)
+    p.d += p.d * sp * p.k * dt / 1000;
+    if (p.d > maxD) { p.d = 4 + Math.random() * 60; p.a = Math.random() * Math.PI * 2; }
+  }
+  if (s >= 0.03) {
+    for (const [col, al, lw, lenK] of [['150,180,255', 0.35, 2.6, 1], ['238,244,255', 0.9, 1.1, 0.8]]) {
+      c.beginPath();
+      for (const p of W.parts) {
+        const len = 2 + p.d * 0.45 * s * p.k * lenK, ca = Math.cos(p.a), sa = Math.sin(p.a), d0 = p.d * (lenK < 1 ? 1.04 : 1);
+        c.moveTo(fx + ca * d0, fy + sa * d0); c.lineTo(fx + ca * (d0 + len), fy + sa * (d0 + len));
+      }
+      c.strokeStyle = `rgba(${col},${Math.min(1, s * 1.6) * al})`; c.lineWidth = lw * (0.5 + s * 0.9); c.stroke();
     }
-    c.strokeStyle = `rgba(222,232,255,${Math.min(1, s * 1.5) * al})`; c.lineWidth = lw * (0.6 + s); c.stroke();
   }
   // before the jump: brackets lock onto the star, and where you're going
   if (!W.arrived) {
@@ -963,8 +966,12 @@ function skyDrawWarp(c, w, h, now) {
     g.addColorStop(0, `rgba(250,252,255,${0.9 * glow})`); g.addColorStop(0.35, `rgba(214,226,255,${0.35 * glow})`); g.addColorStop(1, 'rgba(214,226,255,0)');
     c.fillStyle = g; c.fillRect(0, 0, w, h);
   }
-  const fl = W.arrived ? Math.max(0, 1 - (now - W.ta) / 380) : Math.max(0, (now - W.t0 - WARP.SPOOL - WARP.JUMP * 0.82) / (WARP.JUMP * 0.18));
-  if (fl > 0) { c.fillStyle = `rgba(240,245,255,${0.92 * Math.min(1, fl)})`; c.fillRect(0, 0, w, h); }
+  const fl = W.arrived ? Math.pow(Math.max(0, 1 - (now - W.ta) / 340), 2) : Math.max(0, (now - W.t0 - WARP.SPOOL - WARP.JUMP * 0.82) / (WARP.JUMP * 0.18));
+  if (fl > 0) {
+    const a = Math.min(1, fl), g2 = c.createRadialGradient(fx, fy, 0, fx, fy, Math.hypot(w, h) * 0.7);
+    g2.addColorStop(0, `rgba(255,255,255,${0.97 * a})`); g2.addColorStop(1, `rgba(200,216,255,${0.85 * a})`);
+    c.fillStyle = g2; c.fillRect(0, 0, w, h);
+  }
 }
 
 function galaxyShowDevice(d) {
