@@ -5,8 +5,8 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 
 ## 1.7.10 — The Galaxy is your devices
 
-- **Just the galaxy and your devices.** The Galaxy view no longer shows your tabs or your Spaces' names (they live in Sky). What's left is the galaxy and the devices signed in to your Oto account circling it.
-- **Fly to a device.** Click a device and the view flies to it: the galaxy holds still, brackets lock onto its star and its light fills the screen. At this PC you come down into Sky with your tabs; at your phone, its panel opens.
+- **Just the galaxy and your devices.** The Galaxy view no longer shows your tabs or your Spaces' names (they live in Sky). What's left is the galaxy, and the devices signed in to your Oto account are stars of it, sitting on its arms with their names beside them.
+- **Fly to a device.** Click a device and the view flies to it: the galaxy holds still, brackets lock onto the star and its light fills the screen. At this PC you come down into Sky with your tabs; at your phone, its panel opens.
 - **Dark when the app isn't open.** A device where Oto isn't open right now is a dark star. Clicking it shows when it was last on.
 - **No more lag.** Moving the mouse used to redraw the whole view for every mouse report, which could be hundreds of times a second; now it's at most once per screen refresh. The starfield behind it is also shrunk once instead of every frame. A Galaxy frame takes about half the work it did.
 

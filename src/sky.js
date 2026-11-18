@@ -791,10 +791,16 @@ function galaxySprite(offs, rMax) {
   return GAL_PIC;
 }
 
-// The devices signed in to your Oto account (this PC, your phone, other PCs) are bright stars circling the galaxy,
+// The devices signed in to your Oto account (this PC, your phone, other PCs) are stars of the galaxy itself,
 // each named with what it is: WINDOWS, ANDROID, IOS, LINUX, MACOS. Point at one to see it, its open tabs and when it
 // was last on; a phone opens its panel.
-const devR = () => (SKY.gal ? SKY.gal.rMax : GAL.RMAX) * 1.16;
+// (1.7.10) Each device is one of the galaxy's own stars, sitting on its arms: the first two on the two big arms, the
+// next ones a little further out. Where one is now that the galaxy has turned:
+function devPos(i) {
+  const offs = (SKY.gal && SKY.gal.offs) || [-Math.PI / 2, Math.PI / 2], rMax = (SKY.gal && SKY.gal.rMax) || GAL.RMAX;
+  const RS = [0.46, 0.8, 0.63, 0.95, 0.36], r = rMax * RS[Math.floor(i / 2) % RS.length], th = galTh(r, offs[i % 2]) + SKY.turn + (i >= 10 ? 0.3 : 0);
+  return [Math.cos(th) * r, Math.sin(th) * r * GAL.TILT];
+}
 function devPlatform(d) {
   const o = String((d && d.os) || '');
   if (/android/i.test(o)) return 'ANDROID';
@@ -809,52 +815,43 @@ function galaxyDevices() {
   const me = { id: (ph && ph.me && ph.me.id) || 'this-pc', name: (ph && ph.me && ph.me.name) || 'This PC', me: true, online: true, kind: 'pc', os: typeof navigator !== 'undefined' ? (/Win/.test(navigator.platform) ? 'Windows' : /Mac/.test(navigator.platform) ? 'macOS' : /Linux/.test(navigator.platform) ? 'Linux' : '') : '' };
   const others = ph && Array.isArray(ph.devices) ? ph.devices.filter((d) => d && !d.locked).map((d) => ({ ...d, online: typeof phOnline === 'function' ? phOnline(d) : false })) : [];
   const list = [me, ...others];
-  return list.map((d, i) => ({ ...d, plat: devPlatform(d), th: (i / list.length) * Math.PI * 2 + 0.4 }));
+  return list.map((d, i) => ({ ...d, plat: devPlatform(d), i }));
 }
 function galaxyDevAt(x, y) {
   for (const d of SKY.devs || []) if (Math.hypot(d.sx - x, d.sy - y) < 16) return d;
   return null;
 }
 function galaxyDrawDevices(c, now) {
-  const z = SKY.cam.z, T = SKY.turn, MONO = 'ui-monospace,Consolas,"DejaVu Sans Mono",monospace';
-  const [cx, cy] = skyToScreen(0, 0);
+  const z = SKY.cam.z, MONO = 'ui-monospace,Consolas,"DejaVu Sans Mono",monospace';
   // (who's online is looked at once a second, not every frame)
   if (!SKY.devs || !SKY.devsAt || now - SKY.devsAt > 1000 || now < SKY.devsAt) { SKY.devs = galaxyDevices(); SKY.devsAt = now; }
-  // their orbit
-  c.strokeStyle = 'rgba(127,227,255,.16)'; c.lineWidth = 1; c.setLineDash([2, 6]);
-  const DEV_R = devR();
-  c.beginPath(); c.ellipse(cx, cy, DEV_R * z, DEV_R * z * GAL.TILT, 0, 0, 7); c.stroke(); c.setLineDash([]);
   for (const d of SKY.devs) {
-    const [x, y] = skyToScreen(Math.cos(d.th + T) * DEV_R, Math.sin(d.th + T) * DEV_R * GAL.TILT);
+    const [wx, wy] = devPos(d.i), [x, y] = skyToScreen(wx, wy);
     d.sx = x; d.sy = y;
     const hov = SKY.hoverDev === d.id, on = d.me || d.online;
-    if (on) { // on: a bright cyan star
-      const gl = c.createRadialGradient(x, y, 0, x, y, 22);
-      gl.addColorStop(0, 'rgba(127,227,255,.55)'); gl.addColorStop(1, 'rgba(127,227,255,0)');
-      c.fillStyle = gl; c.beginPath(); c.arc(x, y, 22, 0, 7); c.fill();
-      skyStar(c, x, y, hov ? 4.2 : 3.6, 1, false);
-      c.strokeStyle = `rgba(127,227,255,${hov ? 0.95 : 0.55})`;
-    } else { // the app isn't open there: a dark star
-      c.fillStyle = 'rgba(20,24,30,.92)'; c.beginPath(); c.arc(x, y, 12, 0, 7); c.fill();
-      c.fillStyle = `rgba(92,102,116,${hov ? 0.95 : 0.7})`; c.beginPath();
-      const k = hov ? 9 : 8;
-      c.moveTo(x, y - k); c.quadraticCurveTo(x, y, x + k, y); c.quadraticCurveTo(x, y, x, y + k); c.quadraticCurveTo(x, y, x - k, y); c.quadraticCurveTo(x, y, x, y - k); c.fill();
-      c.strokeStyle = `rgba(80,90,104,${hov ? 0.9 : 0.6})`;
+    // one of the galaxy's stars: a bright one where Oto is open, a dark one where it isn't
+    if (on) {
+      const tw = 0.85 + 0.15 * Math.sin(now / 700 + d.i * 1.7); // a slow twinkle
+      skyStar(c, x, y, (hov ? 3.6 : 3) * tw, 1, false);
+    } else {
+      skyStar(c, x, y, hov ? 2.2 : 1.7, hov ? 0.55 : 0.35, false);
+      c.fillStyle = 'rgba(8,10,14,.55)'; c.beginPath(); c.arc(x, y, hov ? 3.4 : 2.8, 0, 7); c.fill();
     }
-    c.lineWidth = 1.2; c.beginPath(); c.arc(x, y, 13, 0, 7); c.stroke();
-    if (z >= 0.35 || hov) {
-      c.font = `600 11px ${MONO}`; c.textAlign = 'center'; if (c.letterSpacing !== undefined) c.letterSpacing = '1.4px';
-      c.fillStyle = on ? 'rgba(127,227,255,1)' : 'rgba(110,118,130,.85)'; c.fillText(`${d.me ? 'THIS PC · ' : ''}${d.plat}`, x, y - 22);
-      c.font = `11px ${MONO}`; c.fillStyle = on ? 'rgba(236,232,225,.85)' : 'rgba(110,118,130,.75)';
+    if (z >= 0.35 || hov) { // its name, small and quiet, like a name on a star chart
+      c.font = `${hov ? 600 : 500} 10px ${MONO}`; c.textAlign = 'center'; if (c.letterSpacing !== undefined) c.letterSpacing = '1.4px';
+      c.shadowColor = 'rgba(3,3,6,.9)'; c.shadowBlur = 5; // (readable over the bright arms)
       const nm = d.me ? (d.name && d.name !== 'This PC' ? d.name : '') : d.name || '';
-      if (nm) c.fillText(skyEll(c, String(nm).toUpperCase(), 150), x, y + 30);
+      c.fillStyle = on ? `rgba(236,240,255,${hov ? 1 : 0.85})` : `rgba(120,128,140,${hov ? 0.85 : 0.6})`;
+      c.fillText(`${d.me ? 'THIS PC · ' : ''}${d.plat}`, x, y - 16);
+      if (nm) { c.font = `10px ${MONO}`; c.fillStyle = on ? `rgba(236,232,225,${hov ? 0.9 : 0.62})` : `rgba(120,128,140,${hov ? 0.7 : 0.45})`; c.fillText(skyEll(c, String(nm).toUpperCase(), 140), x, y + 22); }
       if (c.letterSpacing !== undefined) c.letterSpacing = '0px';
+      c.shadowBlur = 0; c.shadowColor = 'transparent';
     }
   }
 }
 
 // Clicking a device that's on flies you to it: the galaxy holds still, the view rushes in to the device's star while
-// its cyan light fills the screen, then you arrive: at this PC, down into Sky with your tabs; at your phone, its panel.
+// its light fills the screen, then you arrive: at this PC, down into Sky with your tabs; at your phone, its panel.
 // A device whose app isn't open is dark: clicking it just shows when it was last on.
 const FLY_MS = 760;
 function galaxyFlyTo(d) {
@@ -869,7 +866,7 @@ function galaxyFlyTo(d) {
   };
   skyHideCard(); galaxyHideDevice(); SKY.hoverDev = null;
   if (!skyMotion()) { arrive(); return; }
-  const DEV_R = devR(), wx = Math.cos(d.th + SKY.turn) * DEV_R, wy = Math.sin(d.th + SKY.turn) * DEV_R * GAL.TILT;
+  const [wx, wy] = devPos(d.i);
   SKY.fly = { id: d.id, label: `${d.me ? 'THIS PC' : d.plat}`, wx, wy, p: 0, t0: performance.now() };
   const from = { ...SKY.cam }, to = { x: wx, y: wy, z: 1.8 };
   SKY.glide = (now) => {
@@ -887,19 +884,19 @@ function galaxyDrawFly(c, w, h) {
   c.fillStyle = `rgba(3,3,4,${Math.min(0.7, p * 0.9)})`; c.fillRect(0, 0, w, h);
   const lk = Math.min(1, p * 2.2), rr = 58 - 38 * (1 - Math.pow(1 - lk, 2)), tk = 7;
   c.save(); c.translate(x, y); c.rotate((1 - lk) * Math.PI / 4);
-  c.strokeStyle = `rgba(127,227,255,${1 - p * 0.6})`; c.lineWidth = 1.4;
+  c.strokeStyle = `rgba(236,240,255,${1 - p * 0.6})`; c.lineWidth = 1.4;
   for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) { c.beginPath(); c.moveTo(sx * rr, sy * (rr - tk)); c.lineTo(sx * rr, sy * rr); c.lineTo(sx * (rr - tk), sy * rr); c.stroke(); }
   c.restore();
   skyStar(c, x, y, 3.6 + p * 3, 1, false);
   if (p < 0.75) {
-    c.font = `11px ${MONO}`; c.textAlign = 'center'; c.fillStyle = `rgba(127,227,255,${1 - p / 0.75})`;
+    c.font = `11px ${MONO}`; c.textAlign = 'center'; c.fillStyle = `rgba(236,240,255,${1 - p / 0.75})`;
     if (c.letterSpacing !== undefined) c.letterSpacing = '2px';
     c.fillText(`GOING TO // ${f.label}`, x, y + 48);
     if (c.letterSpacing !== undefined) c.letterSpacing = '0px';
   }
   const rad = Math.max(w, h) * (0.06 + 1.2 * p * p);
   const g = c.createRadialGradient(x, y, 0, x, y, rad);
-  g.addColorStop(0, `rgba(200,244,255,${0.2 + 0.7 * p * p})`); g.addColorStop(0.45, `rgba(127,227,255,${0.3 * p * p})`); g.addColorStop(1, 'rgba(3,3,4,0)');
+  g.addColorStop(0, `rgba(246,248,255,${0.2 + 0.7 * p * p})`); g.addColorStop(0.45, `rgba(214,224,255,${0.3 * p * p})`); g.addColorStop(1, 'rgba(3,3,4,0)');
   c.fillStyle = g; c.fillRect(0, 0, w, h);
 }
 function galaxyShowDevice(d) {
@@ -1565,7 +1562,7 @@ function skyHelp(force) {
   if (!force && seen >= 3) return;
   if (!force) { S.settings[key] = seen + 1; save(); }
   const tips = SKY.mode === 'galaxy'
-    ? [['Your devices', 'circle the galaxy'], ['Click one', 'go to it'], ['Dark', 'its app isn’t open'], ['Zoom in', 'down to your tabs']]
+    ? [['Your devices', 'are its stars'], ['Click one', 'go to it'], ['Dark', 'its app isn’t open'], ['Zoom in', 'down to your tabs']]
     : [['Drag a star', 'put it anywhere'], ['Drop on a star', 'join them'], ['Shift-drag', 'draw a line'], ['Right-click', 'more']];
   SKY.help = h('div', { class: 'sky-help' }, ...tips.map(([k, t]) => h('span', {}, h('kbd', {}, k), t)),
     h('button', { class: 'ok', onclick: () => { S.settings[key] = 3; save(); if (SKY.help) { SKY.help.remove(); SKY.help = null; } } }, 'Got it'));
