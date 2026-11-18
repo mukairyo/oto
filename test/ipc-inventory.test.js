@@ -18,7 +18,7 @@ test('only the reviewed channels skip the "Oto\'s window only" rule', () => {
 });
 
 test('every sensitive channel has an argument schema', () => {
-  const SENSITIVE = /^(pw|account|backup|owner|update|ext|dl|site|perm|state|app|data|devices|shield|shot|clipboard|tab):/;
+  const SENSITIVE = /^(pw|account|backup|owner|update|ext|dl|site|perm|state|app|data|devices|shield|shot|clipboard|tab|vpn):/;
   const missing = rows.filter((r) => SENSITIVE.test(r.channel) && r.schema !== 'yes').map((r) => r.channel);
   assert.deepStrictEqual(missing, []);
 });

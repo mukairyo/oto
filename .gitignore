@@ -1,4 +1,5 @@
 # dependencies and build output
+vendor-tor/
 node_modules
 dist/
 out/

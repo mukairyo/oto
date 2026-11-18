@@ -5,7 +5,7 @@ of date. Libraries' channels (`crx-*` from electron-chrome-extensions, `@ghoster
 registered inside those libraries and are covered by the rules in `main/ipc-guard.js` and
 `docs/SECURITY_REVIEW_1.7.13.md`.
 
-122 registrations: 119 answer only Oto's own window (top frame of `src/index.html`), with a size limit; 92 also have
+125 registrations: 122 answer only Oto's own window (top frame of `src/index.html`), with a size limit; 95 also have
 an argument schema. Every one refuses `__proto__`/`constructor`/`prototype` keys (main/ipc-schema.js).
 
 | Channel | Kind | Where | Who may send | Schema | Size limit |
@@ -126,6 +126,9 @@ an argument schema. Every one refuses `__proto__`/`constructor`/`prototype` keys
 | `update:check` | handle | main/updates.js | Oto's window, top frame only | yes | 1 MB |
 | `update:install` | on | main/updates.js | Oto's window, top frame only | yes | 1 MB |
 | `update:status` | handle | main/updates.js | Oto's window, top frame only | yes | 1 MB |
+| `vpn:renew` | handle | main/vpn.js | Oto's window, top frame only | yes | 1 MB |
+| `vpn:set` | handle | main/vpn.js | Oto's window, top frame only | yes | 1 MB |
+| `vpn:state` | handle | main/vpn.js | Oto's window, top frame only | yes | 1 MB |
 | `win:capture-strip` | handle | main.js | Oto's window, top frame only | — | 1 MB |
 | `win:close` | on | main.js | Oto's window, top frame only | — | 1 MB |
 | `win:cursor` | handle | main.js | Oto's window, top frame only | — | 1 MB |

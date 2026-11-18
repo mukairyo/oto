@@ -27,6 +27,8 @@ const SCHEMAS = {
   'shield:annoy': [boolish], 'shield:danger': [boolish], 'shield:fp': [boolish], 'shield:dangerUpdate': [], 'shield:state': [optStr(8192)],
   'shield:stats': [], 'shield:statsReset': [], 'shield:update': [],
   'shot:full': [int], 'tab:freeze': [int, boolish],
+  // Oto VPN: the patch is checked again field by field in main/vpn.js (sanitize)
+  'vpn:state': [], 'vpn:set': [obj], 'vpn:renew': [],
   // passwords
   'pw:save': [URL_, optStr(512), str(4096)],
   'pw:check': [URL_, optStr(512), str(4096)],

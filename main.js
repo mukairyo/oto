@@ -359,6 +359,7 @@ function prepSpaceSession(part) {
   if (spaceSessions.has(part)) return;
   spaceSessions.add(part);
   try { setupSession(part); } catch {}
+  VPN.newSession().catch(() => {});
   // Same Shield state as everywhere else (with Shield off, dangerous-site warnings still run here)
   if (SH.mode() !== 'off') enableBlocking(session.fromPartition(part)).catch(() => {}); else disableBlocking(session.fromPartition(part));
 }
@@ -376,6 +377,7 @@ function setupAvocadoSession() {
   addPagePreload(s);
   s.setPermissionRequestHandler((_wc, p, cb) => cb(ALWAYS.has(p)));
   s.setPermissionCheckHandler((_wc, p) => ALWAYS.has(p));
+  VPN.newSession().catch(() => {});
   if (SH.mode() !== 'off') enableBlocking(s).catch(() => {}); else disableBlocking(s);
   // Downloads from private windows get the same safety: stopped if they come from a dangerous site, and tagged by
   // Windows as "from the internet" when done (Electron asks where to save them).
@@ -601,6 +603,14 @@ function showNativeContextMenu(wc, p) {
 
 // ---------------------------------------------------------------- Oto Shield (main/shield.js)
 const SH = require('./main/shield.js')(CTX);
+// Oto VPN (main/vpn.js): browsing through Tor. Its sessions are the browsing ones (main, Spaces with their own logins,
+// private windows), never Oto's own window or background traffic.
+const VPN = require('./main/vpn.js').createVpn({
+  userFile, readJSON, writeJSON, send: (ch, v) => send(ch, v), appDir: __dirname, resourcesPath: process.resourcesPath,
+  sessions: () => [{ part: PARTITION, ses: session.fromPartition(PARTITION) }, ...[...spaceSessions].map((p) => ({ part: p, ses: session.fromPartition(p) })), ...(avocadoReady ? [{ part: AVOCADO, ses: session.fromPartition(AVOCADO) }] : [])],
+  onRtc: () => SH.rtcRefresh(),
+});
+CTX.vpnCovers = (ses) => VPN.covers(ses);
 const { enableBlocking, disableBlocking, shieldHost, shieldAllowed, shieldLevel, shieldListsAt, regDomain, dangerUpdate, SHIELD, DANGER, FP_SESSION } = SH;
 // Fingerprint protection: a number that's the same for one site (the page you are on) during one session and
 // different everywhere else; 0 means "real values". Pages and frames ask through oto:page, workers through
@@ -1112,6 +1122,7 @@ function setupIPC(ses) {
   // Shield on/off applies to every session at once (main, every Space, Avocado), not just the main one.
   ipcMain.handle('blocker:set', async (_e, on) => { let mode = 'off'; for (const x of liveSessions()) mode = on ? await enableBlocking(x) : disableBlocking(x); SH.rtcRefresh(); return mode; });
   SH.setupShieldIPC();
+  VPN.setupIPC(ipcMain);
   ipcMain.on('screen:reply', (_e, id, sourceId, audio) => {
     const p = screenPicks.get(id);
     if (!p) return;
@@ -1369,13 +1380,14 @@ if (!app.requestSingleInstanceLock()) {
     createWindow();
     { const a = appArg(process.argv); if (a) setTimeout(() => openAppWindow(a), 1200); }
     win.webContents.once('did-finish-load', () => setupExtensions(ses));
+    VPN.boot();
   });
 
   app.on('browser-window-created', (_e, bw) => bw.webContents.on('devtools-opened', () => { if (app.isPackaged && !UPDATES.ownerOn) bw.webContents.closeDevTools(); }));
   app.on('window-all-closed', () => app.quit());
   app.whenReady().then(() => setupUpdates());
 
-  app.on('will-quit', () => { SH.flushStats(); });
+  app.on('will-quit', () => { SH.flushStats(); VPN.quit(); });
   app.whenReady().then(() => { setTimeout(() => dangerUpdate(false).catch(() => {}), 15000); setInterval(() => dangerUpdate(false).catch(() => {}), 3600e3); });
   // "Clear cookies & site data when Oto closes"
   let cleared = false;

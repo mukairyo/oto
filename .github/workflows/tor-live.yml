@@ -1,0 +1,31 @@
+# (1.8.0) Oto VPN against the real Tor network: starts Tor with the exact torrc Oto writes (main/vpn.js), then
+# check.torproject.org must see the request coming from Tor, and a chosen exit country must hold.
+# Its own workflow (not part of "Checks") because it depends on the outside network: a Tor outage shows up here, as a
+# red run of its own, without blocking every push. Runs when the VPN code changes, every Monday, and by hand.
+name: Tor live
+
+on:
+  push:
+    paths: ['main/vpn.js', 'scripts/tor-live-check.js', '.github/workflows/tor-live.yml']
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tor-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Install Tor (from Ubuntu)
+        run: sudo apt-get update -q && sudo apt-get install -y -q tor tor-geoipdb && sudo systemctl stop tor
+      - name: Connect through Tor the way Oto does
+        run: node scripts/tor-live-check.js

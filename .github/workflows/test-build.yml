@@ -35,6 +35,12 @@ jobs:
           python-version: '3.12'
       - name: Install the VMP signing tool
         run: python -m pip install --require-hashes --only-binary ':all:' -r .github/requirements-evs.txt
+      # (1.8.0) Tor for Oto VPN: the Tor Project's expert bundle, accepted only with a valid signature by the pinned
+      # Tor Browser key (scripts/fetch-tor.js). Shipped as resources/tor.
+      - name: Get Tor (signature checked)
+        shell: bash
+        run: n=0; until node scripts/fetch-tor.js; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in $((n*20)) s"; sleep $((n*20)); done
+
       - name: Build the test installer
         id: build
         shell: bash

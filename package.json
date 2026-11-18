@@ -1,7 +1,7 @@
 {
   "name": "oto",
   "productName": "Oto",
-  "version": "1.7.1300",
+  "version": "1.8.0",
   "description": "Oto — a calm, minimal browser for Windows.",
   "main": "main.js",
   "author": "Ryo",
@@ -52,6 +52,15 @@
       "build/icon.png",
       "package.json",
       "CHANGELOG.md"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor-tor",
+        "to": "tor",
+        "filter": [
+          "**/*"
+        ]
+      }
     ],
     "win": {
       "target": [
@@ -104,5 +113,5 @@
     },
     "afterSign": "build/vmp-sign.js"
   },
-  "otoVersion": "1.7.13"
+  "otoVersion": "1.8.0"
 }

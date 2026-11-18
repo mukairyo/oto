@@ -1,0 +1,98 @@
+/* Oto VPN (1.8.0): the space-themed panel from the approved design. Starfield = Oto's own img/space.webp (as Sky). */
+.vpn-pill { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px; margin-right: 4px; border: 0; border-radius: 14px; background: transparent; color: var(--fg-3, rgba(236,232,225,.55)); font-family: 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace; font-size: 11px; letter-spacing: 1.4px; cursor: pointer; }
+.vpn-pill:hover { background: var(--input-hover, rgba(255,255,255,.06)); color: var(--fg, #ece8e1); }
+.vpn-pill.on { background: rgba(127,227,255,.12); color: #7FE3FF; }
+.vpn-pill.on.ph-starting { background: rgba(127,227,255,.07); }
+.vpn-pill.on.ph-dropped, .vpn-pill.on.ph-error { background: rgba(214,162,118,.14); color: #E8BC93; }
+.vpn-pill:focus-visible, .vpn-row:focus-visible { outline: 2px solid #7FE3FF; outline-offset: 2px; }
+
+.vpn-row { display: flex; align-items: center; gap: 10px; margin: 6px 10px; padding: 9px 12px; border-radius: 4px; border: 1px solid rgba(127,227,255,.4); background: rgba(127,227,255,.07); color: #ece8e1; font: inherit; cursor: pointer; text-align: left; }
+.vpn-row .vpn-row-star { color: #E8F9FF; display: grid; filter: drop-shadow(0 0 4px #7FE3FF); }
+.vpn-row .vpn-row-t { flex: 1; min-width: 0; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 10.5px; letter-spacing: 1.5px; color: #7FE3FF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vpn-row .vpn-row-r { font-size: 11px; color: rgba(236,232,225,.6); }
+.vpn-row.ph-off { display: none; }
+body.rail .vpn-row { width: 36px; height: 36px; margin: 6px auto; padding: 0; justify-content: center; gap: 0; border-radius: 8px; }
+body.rail .vpn-row .vpn-row-t, body.rail .vpn-row .vpn-row-r { display: none; }
+body.rail .vpn-row.ph-off { display: flex; border-color: transparent; background: none; }
+body.rail .vpn-row.ph-off .vpn-row-star { color: rgba(236,232,225,.55); filter: none; }
+body.rail .vpn-row.ph-off:hover .vpn-row-star { color: #E8F9FF; }
+.vpn-row.ph-dropped, .vpn-row.ph-error { border-color: rgba(214,162,118,.55); background: rgba(214,162,118,.08); }
+.vpn-row.ph-dropped .vpn-row-t, .vpn-row.ph-error .vpn-row-t { color: #E8BC93; }
+
+.vpn-scrim { position: fixed; inset: 0; z-index: 9998; }
+.vpn-panel { position: fixed; z-index: 9999; width: 420px; max-height: calc(100vh - 72px); overflow: auto; box-sizing: border-box; border: 1px solid rgba(255,255,255,.14); border-radius: 6px; color: #ece8e1; font-family: Inter, 'Segoe UI', system-ui, sans-serif; background: #050506 url(img/space.webp) center / 620px repeat; box-shadow: 0 24px 60px rgba(0,0,0,.6); }
+.vpn-body { display: flex; flex-direction: column; min-height: 600px; }
+.vpn-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 18px 8px; }
+.vpn-crumb { font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; letter-spacing: 2px; color: rgba(236,232,225,.64); flex: 1; }
+.vpn-back { width: 28px; height: 28px; display: grid; place-items: center; border: 0; background: transparent; color: rgba(236,232,225,.7); cursor: pointer; border-radius: 4px; }
+.vpn-back:hover { background: rgba(255,255,255,.06); }
+.vpn-status { display: flex; align-items: center; gap: 7px; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; letter-spacing: 1.6px; color: rgba(236,232,225,.64); }
+.vpn-status i { width: 7px; height: 7px; border-radius: 50%; background: rgba(236,232,225,.38); }
+.vpn-status.on { color: #7FE3FF; }
+.vpn-status.on i { background: #7FE3FF; box-shadow: 0 0 10px #7FE3FF; }
+
+.vpn-hero { position: relative; display: flex; flex-direction: column; align-items: center; padding: 6px 18px 14px; text-align: center; }
+.vpn-orbit { position: absolute; left: 50%; top: 86px; width: 330px; height: 130px; margin: -65px 0 0 -165px; border: 1px dashed rgba(127,227,255,.22); border-radius: 50%; pointer-events: none; }
+.vpn-power { position: relative; width: 150px; height: 150px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+.vpn-power:disabled { cursor: not-allowed; opacity: .5; }
+.vpn-power:focus-visible { outline: 2px solid #7FE3FF; outline-offset: -6px; }
+.vpn-glow { position: absolute; inset: 30px; border-radius: 50%; background: rgba(8,9,12,.85); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); transition: all .4s ease; }
+.vpn-hero.on .vpn-glow { inset: 0; box-shadow: none; background: radial-gradient(circle, rgba(127,227,255,.55) 0%, rgba(127,227,255,.18) 22%, rgba(127,227,255,0) 62%); }
+.vpn-star, .vpn-brackets { position: absolute; inset: 0; display: grid; place-items: center; }
+.vpn-star svg { width: 150px; height: 150px; }
+.vpn-brackets svg { width: 150px; height: 150px; }
+.vpn-hero.spin .vpn-star { animation: vpn-pulse 1.4s ease-in-out infinite; }
+@keyframes vpn-pulse { 50% { transform: scale(.82); opacity: .7; } }
+@media (prefers-reduced-motion: reduce) { .vpn-hero.spin .vpn-star { animation: none; } .vpn-glow { transition: none; } }
+.vpn-kicker { margin-top: 2px; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; letter-spacing: 2.4px; color: rgba(236,232,225,.55); }
+.vpn-hero.on .vpn-kicker { color: #7FE3FF; }
+.vpn-big { font-family: 'Instrument Serif', Georgia, serif; font-size: 38px; line-height: 1.1; }
+.vpn-big.sm { font-size: 30px; }
+.vpn-sub { font-size: 12.5px; color: rgba(236,232,225,.72); max-width: 320px; line-height: 1.45; margin-top: 4px; }
+
+.vpn-card { margin: 8px 18px 0; border: 1px solid rgba(255,255,255,.09); border-radius: 4px; background: rgba(8,9,12,.74); }
+.vpn-card.pad { padding: 0 12px; }
+.vpn-row-btn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 14px; border: 0; background: transparent; color: #ece8e1; font: inherit; text-align: left; cursor: pointer; }
+.vpn-row-btn + .vpn-row-btn { border-top: 1px solid rgba(255,255,255,.075); }
+.vpn-row-btn:hover { background: rgba(255,255,255,.04); }
+.vpn-ic { color: rgba(236,232,225,.7); display: grid; }
+.vpn-tt { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.vpn-tt b { font-weight: 500; font-size: 14px; }
+.vpn-tt small { font-size: 12px; color: rgba(236,232,225,.66); line-height: 1.4; }
+.vpn-go { font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; color: rgba(236,232,225,.64); }
+.vpn-opt { display: flex; align-items: center; gap: 12px; padding: 10px 0; font-size: 13px; cursor: pointer; }
+.vpn-opt + .vpn-opt { border-top: 1px solid rgba(255,255,255,.075); }
+.vpn-opt input[type=checkbox] { width: 18px; height: 18px; accent-color: #7FE3FF; }
+.vpn-opt select { background: #141416; color: #ece8e1; border: 1px solid rgba(255,255,255,.14); border-radius: 4px; padding: 6px 8px; font: inherit; font-size: 12px; max-width: 150px; }
+.vpn-foot { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 18px; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 10.5px; letter-spacing: 1.2px; color: rgba(236,232,225,.58); background: linear-gradient(transparent, rgba(5,5,6,.88)); }
+.vpn-foot.soft { font-family: inherit; letter-spacing: 0; font-size: 11.5px; }
+.vpn-link { border: 0; background: transparent; color: #7FE3FF; font: inherit; letter-spacing: inherit; cursor: pointer; padding: 4px 0; }
+.vpn-link:hover { color: #B8F0FF; }
+
+.vpn-map { position: relative; height: 250px; margin: 6px 18px 0; }
+.vpn-mlines { position: absolute; inset: 0; }
+.vpn-mstar { position: absolute; width: 40px; height: 40px; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.vpn-mstar:focus-visible { outline: 2px solid #7FE3FF; border-radius: 50%; }
+.vpn-mglow { position: absolute; left: -10px; top: -10px; width: 60px; height: 60px; border-radius: 50%; background: radial-gradient(circle, rgba(232,238,255,.42) 0%, rgba(232,238,255,.14) 22%, rgba(232,238,255,0) 60%); }
+.vpn-mstar.sel .vpn-mglow { background: radial-gradient(circle, rgba(127,227,255,.7) 0%, rgba(127,227,255,.2) 22%, rgba(127,227,255,0) 60%); }
+.vpn-mpt, .vpn-mbr { position: absolute; inset: 0; }
+.vpn-mlbl { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); font-family: 'JetBrains Mono', Consolas, monospace; font-size: 10.5px; letter-spacing: 1.6px; color: rgba(236,232,225,.75); white-space: nowrap; }
+.vpn-mstar.sel .vpn-mlbl { color: #7FE3FF; }
+.vpn-lock { display: flex; align-items: center; gap: 12px; margin: 10px 18px 0; padding: 14px; border-radius: 4px; background: rgba(8,9,12,.8); border: 1px solid rgba(127,227,255,.35); }
+.vpn-k { font-family: 'JetBrains Mono', Consolas, monospace; font-size: 10.5px; letter-spacing: 2px; color: #7FE3FF; }
+.vpn-lbig { font-family: 'Instrument Serif', Georgia, serif; font-size: 26px; line-height: 1; }
+.vpn-jump { height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid #7FE3FF; background: rgba(127,227,255,.12); color: #7FE3FF; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; letter-spacing: 1.6px; cursor: pointer; }
+.vpn-jump:hover { background: rgba(127,227,255,.2); }
+.vpn-row2 { display: flex; gap: 8px; margin: 10px 18px 0; }
+.vpn-chip { flex: 1; height: 40px; border-radius: 4px; border: 1px solid rgba(255,255,255,.14); background: rgba(8,9,12,.74); color: #ece8e1; font: inherit; font-size: 12.5px; cursor: pointer; }
+
+.vpn-rhead { padding: 4px 18px 6px; }
+.vpn-routes { display: flex; flex-direction: column; gap: 10px; padding: 12px 18px 18px; }
+.vpn-route { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 4px; background: rgba(8,9,12,.78); border: 1px solid rgba(255,255,255,.09); opacity: .78; }
+.vpn-route.sel { opacity: 1; background: rgba(10,22,28,.82); border-color: rgba(127,227,255,.55); }
+.vpn-rsvg { flex: none; display: grid; }
+.vpn-rtop { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.vpn-tag { font-family: 'JetBrains Mono', Consolas, monospace; font-size: 10px; letter-spacing: 1.4px; color: rgba(236,232,225,.58); }
+.vpn-route.sel .vpn-tag { color: #7FE3FF; }
+/* in the one-column sidebar, page buttons appear on hover; the VPN pill stays visible while it's on (like a saved star) */
+body.layout-single .sb-url-row .vpn-pill.on { display: inline-flex; }

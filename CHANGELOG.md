@@ -3,6 +3,16 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.8.0 — Oto VPN (free, through Tor)
+
+- **Oto VPN is built in.** Tap the VPN pill next to Shield, then the star, and your tabs go through Tor: sites see a Tor address instead of yours, and your internet provider sees only that you use Tor, not which sites you visit. It's free, no account, no sign-up. It's slower than a direct connection and some sites block or question Tor addresses.
+- **Pick where you appear from.** The star map lets you choose a country (Netherlands, Germany, Switzerland, Japan…) or let Tor choose. "New address" gets you a fresh route.
+- **Kill switch, on by default.** If Tor stops, pages fail to load instead of quietly using your real address, and Oto reconnects by itself. You can turn this off.
+- **Choose what goes through it:** all tabs, private windows only, or one Space.
+- **No leaks through calls.** While a tab goes through the VPN, video and voice calls (WebRTC) may only use the VPN too, and site names are looked up through Tor, not by your provider.
+- **How Tor gets into Oto.** Oto ships the Tor Project's own Tor, and the release build only accepts it with a valid signature by the Tor Browser signing key. Tor runs only while the VPN is on and listens only on your PC.
+- Coming later: Oto VPN Plus (faster, on Oto's own servers) and using your own VPN.
+
 ## 1.7.13 — More security fixes, and stricter release checks
 
 From a second security review. Details and what's still open: `docs/SECURITY_REVIEW_1.7.13.md`.

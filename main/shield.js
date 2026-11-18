@@ -355,7 +355,14 @@ module.exports = function createShield(ctx) {
   const webContentsSet = new WeakSet();
   const markWeb = (wc) => { if (wc) webContentsSet.add(wc); };
   function rtcApply(wc, url) {
-    try { if (wc && !wc.isDestroyed() && (wc.getType() === 'webview' || webContentsSet.has(wc))) { const p = webrtcPolicy(shieldHost(url || wc.getURL())); if (wc.getWebRTCIPHandlingPolicy() !== p) wc.setWebRTCIPHandlingPolicy(p); } } catch {}
+    try {
+      if (wc && !wc.isDestroyed() && (wc.getType() === 'webview' || webContentsSet.has(wc))) {
+        // (1.8.0) a tab that goes through Oto VPN: calls only through the proxy too, never straight from this PC
+        const viaVpn = typeof ctx.vpnCovers === 'function' && ctx.vpnCovers(wc.session);
+        const p = viaVpn ? 'disable_non_proxied_udp' : webrtcPolicy(shieldHost(url || wc.getURL()));
+        if (wc.getWebRTCIPHandlingPolicy() !== p) wc.setWebRTCIPHandlingPolicy(p);
+      }
+    } catch {}
   }
   function rtcRefresh() { try { for (const wc of webContents.getAllWebContents()) rtcApply(wc); } catch {} }
 

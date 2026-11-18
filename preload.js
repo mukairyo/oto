@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 const CHANNELS = new Set([
   'cmd', 'tab:open', 'search', 'blocked', 'download', 'download-tab', 'perm:ask', 'perm:cancel', 'screen:pick', 'screen:cancel', 'danger', 'yt-wall', 'window-fullscreen', 'overlay-sampled',
-  'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'ext:refused', 'glance', 'update', 'ctx:show', 'ctrl-hold', 'quick:open', 'account:status', 'drm:ready', 'save-failed', 'data-damaged',
+  'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'ext:refused', 'glance', 'update', 'vpn', 'ctx:show', 'ctrl-hold', 'quick:open', 'account:status', 'drm:ready', 'save-failed', 'data-damaged',
 ]);
 
 contextBridge.exposeInMainWorld('oto', {
@@ -24,6 +24,12 @@ contextBridge.exposeInMainWorld('oto', {
   copyImage: (dataUrl) => ipcRenderer.send('clipboard:image', dataUrl),
   suggest: (engine, q) => ipcRenderer.invoke('suggest', engine, q),
   setBlocking: (on) => ipcRenderer.invoke('blocker:set', on),
+  // Oto VPN (main/vpn.js)
+  vpn: {
+    state: () => ipcRenderer.invoke('vpn:state'),
+    set: (patch) => ipcRenderer.invoke('vpn:set', patch),
+    renew: () => ipcRenderer.invoke('vpn:renew'),
+  },
   shield: {
     state: (url) => ipcRenderer.invoke('shield:state', url),
     site: (url, allow) => ipcRenderer.invoke('shield:site', url, allow),

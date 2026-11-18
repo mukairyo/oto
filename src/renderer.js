@@ -2064,6 +2064,7 @@ function wire() {
   initPasswords();
   if (typeof initV1 === 'function') initV1();
   applyLayout();
+  if (typeof vpnInit === 'function') vpnInit();
   mountExtensionBar();
   applyAppIcon();
   housekeeping();
