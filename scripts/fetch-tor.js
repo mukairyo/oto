@@ -38,11 +38,19 @@ function verify({ file, sig, keys, want = TOR_KEY, gpg = 'gpg' }) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'oto-gpg-'));
   try {
     const run = (args, opts = {}) => execFileSync(gpg, ['--homedir', home, '--batch', '--no-tty', ...args], { stdio: ['pipe', 'pipe', 'pipe'], ...opts });
-    for (const k of keys) { try { run(['--import'], { input: k }); } catch { /* a keyserver answer that isn't a key */ } }
-    let status = '';
-    try { status = run(['--status-fd', '1', '--verify', sig, file]).toString(); } catch (e) { status = String(e.stdout || ''); }
+    const notes = [];
+    for (const k of keys) {
+      try { run(['--import'], { input: k }); notes.push(`imported ${k.length} bytes`); } catch (e) { notes.push(`import refused (${k.length} bytes): ${String(e.stderr || e.message).trim().split(/\r?\n/).slice(-2).join(' | ')}`); }
+    }
+    let status = '', errText = '';
+    try { status = run(['--status-fd', '1', '--verify', sig, file]).toString(); } catch (e) { status = String(e.stdout || ''); errText = String(e.stderr || e.message); }
     const signer = signerOf(status);
-    if (signer !== want) throw new Error(signer ? `signed by ${signer}, not the Tor Browser key ${want}` : 'no valid signature by the Tor Browser key');
+    if (signer !== want) {
+      // (what gpg said, so a refusal can be understood; public information only)
+      const keysNow = (() => { try { return run(['--with-colons', '--list-keys']).toString().split(/\r?\n/).filter((l) => /^(pub|sub|fpr|uid):/.test(l)).map((l) => l.split(':').slice(0, 10).join(':')).join('\n'); } catch (e) { return String(e.message); } })();
+      console.error(`gpg: ${gpg}\n${notes.join('\n')}\nkeys:\n${keysNow}\nstatus:\n${status.trim()}\nstderr:\n${errText.trim().slice(0, 1500)}`);
+      throw new Error(signer ? `signed by ${signer}, not the Tor Browser key ${want}` : 'no valid signature by the Tor Browser key');
+    }
     return signer;
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 }
