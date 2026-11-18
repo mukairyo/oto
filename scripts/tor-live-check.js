@@ -25,7 +25,13 @@ function run(country, port) {
         const pct = bootstrapOf(l); if (pct !== null) console.log(`  ${country}: ${pct}%`);
         if (pct === 100) {
           try {
-            const j = JSON.parse(execFileSync('curl', ['-sS', '--max-time', '60', '--socks5-hostname', `127.0.0.1:${port}`, 'https://check.torproject.org/api/ip']).toString());
+            // (an exit relay sometimes drops a connection: up to 3 tries, each on a fresh circuit; Tor gives every
+            // SOCKS username its own circuit, like "New address" in Oto)
+            let j, err;
+            for (let i = 1; i <= 3 && !j; i++) {
+              try { j = JSON.parse(execFileSync('curl', ['-sS', '--max-time', '60', '--socks5-hostname', `127.0.0.1:${port}`, '--proxy-user', `try${i}:x`, 'https://check.torproject.org/api/ip'], { stdio: ['ignore', 'pipe', 'pipe'] }).toString()); } catch (e) { err = e; console.log(`  ${country}: try ${i} failed (${String(e.stderr || e.message).trim().split('\n')[0]})`); }
+            }
+            if (!j) throw err;
             const cc = GEOIP ? countryOfIp(j.IP, fs.readFileSync(GEOIP, 'utf8')) : '';
             end(ok, { country, isTor: j.IsTor === true, ip: j.IP, cc });
           } catch (e) { end(fail, e); }
