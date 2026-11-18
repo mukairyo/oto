@@ -108,6 +108,15 @@ jobs:
         # changed file is refused.
         run: n=0; until npx electron-builder --win nsis --x64 --publish never "-c.electronDist=$(node -p "require('path').dirname(require('electron'))")"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s (build tools from the npm mirror; electron-builder checks their SHA-256)"; export ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/; rm -rf dist; sleep 30; done
 
+      # (1.8.0) Tor really is inside the app, with its geoip files and licence, and it runs on Windows.
+      - name: Check Tor in the app
+        if: steps.check.outputs.skip != 'true'
+        shell: bash
+        run: |
+          t=dist/win-unpacked/resources/tor
+          test -f $t/tor/tor.exe && test -f $t/data/geoip && test -f $t/licenses/tor-LICENSE.txt && test -f $t/VERSION.json
+          $t/tor/tor.exe --version | tee /dev/stderr | grep -q '^Tor version'
+
       - name: Check the Widevine signature
         if: steps.check.outputs.skip != 'true'
         shell: bash

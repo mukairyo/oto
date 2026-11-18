@@ -55,6 +55,14 @@ jobs:
           n=0; until npx electron-builder --win nsis --x64 --publish never "-c.electronDist=$(node -p "require('path').dirname(require('electron'))")" -c.extraMetadata.version="$v" -c.extraMetadata.otoVersion="$v"; do n=$((n+1)); [ $n -ge 3 ] && exit 1; echo "retrying in 30 s (build tools from the npm mirror; electron-builder checks their SHA-256)"; export ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/; rm -rf dist; sleep 30; done
           ls dist/*.exe
           cd dist && sha256sum Oto-Setup-*.exe | tee SHA256SUMS-test.txt
+      # (1.8.0) Tor really is inside the app, with its geoip files and licence, and it runs on Windows.
+      - name: Check Tor in the app
+        shell: bash
+        run: |
+          t=dist/win-unpacked/resources/tor
+          test -f $t/tor/tor.exe && test -f $t/data/geoip && test -f $t/licenses/tor-LICENSE.txt && test -f $t/VERSION.json
+          $t/tor/tor.exe --version | tee /dev/stderr | grep -q '^Tor version'
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Oto-${{ steps.build.outputs.version }}
