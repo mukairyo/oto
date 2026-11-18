@@ -19,8 +19,17 @@ test('a popup title always starts with the site it is really on', () => {
   assert.strictEqual(popupTitle('https://evil.example/x', 'accounts.google.com — Sign in'), 'evil.example — accounts.google.com — Sign in');
   assert.strictEqual(popupTitle('http://shop.example/', 'Pay'), 'shop.example (not secure) — Pay');
   assert.strictEqual(popupTitle('https://a.example:8443/', ''), 'a.example:8443');
-  assert.strictEqual(popupTitle('about:blank', ''), 'Oto');
-  assert.strictEqual(popupTitle('data:text/html,hi', 'x'), 'data: — x');
+  // (1.7.12) no real address: never the page's title on its own
+  assert.strictEqual(popupTitle('about:blank', ''), 'Blank page (no address)');
+  assert.strictEqual(popupTitle('about:blank', 'accounts.google.com — Sign in'), 'Blank page (no address) — accounts.google.com — Sign in');
+  assert.strictEqual(popupTitle('about:blank', 'Sign in', 'https://evil.example/x'), 'Blank page (no address) · opened by evil.example — Sign in');
+  assert.strictEqual(popupTitle('data:text/html,hi', 'Google'), 'data: page (no address) — Google');
+  assert.strictEqual(popupTitle('not a url', 'Google'), 'Unknown address — Google');
+  assert.strictEqual(popupTitle('blob:https://a.example/1234-5678', 'x'), 'a.example (blob) — x');
+  assert.strictEqual(popupTitle('https://аpple.com/', 'Apple ID'), 'xn--pple-43d.com — Apple ID', 'look-alike names show as stored');
+  assert.strictEqual(popupTitle('http://bank.example/', 'https://bank.example — Secure'), 'bank.example (not secure) — https://bank.example — Secure');
+  assert.strictEqual(popupTitle('https://a.example/', '', 'https://b.example/'), 'a.example', 'a real site shows itself, not its opener');
+  for (const u of ['about:blank', 'data:,x', '%%%', 'javascript:alert(1)', 'file:///C:/x.html', 'https://a.example/']) assert.ok(!popupTitle(u, 'PAGE TITLE').startsWith('PAGE TITLE'), u);
   assert.ok(popupTitle('https://a.example/', 'x'.repeat(500)).length < 200, 'long titles are cut');
 });
 
@@ -109,4 +118,15 @@ test('an automated Electron update waits for review instead of releasing itself'
   const s = fs.readFileSync(path.join(WF, 'chromium-update.yml'), 'utf8');
   assert.match(s, /gh pr create/);
   assert.doesNotMatch(s, /git push\s*\n|git push origin main|gh workflow run release\.yml --ref main --repo "\$GITHUB_REPOSITORY"\n\n {6}- name: Report/, 'no direct push or release after a bump');
+});
+
+test('Enter alone never shows saved passwords or installs an extension: Cancel is the default (1.7.12)', () => {
+  const pw = fs.readFileSync(path.join(__dirname, '..', 'main', 'passwords.js'), 'utf8');
+  assert.match(pw, /buttons: \['Cancel', 'Show passwords'\], defaultId: 0, cancelId: 0/);
+  assert.match(pw, /buttons: \['Cancel', 'Export passwords'\], defaultId: 0, cancelId: 0/);
+  assert.match(pw, /const REVEAL_MS = 60 \* 1000;/);
+  assert.match(pw, /'lock-screen', 'suspend'/);
+  const ext = fs.readFileSync(path.join(__dirname, '..', 'main', 'extensions.js'), 'utf8');
+  assert.match(ext, /buttons: \['Add extension', 'Cancel'\], defaultId: 1, cancelId: 1/);
+  assert.doesNotMatch(ext, /buttons: \['Add extension', 'Cancel'\], defaultId: 0/);
 });

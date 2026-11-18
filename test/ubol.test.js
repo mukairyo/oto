@@ -55,18 +55,50 @@ test('uBOL mode: network rules for every level, readable by Shield’s engine; s
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
-test('a daily uBOL update only takes a complete set that looks like uBOL’s', async () => {
-  assert.ok(!U.looksRight('rulesets/scripting/scriptlet/main/x.js', Buffer.from('alert(1)')));
-  assert.ok(!U.looksRight('rulesets/main/x.json', Buffer.from('{"not":"rules"}')));
-  assert.ok(U.looksRight('rulesets/main/x.json', Buffer.from('[]')));
+test('uBOL’s rules come only with Oto: nothing is downloaded, and rules downloaded before are deleted, never run (1.7.12)', async () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'main', 'ubol.js'), 'utf8');
+  assert.doesNotMatch(src, /raw\.githubusercontent|\bfetch\w*\(|net\.|require\('https?'\)/, 'main/ubol.js downloads nothing');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'oto-ubol-'));
-  const files = { 'manifest.json': JSON.stringify({ version: '2099.101.1' }), 'rulesets/scriptlet-details.json': '[]' };
-  const ub = U({ appDir: path.join(__dirname, '..'), userFile: (f) => path.join(tmp, f), fetchBuf: async (url) => { const rel = url.split('/chromium/')[1]; if (rel in files) return Buffer.from(files[rel]); if (rel.startsWith('rulesets/main/')) return Buffer.from('[]'); if (rel === 'LICENSE.txt') return Buffer.from('GNU GENERAL PUBLIC LICENSE'); if (rel.endsWith('.js')) return Buffer.from('evil()'); const e = new Error('404'); e.status = 404; throw e; } });
-  const before = ub.current().version;
-  assert.strictEqual(await ub.update(true), false); // scripts that aren't uBOL's: refused, nothing changes
-  assert.strictEqual(ub.current().version, before);
-  assert.ok(ub.current().bundled);
+  // a set downloaded by an older Oto, with a script that isn't uBOL's, and a current.json pointing outside the folder
+  const old = path.join(tmp, 'ubol', '2099.101.1');
+  fs.mkdirSync(path.join(old, 'rulesets/scripting/scriptlet/main'), { recursive: true });
+  fs.writeFileSync(path.join(old, 'manifest.json'), JSON.stringify({ version: '2099.101.1' }));
+  fs.writeFileSync(path.join(old, 'rulesets/scripting/scriptlet/main/ublock-filters.js'), 'evil()');
+  fs.writeFileSync(path.join(tmp, 'ubol', 'current.json'), JSON.stringify({ version: '../../outside' }));
+  const ub = U({ appDir: path.join(__dirname, '..'), userFile: (f) => path.join(tmp, f) });
+  const cur = ub.current();
+  assert.ok(cur.bundled && cur.dir === path.join(__dirname, '..', 'vendor-ubol'));
+  assert.ok(!fs.existsSync(path.join(tmp, 'ubol')), 'the old downloaded rules are deleted');
+  assert.doesNotMatch(ub.scriptlets('balanced').main, /evil\(\)/);
+  assert.strictEqual(await ub.update(true), false);
   fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('the uBOL preload is made from Oto’s copy every time: a changed file, or a link in its place, is never run (1.7.12)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'oto-ubol-'));
+  const ub = U({ appDir: path.join(__dirname, '..'), userFile: (f) => path.join(tmp, f) });
+  const file = ub.preloadFile('balanced');
+  const good = fs.readFileSync(file, 'utf8');
+  fs.writeFileSync(file, `${good}\nevil();`);
+  assert.strictEqual(ub.preloadFile('balanced'), file);
+  assert.strictEqual(fs.readFileSync(file, 'utf8'), good, 'a changed preload is written again from Oto’s copy');
+  const elsewhere = path.join(tmp, 'elsewhere.js');
+  fs.writeFileSync(elsewhere, 'keep me');
+  fs.rmSync(file); fs.symlinkSync(elsewhere, file);
+  ub.preloadFile('balanced');
+  assert.ok(!fs.lstatSync(file).isSymbolicLink() && fs.readFileSync(file, 'utf8') === good, 'a link in its place is replaced by the real file');
+  assert.strictEqual(fs.readFileSync(elsewhere, 'utf8'), 'keep me', 'what the link pointed at is left alone');
+  assert.throws(() => ub.preloadFile('../../x'), /unexpected/);
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('the uBOL copy Oto ships matches vendor-ubol/HASHES.json, file for file (1.7.12)', () => {
+  const dir = path.join(__dirname, '..', 'vendor-ubol');
+  const want = JSON.parse(fs.readFileSync(path.join(dir, 'HASHES.json'), 'utf8'));
+  const { compute } = require('../scripts/ubol-hashes.js');
+  assert.deepStrictEqual(compute(dir), want.files, 'vendor-ubol changed: run scripts/vendor-ubol.js (it records the new hashes)');
+  assert.strictEqual(want.version, JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8')).version);
+  for (const rel of Object.keys(want.files)) if (rel.endsWith('.js')) assert.ok(U.looksRight(rel, fs.readFileSync(path.join(dir, rel))), rel);
 });
 
 test('YouTube gets uBOL’s scriptlets in both modes, and Oto’s own YouTube code only as a fallback (1.7.8)', () => {

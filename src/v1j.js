@@ -325,7 +325,7 @@ function shpOverview() {
 // The two modes of Oto Shield (1.7.6): Oto's own engine and fixes, or uBlock Origin Lite's rules and site fixes.
 const SHP_ENGINES = [
   ['oto', 'Oto Shield', 'Oto’s engine with uBlock Origin’s filter lists, plus Oto’s own YouTube fixes.'],
-  ['ubol', 'uBlock Origin Lite', 'uBlock Origin Lite’s own rules and site fixes, YouTube’s included. Updated from uBOL every day.'],
+  ['ubol', 'uBlock Origin Lite', 'uBlock Origin Lite’s own rules and site fixes, YouTube’s included. They come with Oto updates.'],
 ];
 const SHP_LEVELS = [
   ['standard', 'Standard', 'Ads, trackers and session recorders blocked. Fingerprint protection. Recommended.'],
@@ -394,7 +394,7 @@ function shpBlocking() {
     h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, 'Warn me about dangerous sites'), h('small', {}, st.dangerCount ? `${shpN(st.dangerCount)} known malware and phishing sites · list updated ${shpAgo(st.dangerAt)} · checked on this PC, nothing is sent anywhere` : 'Malware and phishing lists from URLhaus (abuse.ch), updated twice a day · checked on this PC')),
       shpSwitch(st.danger !== false, async (v) => { st.danger = await oto.shield.danger(v); toast(v ? 'Dangerous-site warnings on' : 'Dangerous-site warnings off', { icon: 'shield', timeout: 2000 }); })),
     shpLbl('FILTER LISTS'),
-    h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, st.engine === 'ubol' ? 'uBlock Origin Lite rules + Oto’s extra list' : 'uBlock Origin, EasyList, EasyPrivacy + Oto’s extra list'), h('small', {}, SHP.busy === 'upd' ? 'Downloading the newest lists…' : st.engine === 'ubol' && st.ubol ? `uBOL ${st.ubol.version}${st.ubol.at ? `, downloaded ${shpAgo(st.ubol.at)}` : ' (came with Oto)'} · lists updated ${shpAgo(st.listsAt)} · both update by themselves every day` : `Updated ${shpAgo(st.listsAt)} · they also update by themselves every day`)),
+    h('div', { class: 'sh-row' }, h('span', { class: 'tt' }, h('b', {}, st.engine === 'ubol' ? 'uBlock Origin Lite rules + Oto’s extra list' : 'uBlock Origin, EasyList, EasyPrivacy + Oto’s extra list'), h('small', {}, SHP.busy === 'upd' ? 'Downloading the newest lists…' : st.engine === 'ubol' && st.ubol ? `uBOL ${st.ubol.version} (comes with Oto updates) · Oto’s extra list updated ${shpAgo(st.listsAt)}, every day by itself` : `Updated ${shpAgo(st.listsAt)} · they also update by themselves every day`)),
       h('button', { class: 'sh-btn', disabled: !on || !!SHP.busy, onclick: async () => {
         SHP.busy = 'upd'; shpPaint();
         const r = await oto.shield.update();

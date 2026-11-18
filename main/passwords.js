@@ -196,21 +196,36 @@ module.exports = function createPasswords(ctx) {
     });
     ipcMain.handle('pw:save', (_e, url, username, password) => { const o = pwOrigin(url); return o && pwSecure(o) && typeof password === 'string' && password && password.length <= 4096 ? pwUpsert(o, String(username || '').slice(0, 512), password) : 'invalid'; });
     // Showing or copying a saved password asks first, in a Windows dialog from the main process (nothing in a page or
-    // in Oto's window can click it). One yes covers 5 minutes, so looking through a few logins doesn't ask every time,
-    // but nothing can quietly read every password one by one.
+    // in Oto's window can click it). (1.7.12) Cancel is the default, so Enter alone never shows anything; one yes covers
+    // a minute (was 5), and ends early when Oto's window is minimised or hidden or the computer locks or sleeps. This is
+    // a confirmation, not proof of who's at the keyboard (see docs/SECURITY_REVIEW_1.7.12.md).
+    const REVEAL_MS = 60 * 1000;
     let revealUntil = 0, asking = null;
+    const endReveal = () => { revealUntil = 0; };
+    try {
+      const { powerMonitor } = require('electron');
+      for (const ev of ['lock-screen', 'suspend', 'user-did-resign-active']) { try { powerMonitor.on(ev, endReveal); } catch {} }
+    } catch {}
+    let watched = null;
+    function watchWindow() {
+      const w = ctx.win; if (!w || w === watched || w.isDestroyed()) return;
+      watched = w;
+      for (const ev of ['minimize', 'hide', 'closed']) { try { w.on(ev, endReveal); } catch {} }
+    }
     async function mayReveal() {
+      watchWindow();
       if (Date.now() < revealUntil) return true;
       if (!asking) {
         asking = dialog.showMessageBox(ctx.win, {
-          type: 'question', buttons: ['Cancel', 'Show passwords'], defaultId: 1, cancelId: 0, noLink: true, title: 'Saved passwords',
+          type: 'question', buttons: ['Cancel', 'Show passwords'], defaultId: 0, cancelId: 0, noLink: true, title: 'Saved passwords',
           message: 'Show your saved passwords?',
-          detail: 'Oto asks before showing or copying a saved password. Your answer covers the next 5 minutes.',
-        }).then((r) => { if (r.response === 1) revealUntil = Date.now() + 5 * 60 * 1000; return r.response === 1; }, () => false)
+          detail: 'Oto asks before showing or copying a saved password. Your answer covers the next minute.',
+        }).then((r) => { if (r.response === 1) revealUntil = Date.now() + REVEAL_MS; return r.response === 1; }, () => false)
           .finally(() => { asking = null; });
       }
       return asking;
     }
+    mayReveal.end = endReveal;
     ipcMain.handle('pw:get', async (_e, id, purpose) => {
       const ok = pwOk(purpose); if (ok === 'pin') return { needPin: true }; if (ok !== true) return null;
       if (!pwLoad().entries.some((x) => x.id === id)) return null;

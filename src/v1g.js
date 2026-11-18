@@ -87,7 +87,7 @@ async function v1ShieldMenu() {
         toast(`${l} protection. Reload pages to apply`, { icon: 'shield', timeout: 2200 });
       } }, l)))),
     st.mode === 'full' ? h('div', { class: 'lists' },
-      h('span', {}, h('b', {}, st.engine === 'ubol' ? 'uBlock Origin Lite' : 'Filter lists'), h('small', {}, st.engine === 'ubol' && st.ubol ? `uBOL ${st.ubol.version} · updates every day` : `Updated ${typeof shpAgo === 'function' ? shpAgo(st.listsAt) : 'recently'} · every day by themselves`)),
+      h('span', {}, h('b', {}, st.engine === 'ubol' ? 'uBlock Origin Lite' : 'Filter lists'), h('small', {}, st.engine === 'ubol' && st.ubol ? `uBOL ${st.ubol.version} · comes with Oto updates` : `Updated ${typeof shpAgo === 'function' ? shpAgo(st.listsAt) : 'recently'} · every day by themselves`)),
       h('button', { title: 'Download the newest filter lists and reload this page', onclick: async (e) => {
         const b = e.currentTarget; b.disabled = true; b.textContent = 'Updating…';
         const r = await oto.shield.update();

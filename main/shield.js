@@ -119,10 +119,7 @@ module.exports = function createShield(ctx) {
   // Two modes (1.7.6): 'oto' = Oto Shield (the engine's own prebuilt lists and fixes); 'ubol' = uBlock Origin Lite's
   // rules and scriptlets (main/ubol.js). Element hiding uses the same lists in both.
   const engineMode = () => (SHIELD.conf.engine === 'ubol' ? 'ubol' : 'oto');
-  const UBOL = require('./ubol.js')({
-    appDir: require('path').join(__dirname, '..'), userFile,
-    fetchBuf: async (url) => { const r = await net.fetch(url, { cache: 'no-store' }); if (!r.ok) { const e = new Error(`${r.status} ${url}`); e.status = r.status; throw e; } return Buffer.from(await r.arrayBuffer()); },
-  });
+  const UBOL = require('./ubol.js')({ appDir: require('path').join(__dirname, '..'), userFile }); // (rules come with Oto, 1.7.12)
   // Build the running engine from the prebuilt one (made or read from cachePath). In uBOL mode: uBOL's network rules
   // (turned into filters), the prebuilt engine's element hiding without its scriptlets (uBOL's run instead, from the
   // preload below), and its redirect resources (uBOL's "neutered script" stand-ins have the same names).
@@ -132,6 +129,13 @@ module.exports = function createShield(ctx) {
     const [maker] = SHIELD_LEVELS[shieldLevel()];
     const fetchFn = (url, opts) => net.fetch(url, opts);
     const base = await ElectronBlocker[maker](fetchFn, { path: cachePath, read: fs.promises.readFile, write: fs.promises.writeFile });
+    // (1.7.12) Code that runs in pages comes only with Oto: the scriptlets and redirect stand-ins from Oto's own copy
+    // (vendor-ghostery/), never the copy the library downloads from GitHub with the lists; and the downloaded lists
+    // can't use uBO's "trusted" scriptlets, which can put any code into a page. See main/shield-trust.js.
+    try { require('./shield-trust.js').trustEngine(base, require('path').join(__dirname, '..')); } catch (e) {
+      console.warn('[oto] Shield: page scripts not set up, scriptlets off:', e && e.message);
+      try { require('./shield-trust.js').noScriptlets(base); } catch {}
+    }
     if (engineMode() !== 'ubol') {
       // On YouTube, uBOL's scriptlets run (both modes): the engine's own YouTube scriptlets are left out so the two
       // don't both change the same things. (If that can't be done, the engine is used as it came.)
@@ -294,7 +298,6 @@ module.exports = function createShield(ctx) {
       const f = userFile(file), tmp = `${f}.new`;
       try { fs.unlinkSync(tmp); } catch {}
       try {
-        if (mode === 'ubol') await UBOL.update(true); // uBOL's newest rules first (kept as they are if that fails)
         const b = await makeEngine(tmp);
         if (!blocker || SHIELD_LEVELS[shieldLevel()][0] !== maker || engineMode() !== mode) return false; // turned off, or the level or mode changed meanwhile
         b.on('request-blocked', (req) => notifyBlocked(req.tabId, req.url, req.domain));
@@ -324,7 +327,6 @@ module.exports = function createShield(ctx) {
   const shieldAutoRefresh = () => {
     if (!blocker || blockingMode !== 'full') return;
     if (Date.now() - shieldListsAt() > LISTS_MAX_AGE) shieldRefresh().catch(() => {});
-    else if (engineMode() === 'ubol') UBOL.update(false).then((newer) => { if (newer) shieldRefresh().catch(() => {}); }).catch(() => {}); // uBOL publishes on its own days
   };
   setInterval(shieldAutoRefresh, 3600e3); // looked at every hour, downloaded when a day old
   // Switch lists (annoyances on/off): rebuild the engine and put it back in every session.

@@ -3,6 +3,17 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.7.12 — Security fixes from a review
+
+A security review of 1.7.11 found real problems; this fixes the confirmed ones. Details, and what's still open:
+`docs/SECURITY_REVIEW_1.7.12.md`.
+
+- **No downloaded code runs in pages any more.** Oto used to download uBlock Origin Lite's scripts from GitHub every day and run them in every page, with nothing proving they were really uBOL's. Now uBOL's rules come only with Oto updates, which are proven to be built by Oto's release process. Rules downloaded by older versions are deleted. Oto Shield mode had the same problem with the small scripts its filter engine downloads: those now come only with Oto too, and the filter lists downloaded each day can't use the "trusted" scripts that could put any code into a page.
+- **Popups can't hide where they are.** A popup with no real address (a blank page, a data: page, a broken address) used to show only the page's own title, so it could pretend to be a sign-in window for another site. Now its title bar always starts with "Blank page (no address)" or similar, and the site that opened it.
+- **Enter doesn't show passwords or add extensions.** The "Show your saved passwords?" and "Add extension" dialogs now have Cancel as the default button. Showing passwords is allowed for 1 minute (was 5), and stops early when you minimise Oto or lock the computer.
+- **Extension downloads use less memory.** Oto still checks every extension package's signatures, but no longer reads every other download into memory to find them.
+- Shield's Strict level no longer clicks cookie banners away for you (those rules used the "trusted" scripts); it still hides most of them.
+
 ## 1.7.11 — Updates show up by themselves; quantum jump into your tabs
 
 - **New versions show up in the sidebar by themselves.** When Oto found or downloaded an update, its card at the bottom of the sidebar (and the "ready" message) only appeared after you opened Settings → About. Oto hooked the update messages to the first version of its handler, before the sidebar added its update card to it. Now they reach the sidebar straight away: you see it downloading, then Restart now.

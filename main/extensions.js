@@ -26,20 +26,11 @@ module.exports = function createExtensions(ctx) {
     if (typeof globalThis.fetch !== 'function' || globalThis.fetch.otoCrxGuard) return;
     const { verifyCrx } = require('./crx-verify.js');
     const orig = globalThis.fetch;
-    const guarded = async (input, init) => {
-      const res = await orig(input, init);
-      const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
-      if (method !== 'GET' || !res.ok || res.status === 204 || !res.body) return res;
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length >= 4 && buf.toString('latin1', 0, 4) === 'Cr24') {
-        try { verifyCrx(buf, { requireWebStore: true }); } catch (err) {
-          console.warn('[oto] extension package refused:', err.message);
-          send('ext:refused', err.message);
-          return new Response(null, { status: 403, statusText: 'Refused by Oto' });
-        }
-      }
-      return new Response(buf, { status: res.status, statusText: res.statusText, headers: res.headers });
-    };
+    // (1.7.12) see main/crx-guard.js: every GET answer is looked at, only the first bytes are read unless it's a package
+    const guarded = require('./crx-guard.js').crxGuard(orig, {
+      verify: (buf) => verifyCrx(buf, { requireWebStore: true }),
+      onRefuse: (msg) => { console.warn('[oto] extension package refused:', msg); send('ext:refused', msg); },
+    });
     guarded.otoCrxGuard = true;
     globalThis.fetch = guarded;
   }
@@ -88,7 +79,7 @@ module.exports = function createExtensions(ctx) {
         extensionsPath: userFile('Extensions'),
         beforeInstall: async (details) => {
           const r = await dialog.showMessageBox(ctx.win, {
-            type: 'question', buttons: ['Add extension', 'Cancel'], defaultId: 0, cancelId: 1, noLink: true,
+            type: 'question', buttons: ['Add extension', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true, // (Cancel is the default: Enter alone never installs, 1.7.12)
             title: 'Add extension', message: `Add “${details.localizedName}” to Oto?`,
             detail: `From the Chrome Web Store. It asks to:\n${manifestPermissions(details.manifest).text}\n\nOto keeps it updated from the Web Store, and checks every download is signed by its developer and by the Chrome Web Store.`,
             icon: details.icon,

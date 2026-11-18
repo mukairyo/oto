@@ -303,11 +303,13 @@ function guardWebContent(contents, tab) {
       guardWebContent(child.webContents, tab);
       const showSite = () => {
         if (child.isDestroyed()) return;
-        child.setTitle(popupTitle(child.webContents.getURL(), child.webContents.getTitle()));
+        let opener = ''; try { opener = contents.isDestroyed() ? '' : contents.getURL(); } catch {}
+        child.setTitle(popupTitle(child.webContents.getURL(), child.webContents.getTitle(), opener));
       };
       child.webContents.on('page-title-updated', (e) => { e.preventDefault(); showSite(); });
       child.webContents.on('did-navigate', showSite);
       child.webContents.on('did-navigate-in-page', showSite);
+      child.webContents.on('did-redirect-navigation', showSite);
       showSite();
     } catch (err) { console.warn('[oto] popup guard failed, closing it:', err && err.message); try { child.destroy(); } catch {} }
   });

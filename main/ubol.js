@@ -86,21 +86,18 @@ function looksRight(rel, buf) {
   return rel.endsWith('LICENSE.txt') ? s.includes('GNU GENERAL PUBLIC LICENSE') : false;
 }
 
-module.exports = function createUbol({ appDir, userFile, fetchBuf }) {
+module.exports = function createUbol({ appDir, userFile }) {
   const BUNDLED = path.join(appDir, 'vendor-ubol');
   const LIVE = () => userFile('ubol');
   const readJ = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
   const versionOf = (dir) => { const m = readJ(path.join(dir, 'manifest.json'), null); return m && typeof m.version === 'string' ? m.version : ''; };
-  // uBOL versions are dates: 2026.1116.1650
-  const newer = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+  // (1.7.12) uBOL's rules come only with Oto: the copy in Oto's own files, which every Oto release proves it built
+  // (docs/UPDATE_TRUST.md). Oto used to download newer rules from uBOL's GitHub every day and run their scriptlets in
+  // pages without any proof they were uBOL's; that's gone, and any rules downloaded before are deleted.
+  let cleaned = false;
   function current() {
-    const bundled = { dir: BUNDLED, version: versionOf(BUNDLED), at: 0, bundled: true };
-    const meta = readJ(path.join(LIVE(), 'current.json'), null);
-    if (meta && meta.version) {
-      const dir = path.join(LIVE(), meta.version);
-      if (versionOf(dir) === meta.version && !newer(bundled.version, meta.version)) return { dir, version: meta.version, at: meta.at || 0, bundled: false };
-    }
-    return bundled;
+    if (!cleaned) { cleaned = true; try { fs.rmSync(LIVE(), { recursive: true, force: true }); } catch {} }
+    return { dir: BUNDLED, version: versionOf(BUNDLED), at: 0, bundled: true };
   }
   const read = (dir, rel) => { try { return fs.readFileSync(path.join(dir, rel), 'utf8'); } catch { return ''; } };
 
@@ -135,9 +132,12 @@ module.exports = function createUbol({ appDir, userFile, fetchBuf }) {
    */
   function preloadFile(level) {
     const { version } = current();
+    if (!/^\d{4}\.\d{1,4}\.\d{1,4}$/.test(version) || !RULESETS[level]) throw new Error('uBOL: unexpected version or level');
     const tests = process.env.OTO_UBOL_TESTS === '1' ? '-t' : '';
-    const file = userFile(`ubol-preload-${version || 'none'}-${level}${tests}.js`);
-    if (!fs.existsSync(file)) {
+    const file = userFile(`ubol-preload-${version}-${level}${tests}.js`);
+    // (made from Oto's own copy of uBOL every time and compared with the file: a file that was changed, or isn't a
+    // plain file, is replaced, never run as it is)
+    {
       const s = scriptlets(level);
       const body = [
         "'use strict';",
@@ -153,52 +153,21 @@ module.exports = function createUbol({ appDir, userFile, fetchBuf }) {
         '} catch (e) {}',
         '',
       ].join('\n');
-      try { for (const f of fs.readdirSync(path.dirname(file))) if (/^ubol-preload-.*\.js$/.test(f) && f !== path.basename(file)) { try { fs.unlinkSync(path.join(path.dirname(file), f)); } catch {} } } catch {}
-      fs.writeFileSync(file, body);
+      try { for (const f of fs.readdirSync(path.dirname(file))) if (/^ubol-preload-.*\.js$/.test(f) && f !== path.basename(file)) { try { fs.rmSync(path.join(path.dirname(file), f), { force: true }); } catch {} } } catch {}
+      let same = false;
+      try { const st = fs.lstatSync(file); same = st.isFile() && fs.readFileSync(file, 'utf8') === body; } catch {}
+      if (!same) {
+        try { fs.rmSync(file, { force: true, recursive: true }); } catch {} // (a link or folder in its place goes, not what it points at)
+        const tmp = `${file}.${process.pid}.tmp`;
+        fs.writeFileSync(tmp, body, { flag: 'wx' });
+        fs.renameSync(tmp, file);
+      }
     }
     return file;
   }
 
-  /**
-   * Download the newest uBOL rules (once a day, or now). Every file is fetched into a new folder and checked; only a
-   * complete set becomes current. Returns true if a newer version was installed.
-   */
-  let updating = null;
-  function update(force = false) {
-    if (updating) return updating;
-    updating = (async () => {
-      const cur = current();
-      const meta = readJ(path.join(LIVE(), 'current.json'), {});
-      if (!force && Date.now() - (meta.checked || 0) < 864e5) return false;
-      const RAW = 'https://raw.githubusercontent.com/uBlockOrigin/uBOL-home/main/chromium/';
-      const manifestBuf = await fetchBuf(`${RAW}manifest.json`);
-      let version = '';
-      try { version = JSON.parse(manifestBuf.toString('utf8')).version; } catch {}
-      const note = (extra) => { try { fs.mkdirSync(LIVE(), { recursive: true }); fs.writeFileSync(path.join(LIVE(), 'current.json'), JSON.stringify({ ...readJ(path.join(LIVE(), 'current.json'), {}), checked: Date.now(), ...extra })); } catch {} };
-      if (!/^\d{4}\.\d{1,4}\.\d{1,4}$/.test(version) || !newer(version, cur.version)) { note({}); return false; }
-      const detailsBuf = await fetchBuf(`${RAW}rulesets/scriptlet-details.json`);
-      let details = [];
-      try { details = JSON.parse(detailsBuf.toString('utf8')); } catch { return false; }
-      const tmp = path.join(LIVE(), `${version}.part`), dest = path.join(LIVE(), version);
-      fs.rmSync(tmp, { recursive: true, force: true });
-      for (const rel of filesOf(details)) {
-        let buf = rel === 'manifest.json' ? manifestBuf : rel === 'rulesets/scriptlet-details.json' ? detailsBuf : null;
-        if (!buf) { try { buf = await fetchBuf(`${RAW}${rel}`); } catch (e) { if (rel.startsWith('rulesets/regex/')) continue; throw e; } } // not every ruleset has regex rules
-        if (!looksRight(rel, buf)) throw new Error(`uBOL file looks wrong: ${rel}`);
-        fs.mkdirSync(path.dirname(path.join(tmp, rel)), { recursive: true });
-        fs.writeFileSync(path.join(tmp, rel), buf);
-      }
-      // a set much smaller than the one Oto has is treated as broken
-      const size = (d) => { let n = 0; for (const id of RULESETS.balanced) { try { n += fs.statSync(path.join(d, `rulesets/main/${id}.json`)).size; } catch {} } return n; };
-      if (size(tmp) < size(cur.dir) * 0.5) throw new Error('uBOL rules much smaller than before');
-      fs.rmSync(dest, { recursive: true, force: true });
-      fs.renameSync(tmp, dest);
-      note({ version, at: Date.now() });
-      for (const f of fs.readdirSync(LIVE())) if (f !== version && f !== 'current.json') { try { fs.rmSync(path.join(LIVE(), f), { recursive: true, force: true }); } catch {} }
-      return true;
-    })().catch((e) => { console.warn('[oto] uBOL rules not updated:', e && e.message); return false; }).finally(() => { updating = null; });
-    return updating;
-  }
+  /** (Before 1.7.12 this downloaded uBOL's newest rules. They come with Oto updates now; kept so callers still work.) */
+  function update() { return Promise.resolve(false); }
 
   return { current, networkLines, scriptlets, preloadFile, update, RULESETS };
 };
