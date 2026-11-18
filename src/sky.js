@@ -572,9 +572,9 @@ function skyDeepField(c) {
 function skySnapshot() {
   try { const cv = document.createElement('canvas'); cv.width = SKY.canvas.width; cv.height = SKY.canvas.height; cv.getContext('2d').drawImage(SKY.canvas, 0, 0); return cv; } catch { return null; }
 }
-function skySwitchMode(to, { focusId = null, ws = null, fx = SKY.w / 2, fy = SKY.h / 2 } = {}) {
+function skySwitchMode(to, { focusId = null, ws = null, fx = SKY.w / 2, fy = SKY.h / 2, warp = false } = {}) {
   if (!SKY.on || SKY.mode === to || SKY.dive) return;
-  const snap = skyMotion() ? skySnapshot() : null;
+  const snap = skyMotion() && !warp ? skySnapshot() : null; // (after a quantum jump the flash hides the switch instead)
   skyHideCard(); SKY.hover = null; SKY.sel = null; SKY.pull = null;
   skySaveCam();
   SKY.mode = to; S.settings.overviewView = to; save();
@@ -582,8 +582,8 @@ function skySwitchMode(to, { focusId = null, ws = null, fx = SKY.w / 2, fy = SKY
   if (to === 'sky') {
     const st = focusId && SKY.starById.get(focusId);
     const target = st ? { x: st.x, y: st.y, z: 0.75 } : skyFitAll();
-    Object.assign(SKY.cam, { ...target, z: target.z * 0.5 });
-    skyGlideTo(target, 560);
+    Object.assign(SKY.cam, { ...target, z: target.z * (warp ? 0.3 : 0.5) });
+    skyGlideTo(target, warp ? WARP.DROP : 560); // (out of a jump: still moving fast, slowing to a stop)
   } else {
     const fit = skyFitAll();
     const near = ws ? [...SKY.starById.values()].filter((x) => x.ws === ws).sort((a, b) => a.r - b.r).slice(0, 3) : [];
@@ -627,6 +627,7 @@ function skyFrame(now) {
   SKY.raf = 0;
   if (!SKY.on) return;
   if (SKY.glide) SKY.glide(now);
+  if (SKY.warp) skyWarpTick(now);
   if (SKY.mode === 'galaxy') {
     const dt = SKY.lastT ? Math.min(100, now - SKY.lastT) : 0; SKY.lastT = now;
     // one turn every 6 minutes. It keeps turning while you look around or point at something (1.7.9): only dragging a
@@ -635,7 +636,7 @@ function skyFrame(now) {
   }
   skyDraw(now);
   skyTransition(now);
-  if (SKY.glide || SKY.trans) skyKick();
+  if (SKY.glide || SKY.trans || SKY.warp) skyKick();
   else if (skyMotion() && !document.hidden) { clearTimeout(SKY.twinkle); SKY.twinkle = setTimeout(skyKick, 50); } // gentle twinkle, ~20 fps
 }
 
@@ -719,6 +720,7 @@ function skyDraw(now = performance.now()) {
   }
   skyWindows(c, now);
   skyOverlays(c, w, h);
+  skyDrawWarp(c, w, h, now);
 }
 
 // ------------------------------------------------------------------ the Galaxy's own look (1.7.9)
@@ -850,55 +852,121 @@ function galaxyDrawDevices(c, now) {
   }
 }
 
-// Clicking a device that's on flies you to it: the galaxy holds still, the view rushes in to the device's star while
-// its light fills the screen, then you arrive: at this PC, down into Sky with your tabs; at your phone, its panel.
-// A device whose app isn't open is dark: clicking it just shows when it was last on.
-const FLY_MS = 760;
+// Clicking a device that's on is a quantum jump to it (1.7.10), like fast travel in a space game: the view turns to
+// face the device's star and brackets lock on (spool), then everything stretches into streaks of light rushing past
+// as you accelerate into it (jump), a flash, and you drop out of it slowing down: at this PC, into Sky with your tabs
+// rushing up to meet you; at your phone, its panel. A device whose app isn't open is dark: clicking it just shows
+// when it was last on.
+const WARP = { SPOOL: 420, JUMP: 820, DROP: 820 }; // ms: turn and lock on · accelerate · slow down after the flash
 function galaxyFlyTo(d) {
   if (!d) return;
   if (!d.me && !d.online) { galaxyShowDevice(d); return; }
+  skyHideCard(); galaxyHideDevice(); SKY.hoverDev = null;
   const back = { ...SKY.cam }; // (the Galaxy is remembered as you left it, not zoomed in on the device)
   const arrive = () => {
-    SKY.fly = null; Object.assign(SKY.cam, back); skySaveCam();
-    if (d.me) skySwitchMode('sky', { focusId: (activeTab() || {}).id, fx: SKY.w / 2, fy: SKY.h / 2 });
-    else if (d.kind === 'phone' && typeof v1Phone === 'function') { v1CloseOverview(); v1Phone(); }
-    else { skyDraw(); galaxyShowDevice(d); }
+    Object.assign(SKY.cam, back); skySaveCam();
+    if (d.me) skySwitchMode('sky', { focusId: (activeTab() || {}).id, warp: true });
+    else if (d.kind === 'phone' && typeof v1Phone === 'function') { SKY.warp = null; SKY.fly = null; v1CloseOverview(); v1Phone(); }
+    else { SKY.warp = null; SKY.fly = null; skyDraw(); galaxyShowDevice(d); }
   };
-  skyHideCard(); galaxyHideDevice(); SKY.hoverDev = null;
-  if (!skyMotion()) { arrive(); return; }
+  if (!skyMotion()) { arrive(); SKY.warp = null; SKY.fly = null; return; }
   const [wx, wy] = devPos(d.i);
-  SKY.fly = { id: d.id, label: `${d.me ? 'THIS PC' : d.plat}`, wx, wy, p: 0, t0: performance.now() };
-  const from = { ...SKY.cam }, to = { x: wx, y: wy, z: 1.8 };
-  SKY.glide = (now) => {
-    const p = Math.min(1, (now - SKY.fly.t0) / FLY_MS), e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
-    SKY.cam.x = from.x + (to.x - from.x) * e; SKY.cam.y = from.y + (to.y - from.y) * e; SKY.cam.z = from.z + (to.z - from.z) * e;
-    SKY.fly.p = p;
-    if (p >= 1) { SKY.glide = null; arrive(); }
+  const r = skyRng((Date.now() & 0xffff) + 7);
+  SKY.warp = {
+    t0: performance.now(), label: d.me ? 'THIS PC' : d.plat, wx, wy, from: { ...SKY.cam }, arrive, arrived: false, last: 0, s: 0,
+    parts: Array.from({ length: 320 }, () => ({ a: r() * Math.PI * 2, d: Math.pow(r(), 1.6) * 900 + 4, k: 0.6 + r() * 0.8 })),
   };
+  SKY.fly = SKY.warp; // (holds the galaxy still and keeps the pointer out until you've arrived)
+  SKY.glide = null;
   skyKick();
 }
-/** The flight's look: brackets lock onto the device, its cyan light grows to fill the screen. */
-function galaxyDrawFly(c, w, h) {
-  const f = SKY.fly; if (!f) return;
-  const [x, y] = skyToScreen(f.wx, f.wy), p = f.p, MONO = 'ui-monospace,Consolas,"DejaVu Sans Mono",monospace';
-  c.fillStyle = `rgba(3,3,4,${Math.min(0.7, p * 0.9)})`; c.fillRect(0, 0, w, h);
-  const lk = Math.min(1, p * 2.2), rr = 58 - 38 * (1 - Math.pow(1 - lk, 2)), tk = 7;
-  c.save(); c.translate(x, y); c.rotate((1 - lk) * Math.PI / 4);
-  c.strokeStyle = `rgba(236,240,255,${1 - p * 0.6})`; c.lineWidth = 1.4;
-  for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) { c.beginPath(); c.moveTo(sx * rr, sy * (rr - tk)); c.lineTo(sx * rr, sy * rr); c.lineTo(sx * (rr - tk), sy * rr); c.stroke(); }
-  c.restore();
-  skyStar(c, x, y, 3.6 + p * 3, 1, false);
-  if (p < 0.75) {
-    c.font = `11px ${MONO}`; c.textAlign = 'center'; c.fillStyle = `rgba(236,240,255,${1 - p / 0.75})`;
-    if (c.letterSpacing !== undefined) c.letterSpacing = '2px';
-    c.fillText(`GOING TO // ${f.label}`, x, y + 48);
+/** Moves the jump along: called every frame from skyFrame while it lasts. */
+function skyWarpTick(now) {
+  const W = SKY.warp; if (!W) return;
+  const e = now - W.t0, { SPOOL, JUMP, DROP } = WARP;
+  const ease = (x) => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  if (!W.arrived) {
+    if (e < SPOOL) { // turn to face it: the device glides to the middle, brackets lock on
+      const q = ease(e / SPOOL);
+      SKY.cam.x = W.from.x + (W.wx - W.from.x) * q; SKY.cam.y = W.from.y + (W.wy - W.from.y) * q; SKY.cam.z = W.from.z * (1 + 0.25 * q);
+      W.s = 0;
+    } else { // the jump: speeding up into the star, everything streaming past
+      const q = Math.min(1, (e - SPOOL) / JUMP);
+      SKY.cam.x = W.wx; SKY.cam.y = W.wy; SKY.cam.z = W.from.z * 1.25 * Math.pow(16, q * q * q);
+      W.s = q * q;
+      if (q >= 1) { W.arrived = true; W.ta = now; W.arrive(); }
+    }
+  } else { // dropping out: the streaks slow and shorten while the new view settles
+    const q = Math.min(1, (now - W.ta) / DROP);
+    W.s = Math.pow(1 - q, 2.2);
+    if (q >= 1) { SKY.warp = null; SKY.fly = null; skyUpdateZoom(); }
+  }
+}
+/** The jump's look, drawn over either view: zoom blur, streaks of light from the point you're flying into, a flash. */
+function skyDrawWarp(c, w, h, now) {
+  const W = SKY.warp; if (!W) return;
+  const MONO = 'ui-monospace,Consolas,"DejaVu Sans Mono",monospace', s = W.s;
+  // where you're flying to on screen: the device's star, then (after the flash) the middle of the new view
+  const [fx, fy] = W.arrived ? [w / 2, h / 2] : skyToScreen(W.wx, W.wy);
+  const dt = W.last ? Math.min(50, now - W.last) : 16; W.last = now;
+  // zoom blur: the picture smeared outward from the target
+  if (s > 0.04 && SKY.canvas) {
+    const dpr = SKY.dpr;
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
+    for (const [k, al] of [[1 + 0.05 * s, 0.4], [1 + 0.12 * s, 0.25]]) {
+      c.globalAlpha = al * Math.min(1, s * 2);
+      c.translate(fx * dpr, fy * dpr); c.scale(k, k); c.translate(-fx * dpr, -fy * dpr);
+      c.drawImage(SKY.canvas, 0, 0); c.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    c.restore();
+    c.setTransform(SKY.dpr, 0, 0, SKY.dpr, 0, 0);
+  }
+  // the tunnel: darker at the edges as you speed up
+  if (s > 0.02) {
+    const R = Math.hypot(w, h) * 0.75, v = c.createRadialGradient(fx, fy, R * 0.15, fx, fy, R);
+    v.addColorStop(0, 'rgba(3,4,8,0)'); v.addColorStop(1, `rgba(3,4,8,${0.75 * s})`);
+    c.fillStyle = v; c.fillRect(0, 0, w, h);
+  }
+  // streaks: stars stretched into lines, rushing outward from the target, longer and brighter the faster you go
+  const maxD = Math.hypot(Math.max(fx, w - fx), Math.max(fy, h - fy)) + 40;
+  const sp = 0.25 + 9 * s;
+  c.lineCap = 'round';
+  for (const [lo, hi, al, lw] of [[0, 0.5, 0.45, 1], [0.5, 2, 0.9, 1.6]]) {
+    c.beginPath();
+    for (const p of W.parts) {
+      if (p.k < lo + 0.6 || p.k >= hi + 0.6) continue;
+      p.d += p.d * sp * p.k * dt / 1000;
+      if (p.d > maxD) { p.d = 4 + Math.random() * 60; p.a = Math.random() * Math.PI * 2; }
+      if (s < 0.03) continue;
+      const len = 2 + p.d * 0.45 * s * p.k, ca = Math.cos(p.a), sa = Math.sin(p.a);
+      c.moveTo(fx + ca * p.d, fy + sa * p.d); c.lineTo(fx + ca * (p.d + len), fy + sa * (p.d + len));
+    }
+    c.strokeStyle = `rgba(222,232,255,${Math.min(1, s * 1.5) * al})`; c.lineWidth = lw * (0.6 + s); c.stroke();
+  }
+  // before the jump: brackets lock onto the star, and where you're going
+  if (!W.arrived) {
+    const e = now - W.t0, lk = Math.min(1, e / WARP.SPOOL), rr = 60 - 40 * (1 - Math.pow(1 - lk, 2)) + 30 * s, tk = 7;
+    c.save(); c.translate(fx, fy); c.rotate((1 - lk) * Math.PI / 4);
+    c.strokeStyle = `rgba(236,240,255,${0.95 * (1 - s)})`; c.lineWidth = 1.4;
+    for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) { c.beginPath(); c.moveTo(sx * rr, sy * (rr - tk)); c.lineTo(sx * rr, sy * rr); c.lineTo(sx * (rr - tk), sy * rr); c.stroke(); }
+    c.restore();
+    skyStar(c, fx, fy, 3.4 + 10 * s, 1, false);
+    c.font = `11px ${MONO}`; c.textAlign = 'center'; c.fillStyle = `rgba(236,240,255,${Math.max(0, 1 - s * 3)})`;
+    if (c.letterSpacing !== undefined) c.letterSpacing = '2.4px';
+    c.fillText(`QUANTUM TRAVEL // ${W.label}`, fx, fy + 52);
     if (c.letterSpacing !== undefined) c.letterSpacing = '0px';
   }
-  const rad = Math.max(w, h) * (0.06 + 1.2 * p * p);
-  const g = c.createRadialGradient(x, y, 0, x, y, rad);
-  g.addColorStop(0, `rgba(246,248,255,${0.2 + 0.7 * p * p})`); g.addColorStop(0.45, `rgba(214,224,255,${0.3 * p * p})`); g.addColorStop(1, 'rgba(3,3,4,0)');
-  c.fillStyle = g; c.fillRect(0, 0, w, h);
+  // the light ahead grows, then a flash that hides the switch and fades as you slow down
+  const glow = W.arrived ? 0 : s;
+  if (glow > 0) {
+    const g = c.createRadialGradient(fx, fy, 0, fx, fy, Math.max(w, h) * (0.05 + 0.9 * glow));
+    g.addColorStop(0, `rgba(250,252,255,${0.9 * glow})`); g.addColorStop(0.35, `rgba(214,226,255,${0.35 * glow})`); g.addColorStop(1, 'rgba(214,226,255,0)');
+    c.fillStyle = g; c.fillRect(0, 0, w, h);
+  }
+  const fl = W.arrived ? Math.max(0, 1 - (now - W.ta) / 380) : Math.max(0, (now - W.t0 - WARP.SPOOL - WARP.JUMP * 0.82) / (WARP.JUMP * 0.18));
+  if (fl > 0) { c.fillStyle = `rgba(240,245,255,${0.92 * Math.min(1, fl)})`; c.fillRect(0, 0, w, h); }
 }
+
 function galaxyShowDevice(d) {
   skyHideCard(); galaxyHideDevice();
   const sum = d.me ? `${S.tabs.length} tab${S.tabs.length === 1 ? '' : 's'} open here` : `${(d.tabs || []).length} tab${(d.tabs || []).length === 1 ? '' : 's'} open${d.app ? ` · Oto ${d.app}` : ''}${typeof d.battery === 'number' ? ` · battery ${d.battery}%` : ''}`;
@@ -945,7 +1013,7 @@ function galaxyDraw(now) {
   // your devices circle it; 音 sits in its bright middle
   galaxyDrawDevices(c, now);
   c.textAlign = 'center'; c.fillStyle = '#2A2118'; c.font = `${Math.round(clamp(24 * z, 16, 28))}px ${SERIF}`; c.fillText('音', cx, cy + 8 * Math.min(1, z));
-  galaxyDrawFly(c, w, h);
+  skyDrawWarp(c, w, h, now);
   galaxyPlaceDevice();
 }
 
@@ -1629,7 +1697,7 @@ function skyPictureTick() {
 if (typeof setInterval === 'function' && typeof document !== 'undefined') setInterval(skyPictureTick, 30000);
 
 function skyUnmount() {
-  galaxyHideDevice(); SKY.hoverDev = null; SKY.fly = null;
+  galaxyHideDevice(); SKY.hoverDev = null; SKY.fly = null; SKY.warp = null;
   if (!SKY.on) return;
   skySaveCam();
   SKY.on = false;

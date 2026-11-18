@@ -58,14 +58,15 @@ module.exports = async (t) => {
   t.check('clicking a dark device shows when it was last on (no flight)', !a.fly && a.card === 'ph-off' && /SEEN|OFFLINE/.test(a.seen), JSON.stringify(a));
   await t.js('galaxyHideDevice(), 1');
 
-  // a phone that's on: the view flies to it, then its panel opens
+  // a phone that's on: the view jumps to it, then its panel opens
   p = await devXY('ph-on');
   await mouse('mouseDown', p[0], p[1]); await mouse('mouseUp', p[0], p[1]); await t.sleep(380);
-  a = await J('return { fly: !!SKY.fly, p: SKY.fly && +SKY.fly.p.toFixed(2), z: +SKY.cam.z.toFixed(2) };');
+  await t.sleep(400);
+  a = await J('return { fly: !!SKY.warp, s: SKY.warp && +SKY.warp.s.toFixed(2), z: +SKY.cam.z.toFixed(2) };');
   await shot('g2-flying');
   const motion = await J('return skyMotion();');
-  t.check('clicking a phone that’s on flies to it', motion ? a.fly && a.p > 0 && a.p < 1 : true, JSON.stringify(a));
-  await t.sleep(900);
+  t.check('clicking a phone that’s on makes a quantum jump to it (streaks speeding up)', motion ? a.fly && a.s > 0 && a.s < 1 : true, JSON.stringify(a));
+  await t.sleep(1000);
   a = await J("return { opened: window.__phoneOpened, fly: !!SKY.fly, overview: !!document.querySelector('#v1Ov') };");
   t.check('…and arriving opens its phone panel', a.opened === 1 && !a.fly && !a.overview, JSON.stringify(a));
 
@@ -73,10 +74,10 @@ module.exports = async (t) => {
   await t.js("S.settings.overviewView = 'galaxy', v1Overview(), 1"); await t.sleep(1100);
   const me = await J('return (SKY.devs.find((d) => d.me) || {}).id;');
   p = await devXY(me);
-  await mouse('mouseDown', p[0], p[1]); await mouse('mouseUp', p[0], p[1]); await t.sleep(400);
+  await mouse('mouseDown', p[0], p[1]); await mouse('mouseUp', p[0], p[1]); await t.sleep(1000);
   await shot('g3-flying-pc');
-  await t.sleep(1500);
-  a = await J("return { mode: SKY.mode, view: S.settings.overviewView, on: document.querySelector('.v1-ovsw .b.on').textContent, fly: !!SKY.fly };");
+  await t.sleep(1900);
+  a = await J("return { mode: SKY.mode, view: S.settings.overviewView, on: document.querySelector('.v1-ovsw .b.on').textContent, fly: !!SKY.fly || !!SKY.warp };");
   t.check('clicking this PC flies to it and comes down into Sky', a.mode === 'sky' && a.view === 'sky' && /sky/i.test(a.on) && !a.fly, JSON.stringify(a));
   await shot('g4-sky-landed');
 
