@@ -1084,7 +1084,7 @@ function skyWindows(c, now) {
   const want = new Set();
   const rects = [];
   if (cardId) { const r = SKY.card.getBoundingClientRect(), b = SKY.canvas.getBoundingClientRect(); rects.push({ x0: r.left - b.left, y0: r.top - b.top, x1: r.right - b.left, y1: r.bottom - b.top }); }
-  if (z >= 1.25 && !SKY.dive && !SKY.drag && !SKY.trans) {
+  if (z >= 1.25 && !SKY.dive && !SKY.drag && !SKY.trans && !SKY.warp) { // (not during a jump: they'd smear)
     const cx = SKY.w / 2, cy = SKY.h / 2;
     const vis = [...SKY.starById.values()].map((st) => { const [x, y] = skyToScreen(st.x, st.y); return { st, x, y }; })
       .filter(({ x, y }) => x > 20 && x < SKY.w - 20 && y > 70 && y < SKY.h - 40)
