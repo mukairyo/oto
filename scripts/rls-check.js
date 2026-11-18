@@ -67,9 +67,11 @@ async function anonymous() {
   }
 }
 
-async function signIn(email, password) {
+async function signIn(email, password, label = 'a') {
   const r = await call('POST', '/auth/v1/token?grant_type=password', { body: { email, password } });
-  if (r.status !== 200 || !r.json || !r.json.access_token) throw new NotConfigured(`sign-in failed for a test account (HTTP ${r.status})`);
+  // the reason Supabase gives (a code like email_not_confirmed or invalid_credentials), never the address or password
+  const why = r.json && (r.json.error_code || r.json.code || r.json.error) ? `, ${String(r.json.error_code || r.json.code || r.json.error).replace(/[^\w-]/g, '').slice(0, 40)}` : '';
+  if (r.status !== 200 || !r.json || !r.json.access_token) throw new NotConfigured(`sign-in failed for test account ${label} (HTTP ${r.status}${why})`);
   return { token: r.json.access_token, refresh: r.json.refresh_token, uid: r.json.user.id };
 }
 
@@ -79,8 +81,8 @@ async function twoAccounts() {
     if (ANON_ONLY) { console.log('NOTE  --anonymous-only: the two-account checks were not run'); return false; }
     throw new NotConfigured('test accounts not configured: set OTO_RLS_A_EMAIL/_PASSWORD and OTO_RLS_B_EMAIL/_PASSWORD (dedicated test accounts) as repository secrets');
   }
-  const A = await signIn(env.OTO_RLS_A_EMAIL, env.OTO_RLS_A_PASSWORD);
-  const B = await signIn(env.OTO_RLS_B_EMAIL, env.OTO_RLS_B_PASSWORD);
+  const A = await signIn(env.OTO_RLS_A_EMAIL, env.OTO_RLS_A_PASSWORD, 'A');
+  const B = await signIn(env.OTO_RLS_B_EMAIL, env.OTO_RLS_B_PASSWORD, 'B');
   A.name = 'A'; B.name = 'B';
   record('the two test accounts are different users', A.uid !== B.uid);
   if (A.uid === B.uid) return true;
@@ -135,7 +137,7 @@ async function tokens(A) {
     record(`${name} is refused`, refused(r) || r.status === 401 || (r.status >= 400 && r.status < 500) || (r.status === 200 && Array.isArray(r.json) && r.json.length === 0), `HTTP ${r.status}`);
   }
   // a second session for A, signed out: its refresh token can't make new tokens any more
-  const s2 = await signIn(process.env.OTO_RLS_A_EMAIL, process.env.OTO_RLS_A_PASSWORD);
+  const s2 = await signIn(process.env.OTO_RLS_A_EMAIL, process.env.OTO_RLS_A_PASSWORD, 'A (second session)');
   const out = await call('POST', '/auth/v1/logout?scope=local', { token: s2.token });
   record('signing a session out works', out.status === 204 || out.status === 200, `HTTP ${out.status}`);
   const again = await call('POST', '/auth/v1/token?grant_type=refresh_token', { body: { refresh_token: s2.refresh } });
