@@ -871,9 +871,13 @@ function galaxyFlyTo(d) {
   };
   if (!skyMotion()) { arrive(); SKY.warp = null; SKY.fly = null; return; }
   const [wx, wy] = devPos(d.i);
+  skyQuantum({ wx, wy, label: d.me ? 'THIS PC' : d.plat, arrive });
+}
+/** Starts a quantum jump to a point (world units) of the view that's showing; arrive() runs under the flash. */
+function skyQuantum({ wx, wy, label, arrive }) {
   const r = skyRng((Date.now() & 0xffff) + 7);
   SKY.warp = {
-    t0: performance.now(), label: d.me ? 'THIS PC' : d.plat, wx, wy, from: { ...SKY.cam }, arrive, arrived: false, last: 0, s: 0,
+    t0: performance.now(), label, wx, wy, from: { ...SKY.cam }, arrive, arrived: false, last: 0, s: 0,
     parts: Array.from({ length: 320 }, () => ({ a: r() * Math.PI * 2, d: Math.pow(r(), 1.6) * 900 + 4, k: 0.6 + r() * 0.8 })),
   };
   SKY.fly = SKY.warp; // (holds the galaxy still and keeps the pointer out until you've arrived)
@@ -1261,37 +1265,26 @@ function skyOpenNow(t) {
   if (!t.essential && t.ws !== S.activeWs) switchWorkspace(t.ws, { activate: false });
   activate(t.id);
 }
-/** Open a tab: the view flies to its star, locks on and dives in until its light fills the screen, then the tab opens
- *  and Sky View fades away (with reduce-motion: straight away). */
+/** Open a tab: a quantum jump into its star, the same as to a device in the Galaxy (1.7.11): the view turns to face it,
+ *  brackets lock on, the sky stretches into streaks as you speed up into it, and under the flash the tab opens and the
+ *  overview fades away (with reduce-motion: straight away). */
 function skyOpen(id) {
   const t = tabById(id); if (!t) return;
   const s = SKY.starById.get(id);
-  if (!skyMotion() || !s || !SKY.layer || SKY.dive) { v1CloseOverview(); skyOpenNow(t); return; }
+  if (!skyMotion() || !s || !SKY.layer || SKY.dive || SKY.warp) { v1CloseOverview(); skyOpenNow(t); return; }
   skyHideCard();
   if (SKY.help) { SKY.help.remove(); SKY.help = null; }
-  const from = { ...SKY.cam }, t0 = performance.now(), layer = SKY.layer;
-  const z1 = Math.max(from.z, 1);
-  SKY.dive = { id, t0, p: 0 };
-  SKY.glide = (now) => {
-    const e = now - t0;
-    if (e < 220) { // fly to it
-      const p = e / 220, k = 1 - Math.pow(1 - p, 3);
-      SKY.cam.x = from.x + (s.x - from.x) * k; SKY.cam.y = from.y + (s.y - from.y) * k; SKY.cam.z = from.z + (z1 - from.z) * k;
-      SKY.dive.lock = p; SKY.dive.p = 0;
-    } else { // dive in
-      const p = Math.min(1, (e - 220) / 420), k = p * p * p;
-      SKY.cam.x = s.x; SKY.cam.y = s.y; SKY.cam.z = z1 + (7 - z1) * k;
-      SKY.dive.lock = 1; SKY.dive.p = p;
-      if (p >= 1) {
-        SKY.glide = null;
-        skyOpenNow(t);
-        layer.style.transition = 'opacity .18s ease'; layer.style.opacity = '0';
-        // (next time the overview opens where you were looking, not zoomed into this star)
-        setTimeout(() => { SKY.dive = null; Object.assign(SKY.cam, from); if (layer.isConnected) v1CloseOverview(); }, 190);
-      }
-    }
-  };
-  skyKick();
+  const from = { ...SKY.cam }, layer = SKY.layer;
+  skyQuantum({
+    wx: s.x, wy: s.y, label: ((t && hostOf(t.url)) || 'OTO').toUpperCase(),
+    arrive: () => {
+      skyOpenNow(t);
+      // the flash fades with the overview, onto the page
+      layer.style.transition = 'opacity .3s ease'; layer.style.opacity = '0';
+      // (next time the overview opens where you were looking, not zoomed into this star)
+      setTimeout(() => { SKY.warp = null; SKY.fly = null; Object.assign(SKY.cam, from); skySaveCam(); if (layer.isConnected) v1CloseOverview(); }, 320);
+    },
+  });
 }
 function skyMove(id, toWs) {
   const t = tabById(id); if (!t) return;

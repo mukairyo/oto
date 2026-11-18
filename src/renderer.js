@@ -1825,7 +1825,7 @@ function wire() {
 
   $('#btnCompact').onclick = () => (S.settings.compact ? toggleCompact() : toggleCollapsed());
   $('#btnShowSidebar').onclick = toggleCompact;
-  $('#btnSettings').onclick = openSettings;
+  $('#btnSettings').onclick = function () { return openSettings.apply(this, arguments); }; // (late-bound: v1 wraps it)
   $('#btnNewTab').onclick = () => openCmd('new');
   $('#btnClear').onclick = clearTabs;
   $('#wsTitle').onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); wsMenu(currentWs(), r.left, r.bottom + 4); };
@@ -1866,7 +1866,7 @@ function wire() {
   });
   $('#findPrev').onclick = () => doFind(false);
   $('#findNext').onclick = () => doFind(true);
-  $('#findClose').onclick = closeFind;
+  $('#findClose').onclick = function () { return closeFind.apply(this, arguments); }; // (late-bound: v1 wraps it)
 
   // permissions
   $('#permAllow').onclick = () => answerPerm(true);

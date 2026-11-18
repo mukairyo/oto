@@ -3,6 +3,12 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.7.11 — Updates show up by themselves; quantum jump into your tabs
+
+- **New versions show up in the sidebar by themselves.** When Oto found or downloaded an update, its card at the bottom of the sidebar (and the "ready" message) only appeared after you opened Settings → About. Oto hooked the update messages to the first version of its handler, before the sidebar added its update card to it. Now they reach the sidebar straight away: you see it downloading, then Restart now.
+- **Quantum jump into a tab.** Clicking a star in Sky opens its tab with the same jump as in the Galaxy: the view turns to face the star, brackets lock on, the sky stretches into streaks as you speed up into it, and under the flash the tab opens.
+- Two small fixes from the same mistake: closing the find bar with its X now clears the result marks beside the scrollbar, and the settings button opens Settings with a fresh search.
+
 ## 1.7.10 — The Galaxy is your devices
 
 - **Just the galaxy and your devices.** The Galaxy view no longer shows your tabs or your Spaces' names (they live in Sky). What's left is the galaxy, and the devices signed in to your Oto account are stars of it, sitting on its arms with their names beside them.

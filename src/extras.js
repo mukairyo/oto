@@ -471,7 +471,9 @@ function initExtras() {
   const foot = document.querySelector('#sidebar .sb-foot');
   if (foot && !$('#mediaCard')) foot.before(h('div', { id: 'mediaCard', class: 'media-card', hidden: true }));
   oto.on('glance', (url) => { diag('glance', 'from right-click menu'); openGlance(url); });
-  oto.on('update', onUpdate);
+  // (looked up each time: the sidebar wraps onUpdate later to show its update card — holding the first one meant the
+  // card only appeared after Settings → About asked for the status, 1.7.11)
+  oto.on('update', (u) => onUpdate(u));
   oto.on('page-mouse', () => { diagMouseCount++; });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && glance) { e.stopPropagation(); closeGlance(); } }, true);
   diag('start', { w: innerWidth, h: innerHeight, dpr: devicePixelRatio });
