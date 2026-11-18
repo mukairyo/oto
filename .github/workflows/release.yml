@@ -250,7 +250,7 @@ jobs:
           V: ${{ needs.release.outputs.version }}
         run: |
           mkdir pub && cd pub
-          gh release download "v$V" --repo "$GITHUB_REPOSITORY" -p "Oto-Setup-$V.exe" -p "Oto-Setup-$V.exe.blockmap" -p "SHA256SUMS.txt" -p "latest*.yml"
+          gh release download "v$V" --repo "$GITHUB_REPOSITORY" -p "Oto-Setup-$V.exe" -p "Oto-Setup-$V.exe.blockmap" -p "SHA256SUMS.txt" -p "oto-sbom.cdx.json" -p "latest*.yml"
           sha256sum -c SHA256SUMS.txt
           gh attestation verify "Oto-Setup-$V.exe" --repo "$GITHUB_REPOSITORY" --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
           # latest.yml (what the updater trusts) must describe this exact installer
