@@ -5,7 +5,7 @@
 const { net } = require('electron');
 module.exports = async (t) => {
   const hits = async (reset) => JSON.parse(await (await net.fetch(`http://127.0.0.1:${process.env.OTO_E2E_HTTP}/__hits${reset ? '?reset=1' : ''}`)).text());
-  const visit = async (site) => { await hits(true); await t.open(`http://${site}/`, 5200); const res = JSON.parse((await t.page('JSON.stringify(window.__res)')) || '{}'); await t.sleep(400); return { res, hits: await hits() }; };
+  const visit = async (site) => { await hits(true); await t.open(`http://${site}/`, 5200); let res = null; for (let i = 0; i < 40 && !(res && 'own' in res); i++) { if (i) await t.sleep(100); res = JSON.parse((await t.page('JSON.stringify(window.__res || null)')) || 'null'); } res = res || {}; /* (the page fills __res as its requests finish; slow runners read it too early) */ await t.sleep(400); return { res, hits: await hits() }; };
   const state = JSON.parse(await t.js('oto.shield.state().then((s) => JSON.stringify(s))'));
   t.check('Shield runs its full filter engine', state.mode === 'full', JSON.stringify(state));
   if (state.mode !== 'full') return;

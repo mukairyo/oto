@@ -43,3 +43,10 @@ test('a file signed by the right key passes; another key, or a changed file, is 
   assert.throws(() => verify({ file, sig: `${file}.tor.asc`, keys: [tor.pub], want: tor.fpr }), /no valid signature/);
   fs.rmSync(d, { recursive: true, force: true });
 });
+
+test('Tor\'s licence ships with it', () => {
+  const lic = fs.readFileSync(path.join(__dirname, '..', 'build', 'tor-LICENSE.txt'), 'utf8');
+  assert.match(lic, /The Tor Project, Inc\./);
+  assert.match(lic, /Redistributions in binary form must reproduce the above/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'scripts', 'fetch-tor.js'), 'utf8'), /tor-LICENSE\.txt/);
+});

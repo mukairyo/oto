@@ -103,15 +103,9 @@ async function main() {
     walk(x);
     fs.mkdirSync(path.join(out, 'licenses'), { recursive: true });
     for (const f of licences) fs.copyFileSync(f, path.join(out, 'licenses', path.relative(x, f).replace(/[\\/]/g, '_')));
-    // Tor's licence (3-clause BSD, with the notices of the libraries tor.exe includes) must ship with it; the
-    // expert bundle doesn't carry it, so it comes from Tor's own source repository.
-    // (Tor's official GitHub mirror first: gitlab.torproject.org turns away automated downloads)
-    let lic = '';
-    for (const u of ['https://raw.githubusercontent.com/torproject/tor/main/LICENSE', 'https://gitlab.torproject.org/tpo/core/tor/-/raw/main/LICENSE']) {
-      try { lic = (await get(u)).toString('utf8'); break; } catch (e) { console.warn(`licence: ${e.message}`); }
-    }
-    if (!/The Tor Project/.test(lic) || !/Redistribution and use in source and binary forms/.test(lic)) throw new Error('Tor\'s LICENSE looks wrong');
-    fs.writeFileSync(path.join(out, 'licenses', 'tor-LICENSE.txt'), lic);
+    // Tor's licence (3-clause BSD, with the notices for code tor.exe includes) must ship with it; the expert bundle
+    // doesn't carry it, so Oto keeps a copy (build/tor-LICENSE.txt).
+    fs.copyFileSync(path.join(__dirname, '..', 'build', 'tor-LICENSE.txt'), path.join(out, 'licenses', 'tor-LICENSE.txt'));
     fs.writeFileSync(path.join(out, 'README.md'), `Tor ${v} (Tor Expert Bundle, Windows x64) from dist.torproject.org, for Oto VPN.\n` +
       `Tor is free software by The Tor Project, Inc., under the 3-clause BSD licence: https://gitlab.torproject.org/tpo/core/tor/-/blob/main/LICENSE\n` +
       `Signature checked against the Tor Browser signing key ${signer} (scripts/fetch-tor.js).\n`);
