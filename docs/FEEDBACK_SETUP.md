@@ -9,7 +9,8 @@ Gmail's password lives only in Supabase's secret settings. It is never in Oto, i
 
 Supabase → **SQL Editor** → New query → paste all of [`supabase/feedback.sql`](../supabase/feedback.sql) → **Run**.
 
-This makes the `feedback` table. Only the service can read or write it. You can read it yourself in
+This makes the `feedback` table and lets only the feedback service use it (newer Supabase projects need that
+said out loud). Only the service can read or write it. You can read it yourself in
 **Table Editor → feedback**.
 
 ## 2. Make a Gmail app password for Oto's Gmail
@@ -55,7 +56,9 @@ In Oto: Settings → **Feedback** → Bug → write something → **Send to Oto*
 - **Reply** answers the person, if they gave their address.
 - The message also appears in Table Editor → feedback.
 
-If the email doesn't come, open Edge Functions → oto-feedback → **Logs**. A line starting with `email` shows
+If Oto says the service "has a problem" or "couldn't save", the table or its access is missing: run
+`supabase/feedback.sql` again (it's safe to run twice). If the email doesn't come, open Edge Functions →
+oto-feedback → **Logs**. A line starting with `email` shows
 Gmail's reason, for example a wrong app password. The message is still saved even when the email fails.
 
 ## What is saved

@@ -16,6 +16,10 @@ create table if not exists public.feedback (
 alter table public.feedback enable row level security;
 revoke all on table public.feedback from anon, authenticated;
 create index if not exists feedback_ip_time on public.feedback (ip_hash, created_at desc);
+-- Newer Supabase projects don't give new tables to the function's secret key automatically: let only it in.
+grant select, insert, update on table public.feedback to service_role;
+grant usage, select on sequence public.feedback_id_seq to service_role;
+notify pgrst, 'reload schema';
 
 -- Spam limits only need the last day: forget the scrambled IP after 30 days (run now and then, or schedule it).
 -- update public.feedback set ip_hash = repeat('0', 64) where created_at < now() - interval '30 days';
