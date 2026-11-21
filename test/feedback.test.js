@@ -6,7 +6,8 @@ const assert = require('node:assert');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { createFeedback, clean, githubIssueUrl } = require('../main/feedback.js');
-const svc = (f) => import(path.join(__dirname, '..', 'supabase', 'functions', 'oto-feedback', f));
+const { pathToFileURL } = require('url');
+const svc = (f) => import(pathToFileURL(path.join(__dirname, '..', 'supabase', 'functions', 'oto-feedback', f)).href); // (Windows needs a file:// URL)
 
 test('what the window sends is checked field by field', () => {
   assert.strictEqual(clean({ kind: 'nope', message: 'x'.repeat(20) }).ok, false);
