@@ -7,13 +7,19 @@
 //   FEEDBACK_TO         where reports go (your personal email)
 //   FEEDBACK_SALT       any long random text (spam limits keep only a scrambled form of the sender's IP)
 //   FEEDBACK_EMAIL_ALL  optional: "1" to email ideas and other messages too, not only bugs
-// SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase inside the function itself.
+// SUPABASE_URL and the project's keys (SUPABASE_SECRET_KEYS) are provided by Supabase inside the function itself.
 import nodemailer from 'npm:nodemailer@6';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { makeHandler } from './handler.mjs';
 
 const env = (k: string) => Deno.env.get(k) || '';
-const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
+// The project's secret key (Supabase's new keys, given to the function as SUPABASE_SECRET_KEYS; the old
+// service_role key is only a fallback, as Supabase is retiring it). It stays inside Supabase.
+function secretKey() {
+  try { const k = JSON.parse(env('SUPABASE_SECRET_KEYS') || '{}'); if (k && typeof k.default === 'string' && k.default) return k.default; } catch { /* not set */ }
+  return env('SUPABASE_SERVICE_ROLE_KEY');
+}
+const db = createClient(env('SUPABASE_URL'), secretKey(), { auth: { persistSession: false } });
 
 // Gmail over port 465 (Edge Functions can't use port 587 or 25)
 const gmail = env('GMAIL_USER') && env('GMAIL_APP_PASSWORD') && env('FEEDBACK_TO')
