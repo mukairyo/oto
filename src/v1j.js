@@ -659,13 +659,16 @@ function initV1j() {
     SHP_DANGER.set(d.wcId, d);
     const show = () => {
       if (SHP_DANGER.get(d.wcId) !== d) return;
+      // (1.8.2) a load stopped this early can skip the page events that link a new tab to its page, so link any
+      // tab that isn't linked yet ourselves (on slow PCs the warning otherwise never found its tab: blank tab)
+      if (!wcToTab.get(d.wcId)) for (const tt of S.tabs) { const vv = V.get(tt.id); if (vv && !vv.wcId) mapWebContents(tt, vv); }
       const tabId = wcToTab.get(d.wcId), v = tabId && V.get(tabId), t = tabId && tabById(tabId);
       if (!v) return;
       v.error = { code: 'danger', desc: d.kind, url: d.url }; v.loading = false;
       if (t) { t.url = d.url; t.title = hostOf(d.url); }
       render(); if (S.active[S.activeWs] === tabId) updateChrome();
     };
-    for (const ms of [150, 700, 1500, 3000]) setTimeout(show, ms); // a slow PC can link the tab to its page late
+    for (const ms of [150, 700, 1500, 3000, 5000, 8000]) setTimeout(show, ms); // a slow PC can link the tab to its page late
   });
   // YouTube's "Ad blockers violate YouTube's Terms of Service" wall stayed up even after Oto's own fixes: one click
   // pauses Shield on YouTube (Settings → Shield lists it, and it can be turned back on there) and reloads the video.

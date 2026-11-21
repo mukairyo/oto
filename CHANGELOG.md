@@ -7,6 +7,7 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 
 - **The VPN star sits with the other sidebar buttons** (Library, Notifications, phone…), in both the wide and the narrow sidebar, and glows while you're connected. You can move or remove it like the other buttons.
 - **Owner mode no longer asks for the owner key again.** A routine "checking for updates" message made the window forget it; your key was saved all along.
+- **Dangerous-site warning on slow PCs:** opening a dangerous site in a brand-new tab could leave the tab blank instead of showing Oto's warning (the site was blocked either way).
 
 ## 1.8.1 — Feedback
 
