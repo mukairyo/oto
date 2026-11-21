@@ -25,6 +25,7 @@ history or saved tabs. (Before 1.3.3, private tabs wrongly used the normal saved
 | Update check (download only) | GitHub (`github.com`, `api.github.com`) | at start, then every 30 minutes |
 | Widevine (protected video) | Google's component server | once, so Netflix/Spotify can play |
 | **Sync (only if you sign in)** | Supabase (`supabase.co`), Oto's account server | after changes, and every few minutes |
+| **Feedback (only when you press Send)** | Oto's feedback service on Supabase (`supabase.co`) | only when you send a message from Settings → Feedback |
 
 The filter, malware and update downloads don't send anything about you or the pages you visit. The dangerous-site check
 happens **on your PC** against the downloaded list. No website addresses are sent anywhere for it.
@@ -42,6 +43,17 @@ happens **on your PC** against the downloaded list. No website addresses are sen
 - If you reset your account password by email, data encrypted with the old password can't be read any more.
 - Sending a tab to your phone stores the link (encrypted) until the phone picks it up.
 - To delete your cloud data: Settings → Account & sync → **Delete cloud data**. This PC keeps its own copy.
+
+## Feedback
+
+- Only sent when you press **Send to Oto** on Settings → Feedback.
+- What's sent: whether it's a bug, an idea or something else, what you wrote, your email address only if you type
+  one (to get an answer), Oto's version and your Windows version. For a bug, you can also include the small
+  technical report from About (what the sidebar, top bar and window did recently, and your layout settings).
+  Nothing about the sites you visit is included.
+- It's saved on Oto's server, and bug reports are emailed to Oto's developer. Your IP address isn't saved: only a
+  scrambled form of it, used to stop one place from sending too many messages.
+- **Post on GitHub instead** opens a public GitHub issue in a tab. Nothing is sent until you post it there yourself.
 
 ## Protection features, honestly
 

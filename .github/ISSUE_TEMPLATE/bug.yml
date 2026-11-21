@@ -1,0 +1,51 @@
+name: 🐞 Bug
+description: Something in Oto broke or acts strangely
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for telling us! You can also send this privately from Oto: **Settings → Feedback**.
+        **Security problem?** Please don't post it here: use [Report a vulnerability](https://github.com/mukairyo/oto/security/advisories/new).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect instead?
+      placeholder: When I put a tab to sleep and wake it, the page is blank instead of showing the site.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can it be made to happen again?
+      description: The steps, if you know them. "It happens sometimes" is fine too.
+      placeholder: |
+        1. Open youtube.com
+        2. Right-click the tab → Put to sleep
+        3. Click the tab again
+  - type: input
+    id: version
+    attributes:
+      label: Oto version
+      description: Settings → About shows it.
+      placeholder: "1.8.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: windows
+    attributes:
+      label: Windows
+      options:
+        - Windows 11
+        - Windows 10
+        - Android (Oto for Android)
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or the technical report
+      description: Drag screenshots here. Settings → About → Report a problem → Copy gives a small technical report (nothing about the sites you visit).

@@ -150,9 +150,16 @@ const adTester = () => page('Ad-block tester (local)', `<h1>Ad-block tester</h1>
     }, 1500);
   });</script>`);
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+const FEEDBACK = [], FEEDBACK_FAIL = [];
 function handler(req, res) {
   const host = String(req.headers.host || '').split(':')[0].toLowerCase().replace(/\.$/, '').replace(/\.sec$/, '.site');
   const url = new URL(req.url, 'http://x');
+  // (1.8.1) stand-in for Oto's feedback service: remembers what arrived; ?fail=1 on the next answer says no
+  if (url.pathname === '/__feedback') {
+    if (req.method === 'POST') { let b = ''; req.on('data', (d) => { b += d; }); req.on('end', () => { FEEDBACK.push({ body: b, apikey: req.headers.apikey || '' }); const no = FEEDBACK_FAIL.shift(); res.writeHead(no ? 429 : 200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(no ? { ok: false } : { ok: true, id: FEEDBACK.length, emailed: true })); }); return undefined; }
+    if (url.searchParams.get('fail')) FEEDBACK_FAIL.push(1);
+    res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(FEEDBACK));
+  }
   if (url.pathname === '/__hits') { const out = JSON.stringify(HITS); if (url.searchParams.get('reset')) for (const k of Object.keys(HITS)) delete HITS[k]; res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(out); }
   if (host === 'recorder.site' && url.pathname !== '/') {
     const how = `${url.searchParams.get('how') || 'own'}@${String(req.headers.referer || '').replace(/^https?:\/\//, '').split('/')[0] || 'no-referer'}`;

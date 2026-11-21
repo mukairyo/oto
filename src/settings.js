@@ -1000,6 +1000,8 @@ const PAGE_RENDER = {
       updatesSection(),
       versionsSection(),
       section('Report a problem',
+        row('Tell Oto\'s maker', 'Send a bug report or an idea straight from Oto, or post it on GitHub.',
+          h('button', { class: 'btn primary', onclick: () => openSettings('feedback') }, 'Send feedback')),
         row('Something not working right?', 'Saves a small report of what the sidebar, top bar and mouse did recently, plus your layout settings. Nothing about the sites you visit is included. Send the file to whoever is helping you.',
           h('div', { class: 'btn-pair' },
             h('button', { class: 'btn', onclick: () => saveReport() }, 'Save report'),

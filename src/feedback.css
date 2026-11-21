@@ -1,0 +1,53 @@
+/* Oto — Feedback page (1.8.1, src/feedback.js). Uses the settings colours, so it follows every theme. */
+.fb-kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 14px; }
+.fb-kind {
+  display: grid; grid-template-columns: 30px 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center;
+  text-align: left; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--card-border); background: var(--card);
+  color: var(--fg); cursor: pointer; transition: border-color .15s, background .15s, transform .15s;
+}
+.fb-kind:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--card-border)); }
+.fb-kind:active { transform: scale(.985); }
+.fb-kind.on { border-color: color-mix(in srgb, var(--fg) 55%, transparent); background: color-mix(in srgb, var(--fg) 7%, var(--card)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg) 10%, transparent); }
+.fb-kind-ic { grid-row: 1 / 3; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: color-mix(in srgb, var(--fg) 7%, transparent); }
+.fb-kind.on .fb-kind-ic { background: var(--fg); color: var(--card); }
+.fb-kind-ic svg { width: 16px; height: 16px; }
+.fb-kind b { font-size: 14px; font-weight: 600; }
+.fb-kind small { color: var(--fg-3); font-size: 12px; line-height: 1.3; }
+
+.fb-box { position: relative; }
+.fb-msg {
+  display: block; width: 100%; min-height: 160px; resize: vertical; box-sizing: border-box; padding: 12px 14px 26px;
+  border-radius: 10px; border: 1px solid var(--card-border); background: var(--input); color: var(--fg); outline: 0;
+  font-family: inherit; font-size: 14px; line-height: 1.55;
+}
+.fb-msg:focus { border-color: var(--accent); }
+.fb-count { position: absolute; right: 12px; bottom: 8px; font-size: 11.5px; color: var(--fg-3); pointer-events: none; font-variant-numeric: tabular-nums; }
+.fb-count.over { color: #e5484d; }
+
+.fb-field { display: grid; grid-template-columns: 1fr minmax(200px, 280px); grid-template-rows: auto auto; column-gap: 16px; align-items: center; margin-top: 14px; }
+.fb-field > span { font-size: 13.5px; }
+.fb-field > small { grid-row: 2; color: var(--fg-3); font-size: 12px; }
+.fb-field > input { grid-row: 1 / 3; grid-column: 2; height: 34px; border-radius: 9px; border: 1px solid var(--card-border); background: var(--input); padding: 0 10px; outline: 0; font-size: 13.5px; color: var(--fg); }
+.fb-field > input:focus { border-color: var(--accent); }
+
+.fb-check { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; cursor: pointer; }
+.fb-check input { margin: 3px 0 0; accent-color: var(--accent); width: 15px; height: 15px; flex: none; }
+.fb-check span { display: grid; gap: 2px; }
+.fb-check b { font-weight: 500; font-size: 13.5px; }
+.fb-check small { color: var(--fg-3); font-size: 12px; line-height: 1.4; }
+
+.fb-note { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 13px; }
+.fb-note span { display: grid; }
+.fb-note svg { width: 16px; height: 16px; }
+.fb-note.ok { background: color-mix(in srgb, #30a46c 14%, transparent); color: color-mix(in srgb, #30a46c 70%, var(--fg)); }
+.fb-note.bad { background: color-mix(in srgb, #e5484d 13%, transparent); color: color-mix(in srgb, #e5484d 70%, var(--fg)); }
+
+.fb-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 6px; flex-wrap: wrap; }
+.fb-info { color: var(--fg-3); font-size: 12px; }
+.fb-actions .btn[disabled] { opacity: .45; cursor: default; filter: none; }
+
+@media (max-width: 720px) {
+  .fb-kinds { grid-template-columns: 1fr; }
+  .fb-field { grid-template-columns: 1fr; }
+  .fb-field > input { grid-row: auto; grid-column: auto; margin-top: 6px; }
+}

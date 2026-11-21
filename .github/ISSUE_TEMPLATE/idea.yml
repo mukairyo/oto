@@ -1,0 +1,25 @@
+name: 💡 Idea
+description: Something you'd like Oto to do
+title: "[Idea] "
+labels: [idea]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for the idea! You can also send it privately from Oto (**Settings → Feedback**).
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Oto to do?
+      placeholder: A button that puts every tab in a space to sleep at once.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: How would it help you?
+      description: What you do today, and what gets easier with this.
+  - type: textarea
+    id: looks
+    attributes:
+      label: Anything else
+      description: Sketches, screenshots, or other browsers that do it well.

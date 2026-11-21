@@ -29,6 +29,8 @@ const SCHEMAS = {
   'shot:full': [int], 'tab:freeze': [int, boolish],
   // Oto VPN: the patch is checked again field by field in main/vpn.js (sanitize)
   'vpn:state': [], 'vpn:set': [obj], 'vpn:renew': [],
+  // feedback: every field is checked again in main/feedback.js (clean)
+  'feedback:send': [obj], 'feedback:info': [], 'feedback:github': [obj],
   // passwords
   'pw:save': [URL_, optStr(512), str(4096)],
   'pw:check': [URL_, optStr(512), str(4096)],

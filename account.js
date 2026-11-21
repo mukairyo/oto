@@ -13,7 +13,10 @@ const crypto = require('crypto');
 const SUPABASE_URL = process.env.OTO_SUPABASE_URL || 'https://lshiexrntuvueizntvky.supabase.co';
 const SUPABASE_KEY = process.env.OTO_SUPABASE_KEY || 'sb_publishable__7WNQA_K0zOmZfFDaSnhNw_4Kebnwtd';
 
-module.exports = function setupAccount(ctx) {
+// (1.8.1) the feedback sender (main/feedback.js) talks to the same Supabase project
+module.exports = setupAccount;
+module.exports.SUPABASE = { url: SUPABASE_URL, key: SUPABASE_KEY };
+function setupAccount(ctx) {
   const { ipcMain, app, safeStorage, net, readJSON, writeJSON, send, pwSyncExport, pwSyncMerge, OTO_VERSION } = ctx;
   const saveOrWarn = ctx.saveOrWarn || ((n, d) => { try { writeJSON(n, d); return true; } catch { return false; } });
   const configured = () => !!(SUPABASE_URL && SUPABASE_KEY);

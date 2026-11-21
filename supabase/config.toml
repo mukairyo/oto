@@ -1,0 +1,5 @@
+# Only the settings Oto's feedback service needs (for the Supabase CLI; in the dashboard, turn "Verify JWT" off for
+# the oto-feedback function instead). Oto signs in with a publishable key, not a JWT, and the function checks every
+# message itself and limits how many come from one place.
+[functions.oto-feedback]
+verify_jwt = false

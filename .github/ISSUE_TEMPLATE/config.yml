@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 🔒 Security problem
+    url: https://github.com/mukairyo/oto/security/advisories/new
+    about: Please report it privately, not as a public issue.
+  - name: ✉️ Send feedback privately
+    url: https://mukairyo.github.io/oto/#feedback
+    about: In Oto, open Settings → Feedback to send a bug or an idea straight to Oto's maker.

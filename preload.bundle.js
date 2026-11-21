@@ -451,6 +451,11 @@ contextBridge.exposeInMainWorld('oto', {
     set: (patch) => ipcRenderer.invoke('vpn:set', patch),
     renew: () => ipcRenderer.invoke('vpn:renew'),
   },
+  feedback: {
+    send: (input) => ipcRenderer.invoke('feedback:send', input),
+    info: () => ipcRenderer.invoke('feedback:info'),
+    github: (input) => ipcRenderer.invoke('feedback:github', input),
+  },
   shield: {
     state: (url) => ipcRenderer.invoke('shield:state', url),
     site: (url, allow) => ipcRenderer.invoke('shield:site', url, allow),

@@ -611,6 +611,14 @@ const VPN = require('./main/vpn.js').createVpn({
   onRtc: () => SH.rtcRefresh(),
 });
 CTX.vpnCovers = (ses) => VPN.covers(ses);
+// (1.8.1) feedback from the Feedback page → Oto's feedback service (main/feedback.js). Tests point it at a local
+// server with OTO_FEEDBACK_URL (only https, or http on this PC).
+const FEEDBACK = (() => {
+  const { SUPABASE } = require('./account.js');
+  const env = process.env.OTO_FEEDBACK_URL || '';
+  const url = /^https:\/\//.test(env) || /^http:\/\/127\.0\.0\.1:\d+\//.test(env) ? env : `${SUPABASE.url}/functions/v1/oto-feedback`;
+  return require('./main/feedback.js').createFeedback({ net, url, key: SUPABASE.key, version: OTO_VERSION });
+})();
 const { enableBlocking, disableBlocking, shieldHost, shieldAllowed, shieldLevel, shieldListsAt, regDomain, dangerUpdate, SHIELD, DANGER, FP_SESSION } = SH;
 // Fingerprint protection: a number that's the same for one site (the page you are on) during one session and
 // different everywhere else; 0 means "real values". Pages and frames ask through oto:page, workers through
@@ -1123,6 +1131,7 @@ function setupIPC(ses) {
   ipcMain.handle('blocker:set', async (_e, on) => { let mode = 'off'; for (const x of liveSessions()) mode = on ? await enableBlocking(x) : disableBlocking(x); SH.rtcRefresh(); return mode; });
   SH.setupShieldIPC();
   VPN.setupIPC(ipcMain);
+  FEEDBACK.setupIPC(ipcMain);
   ipcMain.on('screen:reply', (_e, id, sourceId, audio) => {
     const p = screenPicks.get(id);
     if (!p) return;

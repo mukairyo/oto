@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.8.1 — Feedback
+
+- **Send feedback from Oto.** Settings → **Feedback** (or About → Send feedback, or "Send feedback" in the command bar). Pick Bug, Idea or Other, write what happened, and press **Send to Oto**. Bug reports go straight to Oto's maker. Add your email if you'd like an answer.
+- For bugs, you can include the small technical report from About. It has nothing about the sites you visit.
+- **Post on GitHub instead** opens a filled-in GitHub issue in a new tab, if you'd rather post in public.
+- GitHub now has tidy forms for bug reports and ideas, and the Oto website has a Feedback section next to the download button.
+
 ## 1.8.0 — Oto VPN (free, through Tor)
 
 - **Oto VPN is built in.** Tap the VPN pill next to Shield, then the star, and your tabs go through Tor: sites see a Tor address instead of yours, and your internet provider sees only that you use Tor, not which sites you visit. It's free, no account, no sign-up. It's slower than a direct connection and some sites block or question Tor addresses.
