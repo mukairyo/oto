@@ -3,6 +3,11 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.8.2 — Fixes
+
+- **The VPN star sits with the other sidebar buttons** (Library, Notifications, phone…), in both the wide and the narrow sidebar, and glows while you're connected. You can move or remove it like the other buttons.
+- **Owner mode no longer asks for the owner key again.** A routine "checking for updates" message made the window forget it; your key was saved all along.
+
 ## 1.8.1 — Feedback
 
 - **Send feedback from Oto.** Settings → **Feedback** (or About → Send feedback, or "Send feedback" in the command bar). Pick Bug, Idea or Other, write what happened, and press **Send to Oto**. Bug reports go straight to Oto's maker. Add your email if you'd like an answer.

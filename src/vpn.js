@@ -48,7 +48,15 @@ function vpnSideLine() {
   // pill are hidden: there it stays as an icon, so the VPN can always be opened; vpn.css)
   if (!row) { row = h('button', { id: 'vpnRow', class: 'vpn-row', onclick: () => vpnToggle(true) }); foot.before(row); }
   const cc = vpnCc(st), on = vpnOn(st);
-  row.className = `vpn-row ph-${on ? st.phase : 'off'}`;
+  // (1.8.2) when the VPN star is one of the sidebar's own buttons (next to Library, Notifications…), it shows the
+  // state there, and the separate line appears only while connected in the wide sidebar
+  const fb = document.querySelector('#sidebar .v1-fb[data-k="vpn"]');
+  if (fb) {
+    fb.classList.toggle('vpn-on', on && st.phase === 'on');
+    fb.classList.toggle('vpn-busy', on && st.phase !== 'on');
+    fb.title = !on ? 'Oto VPN: off' : st.phase === 'on' ? `Oto VPN: on${cc ? `, ${VPN_NAMES[cc] || cc}` : ''}` : 'Oto VPN: connecting';
+  }
+  row.className = `vpn-row ph-${on ? st.phase : 'off'}${fb ? ' has-foot' : ''}`;
   const label = !on ? 'Oto VPN: off' : st.phase === 'on' ? `Oto VPN: on${cc ? `, ${VPN_NAMES[cc] || cc}` : ''}` : st.phase === 'starting' ? 'Oto VPN: connecting' : 'Oto VPN: reconnecting';
   row.title = label; row.setAttribute('aria-label', `${label}. Open VPN`);
   row.innerHTML = '';

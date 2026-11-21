@@ -96,3 +96,12 @@ body.rail .vpn-row.ph-off:hover .vpn-row-star { color: #E8F9FF; }
 .vpn-route.sel .vpn-tag { color: #7FE3FF; }
 /* in the one-column sidebar, page buttons appear on hover; the VPN pill stays visible while it's on (like a saved star) */
 body.layout-single .sb-url-row .vpn-pill.on { display: inline-flex; }
+
+/* (1.8.2) the VPN star as one of the sidebar's buttons (src/v1c.js): it carries the state, so the separate line only
+   shows while connected in the wide sidebar */
+.vpn-row.has-foot.ph-off, body.rail:not(.rail-open) .vpn-row.has-foot { display: none !important; }
+.v1-fb[data-k="vpn"].vpn-on .ic { color: #E8F9FF; filter: drop-shadow(0 0 4px #7FE3FF); }
+.v1-fb[data-k="vpn"].vpn-on .ic svg.i path { fill: currentColor; }
+.v1-fb[data-k="vpn"].vpn-busy .ic { color: #7FE3FF; animation: vpnFootPulse 1.4s ease-in-out infinite; }
+@keyframes vpnFootPulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .v1-fb[data-k="vpn"].vpn-busy .ic { animation: none; } }

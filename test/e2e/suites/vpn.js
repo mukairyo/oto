@@ -16,7 +16,12 @@ module.exports = async (t) => {
   await t.open('http://news.site/');
   let a = await J("const b = document.getElementById('btnVpn'); return { pill: !!b, label: b && b.getAttribute('aria-label'), row: (document.getElementById('vpnRow') || {}).className, rail: document.body.classList.contains('rail'), railShown: !!document.getElementById('vpnRow') && getComputedStyle(document.getElementById('vpnRow')).display !== 'none' };");
   t.check('the VPN pill sits next to Shield, off', a.pill && /off/i.test(a.label) && /ph-off/.test(a.row || ''), JSON.stringify(a));
-  t.check('in the narrow icon sidebar (no address bar) it stays as an icon, so it can always be opened', a.railShown === a.rail, JSON.stringify(a));
+  a = await J("const f = document.querySelector('#v1Foot .v1-fb[data-k=vpn]'), r = document.getElementById('vpnRow'); return { foot: !!f, sameRow: !!f && [...f.parentElement.children].map((b) => b.dataset.k).join(), rowShown: !!r && getComputedStyle(r).display !== 'none', title: f && f.title };");
+  t.check('the VPN star is one of the sidebar\'s own buttons, in the same row as Library and Notifications', a.foot && /vpn/.test(a.sameRow) && /library/.test(a.sameRow) && /notifications/.test(a.sameRow), JSON.stringify(a));
+  t.check('…and no separate VPN line while it\'s off', a.rowShown === false && /off/.test(a.title), JSON.stringify(a));
+  await t.js("document.querySelector('#v1Foot .v1-fb[data-k=vpn]').click(), 1"); await t.sleep(200);
+  t.check('…tapping it opens the VPN panel', await t.js("!!document.getElementById('vpnPanel')"));
+  await t.js('(vpnClose(), 1)');
   await t.js("document.getElementById('btnVpn').click(), 1"); await t.sleep(200);
   a = await J("const p = document.getElementById('vpnPanel'); return { open: !!p, big: p && p.querySelector('.vpn-big').textContent, bg: p && getComputedStyle(p).backgroundImage };");
   t.check('the panel opens on the starfield, not connected', a.open && a.big === 'Not connected' && /space\.webp/.test(a.bg), JSON.stringify(a));
@@ -27,6 +32,8 @@ module.exports = async (t) => {
   t.check('tapping the star connects (Tor bootstraps to 100%)', on && on.phase === 'on' && on.progress === 100, JSON.stringify(on));
   a = await J("const b = document.getElementById('btnVpn'); return { label: b.getAttribute('aria-label'), row: document.getElementById('vpnRow') && document.getElementById('vpnRow').textContent, big: document.querySelector('#vpnPanel .vpn-big') && document.querySelector('#vpnPanel .vpn-big').textContent };");
   t.check('the pill, the sidebar line and the panel say it\'s on', /on/.test(a.label) && /VPN ·/.test(a.row || ''), JSON.stringify(a));
+  a = await J("const f = document.querySelector('#v1Foot .v1-fb[data-k=vpn]'); return { lit: f && f.classList.contains('vpn-on'), title: f && f.title };");
+  t.check('…and the star in the button row lights up', a.lit === true && /on/.test(a.title), JSON.stringify(a));
   await t.js('(vpnClose(), 1)');
   fs.writeFileSync(LOG, '');
   await t.open('http://fine.site/?via=tor');

@@ -12,9 +12,10 @@ module.exports = function createUpdates(ctx) {
   let updater = null;
   let stillVerifiedNow = () => false, refusedNow = () => {};
   let updateState = { state: 'idle' };
+  // (every update message also says whether this PC is unlocked for the owner, so the window never forgets it)
   function setUpdate(st) {
     updateState = { ...st, at: Date.now() };
-    send('update', updateState);
+    send('update', { ...updateState, owner: ownerOn });
   }
   function setupUpdates() {
     ipcMain.handle('update:status', () => ({ ...updateState, packaged: app.isPackaged, version: OTO_VERSION, channel: updateChannel(), owner: ownerOn }));

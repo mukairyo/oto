@@ -14,6 +14,15 @@ module.exports = async (t) => {
   a = await J("const c = document.getElementById('v1Upd'); return { card: !!c, s: c && c.dataset.s, text: c && c.textContent.replace(/\\s+/g, ' ').trim().slice(0, 80) };");
   t.check('a ready update shows its card with Restart now', a.card && a.s === 'ready' && /9\.9\.9/.test(a.text) && /restart/i.test(a.text), JSON.stringify(a));
   t.ui.send('update', { state: 'latest', at: Date.now() }); await t.sleep(200);
+  // (1.8.2) owner mode survives update messages: a plain "checking" message doesn't make Oto ask for the key again
+  await t.js('(UPD.owner = true, 1)');
+  t.ui.send('update', { state: 'checking', at: Date.now() }); await t.sleep(200);
+  t.ui.send('update', { state: 'latest', at: Date.now() }); await t.sleep(200);
+  a = await J('return { owner: UPD.owner };');
+  t.check('owner mode stays on through "checking for updates" messages (no asking for the key again)', a.owner === true, JSON.stringify(a));
+  t.ui.send('update', { state: 'latest', owner: false, at: Date.now() }); await t.sleep(200);
+  a = await J('return { owner: UPD.owner };');
+  t.check('…but when Oto itself says the owner is locked, the window follows', a.owner === false, JSON.stringify(a));
   // the find bar's close button and the settings button reach the sidebar's versions of their handlers too
   a = await J("const t = document.getElementById('v1Ticks') || document.body.appendChild(Object.assign(document.createElement('div'), { id: 'v1Ticks' })); t.appendChild(document.createElement('i')); document.getElementById('findClose').click(); return { ticks: t.children.length };");
   t.check('closing the find bar clears its result ticks', a.ticks === 0, JSON.stringify(a));

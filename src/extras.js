@@ -366,7 +366,9 @@ function updateText(u = UPD) {
   }
 }
 function onUpdate(u) {
-  UPD = u || UPD;
+  // (an update message without the owner flag keeps what main said before: only main decides owner mode,
+  // with owner:lock / owner:unlock; before 1.8.2 a plain "checking for updates" message made Oto ask for the key again)
+  if (u) UPD = { ...u, owner: typeof u.owner === 'boolean' ? u.owner : UPD.owner };
   if (UPD.state === 'ready' && updToastShown !== UPD.version) {
     updToastShown = UPD.version;
     // the update card in the sidebar already says it — only toast when the card can't be seen (sidebar hidden or slim)

@@ -3,6 +3,7 @@
    tab folders + site notes, screenshots, Oto Wrapped, startup animation + sounds + logins per space). */
 
 const V1C_ICONS = {
+  vpnStar: '<path d="M12 3.5Q12.6 11.4 20.5 12Q12.6 12.6 12 20.5Q11.4 12.6 3.5 12Q11.4 11.4 12 3.5z"/>',
   bell: '<path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z"/><path d="M10 20.5h4"/>',
   crop: '<path d="M6 3v13a2 2 0 0 0 2 2h13M3 6h13a2 2 0 0 1 2 2v13"/>',
   pen2: '<path d="M14.5 5.5l4 4L8 20H4v-4z"/>',
@@ -17,6 +18,7 @@ const V1C_ICONS = {
 
 // ================================================================ 17 · make the buttons yours
 const V1_FOOT = {
+  vpn: ['vpnStar', 'Oto VPN', () => { if (typeof vpnToggle === 'function') vpnToggle(); }],
   library: ['library', 'Library', () => toggleLibrary()],
   health: ['pulse', 'Oto Health', () => v1Health()],
   notifications: ['bell', 'Notifications', () => v1Notifs()],
@@ -33,12 +35,14 @@ const V1_FOOT = {
   extensions: ['puzzle', 'Extensions', () => { const b = $('#btnExtensions'); if (b) b.click(); }],
 };
 // Settings is in the ⋯ menu (Ctrl+,) and Oto Health on Shift+Esc / the command bar, so they're not here by default.
-const V1_FOOT_DEFAULT = ['library', 'notifications'];
+const V1_FOOT_DEFAULT = ['vpn', 'library', 'notifications'];
 const v1FootList = () => (Array.isArray(S.settings.v1Foot) ? S.settings.v1Foot : V1_FOOT_DEFAULT).filter((k) => V1_FOOT[k]);
 let v1FootDrag = null;
 function v1RenderFoot() {
   const foot = document.querySelector('#sidebar .sb-foot');
   if (!foot) return;
+  // (1.8.2) the VPN star joins the row once, for people who had already arranged their buttons
+  if (Array.isArray(S.settings.v1Foot) && !S.settings.v1FootVpn) { S.settings.v1FootVpn = true; if (!S.settings.v1Foot.includes('vpn')) S.settings.v1Foot = ['vpn', ...S.settings.v1Foot]; save(); }
   let box = $('#v1Foot');
   if (!box) { box = h('div', { id: 'v1Foot', class: 'v1-foot' }); const ver = $('#v1Ver'); if (ver) ver.before(box); else foot.append(box); }
   const lab = S.settings.v1FootLabels || 'hover';
@@ -52,6 +56,7 @@ function v1RenderFoot() {
     b.addEventListener('drop', (e) => { e.preventDefault(); v1FootMove(v1FootDrag, k); });
     return b;
   }));
+  if (typeof vpnSideLine === 'function') vpnSideLine(); // (lights the VPN star and hides the separate VPN line)
 }
 function v1FootMove(k, before) {
   if (!k) return;
