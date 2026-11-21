@@ -1,0 +1,184 @@
+// Oto — the space look for the New Tab start page and the Oto Card (1.8.3), from the approved design
+// (Sky/VPN starfield, cyan #7FE3FF). Six levels, six kinds of star: moon, red dwarf, ringed world, sun, nebula,
+// galaxy. The planets are plain SVG so the same art works on the start page, the card (and its saved PNG) and the
+// level-up flip. Loaded after renderer.js and the v1 files; it only adds to what they draw.
+/* global S, V1_LEVELS, V1_BADGES, v1Level, v1Edition, v1CardId, cardModel, cardStatValue, CARD_STATS, esc, h, $, icon,
+   updateClock, AVOCADO_MODE, startBack, save */
+
+const SPACE_KINDS = { rookie: 'MOON', bronze: 'RED DWARF', silver: 'RINGED WORLD', gold: 'SUN', holo: 'NEBULA', mythic: 'GALAXY' };
+const SPACE_STAR = 'M12 2Q12.8 11.2 22 12Q12.8 12.8 12 22Q11.2 12.8 2 12Q11.2 11.2 12 2z';
+let spaceUid = 0;
+
+// The planet for a level, as SVG markup in a 100×100 box (drawn at `size` px when `size` is given).
+function spacePlanetSvg(id, { inner = false } = {}) {
+  const u = `sp${++spaceUid}`;
+  const crater = (x, y, r, o) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#000" fill-opacity="${o}"/>`;
+  const art = {
+    rookie: `<defs><radialGradient id="${u}a" cx=".34" cy=".3" r=".75"><stop offset="0" stop-color="#eef1f5"/><stop offset=".48" stop-color="#a3adbb"/><stop offset=".82" stop-color="#48505e"/><stop offset="1" stop-color="#2a2f38"/></radialGradient>
+      <radialGradient id="${u}g"><stop offset=".55" stop-color="#94a3b8" stop-opacity=".35"/><stop offset="1" stop-color="#94a3b8" stop-opacity="0"/></radialGradient></defs>
+      <circle cx="50" cy="50" r="48" fill="url(#${u}g)"/><circle cx="50" cy="50" r="30" fill="url(#${u}a)"/>${crater(41, 41, 5.5, 0.14)}${crater(58, 56, 3.8, 0.12)}${crater(46, 63, 2.6, 0.12)}${crater(60, 40, 2, 0.1)}`,
+    bronze: `<defs><radialGradient id="${u}a" cx=".4" cy=".36" r=".72"><stop offset="0" stop-color="#ffd8b0"/><stop offset=".45" stop-color="#e08a4a"/><stop offset="1" stop-color="#8a3b14"/></radialGradient>
+      <radialGradient id="${u}g"><stop offset=".4" stop-color="#e08a4a" stop-opacity=".55"/><stop offset="1" stop-color="#c2773d" stop-opacity="0"/></radialGradient></defs>
+      <circle cx="50" cy="50" r="49" fill="url(#${u}g)"/><circle cx="50" cy="50" r="27" fill="url(#${u}a)"/>`,
+    silver: `<defs><radialGradient id="${u}a" cx=".36" cy=".3" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#cbd5e1"/><stop offset="1" stop-color="#64748b"/></radialGradient>
+      <radialGradient id="${u}g"><stop offset=".5" stop-color="#cbd5e1" stop-opacity=".3"/><stop offset="1" stop-color="#cbd5e1" stop-opacity="0"/></radialGradient></defs>
+      <circle cx="50" cy="50" r="46" fill="url(#${u}g)"/>
+      <path d="M8 56 A42 11 -14 0 1 92 44" fill="none" stroke="#e2e8f0" stroke-opacity=".55" stroke-width="2.4"/>
+      <circle cx="50" cy="50" r="24" fill="url(#${u}a)"/>
+      <path d="M92 44 A42 11 -14 0 1 8 56" fill="none" stroke="#e2e8f0" stroke-opacity=".9" stroke-width="2.4"/>`,
+    gold: `<defs><radialGradient id="${u}a" cx=".42" cy=".38" r=".7"><stop offset="0" stop-color="#fff7d6"/><stop offset=".5" stop-color="#f5c542"/><stop offset="1" stop-color="#c27b0c"/></radialGradient>
+      <radialGradient id="${u}g"><stop offset=".3" stop-color="#f5c542" stop-opacity=".6"/><stop offset="1" stop-color="#f5c542" stop-opacity="0"/></radialGradient></defs>
+      <circle cx="50" cy="50" r="50" fill="url(#${u}g)"/>
+      <g stroke="#fde68a" stroke-opacity=".5" stroke-width="1.4" stroke-linecap="round">${Array.from({ length: 12 }, (_, k) => { const a = (k * Math.PI) / 6, r1 = 31, r2 = k % 2 ? 38 : 43; return `<line x1="${(50 + r1 * Math.cos(a)).toFixed(1)}" y1="${(50 + r1 * Math.sin(a)).toFixed(1)}" x2="${(50 + r2 * Math.cos(a)).toFixed(1)}" y2="${(50 + r2 * Math.sin(a)).toFixed(1)}"/>`; }).join('')}</g>
+      <circle cx="50" cy="50" r="26" fill="url(#${u}a)"/>`,
+    holo: `<defs><filter id="${u}b" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5"/></filter></defs>
+      <g filter="url(#${u}b)"><ellipse cx="44" cy="52" rx="30" ry="22" fill="#a78bfa" fill-opacity=".85"/><ellipse cx="62" cy="46" rx="24" ry="18" fill="#7FE3FF" fill-opacity=".7"/><ellipse cx="54" cy="66" rx="20" ry="13" fill="#f9a8d4" fill-opacity=".7"/></g>
+      <circle cx="47" cy="49" r="7" fill="#fff" fill-opacity=".85" filter="url(#${u}b)"/><circle cx="47" cy="49" r="2.4" fill="#fff"/>
+      <circle cx="26" cy="34" r=".9" fill="#fff"/><circle cx="74" cy="70" r=".8" fill="#fff"/><circle cx="70" cy="30" r=".7" fill="#fff"/>`,
+    mythic: `<defs><radialGradient id="${u}a" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#E8F9FF"/><stop offset=".16" stop-color="#7FE3FF" stop-opacity=".85"/><stop offset=".45" stop-color="#22d3ee" stop-opacity=".35"/><stop offset=".7" stop-color="#a78bfa" stop-opacity=".18"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+      <filter id="${u}b" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6"/></filter></defs>
+      <g transform="rotate(-16 50 50)"><ellipse cx="50" cy="50" rx="49" ry="20" fill="url(#${u}a)"/>
+        <g filter="url(#${u}b)" fill="none" stroke="#E8F9FF" stroke-opacity=".55" stroke-width="1.6"><path d="M50 50 C60 42 78 44 86 52"/><path d="M50 50 C40 58 22 56 14 48"/>
+        ${inner ? '' : `<animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="60s" repeatCount="indefinite"/>`}</g>
+        <ellipse cx="50" cy="50" rx="36" ry="10" fill="none" stroke="#E8F9FF" stroke-opacity=".35" stroke-dasharray="1.5 3"/></g>
+      <circle cx="50" cy="50" r="5" fill="#fff"/><circle cx="50" cy="50" r="10" fill="#7FE3FF" fill-opacity=".35" filter="url(#${u}b)"/>`,
+  }[id] || '';
+  return art;
+}
+function spacePlanet(id, size = 54) {
+  return `<svg class="sh-pl pl-${esc(id)}" width="${size}" height="${size}" viewBox="0 0 100 100" aria-hidden="true">${spacePlanetSvg(id)}</svg>`;
+}
+
+// A starfield for the cards, the same for one card every time (seeded).
+function spaceStars(seed, W, H, n, y0 = 0) {
+  let s = (seed >>> 0) || 7, out = '';
+  const rnd = () => { s = (s * 1103515245 + 12345) >>> 0; return s / 4294967296; };
+  for (let k = 0; k < n; k++) { const x = rnd() * W, y = y0 + rnd() * (H - y0), r = rnd() < 0.08 ? 1.1 : 0.55; out += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="#fff" fill-opacity="${(0.25 + rnd() * 0.55).toFixed(2)}"/>`; }
+  return out;
+}
+
+// ---------------------------------------------------------------- the card, front (the "Space" design)
+function cardSvgSpace(m = cardModel()) {
+  const W = 320, H = 504, L = v1Level(), lv = L.cur, col = lv.color;
+  const serif = "'Instrument Serif',Georgia,'Times New Roman',serif", mono = "'JetBrains Mono','Cascadia Mono',Consolas,monospace", sans = "'Segoe UI Variable Display','Segoe UI',Inter,system-ui,sans-serif";
+  const u = `cs${++spaceUid}`;
+  const cx = W / 2, cy = 168, R = 96, C = 2 * Math.PI * R, pct = Math.max(0.02, Math.min(1, L.pct));
+  const a = -Math.PI / 2 + pct * 2 * Math.PI, mx = cx + R * Math.cos(a), my = cy + R * Math.sin(a);
+  const stars = V1_LEVELS.map((_, k) => `<path transform="translate(${cx - 66 + k * 24} 392) scale(.55)" d="${SPACE_STAR}" ${k <= L.i ? `fill="${col}"` : 'fill="none" stroke="#ece8e1" stroke-opacity=".3" stroke-width="2.2"'}/>`).join('');
+  const stats = m.showStats ? m.stats.slice(0, 3) : [];
+  const statsSvg = stats.map((k, i) => {
+    const x = stats.length === 1 ? cx : 28 + i * ((W - 56) / Math.max(1, stats.length - 1)), anchor = stats.length === 1 ? 'middle' : i === 0 ? 'start' : i === stats.length - 1 ? 'end' : 'middle';
+    const v = cardStatValue(k);
+    return `<text x="${x}" y="${H - 50}" text-anchor="${anchor}" font-family="${mono}" font-size="8.5" letter-spacing="1.4" fill="#ece8e1" fill-opacity=".6">${esc((CARD_STATS[k] || k).toUpperCase())}</text>
+      <text x="${x}" y="${H - 28}" text-anchor="${anchor}" font-family="${sans}" font-size="18" font-weight="600" fill="#ece8e1">${esc(Number(v).toLocaleString())}</text>`;
+  }).join('');
+  const next = L.next ? `${(L.next.xp - L.xp).toLocaleString()} XP to ${L.next.name}` : 'The top: Mythic';
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"><defs>
+    <linearGradient id="${u}bg" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#14161e"/><stop offset="1" stop-color="#08090c"/></linearGradient>
+    <radialGradient id="${u}top" cx=".5" cy="0" r=".7"><stop offset="0" stop-color="${col}" stop-opacity=".22"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient>
+    <linearGradient id="${u}xp" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${col}"/><stop offset="1" stop-color="#E8F9FF"/></linearGradient>
+    <linearGradient id="${u}sh" x1="0" y1="0" x2="1" y2="1"><stop offset=".3" stop-color="#fff" stop-opacity="0"/><stop offset=".46" stop-color="#E8F9FF" stop-opacity=".07"/><stop offset=".53" stop-color="#a78bfa" stop-opacity=".06"/><stop offset=".66" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <clipPath id="${u}c"><rect width="${W}" height="${H}" rx="22"/></clipPath></defs>
+  <g clip-path="url(#${u}c)"><rect width="${W}" height="${H}" fill="url(#${u}bg)"/><rect width="${W}" height="${H}" fill="url(#${u}top)"/>${spaceStars(m.seed || 7, W, H, 70)}<rect width="${W}" height="${H}" fill="url(#${u}sh)"/></g>
+  <rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="21.5" fill="none" stroke="#fff" stroke-opacity=".13"/>
+  <text x="22" y="36" font-family="${mono}" font-size="10.5" letter-spacing="2" fill="#ece8e1" fill-opacity=".64">音 OTO // CARD</text>
+  <text x="${W - 22}" y="36" text-anchor="end" font-family="${mono}" font-size="10.5" letter-spacing="2" fill="#ece8e1" fill-opacity=".64">Nº ${esc(m.no || v1CardId())}</text>
+  <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="3"/>
+  <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="url(#${u}xp)" stroke-width="3" stroke-linecap="round" stroke-dasharray="${(C * pct).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 ${cx} ${cy})"/>
+  <circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="9" fill="#E8F9FF" fill-opacity=".18"/><circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="3.6" fill="#E8F9FF"/>
+  <ellipse cx="${cx}" cy="${cy}" rx="82" ry="24" fill="none" stroke="#7FE3FF" stroke-opacity=".16" stroke-dasharray="2 5" transform="rotate(-18 ${cx} ${cy})"/>
+  <svg x="${cx - 70}" y="${cy - 70}" width="140" height="140" viewBox="0 0 100 100">${spacePlanetSvg(lv.id, { inner: true })}</svg>
+  <text x="${cx}" y="300" text-anchor="middle" font-family="${mono}" font-size="10" letter-spacing="2.4" fill="${col}">LEVEL ${L.i + 1} · ${SPACE_KINDS[lv.id] || ''}</text>
+  <text x="${cx}" y="344" text-anchor="middle" font-family="${serif}" font-size="44" fill="#ece8e1">${esc(lv.name)}</text>
+  <text x="${cx}" y="368" text-anchor="middle" font-family="${sans}" font-size="13" fill="#ece8e1" fill-opacity=".72">${esc(m.name)} · ${esc(m.title)}</text>
+  ${stars}
+  <text x="${cx}" y="424" text-anchor="middle" font-family="${mono}" font-size="9.5" letter-spacing="1.2" fill="#ece8e1" fill-opacity=".55">${esc(next.toUpperCase())}</text>
+  ${stats.length ? `<rect x="22" y="${H - 72}" width="${W - 44}" height=".8" fill="#fff" fill-opacity=".1"/>${statsSvg}` : ''}</svg>`;
+}
+
+// ---------------------------------------------------------------- the card, back: badges as a star chart
+function spaceCardBack(m = cardModel()) {
+  const W = 320, H = 504, got = S.v1Badges || {}, ids = Object.keys(V1_BADGES), L = v1Level();
+  const serif = "'Instrument Serif',Georgia,serif", mono = "'JetBrains Mono',Consolas,monospace", sans = "'Segoe UI',Inter,system-ui,sans-serif";
+  const u = `cb${++spaceUid}`;
+  // fixed spots for the 15 badges, like a real constellation chart
+  const P = [[48, 150], [104, 182], [168, 140], [232, 186], [276, 146], [70, 236], [136, 252], [204, 236], [262, 262], [46, 300], [112, 322], [178, 300], [244, 324], [92, 372], [214, 372]];
+  const pts = ids.map((id, k) => ({ id, on: !!got[id], x: P[k % P.length][0], y: P[k % P.length][1] }));
+  const lit = pts.filter((p) => p.on);
+  const lines = lit.slice(1).map((p, k) => `<line x1="${lit[k].x}" y1="${lit[k].y}" x2="${p.x}" y2="${p.y}" stroke="#7FE3FF" stroke-opacity=".45"/>`).join('');
+  const dots = pts.map((p) => (p.on
+    ? `<circle cx="${p.x}" cy="${p.y}" r="11" fill="#7FE3FF" fill-opacity=".18"/><path transform="translate(${p.x - 6} ${p.y - 6}) scale(.5)" d="${SPACE_STAR}" fill="#E8F9FF"/>
+       <text x="${p.x < 80 ? p.x - 10 : p.x > 240 ? p.x + 10 : p.x}" y="${p.y + 22}" text-anchor="${p.x < 80 ? 'start' : p.x > 240 ? 'end' : 'middle'}" font-family="${sans}" font-size="8.5" fill="#ece8e1" fill-opacity=".85">${esc(V1_BADGES[p.id][0])}</text>`
+    : `<circle cx="${p.x}" cy="${p.y}" r="2.6" fill="#ece8e1" fill-opacity=".3"/>`)).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"><defs>
+    <linearGradient id="${u}bg" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#14161e"/><stop offset="1" stop-color="#08090c"/></linearGradient>
+    <clipPath id="${u}c"><rect width="${W}" height="${H}" rx="22"/></clipPath></defs>
+  <g clip-path="url(#${u}c)"><rect width="${W}" height="${H}" fill="url(#${u}bg)"/>${spaceStars((m.seed || 7) + 99, W, H, 50)}</g>
+  <rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="21.5" fill="none" stroke="#fff" stroke-opacity=".13"/>
+  <text x="22" y="36" font-family="${mono}" font-size="10.5" letter-spacing="2" fill="#ece8e1" fill-opacity=".64">STAR CHART · BADGES</text>
+  <text x="${W - 22}" y="36" text-anchor="end" font-family="${mono}" font-size="10.5" letter-spacing="1.6" fill="#7FE3FF">${lit.length} / ${ids.length} FOUND</text>
+  <text x="22" y="74" font-family="${serif}" font-size="26" fill="#ece8e1">Your sky so far</text>
+  <text x="22" y="94" font-family="${sans}" font-size="11.5" fill="#ece8e1" fill-opacity=".7">Each badge lights a star. Hidden ones stay</text>
+  <text x="22" y="109" font-family="${sans}" font-size="11.5" fill="#ece8e1" fill-opacity=".7">dark until you find them.</text>
+  <rect x="16" y="120" width="${W - 32}" height="290" rx="14" fill="#050506" fill-opacity=".5" stroke="#fff" stroke-opacity=".07"/>
+  ${lines}${dots}
+  <text x="22" y="${H - 52}" font-family="${mono}" font-size="9" letter-spacing="1.6" fill="#ece8e1" fill-opacity=".6">TITLE</text>
+  <text x="22" y="${H - 32}" font-family="${sans}" font-size="14" font-weight="500" fill="#ece8e1">${esc(m.title)}</text>
+  <text x="${W - 22}" y="${H - 32}" text-anchor="end" font-family="${mono}" font-size="9.5" letter-spacing="1.2" fill="#ece8e1" fill-opacity=".6">${esc(L.cur.name.toUpperCase())} · ${L.xp.toLocaleString()} XP</text></svg>`;
+}
+
+// ---------------------------------------------------------------- the New Tab start page
+function spaceHome() {
+  const on = !AVOCADO_MODE && S.settings.spaceHome !== false;
+  document.body.classList.toggle('space-home', on);
+  const inner = document.querySelector('#empty .empty-inner');
+  if (!on || !inner) return;
+  if (!$('#shSky')) $('#empty').prepend(h('div', { id: 'shSky', 'aria-hidden': 'true' }, h('i', { class: 'orbit' }, h('b'))));
+  let cr = $('#shCrumb');
+  if (!cr) { cr = h('div', { id: 'shCrumb', 'aria-hidden': 'true' }); inner.prepend(cr); }
+  const n = Math.max(1, S.workspaces.findIndex((w) => w.id === S.activeWs) + 1);
+  const orbit = `ORBIT ${String(n).padStart(2, '0')}`;
+  if (cr.dataset.o !== orbit) { cr.dataset.o = orbit; cr.replaceChildren(h('span', { class: 'd' }), h('span', {}, '音 OTO // HOME'), h('span', { class: 'r' }), h('span', { class: 'o' }, orbit)); }
+  if (!$('#shSub')) { const g = $('#greet'); if (g) g.after(h('p', { id: 'shSub' }, 'Pick up where you left off, or set a course somewhere new.')); }
+  const slot = $('#emptySearch .ic-slot');
+  if (slot && !slot.dataset.star) { slot.dataset.star = '1'; slot.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="${SPACE_STAR}" fill="#E8F9FF"/></svg>`; }
+  // the card widget: its level's planet, the level and title
+  const card = document.querySelector('#v1Widgets .wg.card');
+  if (card && !card.querySelector('.sh-pl')) {
+    const L = v1Level();
+    card.prepend(h('span', { class: 'sh-plw', html: spacePlanet(L.cur.id, 54) }));
+    const k = card.querySelector('.k'); if (k) k.textContent = `OTO CARD · LEVEL ${L.i + 1}`;
+    const b = card.querySelector('b'); if (b) b.replaceChildren(L.cur.name, h('span', {}, ` · ${L.cur.title}`));
+  }
+  // shortcuts as a little constellation
+  const sc = document.querySelector('#v1Widgets .wg.sc');
+  if (sc) { const k = sc.querySelector('.k'); if (k && k.textContent !== 'SHORTCUTS · CONSTELLATION') k.textContent = 'SHORTCUTS · CONSTELLATION'; }
+  const jump = $('#v1Jump');
+  if (jump && !jump.hidden && !(jump.firstChild && jump.firstChild.classList && jump.firstChild.classList.contains('sh-k'))) jump.prepend(h('div', { class: 'sh-k' }, 'JUMP BACK IN · LAST SIGNALS'));
+  // "Esc back to your tab" when New Tab was opened from a tab
+  const hints = $('#emptyHints');
+  if (hints) {
+    let esc1 = $('#shEsc');
+    if (!esc1) { esc1 = h('span', { id: 'shEsc' }, h('kbd', {}, 'Esc'), ' back to your tab'); hints.append(esc1); }
+    esc1.hidden = !startBack;
+  }
+}
+
+let spaceReady = false;
+function initSpace() {
+  if (spaceReady) return;
+  spaceReady = true;
+  // the Space card design: first in the list, the default, and (once) what Standard cards switch to
+  if (typeof CARD_DESIGNS === 'object' && !CARD_DESIGNS.space) {
+    const rest = { ...CARD_DESIGNS };
+    for (const k of Object.keys(CARD_DESIGNS)) delete CARD_DESIGNS[k];
+    Object.assign(CARD_DESIGNS, { space: 'Space' }, rest);
+  }
+  S.card = S.card || {};
+  if (!S.card.spaceIntro) { S.card.spaceIntro = true; if (S.card.design && S.card.design !== 'space') { S.card.designBeforeSpace = S.card.design; S.card.design = 'space'; } save(); }
+  const _uc = updateClock;
+  updateClock = function () { _uc.apply(this, arguments); spaceHome(); };
+  spaceHome();
+}
+// (Oto's start-up calls initSpace; if it already ran before this file loaded, start now)
+if (typeof S !== 'undefined' && S && S.settings) initSpace();

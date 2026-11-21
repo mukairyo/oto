@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.8.3 — A space start page, and a space Oto Card
+
+- **New Tab (and Ctrl+T) now opens the start page**, the same page you see when Oto starts with nothing open. Just start typing to search, or click the search box. Press **Esc** to go back to the tab you were on.
+- **The start page has the space look** of the Sky and the VPN: a starfield with a slow orbiting star, a big greeting, a glowing search bar, your Oto Card with your level's planet, your shortcuts as a little constellation, "Jump back in", and the time.
+- **New Oto Card design: Space.** Your level is a planet inside an orbit ring that fills with XP, with one star lit per level. The back is a star chart where every badge you earn lights a star. Standard cards switch to it once; the other designs are still in the card editor.
+- **Six levels, six kinds of star:** Rookie is a moon, Bronze a red dwarf, Silver a ringed world, Gold a sun, Holo a nebula and Mythic a galaxy with a turning aurora. The level-up flip shows your new planet. OG and Founder cards keep their own art.
+
 ## 1.8.2 — Fixes
 
 - **The VPN star sits with the other sidebar buttons** (Library, Notifications, phone…), in both the wide and the narrow sidebar, and glows while you're connected. You can move or remove it like the other buttons.

@@ -1,0 +1,104 @@
+/* Oto — the space look for the New Tab start page (1.8.3, src/oto-space.js). Same starfield and cyan as the Sky and
+   the VPN panel. Wins over the theme's own start-page styles only while body.space-home is on. */
+body.space-home #empty {
+  background: radial-gradient(ellipse 70% 45% at 50% 108%, rgba(127, 227, 255, .16), rgba(127, 227, 255, 0) 70%),
+    radial-gradient(ellipse 40% 30% at 82% 10%, rgba(167, 139, 250, .1), rgba(167, 139, 250, 0) 70%), #050506 !important;
+  color: #ece8e1; overflow: hidden;
+}
+#shSky { display: none; }
+body.space-home #shSky { display: block; position: absolute; inset: 0; pointer-events: none; background: url(img/space.webp) center / 620px repeat; opacity: .9; }
+body.space-home #shSky .orbit { position: absolute; left: 50%; top: 30%; width: min(760px, 70%); aspect-ratio: 760 / 260; transform: translate(-50%, -30%); border: 1px dashed rgba(127, 227, 255, .13); border-radius: 50%; }
+body.space-home #shSky .orbit b { position: absolute; left: 50%; top: 50%; width: 100%; height: 100%; transform: translate(-50%, -50%); animation: shOrbit 46s linear infinite; }
+body.space-home #shSky .orbit b::after { content: ''; position: absolute; right: 7%; top: 14%; width: 6px; height: 6px; border-radius: 50%; background: #E8F9FF; box-shadow: 0 0 12px #7FE3FF, 0 0 26px rgba(127, 227, 255, .6); }
+@keyframes shOrbit { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+body.space-home #empty .empty-inner {
+  position: relative; width: min(680px, 88%); align-items: center !important; text-align: center; gap: 0 !important; transform: translateY(-3%) !important;
+}
+body.space-home #empty .logo-big, body.space-home #empty .rt-crumb, body.space-home #empty .rt-sub, body.space-home #empty .v1-date { display: none !important; }
+
+/* order: crumb, greeting, line, search, card + shortcuts, jump back in, hints, time */
+#shCrumb, #shSub { display: none; }
+body.space-home #shCrumb { order: 1; display: flex; align-items: center; justify-content: center; gap: 14px; font: 500 11px/1 'JetBrains Mono', Consolas, monospace; letter-spacing: .22em; color: rgba(236, 232, 225, .64); }
+body.space-home #shCrumb .d { width: 40px; height: 1px; background: rgba(236, 232, 225, .3); }
+body.space-home #shCrumb .r { width: 120px; height: 1px; background: linear-gradient(90deg, rgba(236, 232, 225, .3), rgba(127, 227, 255, .5)); }
+body.space-home #shCrumb .o { color: #7FE3FF; }
+body.space-home #empty #greet {
+  order: 2; margin: 18px 0 0 !important; font: 400 clamp(46px, 6.6vw, 84px)/1 'Instrument Serif', Georgia, serif !important; letter-spacing: -1px; color: #ece8e1 !important;
+  text-shadow: 0 0 40px rgba(127, 227, 255, .18); text-transform: none !important;
+}
+body.space-home #empty #greet b { font-weight: 400; color: inherit; }
+body.space-home #shSub { order: 3; display: block; margin: 14px 0 0; font-size: 15px; color: rgba(236, 232, 225, .72); }
+
+body.space-home #empty .empty-search {
+  order: 4; margin: 34px auto 0 !important; width: 100% !important; max-width: 640px !important; height: 56px !important; box-sizing: border-box;
+  padding: 0 10px 0 18px !important; border-radius: 14px !important; gap: 12px;
+  background: rgba(10, 11, 15, .66) !important; backdrop-filter: blur(8px); color: rgba(236, 232, 225, .72) !important; font-size: 16px;
+  box-shadow: inset 0 0 0 1px rgba(127, 227, 255, .28), 0 0 0 4px rgba(127, 227, 255, .05), 0 18px 60px rgba(0, 0, 0, .5) !important;
+  transition: box-shadow .15s;
+}
+body.space-home #empty .empty-search:hover, body.space-home #empty .empty-search:focus-visible { box-shadow: inset 0 0 0 1px rgba(127, 227, 255, .55), 0 0 0 4px rgba(127, 227, 255, .1), 0 0 34px rgba(127, 227, 255, .18), 0 18px 60px rgba(0, 0, 0, .5) !important; }
+body.space-home #empty .empty-search .ic-slot svg { filter: drop-shadow(0 0 6px rgba(127, 227, 255, .8)); }
+body.space-home #empty .empty-search .v1-eng { background: rgba(255, 255, 255, .05) !important; color: rgba(236, 232, 225, .72) !important; border-radius: 8px; }
+body.space-home #empty .empty-search kbd { font: 500 11px 'JetBrains Mono', Consolas, monospace !important; padding: 5px 8px !important; border-radius: 6px !important; background: none !important; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16) !important; color: rgba(236, 232, 225, .72) !important; text-transform: uppercase; }
+
+body.space-home #empty .v1-widgets { order: 5; display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; width: 100% !important; max-width: 640px; margin: 22px auto 0 !important; }
+body.space-home #empty .v1-widgets .wg {
+  position: relative; background: rgba(10, 11, 15, .66) !important; backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, .09) !important;
+  border-radius: 14px !important; box-shadow: none !important; color: #ece8e1; text-align: left; min-width: 0;
+}
+body.space-home #empty .v1-widgets .k { font: 500 10.5px/1 'JetBrains Mono', Consolas, monospace !important; letter-spacing: .18em; color: rgba(236, 232, 225, .64) !important; }
+body.space-home #empty .v1-widgets .wg.card { display: grid !important; grid-template-columns: 54px minmax(0, 1fr); column-gap: 14px; row-gap: 6px; align-items: center; padding: 16px !important; transition: border-color .15s; }
+body.space-home #empty .v1-widgets .wg.card:hover { border-color: rgba(127, 227, 255, .35) !important; }
+body.space-home #empty .v1-widgets .wg.card .sh-plw { grid-row: 1 / span 4; display: grid; }
+body.space-home #empty .v1-widgets .wg.card .sh-pl { filter: drop-shadow(0 0 10px rgba(232, 249, 255, .18)); }
+body.space-home #empty .v1-widgets .wg.card b { font-size: 16px; font-weight: 600; }
+body.space-home #empty .v1-widgets .wg.card b span { font-weight: 400; color: rgba(236, 232, 225, .64); }
+body.space-home #empty .v1-widgets .wg.card .bar { width: 100%; height: 4px !important; margin: 2px 0 !important; background: rgba(255, 255, 255, .08) !important; border-radius: 4px !important; }
+body.space-home #empty .v1-widgets .wg.card .bar i { background: linear-gradient(90deg, var(--lc, #94a3b8), #E8F9FF) !important; box-shadow: 0 0 10px rgba(232, 249, 255, .6) !important; border-radius: 4px !important; }
+body.space-home #empty .v1-widgets small { color: rgba(236, 232, 225, .64) !important; font-size: 12px; }
+body.space-home #empty .v1-widgets .wg.sc { padding: 14px 16px 12px !important; }
+/* a dashed link from each shortcut to the one before it, tilting with their up-down offsets */
+body.space-home #empty .v1-widgets .wg.sc .ic button { position: relative; }
+body.space-home #empty .v1-widgets .wg.sc .ic button + button::before {
+  /* buttons are 52px wide with 14px between, so icon centres are 66px apart and 6px up or down (centre to centre) */
+  content: ''; position: absolute; left: -40px; width: 67px; height: 0; border-top: 1px dashed rgba(127, 227, 255, .45); transform-origin: left center; pointer-events: none;
+}
+body.space-home #empty .v1-widgets .wg.sc .ic button:nth-child(even)::before { top: 20px; transform: rotate(5.2deg); }
+body.space-home #empty .v1-widgets .wg.sc .ic button:nth-child(odd)::before { top: 26px; transform: rotate(-5.2deg); }
+body.space-home #empty .v1-widgets .wg.sc .ic { position: relative; justify-content: flex-start; gap: 14px !important; margin-top: 10px !important; flex-wrap: nowrap; }
+body.space-home #empty .v1-widgets .wg.sc .ic button { color: rgba(236, 232, 225, .8) !important; background: none !important; }
+body.space-home #empty .v1-widgets .wg.sc .ic button { padding: 6px 2px !important; }
+body.space-home #empty .v1-widgets .wg.sc .ic button:nth-child(even) { padding-top: 12px !important; }
+body.space-home #empty .v1-widgets .wg.sc .ic .fav, body.space-home #empty .v1-widgets .wg.sc .ic .fav-letter {
+  width: 28px !important; height: 28px !important; border-radius: 50% !important; background-color: #0b0c10; box-shadow: 0 0 0 1px rgba(127, 227, 255, .35), 0 0 16px rgba(127, 227, 255, .35); transition: box-shadow .15s;
+}
+body.space-home #empty .v1-widgets .wg.sc .ic button:hover .fav, body.space-home #empty .v1-widgets .wg.sc .ic button:hover .fav-letter { box-shadow: 0 0 0 1px rgba(127, 227, 255, .7), 0 0 24px rgba(127, 227, 255, .6); }
+
+body.space-home #empty .v1-jump { order: 6; display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 640px !important; margin: 22px auto 0 !important; }
+body.space-home #empty .v1-jump[hidden] { display: none !important; }
+body.space-home #empty .v1-jump .sh-k { grid-column: 1 / -1; text-align: left; font: 500 10.5px/1 'JetBrains Mono', Consolas, monospace; letter-spacing: .18em; color: rgba(236, 232, 225, .64); margin-bottom: 0; }
+body.space-home #empty .v1-jump .v1-jc {
+  min-width: 0; max-width: none !important; background: rgba(10, 11, 15, .66) !important; backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, .08) !important; border-radius: 10px !important;
+  box-shadow: none !important; color: #ece8e1 !important; text-align: left; transition: border-color .15s;
+}
+body.space-home #empty .v1-jump .v1-jc:hover { border-color: rgba(127, 227, 255, .35) !important; }
+body.space-home #empty .v1-jump .v1-jc small { color: rgba(236, 232, 225, .6) !important; }
+
+body.space-home #empty .empty-hints {
+  order: 7; justify-content: center; flex-wrap: wrap; gap: 22px !important; margin: 30px auto 0 !important;
+  font: 500 10.5px 'JetBrains Mono', Consolas, monospace !important; letter-spacing: .12em; text-transform: uppercase; color: rgba(236, 232, 225, .55) !important;
+}
+body.space-home #empty .empty-hints kbd { font: inherit !important; background: none !important; box-shadow: none !important; padding: 0 !important; color: rgba(236, 232, 225, .85) !important; }
+body.space-home #empty #shEsc[hidden] { display: none; }
+body.space-home #empty #clock { order: 8; margin-top: 12px !important; font: 500 10.5px/1 'JetBrains Mono', Consolas, monospace !important; letter-spacing: .14em !important; color: #7FE3FF !important; }
+body.space-home #empty #clock::after { content: ' · LOCAL'; color: rgba(127, 227, 255, .6); }
+
+@media (max-width: 720px) {
+  body.space-home #empty .v1-widgets, body.space-home #empty .v1-jump { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { body.space-home #shSky .orbit b { animation: none; } }
+body.reduce-motion.space-home #shSky .orbit b { animation: none; }
+
+/* the level-up flip shows the new level's planet */
+.v1-lvlup .f.back .sh-pl { display: block; margin: 0 auto 6px; filter: drop-shadow(0 0 14px rgba(232, 249, 255, .25)); }

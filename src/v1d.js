@@ -59,7 +59,7 @@ function v1CheckLevel() {
   if (L.i > S.v1LevelSeen) { S.v1LevelSeen = L.i; save(); v1LevelUp(L); }
 }
 function v1LevelUp(L) {
-  const el = h('div', { class: 'v1-lvlup' }, h('div', { class: 'card', style: `--lc:${L.cur.color}` }, h('div', { class: 'f front', html: `<span>${V1_LEVELS[Math.max(0, L.i - 1)].name}</span>` }), h('div', { class: 'f back', html: `<b>${L.cur.name}</b><small>LEVEL UP</small>` })),
+  const el = h('div', { class: 'v1-lvlup' }, h('div', { class: 'card', style: `--lc:${L.cur.color}` }, h('div', { class: 'f front', html: `<span>${V1_LEVELS[Math.max(0, L.i - 1)].name}</span>` }), h('div', { class: 'f back', html: `${typeof spacePlanet === 'function' ? spacePlanet(L.cur.id, 76) : ''}<b>${L.cur.name}</b><small>LEVEL UP</small>` })),
     h('h3', {}, `You reached ${L.cur.name}!`), h('p', {}, `New title unlocked: “${L.cur.title}”. Your Oto Card got a ${L.cur.name.toLowerCase()} frame.`),
     h('div', { class: 'btns' }, h('button', { class: 'btn', onclick: () => el.remove() }, 'Nice'), h('button', { class: 'btn primary', onclick: () => { el.remove(); openLibrary('card'); } }, 'See my card')));
   el.addEventListener('mousedown', (e) => { if (e.target === el) el.remove(); });
@@ -153,6 +153,7 @@ function v1BackSkin(m) {
     base: `<path d="${shape}" fill="url(#bkK)"/><path d="${shape}" fill="none" stroke="url(#bkN)" stroke-width="2"/><rect x="${W / 2 - 34}" y="14" width="68" height="10" rx="5" fill="none" stroke="${T[3]}"/>` };
 }
 function v1CardBack(m = cardModel()) {
+  if (m.design === 'space' && v1Edition() === 'standard' && typeof spaceCardBack === 'function') return spaceCardBack(m); // (1.8.3: a star chart)
   const k = v1BackSkin(m);
   const { W, H, mono } = k;
   const got = S.v1Badges || {};

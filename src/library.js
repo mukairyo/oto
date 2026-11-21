@@ -282,7 +282,7 @@ function cardModel() {
     name: c.name ?? (S.settings.userName || 'Oto user'),
     title: c.title ?? 'Calm Explorer',
     colors: c.colors || null, // null = match the current space
-    design: c.design || 'keycard', art: c.art || 'orbit', style: c.style || 'night', font: c.font || (c.design === 'classic' || c.design === 'shiny' ? 'sans' : 'tech'),
+    design: c.design || 'space', art: c.art || 'orbit', style: c.style || 'night', font: c.font || (c.design === 'classic' || c.design === 'shiny' ? 'sans' : 'tech'),
     grain: c.grain ?? 0.35, stats: c.stats || ['days', 'blocked', 'spaces'], showStats: c.showStats !== false,
     seed: c.seed, no: c.no,
   };
@@ -498,9 +498,10 @@ function cardSvgShiny(m = cardModel(), { scale = 1 } = {}) {
   </g>
 </svg>`;
 }
-const CARD_DESIGNS = { keycard: 'Keycard', classic: 'Classic', shiny: 'Shiny' };
+const CARD_DESIGNS = { space: 'Space', keycard: 'Keycard', classic: 'Classic', shiny: 'Shiny' }; // (space: src/oto-space.js, 1.8.3)
 
 function cardSvg(m = cardModel(), opts = {}) {
+  if (m.design === 'space' && typeof cardSvgSpace === 'function') return cardSvgSpace(m, opts);
   if (m.design === 'classic') return cardSvgClassic(m, opts);
   if (m.design === 'shiny') return cardSvgShiny(m, opts);
   return cardSvgKeycard(m, opts);
@@ -821,17 +822,17 @@ const LIB_RENDER = {
         field('Name', nameIn),
         field('Title', titleIn),
         h('div', { class: 'card-chips' }, ...CARD_TITLES.map((t) => h('button', { class: `chip${m.title === t ? ' on' : ''}`, onclick: () => { c.title = t; save(); renderLibrary(); } }, t))),
-        field('Artwork', h('div', { class: 'card-arts' }, ...Object.entries(CARD_ART).map(([k, l]) => h('button', {
+        m.design === 'space' ? null : field('Artwork', h('div', { class: 'card-arts' }, ...Object.entries(CARD_ART).map(([k, l]) => h('button', {
           class: `card-art${m.art === k ? ' on' : ''}`, title: l, onclick: () => set('art', k, true),
           html: `<svg viewBox="0 0 284 232">${(() => { const mm = { ...m, art: k }; const cols = (mm.colors && mm.colors.length ? mm.colors : themeOf(currentWs()).colors); const cc = cols.length === 1 ? [cols[0], mix(cols[0], '#fff', 0.35)] : cols; return `<defs><linearGradient id="ca${k}" x1="0" y1="0" x2="1" y2="1">${cc.map((x, i) => `<stop offset="${i / (cc.length - 1)}" stop-color="${x}"/>`).join('')}</linearGradient></defs><rect width="284" height="232" fill="url(#ca${k})"/>${cardArt(mm, cc, 284, 232, `cp${k}`)}`; })()}</svg><span>${l}</span>`,
         })))),
-        field('Colours', h('div', { class: 'card-colours' },
+        m.design === 'space' ? null : field('Colours', h('div', { class: 'card-colours' },
           h('button', { class: `chip${useSpace ? ' on' : ''}`, onclick: () => set('colors', null, true) }, 'Match my space'),
           ...GRAD_PRESETS.slice(0, 9).map((p) => h('button', { class: 'gp-preset sm', style: `background:${p.length > 1 ? `linear-gradient(135deg, ${p.join(', ')})` : p[0]}`, onclick: () => set('colors', p.length > 1 ? [...p] : [p[0], mix(p[0], '#6366f1', 0.4)], true) })),
           h('span', { class: 'card-custom' }, ...colorInputs))),
-        field(m.design === 'shiny' ? 'Frame' : 'Style', seg(m.design === 'shiny' ? { night: 'Chrome', holo: 'Rainbow', tinted: 'Colour', paper: 'Gold' } : m.design === 'classic' ? { paper: 'Paper', night: 'Night', tinted: 'Tinted' } : CARD_STYLES, m.design === 'classic' && m.style === 'holo' ? 'paper' : m.style, (k) => set('style', k, true))),
-        field('Font', seg(CARD_FONTS, m.font, (k) => { c.fontSet = true; set('font', k, true); })),
-        field('Grain', (() => { const r = h('input', { type: 'range', min: 0, max: 1, step: 0.05, value: m.grain }); r.addEventListener('input', () => set('grain', +r.value)); return r; })()),
+        m.design === 'space' ? null : field(m.design === 'shiny' ? 'Frame' : 'Style', seg(m.design === 'shiny' ? { night: 'Chrome', holo: 'Rainbow', tinted: 'Colour', paper: 'Gold' } : m.design === 'classic' ? { paper: 'Paper', night: 'Night', tinted: 'Tinted' } : CARD_STYLES, m.design === 'classic' && m.style === 'holo' ? 'paper' : m.style, (k) => set('style', k, true))),
+        m.design === 'space' ? null : field('Font', seg(CARD_FONTS, m.font, (k) => { c.fontSet = true; set('font', k, true); })),
+        m.design === 'space' ? null : field('Grain', (() => { const r = h('input', { type: 'range', min: 0, max: 1, step: 0.05, value: m.grain }); r.addEventListener('input', () => set('grain', +r.value)); return r; })()),
         field('Stats', h('div', { class: 'card-stats' },
           h('button', { class: `switch${m.showStats ? ' on' : ''}`, onclick: () => set('showStats', !m.showStats, true) }),
           m.showStats ? h('div', { class: 'card-chips' }, ...Object.entries(CARD_STATS).map(([k, l]) => h('button', {

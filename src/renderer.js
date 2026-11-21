@@ -641,7 +641,7 @@ function activate(id, { focus = true } = {}) {
   if (!tab.essential && tab.ws !== S.activeWs) switchWorkspace(tab.ws, { activate: false });
   const prev = activeTab();
   if (prev && prev.id !== id && V.get(prev.id)) V.get(prev.id).hiddenAt = Date.now();
-  S.active[S.activeWs] = id;
+  S.active[S.activeWs] = id; startBack = null;
   tab.lastActive = Date.now();
   if (LIB.open) closeLibrary();
   const v = ensureView(tab);
@@ -674,6 +674,20 @@ function showNothing() {
   render();
   updateChrome();
 }
+
+// (1.8.3) New Tab shows the start page (clock, greeting, search, Jump back in), the same page Oto shows when it
+// starts with nothing open. Typing there opens the search with what you typed; Esc goes back to the tab you were on.
+let startBack = null;
+function openStartPage() {
+  closeCmd(false);
+  const t = activeTab();
+  if (t && V.get(t.id)) V.get(t.id).hiddenAt = Date.now();
+  startBack = t ? t.id : null;
+  delete S.active[S.activeWs];
+  showNothing();
+  save();
+}
+const onStartPage = () => !activeTab() && !$('#empty').classList.contains('gone');
 
 function closeTab(id) {
   const row = document.querySelector(`.tab[data-id="${id}"]`);
@@ -1645,7 +1659,7 @@ function mainMenu(x, y) {
   const t = activeTab();
   const bm = t && typeof findBookmark === 'function' && findBookmark(t.url);
   showMenu(x, y, [
-    { label: 'New tab', icon: 'plus', k: 'Ctrl+T', run: () => openCmd('new') },
+    { label: 'New tab', icon: 'plus', k: 'Ctrl+T', run: () => openStartPage() },
     { label: 'New space', icon: 'palette', run: () => openWsDialog() },
     { label: 'Library', icon: 'library', k: 'Ctrl+Shift+O', run: () => openLibrary() },
     { label: 'Downloads', icon: 'download', k: 'Ctrl+J', run: () => openLibrary('downloads') },
@@ -1689,7 +1703,7 @@ function zoom(dir) {
 
 const withView = (fn) => { const v = activeView(); if (v) wv(v, fn); };
 const CMDS = {
-  newTab: () => openCmd('new'),
+  newTab: () => openStartPage(),
   focusUrl: () => openCmd('current'),
   history: () => toggleLibrary('history'),
   downloads: () => toggleLibrary('downloads'),
@@ -1826,7 +1840,7 @@ function wire() {
   $('#btnCompact').onclick = () => (S.settings.compact ? toggleCompact() : toggleCollapsed());
   $('#btnShowSidebar').onclick = toggleCompact;
   $('#btnSettings').onclick = function () { return openSettings.apply(this, arguments); }; // (late-bound: v1 wraps it)
-  $('#btnNewTab').onclick = () => openCmd('new');
+  $('#btnNewTab').onclick = () => openStartPage();
   $('#btnClear').onclick = clearTabs;
   $('#wsTitle').onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); wsMenu(currentWs(), r.left, r.bottom + 4); };
   $('#btnBack').onclick = CMDS.back;
@@ -1856,6 +1870,19 @@ function wire() {
     } else if (e.key === 'Escape') { e.preventDefault(); closeCmd(); }
   });
   $('#cmdk').addEventListener('mousedown', (e) => { if (e.target.id === 'cmdk') closeCmd(); });
+  // the start page (New Tab): start typing to search; Esc goes back to the tab you came from
+  window.addEventListener('keydown', (e) => {
+    if (C.open || !onStartPage() || e.defaultPrevented) return;
+    const el = document.activeElement;
+    if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+    if (document.querySelector('#settings.open, .settings.open, #vpnPanel')) return;
+    if (e.key === 'Escape' && startBack && tabById(startBack)) { e.preventDefault(); activate(startBack); return; }
+    if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey && e.key !== ' ') {
+      e.preventDefault();
+      openCmd('new');
+      inp.value = e.key; computeItems(); fetchSuggest();
+    }
+  });
 
   // find
   const fi = $('#findInput');
@@ -2065,6 +2092,7 @@ function wire() {
   if (typeof initV1 === 'function') initV1();
   applyLayout();
   if (typeof vpnInit === 'function') vpnInit();
+  if (typeof initSpace === 'function') initSpace();
   mountExtensionBar();
   applyAppIcon();
   housekeeping();
