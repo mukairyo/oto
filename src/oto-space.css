@@ -109,7 +109,6 @@ body.reduce-motion.space-home #shSky .orbit b { animation: none; }
 
 /* downloads: the shooting star (src/oto-space.js spaceStarFly) */
 .sh-shoot { position: fixed; left: 0; top: 0; z-index: 99999; pointer-events: none; display: block; }
-.sh-nocursor { position: fixed; inset: 0; z-index: 99998; cursor: none; background: transparent; }
 .sh-burst { position: fixed; z-index: 99999; pointer-events: none; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; box-shadow: 0 0 0 0 rgba(255, 255, 255, .8); animation: shBurst .65s ease-out forwards; }
 @keyframes shBurst { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, .85), 0 0 18px 6px rgba(232, 249, 255, .9); } 100% { box-shadow: 0 0 0 26px rgba(255, 255, 255, 0), 0 0 18px 6px rgba(232, 249, 255, 0); } }
 

@@ -318,15 +318,15 @@ function spaceFounderBack(m = cardModel(), { scale = 1 } = {}) {
 // (1.8.5) the cursor becomes the star: where you clicked, a star lights up under the mouse (a quick twinkle), then
 // streaks to the downloads button. The arc first drops, then sweeps across to the button, so it never flies up and
 // away first (when the button is lower than the cursor, as it usually is).
-function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
-  // (1.8.6: white) The mouse lights up as a neon arrow, turns into a neon star, and the star flies to Downloads leaving a
-  // glowing white trail, then lands with a soft ring. Drawn on one canvas (no CSS filters); dark middle + neon edge reads on white and dark pages.
+function spaceStarFly(px, py, tx, ty, done) {
+  // (1.8.8) A white neon star pops out where you clicked (your normal mouse pointer stays as it is), then flies to
+  // Downloads leaving a glowing white trail, and lands with a soft ring. Drawn on one canvas (no CSS filters); dark middle + neon edge reads on white and dark pages.
   const sx = px, sy = py;
   const dist = Math.hypot(tx - sx, ty - sy);
   const cx = sx + (tx - sx) * 0.3, cy = Math.min(sy, ty) - Math.min(200, 50 + dist * 0.3); // a gentle arc
   const at = (t) => { const u = 1 - t; return [u * u * sx + 2 * u * t * cx + t * t * tx, u * u * sy + 2 * u * t * cy + t * t * ty]; };
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2) * 0.35 + (1 - Math.pow(1 - t, 2.2)) * 0.65;
-  const LIGHT = 300, MORPH = 260, BORN = LIGHT + MORPH, FLY = Math.round(Math.min(1050, 620 + dist * 0.45)), LAND = 520, TAIL_MS = 200;
+  const BORN = 280, FLY = Math.round(Math.min(1050, 620 + dist * 0.45)), LAND = 520, TAIL_MS = 200;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const cv = h('canvas', { class: 'sh-shoot', 'aria-hidden': 'true' });
   const W = innerWidth, H = innerHeight;
@@ -335,26 +335,9 @@ function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
   document.body.append(cv);
   const g = cv.getContext('2d');
   g.scale(dpr, dpr);
-  // Your real mouse pointer hides while it "becomes" the star: a clear cover with no cursor sits on top for a moment.
-  // It comes back as soon as you move or click, or when the star lands.
-  // (1.8.7) It stays hidden while the star flies, even if you move the mouse; a click, a scroll or a key brings it back
-  // at once. Windows only redraws the pointer when the mouse moves, so Oto nudges it (main process) after each change.
-  let cover = null;
-  const nudge = () => { try { if (oto.cursorNudge) oto.cursorNudge(); } catch { /* best effort */ } };
-  const showMouse = () => { if (cover) { cover.remove(); cover = null; removeEventListener('keydown', showMouse, true); requestAnimationFrame(nudge); } };
-  if (atMouse) {
-    cover = h('div', { class: 'sh-nocursor', 'aria-hidden': 'true' });
-    for (const ev of ['mousedown', 'wheel', 'contextmenu']) cover.addEventListener(ev, showMouse, { passive: true });
-    addEventListener('keydown', showMouse, true);
-    document.body.append(cover);
-    requestAnimationFrame(() => { nudge(); setTimeout(nudge, 60); }); // once it's on screen, and once more in case the page was busy
-    setTimeout(showMouse, 4000); // never longer than this
-  }
   const trail = [], dust = [], burst = [];
   let caught = false, last = 0;
   const t0 = performance.now();
-  // a plain pointer arrow, tip at (0,0); everything is white neon with a dark middle
-  const ARROW = [[0, 0], [0, 17.5], [4.3, 13.5], [7.2, 20], [10, 18.8], [7.2, 12.5], [12.6, 12.5]];
   // a five-point star, centre at (0,0)
   const STAR = Array.from({ length: 10 }, (_, k) => { const a = -Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? 5.2 : 12; return [Math.cos(a) * r, Math.sin(a) * r]; });
   const neon = (shape, x, y, s, rot, alpha) => {
@@ -372,7 +355,6 @@ function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
     g.shadowBlur = 0;
     g.restore(); g.globalAlpha = 1;
   };
-  const arrow = (x, y, s, rot, alpha) => neon(ARROW, x, y, s, rot, alpha);
   const star = (x, y, s, rot, alpha) => neon(STAR, x, y, s, rot, alpha);
   const ring = (x, y, r, w, o) => { g.strokeStyle = `rgba(255,255,255,${o.toFixed(3)})`; g.lineWidth = w; g.beginPath(); g.arc(x, y, Math.max(0.1, r), 0, Math.PI * 2); g.stroke(); };
   const drawTail = (now) => {
@@ -401,19 +383,14 @@ function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
     }
     g.globalAlpha = 1;
   };
-  const flicker = [0, 0.9, 0.25, 1, 0.55, 1, 1, 1]; // the neon switching on
   let rotNow = 0;
   const frame = () => {
     const now = performance.now(), e = Math.max(0, now - t0), dt = last ? Math.min(40, now - last) : 16; last = now;
     g.clearRect(0, 0, W, H);
-    if (e < LIGHT) { // the mouse lights up as a neon arrow
-      const k = e / LIGHT, sc = 1.75 * (k < 0.5 ? 0.7 + 0.6 * (k / 0.5) : 1.3 - 0.3 * ((k - 0.5) / 0.5));
-      arrow(sx, sy, sc, 0, flicker[Math.min(flicker.length - 1, Math.floor(k * flicker.length))]);
-    } else if (e < BORN) { // …and turns into a star
-      const k = (e - LIGHT) / MORPH, q = k * k * (3 - 2 * k);
-      ring(sx, sy, 6 + 30 * k, 2, 0.6 * (1 - k));
-      arrow(sx, sy, 1.75 * (1 - 0.6 * q), q * 1.2, 1 - q);
-      star(sx, sy, 1.35 * (k < 0.7 ? (k / 0.7) * 1.2 : 1.2 - 0.2 * ((k - 0.7) / 0.3)), (1 - q) * -1.6, Math.min(1, q * 1.6));
+    if (e < BORN) { // pops out where you clicked, with a little spin and a ring
+      const k = e / BORN, q = k * k * (3 - 2 * k);
+      ring(sx, sy, 6 + 28 * k, 2, 0.6 * (1 - k));
+      star(sx, sy, 1.35 * (k < 0.65 ? (k / 0.65) * 1.2 : 1.2 - 0.2 * ((k - 0.65) / 0.35)), (1 - q) * -1.6, Math.min(1, k * 3));
     } else if (e < BORN + FLY) {
       const raw = (e - BORN) / FLY, k = ease(raw), [x, y] = at(k);
       rotNow = raw * 2.4; // a slow spin on the way
@@ -427,7 +404,6 @@ function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
     } else {
       if (!caught) {
         caught = true;
-        showMouse();
         for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2 + Math.random() * 0.3, v = 0.07 + Math.random() * 0.09; burst.push({ x: tx, y: ty, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 1 + Math.random() * 1.5, life: 420 + Math.random() * 120, max: 540, c: i % 3 ? '#e2e8f0' : '#ffffff' }); }
         if (done) done();
       }
@@ -440,7 +416,7 @@ function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
     }
     requestAnimationFrame(safe);
   };
-  const safe = () => { try { frame(); } catch (err) { cv.remove(); showMouse(); if (!caught && done) done(); } };
+  const safe = () => { try { frame(); } catch (err) { cv.remove(); if (!caught && done) done(); } };
   requestAnimationFrame(safe);
 }
 

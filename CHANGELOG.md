@@ -3,6 +3,10 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.8.8 — Your normal pointer is back
+
+- **Your normal mouse pointer stays:** Oto no longer hides your pointer or draws a grey arrow in its place when a download starts. A white neon star just pops out where you clicked, with a little spin and a ring, then flies to Downloads with its glowing trail.
+
 ## 1.8.7 — Your pointer really disappears
 
 - **Your mouse pointer now really hides while it turns into the star:** on Windows the pointer only redraws when the mouse moves, so in 1.8.5 and 1.8.6 it usually stayed on screen. Oto now nudges Windows to redraw it right away. The pointer also stays hidden while the star flies, even if you move the mouse. It comes back when the star lands, or straight away if you click, scroll or press a key.

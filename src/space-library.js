@@ -152,7 +152,7 @@ function slibDlEmpty() {
   return h('div', { class: 'sl-dlempty' },
     h('div', { class: 'art', html: art }),
     h('h2', {}, 'Nothing has landed yet'),
-    h('p', {}, anim === 'off' ? 'Start a download and it shows up here as a card, newest first.' : 'Start a download and your cursor turns into a star that flies here. Your files will show up as cards, newest first.'),
+    h('p', {}, anim === 'off' ? 'Start a download and it shows up here as a card, newest first.' : 'Start a download and a star flies here from where you clicked. Your files will show up as cards, newest first.'),
     h('div', { class: 'sl-dlfolder' }, h('span', { class: 'k' }, 'Saving to'), h('code', { title: f ? f.path : '' }, f ? f.path : 'Your Downloads folder'),
       oto.dlFolderOpen ? h('button', { class: 'btn primary', onclick: () => oto.dlFolderOpen() }, 'Open folder') : null,
       oto.dlFolderPick ? h('button', { class: 'btn', onclick: () => set(oto.dlFolderPick()) }, 'Change') : null,
