@@ -186,7 +186,7 @@ function dlFly(from, fromName = '') {
     dlRipple(tgt.x, tgt.y);
     if (tgt.el) { tgt.el.classList.remove('catch'); void tgt.el.offsetWidth; tgt.el.classList.add('catch'); setTimeout(() => tgt.el.classList.remove('catch'), 700); }
   };
-  const look = S.settings.dlAnim || 'file';
+  const look = S.settings.dlAnim || 'star';
   if (!animOn() || look === 'off') { catchIt(); return; }
   const c = $('#content').getBoundingClientRect();
   let sx = from && from.x >= 0 && from.y >= 0 && from.x <= innerWidth && from.y <= innerHeight ? from.x : c.left + c.width / 2;
@@ -202,6 +202,7 @@ function dlFly(from, fromName = '') {
     const s = scale0 + (scale1 - scale0) * Math.pow(t, 1.3);
     return { transform: `translate(${(x - SIZE / 2).toFixed(1)}px, ${(y - SIZE / 2).toFixed(1)}px) scale(${s.toFixed(3)}) rotate(${(spin * t).toFixed(1)}deg)`, offset: t };
   });
+  if (look === 'star' && typeof spaceStarFly === 'function') { spaceStarFly(sx, sy, tx, ty, catchIt); return; } // (1.8.3, src/oto-space.js)
   dlRipple(sx, sy, 'start');
   const orb = look === 'orb'
     ? h('div', { class: 'dl-orb', html: '<span class="dl-orb-ring"></span><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5v10M7.8 11.6 12 15.8l4.2-4.2"/><path d="M7 19h10" opacity=".7"/></svg>' })
@@ -606,7 +607,10 @@ function cardSvgKeycard(m = cardModel(), { scale = 1 } = {}) {
 </svg>`;
 }
 async function cardPng(scale = 3) {
-  const svg = cardSvg(cardModel(), { scale });
+  let svg = cardSvg(cardModel(), { scale });
+  // (1.8.3) a card drawn with only a viewBox (OG, Founder, Space) gets its real size, so the saved image isn't 300×150
+  const vb = /^<svg[^>]*viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/.exec(svg);
+  if (vb && !/^<svg[^>]*\swidth=/.test(svg)) svg = svg.replace('<svg ', `<svg width="${vb[1] * scale}" height="${vb[2] * scale}" `);
   const img = new Image();
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   await img.decode();

@@ -8,6 +8,10 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 - **New Tab (and Ctrl+T) now opens the start page**, the same page you see when Oto starts with nothing open. Just start typing to search, or click the search box. Press **Esc** to go back to the tab you were on.
 - **The start page has the space look** of the Sky and the VPN: a starfield with a slow orbiting star, a big greeting, a glowing search bar, your Oto Card with your level's planet, your shortcuts as a little constellation, "Jump back in", and the time.
 - **New Oto Card design: Space.** Your level is a planet inside an orbit ring that fills with XP, with one star lit per level. The back is a star chart where every badge you earn lights a star. Standard cards switch to it once; the other designs are still in the card editor.
+- **The Founder card is a black hole:** a wide card with an ultramassive black hole, its glowing gold-to-crimson disk sweeping across a violet sky, "FOUNDER · ULTRAMASSIVE · 1/1", the year you started with Oto, your signature and the 力 seal. It still only unlocks with the owner key.
+- **Downloads start with a shooting star** that flies from the page into the downloads button (or the Library button) with a little burst when it lands. Settings → Downloads still lets you pick the file, the orb or nothing.
+- **Every Library page has the space look:** Downloads, History, Passwords, Media, Spaces, Boosts, Routing, Oto Card and Oto Phone sit on the starfield, with glass panels and cyan highlights.
+- Saving or copying a card as an image now keeps its real size for every design.
 - **Six levels, six kinds of star:** Rookie is a moon, Bronze a red dwarf, Silver a ringed world, Gold a sun, Holo a nebula and Mythic a galaxy with a turning aurora. The level-up flip shows your new planet. OG and Founder cards keep their own art.
 
 ## 1.8.2 — Fixes

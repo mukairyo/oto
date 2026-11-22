@@ -153,6 +153,7 @@ function v1BackSkin(m) {
     base: `<path d="${shape}" fill="url(#bkK)"/><path d="${shape}" fill="none" stroke="url(#bkN)" stroke-width="2"/><rect x="${W / 2 - 34}" y="14" width="68" height="10" rx="5" fill="none" stroke="${T[3]}"/>` };
 }
 function v1CardBack(m = cardModel()) {
+  if (v1Edition() === 'founder' && typeof spaceFounderBack === 'function') return spaceFounderBack(m); // (1.8.3: the black hole's back)
   if (m.design === 'space' && v1Edition() === 'standard' && typeof spaceCardBack === 'function') return spaceCardBack(m); // (1.8.3: a star chart)
   const k = v1BackSkin(m);
   const { W, H, mono } = k;

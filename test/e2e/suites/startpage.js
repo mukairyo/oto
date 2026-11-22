@@ -47,6 +47,16 @@ module.exports = async (t) => {
   t.check('the Oto Card\'s default design is Space: the level as a planet on the front, a star chart of badges on the back', a.design === 'space' && a.first === 'space' && a.front && a.back, JSON.stringify(a));
   a = await J("S.card.edition = 'og'; const og = cardSvg(cardModel()); S.card.edition = 'standard'; return { og: /ORIGINAL USER/.test(og) };");
   t.check('…the OG edition keeps its own art', a.og === true, JSON.stringify(a));
+  a = await J("const f = spaceFounderSvg(cardModel()), b = spaceFounderBack(cardModel()); return { wide: f.includes('viewBox=' + String.fromCharCode(34) + '0 0 580 362'), text: /FOUNDER/.test(f) && /ULTRAMASSIVE/.test(f) && /OWNER · Nº 0000/.test(f), back: /STAR CHART · FOUNDER/.test(b), swapped: v1CardFounder(cardModel()).includes('ULTRAMASSIVE') };");
+  t.check('the Founder card is the wide black hole (front and back)', a.wide && a.text && a.back && a.swapped, JSON.stringify(a));
+  a = JSON.parse(await t.js("(async () => { const u = await cardPng(1); const im = new Image(); im.src = u; await im.decode(); return JSON.stringify({ w: im.width, h: im.height }); })()"));
+  t.check('a saved card image has the card\'s real size (not 300×150)', a.w === 320 && a.h === 504, JSON.stringify(a));
+  a = await J("const before = document.querySelectorAll('.sh-shoot').length; dlFly({ x: 600, y: 300 }, 'x.zip'); return { def: S.settings.dlAnim, star: document.querySelectorAll('.sh-shoot').length > before, choice: !!document.querySelector('body') };");
+  t.check('downloads start with a shooting star by default', a.def === 'star' && a.star, JSON.stringify(a));
+  await t.js("(openLibrary('history'), 1)"); await t.sleep(300);
+  a = await J("const l = document.getElementById('library'); return { bg: getComputedStyle(l).backgroundImage, accent: getComputedStyle(l).getPropertyValue('--accent').trim() };");
+  t.check('the Library pages have the space look (starfield, cyan)', /space\.webp/.test(a.bg) && /7FE3FF/i.test(a.accent), JSON.stringify(a));
+  await t.js('(closeLibrary(), 1)');
   a = await J("return V1_LEVELS.map((l) => { const s = spacePlanet(l.id, 40); return /<svg/.test(s) && s.length > 200; });");
   t.check('every level has its own planet (moon to galaxy)', Array.isArray(a) && a.length === 6 && a.every(Boolean), JSON.stringify(a));
 };
