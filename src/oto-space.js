@@ -295,7 +295,7 @@ function spaceFounderBack(m = cardModel(), { scale = 1 } = {}) {
 // (1.8.5) the cursor becomes the star: where you clicked, a star lights up under the mouse (a quick twinkle), then
 // streaks to the downloads button. The arc first drops, then sweeps across to the button, so it never flies up and
 // away first (when the button is lower than the cursor, as it usually is).
-function spaceStarFly(px, py, tx, ty, done) {
+function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
   // (1.8.5) The mouse lights up as a neon arrow, turns into a neon star, and the star flies to Downloads leaving a
   // glowing blue trail, then lands with a soft ring. Drawn on one canvas (no CSS filters); dark middle + neon edge reads on white and dark pages.
   const sx = px, sy = py;
@@ -312,6 +312,17 @@ function spaceStarFly(px, py, tx, ty, done) {
   document.body.append(cv);
   const g = cv.getContext('2d');
   g.scale(dpr, dpr);
+  // Your real mouse pointer hides while it "becomes" the star: a clear cover with no cursor sits on top for a moment.
+  // It comes back as soon as you move or click, or when the star lands.
+  let cover = null, first = null;
+  const showMouse = () => { if (cover) { cover.remove(); cover = null; } };
+  if (atMouse) {
+    cover = h('div', { class: 'sh-nocursor', 'aria-hidden': 'true' });
+    cover.addEventListener('mousemove', (ev) => { if (!first) first = [ev.clientX, ev.clientY]; else if (Math.hypot(ev.clientX - first[0], ev.clientY - first[1]) > 5) showMouse(); });
+    for (const ev of ['mousedown', 'wheel', 'contextmenu']) cover.addEventListener(ev, showMouse, { passive: true });
+    document.body.append(cover);
+    setTimeout(showMouse, 4000); // never longer than this
+  }
   const trail = [], dust = [], burst = [];
   let caught = false, last = 0;
   const t0 = performance.now();
@@ -388,6 +399,7 @@ function spaceStarFly(px, py, tx, ty, done) {
     } else {
       if (!caught) {
         caught = true;
+        showMouse();
         for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2 + Math.random() * 0.3, v = 0.07 + Math.random() * 0.09; burst.push({ x: tx, y: ty, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 1 + Math.random() * 1.5, life: 420 + Math.random() * 120, max: 540, c: i % 3 ? '#93c5fd' : '#ffffff' }); }
         if (done) done();
       }
@@ -400,7 +412,7 @@ function spaceStarFly(px, py, tx, ty, done) {
     }
     requestAnimationFrame(safe);
   };
-  const safe = () => { try { frame(); } catch (err) { cv.remove(); if (!caught && done) done(); } };
+  const safe = () => { try { frame(); } catch (err) { cv.remove(); showMouse(); if (!caught && done) done(); } };
   requestAnimationFrame(safe);
 }
 

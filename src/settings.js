@@ -522,7 +522,7 @@ const PAGE_RENDER = {
         h('p', { class: 'set-note' }, 'Start fresh moves your unpinned tabs to the Archive on launch. Pinned tabs and Essentials stay.')),
       section('Downloads',
         row('Ask where to save each file', 'Otherwise files go straight to your Downloads folder.', sw(st.downloadsAsk, (on) => setPref('downloadsAsk', on))),
-        row('When a download starts', 'What flies from your cursor into the downloads button.', seg([['star', 'Shooting star'], ['file', 'A little file'], ['orb', 'Glowing orb'], ['off', 'Nothing']], st.dlAnim || 'star', (v) => { setPref('dlAnim', v); if (v !== 'off') setTimeout(() => dlFly({ x: innerWidth / 2, y: innerHeight / 2 }, 'preview.zip'), 80); })),
+        row('When a download starts', 'What flies from your cursor into the downloads button.', seg([['star', 'Shooting star'], ['file', 'A little file'], ['orb', 'Glowing orb'], ['off', 'Nothing']], st.dlAnim || 'star', (v) => { setPref('dlAnim', v); if (v !== 'off') setTimeout(() => dlFly({ x: innerWidth / 2, y: innerHeight / 2, mouse: false }, 'preview.zip'), 80); })),
         row('Downloads button icon', null, h('div', { class: 'seg arrow-seg dlicon-seg' }, ...Object.keys(DL_ICONS).map((k) => h('button', {
           class: (st.dlIcon || 'tray') === k ? 'on' : '', title: k[0].toUpperCase() + k.slice(1), html: DL_ICONS[k],
           onclick: () => { setPref('dlIcon', k); renderDlButton(); renderSettings(); },

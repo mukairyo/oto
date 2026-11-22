@@ -53,6 +53,13 @@ module.exports = async (t) => {
   t.check('a saved card image has the card\'s real size (not 300×150)', a.w === 320 && a.h === 504, JSON.stringify(a));
   a = await J("const before = document.querySelectorAll('.sh-shoot').length; dlFly({ x: 600, y: 300 }, 'x.zip'); return { def: S.settings.dlAnim, star: document.querySelectorAll('.sh-shoot').length > before, choice: !!document.querySelector('body') };");
   t.check('downloads start with a shooting star by default', a.def === 'star' && a.star, JSON.stringify(a));
+  await t.sleep(2200);
+  a = await J("dlFly({ x: 640, y: 360 }, 'x.zip'); const c = document.querySelector('.sh-nocursor'); return { cover: !!c, none: !!c && getComputedStyle(c).cursor === 'none', top: !!c && document.elementFromPoint(640, 360) === c };");
+  t.check('…and your real mouse pointer hides while it turns into the star', a.cover && a.none && a.top, JSON.stringify(a));
+  await t.sleep(2400);
+  a = await J("dlFly({ x: innerWidth / 2, y: innerHeight / 2, mouse: false }, 'preview.zip'); return { gone: !document.querySelector('.sh-nocursor') };");
+  t.check('…it comes back when the star lands, and the Settings preview never hides it', a.gone, JSON.stringify(a));
+  await t.sleep(2200);
   await t.js("(openLibrary('history'), 1)"); await t.sleep(300);
   a = await J("const l = document.getElementById('library'); return { bg: getComputedStyle(l).backgroundImage, accent: getComputedStyle(l).getPropertyValue('--accent').trim() };");
   t.check('the Library pages have the space look (starfield, cyan)', /space\.webp/.test(a.bg) && /7FE3FF/i.test(a.accent), JSON.stringify(a));
