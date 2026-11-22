@@ -10,7 +10,10 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 - **New Oto Card design: Space.** Your level is a planet inside an orbit ring that fills with XP, with one star lit per level. The back is a star chart where every badge you earn lights a star. Standard cards switch to it once; the other designs are still in the card editor.
 - **The Founder card is a black hole:** a wide card with an ultramassive black hole, its glowing gold-to-crimson disk sweeping across a violet sky, "FOUNDER · ULTRAMASSIVE · 1/1", the year you started with Oto, your signature and the 力 seal. It still only unlocks with the owner key.
 - **Downloads start with a shooting star** that flies from the page into the downloads button (or the Library button) with a little burst when it lands. Settings → Downloads still lets you pick the file, the orb or nothing.
-- **Every Library page has the space look:** Downloads, History, Passwords, Media, Spaces, Boosts, Routing, Oto Card and Oto Phone sit on the starfield, with glass panels and cyan highlights.
+- **The OG card is "first light":** a wide card where Oto's very first two-ring logo becomes a young star with two crossing orbits, on Oto's original indigo-to-sky-blue. Your card number, the year you started, your name, "ORIGINAL USER · KEPT FOREVER", and a blue star chart on the back.
+- **The Library is remade:** a wide glass sidebar with a count for every page, a big title and the glowing search on every page, all on the starfield.
+  - **History** is a timeline: each day is a star, with your visits hanging off it, filters for All / Today / This week, a chart of this week, and your most-visited sites.
+  - **Downloads** shows what's coming in as a big card with a progress ring, Pause and Cancel; what landed shows as cards with a file-type tag, Open and Show in folder; your totals sit by the title.
 - Saving or copying a card as an image now keeps its real size for every design.
 - **Six levels, six kinds of star:** Rookie is a moon, Bronze a red dwarf, Silver a ringed world, Gold a sun, Holo a nebula and Mythic a galaxy with a turning aurora. The level-up flip shows your new planet. OG and Founder cards keep their own art.
 

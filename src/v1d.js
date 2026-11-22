@@ -154,6 +154,7 @@ function v1BackSkin(m) {
 }
 function v1CardBack(m = cardModel()) {
   if (v1Edition() === 'founder' && typeof spaceFounderBack === 'function') return spaceFounderBack(m); // (1.8.3: the black hole's back)
+  if (v1Edition() === 'og' && typeof spaceOGBack === 'function') return spaceOGBack(m); // (1.8.3: first light's back)
   if (m.design === 'space' && v1Edition() === 'standard' && typeof spaceCardBack === 'function') return spaceCardBack(m); // (1.8.3: a star chart)
   const k = v1BackSkin(m);
   const { W, H, mono } = k;

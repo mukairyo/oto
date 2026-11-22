@@ -191,12 +191,16 @@ function initSpace() {
   }
   // the Founder edition becomes the black hole (wide); main still decides who may see it
   if (typeof v1CardFounder === 'function') v1CardFounder = function (m) { return spaceFounderSvg(m); };
+  if (typeof v1CardOG === 'function') v1CardOG = function (m) { return spaceOGSvg(m); };
+  if (typeof initSpaceLibrary === 'function') initSpaceLibrary();
   const _uc = updateClock;
   updateClock = function () { _uc.apply(this, arguments); spaceHome(); };
   spaceHome();
 }
 // (Oto's start-up calls initSpace; if it already ran before this file loaded, start now)
 if (typeof S !== 'undefined' && S && S.settings) initSpace();
+// (space-library.js may load after initSpace already ran)
+
 
 // ---------------------------------------------------------------- the Founder card: an ultramassive black hole (wide)
 // Only shown when main has signed it with the owner key (v1Edition() checks V1D.founder), as before.
@@ -316,4 +320,73 @@ function spaceStarFly(sx, sy, tx, ty, done) {
     setTimeout(() => burst.remove(), 700);
     if (done) done();
   };
+}
+
+// ---------------------------------------------------------------- the OG card: "first light" (wide), Oto's first logo
+function spaceOGSvg(m = cardModel(), { scale = 1 } = {}) {
+  const W = 580, H = 362, cx = 356, cy = 184, u = `og${++spaceUid}`, rnd = spaceRand(9);
+  const mono = "'JetBrains Mono',Consolas,monospace", serif = "'Instrument Serif',Georgia,serif";
+  const year = new Date(S.since || Date.now()).getFullYear();
+  let dust = ''; for (let k = 0; k < 120; k++) dust += `<circle cx="${(rnd() * W).toFixed(1)}" cy="${(rnd() * H).toFixed(1)}" r="${[0.4, 0.5, 0.6, 0.9][Math.floor(rnd() * 4)]}" fill="#fff" fill-opacity="${(0.2 + rnd() * 0.55).toFixed(2)}"/>`;
+  // Oto's very first logo: two overlapping rings
+  const logo = '<g fill="none" stroke="#ece8e1" stroke-opacity=".85" stroke-width="1.8"><circle cx="12" cy="18" r="9"/><circle cx="24" cy="18" r="9" stroke-opacity=".7"/></g>';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W * scale}" height="${H * scale}"><defs>
+    <linearGradient id="${u}e" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset=".4" stop-color="#38bdf8" stop-opacity=".75"/><stop offset="1" stop-color="#4f46e5" stop-opacity=".9"/></linearGradient>
+    <linearGradient id="${u}bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b0a24"/><stop offset=".55" stop-color="#05050f"/><stop offset="1" stop-color="#03030a"/></linearGradient>
+    <radialGradient id="${u}n1" cx=".64" cy=".5" r=".55"><stop offset="0" stop-color="#4f46e5" stop-opacity=".45"/><stop offset=".6" stop-color="#312e81" stop-opacity=".15"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <radialGradient id="${u}n2" cx=".85" cy=".15" r=".45"><stop offset="0" stop-color="#38bdf8" stop-opacity=".3"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <radialGradient id="${u}st"><stop offset="0" stop-color="#fff"/><stop offset=".2" stop-color="#e0f2fe"/><stop offset=".45" stop-color="#7dd3fc" stop-opacity=".6"/><stop offset="1" stop-color="#4f46e5" stop-opacity="0"/></radialGradient>
+    <linearGradient id="${u}r" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#818cf8"/><stop offset=".5" stop-color="#e0f2fe"/><stop offset="1" stop-color="#38bdf8"/></linearGradient>
+    <linearGradient id="${u}cm" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#38bdf8" stop-opacity="0"/><stop offset="1" stop-color="#e0f2fe"/></linearGradient>
+    <linearGradient id="${u}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".07"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <filter id="${u}b" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="${u}hz" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".011" numOctaves="4" seed="11"/><feColorMatrix values="0 0 0 0 .3  0 0 0 0 .35  0 0 0 0 .95  0 0 0 1.1 -.47"/></filter>
+    <clipPath id="${u}c"><rect width="${W}" height="${H}" rx="26"/></clipPath></defs>
+  <g clip-path="url(#${u}c)"><rect width="${W}" height="${H}" fill="url(#${u}bg)"/><rect width="${W}" height="${H}" filter="url(#${u}hz)" opacity=".6"/>
+    <rect width="${W}" height="${H}" fill="url(#${u}n1)"/><rect width="${W}" height="${H}" fill="url(#${u}n2)"/>${dust}
+    <path d="M60 52 C150 66 220 92 286 128" fill="none" stroke="url(#${u}cm)" stroke-width="2" stroke-linecap="round"/><circle cx="287" cy="129" r="2.6" fill="#fff"/><circle cx="287" cy="129" r="7" fill="#7dd3fc" fill-opacity=".35"/>
+    <g transform="translate(${cx} ${cy})"><circle r="120" fill="url(#${u}st)" opacity=".55"/>
+      <g fill="none" stroke="url(#${u}r)"><ellipse rx="128" ry="44" transform="rotate(-28)" stroke-width="1.6" stroke-opacity=".9"/><ellipse rx="128" ry="44" transform="rotate(28)" stroke-width="1.6" stroke-opacity=".9"/>
+        <ellipse rx="128" ry="44" transform="rotate(-28)" stroke-width="7" stroke-opacity=".25" filter="url(#${u}b)"/><ellipse rx="128" ry="44" transform="rotate(28)" stroke-width="7" stroke-opacity=".25" filter="url(#${u}b)"/></g>
+      <circle r="26" fill="#e0f2fe" opacity=".6" filter="url(#${u}b)"/><circle r="13" fill="#fff"/>
+      <g transform="rotate(-28)"><circle cx="-112" cy="21" r="6" fill="#818cf8"/><circle cx="-112" cy="21" r="12" fill="#818cf8" fill-opacity=".25"/></g>
+      <g transform="rotate(28)"><circle cx="108" cy="-24" r="4.5" fill="#7dd3fc"/><circle cx="108" cy="-24" r="10" fill="#7dd3fc" fill-opacity=".25"/></g></g>
+    <path d="M0 0 H250 L170 ${H} H0 Z" fill="url(#${u}s)"/></g>
+  <rect x=".75" y=".75" width="${W - 1.5}" height="${H - 1.5}" rx="25.5" fill="none" stroke="url(#${u}e)" stroke-width="1.5"/>
+  <rect x="3" y="3" width="${W - 6}" height="${H - 6}" rx="23" fill="none" stroke="#fff" stroke-opacity=".06"/>
+  <g transform="translate(34 30)">${logo}<rect x="48" y="6" width="1" height="24" fill="#ece8e1" fill-opacity=".3"/><text x="62" y="25" font-family="${serif}" font-size="25" fill="#ece8e1">Oto</text></g>
+  <text x="${W - 34}" y="56" text-anchor="end" font-family="${mono}" font-size="14" letter-spacing="7" fill="#ece8e1">ORIGINAL USER</text>
+  <text x="${W - 34}" y="76" text-anchor="end" font-family="${mono}" font-size="9" letter-spacing="3" fill="#7dd3fc">OG · FIRST LIGHT · BEFORE 1.0</text>
+  <text x="34" y="182" font-family="${mono}" font-size="9.5" letter-spacing="3.4" fill="#ece8e1" fill-opacity=".72">CARD Nº</text>
+  <text x="34" y="214" font-family="${mono}" font-size="30" letter-spacing="3" fill="#ece8e1">${esc(m.no || v1CardId())}</text>
+  <rect x="34" y="${H - 58}" width="34" height="1" fill="#ece8e1" fill-opacity=".55"/>
+  <text x="80" y="${H - 54}" font-family="${mono}" font-size="9.5" letter-spacing="3.4" fill="#ece8e1" fill-opacity=".8">WITH OTO SINCE ${year}</text>
+  <text x="80" y="${H - 38}" font-family="${mono}" font-size="9.5" letter-spacing="3.4" fill="#ece8e1" fill-opacity=".8">KEPT FOREVER</text>
+  <text x="${W - 34}" y="${H - 40}" text-anchor="end" font-family="${serif}" font-size="30" fill="#ece8e1">${esc(String(m.name || 'You').slice(0, 20))}</text>
+  <text x="${W - 34}" y="${H - 22}" text-anchor="end" font-family="${mono}" font-size="8" letter-spacing="2.4" fill="#7dd3fc">★ OG EDITION ★</text></svg>`;
+}
+function spaceOGBack(m = cardModel(), { scale = 1 } = {}) {
+  const W = 580, H = 362, u = `ob${++spaceUid}`, got = S.v1Badges || {}, ids = Object.keys(V1_BADGES), L = v1Level();
+  const mono = "'JetBrains Mono',Consolas,monospace", serif = "'Instrument Serif',Georgia,serif", sans = "'Segoe UI',Inter,system-ui,sans-serif";
+  const P = [[70, 150], [132, 186], [196, 140], [160, 252], [250, 206], [84, 276], [220, 292], [286, 262], [52, 214], [270, 150], [116, 228], [196, 210], [300, 196], [140, 300], [44, 168]];
+  const pts = ids.map((id, k) => ({ id, on: !!got[id], x: P[k % P.length][0], y: P[k % P.length][1] }));
+  const lit = pts.filter((p) => p.on);
+  const lines = lit.slice(1).map((p, k) => `<line x1="${lit[k].x}" y1="${lit[k].y}" x2="${p.x}" y2="${p.y}" stroke="#7dd3fc" stroke-opacity=".55"/>`).join('');
+  const dots = pts.map((p) => (p.on
+    ? `<circle cx="${p.x}" cy="${p.y}" r="11" fill="#38bdf8" fill-opacity=".18"/><path transform="translate(${p.x - 6} ${p.y - 6}) scale(.5)" d="${SPACE_STAR}" fill="#e0f2fe"/><text x="${p.x}" y="${p.y + 22}" text-anchor="middle" font-family="${sans}" font-size="8.5" fill="#ece8e1" fill-opacity=".85">${esc(V1_BADGES[p.id][0])}</text>`
+    : `<circle cx="${p.x}" cy="${p.y}" r="2.4" fill="#ece8e1" fill-opacity=".3"/>`)).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W * scale}" height="${H * scale}"><defs>
+    <linearGradient id="${u}e" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5" stop-opacity=".9"/><stop offset=".6" stop-color="#38bdf8" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity=".55"/></linearGradient>
+    <radialGradient id="${u}n" cx=".8" cy=".5" r=".55"><stop offset="0" stop-color="#4f46e5" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <clipPath id="${u}c"><rect width="${W}" height="${H}" rx="26"/></clipPath></defs>
+  <g clip-path="url(#${u}c)"><rect width="${W}" height="${H}" fill="#05050f"/><rect width="${W}" height="${H}" fill="url(#${u}n)"/>${spaceStars(4321, W, H, 60)}
+    <g transform="translate(468 186)" fill="none" stroke="#7dd3fc" stroke-opacity=".35" stroke-width="1.4"><ellipse rx="86" ry="30" transform="rotate(-28)"/><ellipse rx="86" ry="30" transform="rotate(28)"/></g><circle cx="468" cy="186" r="7" fill="#e0f2fe" fill-opacity=".7"/></g>
+  <rect x=".75" y=".75" width="${W - 1.5}" height="${H - 1.5}" rx="25.5" fill="none" stroke="url(#${u}e)" stroke-width="1.5"/>
+  <text x="34" y="46" font-family="${mono}" font-size="10" letter-spacing="3" fill="#ece8e1" fill-opacity=".75">STAR CHART · ORIGINAL USER</text>
+  <text x="34" y="82" font-family="${serif}" font-size="26" fill="#ece8e1">Here from the first light</text>
+  <text x="${W - 34}" y="46" text-anchor="end" font-family="${mono}" font-size="10" letter-spacing="2" fill="#7dd3fc">${lit.length} / ${ids.length} FOUND</text>
+  ${lines}${dots}
+  <rect x="34" y="${H - 58}" width="34" height="1" fill="#ece8e1" fill-opacity=".55"/>
+  <text x="80" y="${H - 54}" font-family="${mono}" font-size="9.5" letter-spacing="3" fill="#ece8e1" fill-opacity=".8">CARD Nº ${esc(m.no || v1CardId())} · ${esc(L.cur.name.toUpperCase())} · ${L.xp.toLocaleString()} XP</text>
+  <text x="80" y="${H - 38}" font-family="${mono}" font-size="9" letter-spacing="2" fill="#7dd3fc" fill-opacity=".85">★ OG EDITION · KEPT FOREVER</text></svg>`;
 }

@@ -45,8 +45,8 @@ module.exports = async (t) => {
   // the Space card: the default design, the level's planet on the front, badges as a star chart on the back
   a = await J("const m = cardModel(); const f = cardSvg(m); V1D.back = true; const b = cardSvg(m); V1D.back = false; return { design: m.design, first: Object.keys(CARD_DESIGNS)[0], front: /OTO \\/\\/ CARD/.test(f) && /LEVEL 1 · MOON/.test(f) && /Rookie/.test(f), back: /STAR CHART/.test(b) && /FOUND/.test(b) };");
   t.check('the Oto Card\'s default design is Space: the level as a planet on the front, a star chart of badges on the back', a.design === 'space' && a.first === 'space' && a.front && a.back, JSON.stringify(a));
-  a = await J("S.card.edition = 'og'; const og = cardSvg(cardModel()); S.card.edition = 'standard'; return { og: /ORIGINAL USER/.test(og) };");
-  t.check('…the OG edition keeps its own art', a.og === true, JSON.stringify(a));
+  a = await J("S.card.edition = 'og'; const og = cardSvg(cardModel()); V1D.back = true; const ob = cardSvg(cardModel()); V1D.back = false; S.card.edition = 'standard'; return { og: /ORIGINAL USER/.test(og) && /FIRST LIGHT/.test(og) && og.includes('0 0 580 362'), back: /STAR CHART · ORIGINAL USER/.test(ob) };");
+  t.check('the OG edition is "first light": wide, Oto\'s first two-ring logo as a star system, its own star-chart back', a.og && a.back, JSON.stringify(a));
   a = await J("const f = spaceFounderSvg(cardModel()), b = spaceFounderBack(cardModel()); return { wide: f.includes('viewBox=' + String.fromCharCode(34) + '0 0 580 362'), text: /FOUNDER/.test(f) && /ULTRAMASSIVE/.test(f) && /OWNER · Nº 0000/.test(f), back: /STAR CHART · FOUNDER/.test(b), swapped: v1CardFounder(cardModel()).includes('ULTRAMASSIVE') };");
   t.check('the Founder card is the wide black hole (front and back)', a.wide && a.text && a.back && a.swapped, JSON.stringify(a));
   a = JSON.parse(await t.js("(async () => { const u = await cardPng(1); const im = new Image(); im.src = u; await im.decode(); return JSON.stringify({ w: im.width, h: im.height }); })()"));
