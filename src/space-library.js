@@ -146,7 +146,7 @@ function slibDlEmpty() {
     <path class="trail" d="M20 40 Q170 -10 262 96" fill="none" stroke="url(#sldt)" stroke-width="2.6" stroke-linecap="round"/>
     <g class="star" transform="translate(262 96) rotate(18) scale(1.2)"><path d="M0-12 3.1-4.2 11.4-3.7 5-1.4 7.1 9.7 0 4.2-7.1 9.7-5-1.4-11.4-3.7-3.1-4.2z" fill="#14151a" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></g>
     <g transform="translate(300 118)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity=".85"><path d="M-30 0v22h60V0"/><path d="M0-22v26M-11-7 0 4 11-7"/></g>
-    <circle cx="300" cy="150" r="46" fill="none" stroke="#fff" stroke-opacity=".12"/><circle cx="90" cy="30" r="1.5" fill="#fff"/><circle cx="150" cy="60" r="1" fill="#fff"/><circle cx="200" cy="40" r="1.3" fill="#fff"/></svg>`;
+    <circle cx="300" cy="118" r="44" fill="none" stroke="#fff" stroke-opacity=".12"/><circle cx="90" cy="30" r="1.5" fill="#fff"/><circle cx="150" cy="60" r="1" fill="#fff"/><circle cx="200" cy="40" r="1.3" fill="#fff"/></svg>`;
   const anim = S.settings.dlAnim || 'star';
   const animName = { star: 'Neon star', file: 'A little file', orb: 'Glowing orb', off: 'Nothing' }[anim] || 'Neon star';
   return h('div', { class: 'sl-dlempty' },

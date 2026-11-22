@@ -128,12 +128,32 @@ function spaceCardBack(m = cardModel()) {
 }
 
 // ---------------------------------------------------------------- the New Tab start page
+// (1.8.9) The orbit ring is centred on the greeting itself, not at a fixed spot in the window, so it stays around
+// "Good night" whatever the window's size.
+function shOrbitPlace() {
+  const e = $('#empty'), g = $('#greet'), o = document.querySelector('#shSky .orbit');
+  if (!e || !g || !o || !g.offsetParent) return;
+  const eb = e.getBoundingClientRect(), gb = g.getBoundingClientRect();
+  if (!gb.height) return;
+  o.style.top = `${Math.round(gb.top + gb.height / 2 - eb.top)}px`;
+  o.style.transform = 'translate(-50%, -50%)';
+}
+let shOrbitRO = null;
+function shOrbitWatch() {
+  if (shOrbitRO || typeof ResizeObserver !== 'function') return;
+  const e = $('#empty'), g = $('#greet');
+  if (!e || !g) return;
+  shOrbitRO = new ResizeObserver(() => shOrbitPlace());
+  shOrbitRO.observe(e); shOrbitRO.observe(g);
+}
 function spaceHome() {
   const on = !AVOCADO_MODE && S.settings.spaceHome !== false;
   document.body.classList.toggle('space-home', on);
   const inner = document.querySelector('#empty .empty-inner');
   if (!on || !inner) return;
   if (!$('#shSky')) $('#empty').prepend(h('div', { id: 'shSky', 'aria-hidden': 'true' }, h('i', { class: 'orbit' }, h('b'))));
+  shOrbitWatch();
+  requestAnimationFrame(shOrbitPlace);
   let cr = $('#shCrumb');
   if (!cr) { cr = h('div', { id: 'shCrumb', 'aria-hidden': 'true' }); inner.prepend(cr); }
   const n = Math.max(1, S.workspaces.findIndex((w) => w.id === S.activeWs) + 1);

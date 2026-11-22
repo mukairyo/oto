@@ -45,9 +45,10 @@ module.exports = async (t) => {
   // (1.8.6) the empty Downloads page: the star, where files go (open it / pick another), three tips
   await t.js("(S.downloads = [], DL_LIVE.clear && DL_LIVE.clear(), openLibrary('downloads'), 1)"); await t.sleep(700);
   a = await J(`const e = document.querySelector('#library .sl-dlempty'); return { e: !!e, h: e && e.querySelector('h2').textContent, path: e && (e.querySelector('.sl-dlfolder code') || {}).textContent,
-    btns: e && [...e.querySelectorAll('.sl-dlfolder .btn')].map((b) => b.textContent), tips: e ? e.querySelectorAll('.sl-tips > div').length : 0, star: !!(e && e.querySelector('.art .star')) };`);
+    btns: e && [...e.querySelectorAll('.sl-dlfolder .btn')].map((b) => b.textContent), tips: e ? e.querySelectorAll('.sl-tips > div').length : 0, star: !!(e && e.querySelector('.art .star')),
+    ring: e && (() => { const r = e.querySelector('.art circle[r="44"]'); return r && r.getAttribute('cy'); })() };`);
   t.check('an empty Downloads page shows the star, your downloads folder with Open folder and Change, and three tips',
-    a.e && a.h === 'Nothing has landed yet' && /Downloads/i.test(a.path || '') && a.btns.join() === 'Open folder,Change' && a.tips === 3 && a.star, JSON.stringify(a));
+    a.e && a.h === 'Nothing has landed yet' && /Downloads/i.test(a.path || '') && a.btns.join() === 'Open folder,Change' && a.tips === 3 && a.star && a.ring === '118', JSON.stringify(a)); // ring centred on the tray (1.8.9)
   a = { f: JSON.parse(await t.js('oto.dlFolder().then((f) => JSON.stringify(f))')) };
   t.check('…the folder comes from Oto itself (Windows’ Downloads unless you picked another)', a.f && typeof a.f.path === 'string' && a.f.custom === false, JSON.stringify(a));
   await t.js('(closeLibrary(), 1)');

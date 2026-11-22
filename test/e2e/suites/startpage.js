@@ -57,6 +57,21 @@ module.exports = async (t) => {
   a = await J("dlFly({ x: 640, y: 360 }, 'x.zip'); return { cover: !!document.querySelector('.sh-nocursor'), canvas: !!document.querySelector('canvas.sh-shoot') };");
   t.check('…the star pops out where you clicked and your normal mouse pointer stays (1.8.8: no fake arrow, nothing hides it)', !a.cover && a.canvas, JSON.stringify(a));
   await t.sleep(2200);
+  // (1.8.9) the orbit ring is centred on the greeting, at any window size
+  for (const [w, hh] of [[1100, 700], [1440, 900]]) {
+    t.win.setContentSize(w, hh); await t.sleep(300);
+    await t.js('(openStartPage(), 1)'); await t.sleep(700);
+    a = await J("const c = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return [Math.round((b.left + b.right) / 2), Math.round((b.top + b.bottom) / 2)]; }; return { o: c('#shSky .orbit'), g: c('#greet') };");
+    t.check(`the start page's orbit ring is centred on the greeting at ${w}×${hh}`, Math.abs(a.o[0] - a.g[0]) <= 2 && Math.abs(a.o[1] - a.g[1]) <= 2, JSON.stringify(a));
+  }
+  // (1.8.9) the media player and the tab you're on have the space look, not the cream pill
+  await t.open('http://fine.site/', 1200);
+  a = await J(`document.body.classList.remove('rail'); document.body.classList.add('rail-open'); media = { tabId: activeTab().id, playing: true }; renderMedia();
+    const c = document.getElementById('mediaCard'), tb = document.querySelector('.tab.active');
+    return { shown: !c.hidden, label: getComputedStyle(c, '::before').content, play: getComputedStyle(c.querySelector('.mc-btns .icon-btn')).backgroundColor, tab: tb && getComputedStyle(tb).backgroundImage };`);
+  t.check('the media player is a glass card saying "NOW PLAYING" with a white play button, and the active tab is white glass (not cream)',
+    a.shown && /NOW PLAYING/.test(a.label) && /255, 255, 255/.test(a.play) && /gradient/.test(a.tab || ''), JSON.stringify(a));
+  await t.js("(media = null, renderMedia(), 1)");
   await t.js("(openLibrary('history'), 1)"); await t.sleep(300);
   a = await J("const l = document.getElementById('library'); return { bg: getComputedStyle(l).backgroundImage, accent: getComputedStyle(l).getPropertyValue('--accent').trim() };");
   t.check('the Library pages have the space look (starfield, white highlights since 1.8.6)', /space\.webp/.test(a.bg) && /^#fff(fff)?$/i.test((a.accent || '').trim()), JSON.stringify(a));

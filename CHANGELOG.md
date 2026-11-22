@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.8.9 — Centred, and the sidebar joins the space look
+
+- **The start page's orbit ring is centred on "Good morning / Good night":** it used to sit at a fixed spot in the window, so on smaller windows it drifted below the greeting.
+- **The ring on the empty Downloads page is centred on the download tray.**
+- **The tab you're on** (and the Essential you're on) uses white glass with a soft glow instead of the cream box.
+- **A new media player in the sidebar:** a glass card that says "NOW PLAYING" with a glowing dot, a bigger cover picture, and round buttons with a white play/pause button.
+
 ## 1.8.8 — Your normal pointer is back
 
 - **Your normal mouse pointer stays:** Oto no longer hides your pointer or draws a grey arrow in its place when a download starts. A white neon star just pops out where you clicked, with a little spin and a ring, then flies to Downloads with its glowing trail.
