@@ -297,7 +297,9 @@ function spaceStarFly(sx, sy, tx, ty, done) {
   const at = (t) => { const u = 1 - t; return [u * u * sx + 2 * u * t * cx + t * t * tx, u * u * sy + 2 * u * t * cy + t * t * ty]; };
   const ang = (t) => { const u = 1 - t, dx = 2 * u * (cx - sx) + 2 * t * (tx - cx), dy = 2 * u * (cy - sy) + 2 * t * (ty - cy); return (Math.atan2(dy, dx) * 180) / Math.PI; };
   const N = 30, dur = 900;
-  const star = h('div', { class: 'sh-shoot', 'aria-hidden': 'true' }, h('i', { class: 'tail' }), h('b', { class: 'head', html: `<svg width="22" height="22" viewBox="0 0 24 24"><path d="${SPACE_STAR}" fill="#fff"/></svg>` }));
+  // (1.8.4) the head is one SVG with its own glow and a blue outline: no CSS filters (they drew a square on some PCs)
+  // and it shows on white pages as well as dark ones
+  const star = h('div', { class: 'sh-shoot', 'aria-hidden': 'true' }, h('i', { class: 'tail' }), h('b', { class: 'head', html: `<svg width="36" height="36" viewBox="-18 -18 36 36"><defs><radialGradient id="shg${++spaceUid}"><stop offset="0" stop-color="#ffffff"/><stop offset=".22" stop-color="#bdf3ff"/><stop offset=".55" stop-color="#38bdf8" stop-opacity=".45"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></radialGradient></defs><circle r="18" fill="url(#shg${spaceUid})"/><path transform="translate(-9 -9) scale(.75)" d="${SPACE_STAR}" fill="#ffffff" stroke="#0284c7" stroke-width="1.4" stroke-linejoin="round"/></svg>` }));
   document.body.append(star);
   const frames = Array.from({ length: N + 1 }, (_, i) => {
     const t = i / N, [x, y] = at(t), sc = 1 - 0.45 * t;

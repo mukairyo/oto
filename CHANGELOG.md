@@ -3,6 +3,10 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.8.4 — Shooting star fix
+
+- **The download shooting star looks right on every page:** its head was drawn as a pale square on some PCs and was hard to see on white pages. It's now a round glow with an outlined star, and the tail is a stronger blue.
+
 ## 1.8.3 — A space start page, and a space Oto Card
 
 - **New Tab (and Ctrl+T) now opens the start page**, the same page you see when Oto starts with nothing open. Just start typing to search, or click the search box. Press **Esc** to go back to the tab you were on.

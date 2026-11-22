@@ -70,6 +70,8 @@ module.exports = async (t) => {
   // off
   await t.js("oto.vpn.set({ scope: 'all', on: false }), 1");
   const off = await until(async () => { const s = await st(); return s.phase === 'off' ? s : null; });
+  // (the window hears about it a moment after main does: wait for it, up to 4 s)
+  await until(async () => (await J("return /ph-off/.test((document.getElementById('vpnRow') || {}).className || '');")), 4000);
   a = await J("return { row: (document.getElementById('vpnRow') || {}).className, label: document.getElementById('btnVpn').getAttribute('aria-label') };");
   t.check('turning it off: direct again, the sidebar line goes back to off', !!off && /ph-off/.test(a.row || '') && /off/.test(a.label), JSON.stringify(a));
   const alive = () => { try { process.kill(Number(fs.readFileSync(PID, 'utf8')), 0); return true; } catch { return false; } };
