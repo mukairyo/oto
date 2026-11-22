@@ -3,9 +3,9 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
-## 1.8.5 — Your cursor flies to Downloads
+## 1.8.5 — Your cursor becomes a neon star
 
-- **Your cursor lights up and flies to Downloads:** when a download starts, a neon blue arrow switches on right where your mouse is, then flies tip first into the downloads button (or the Library button). It leaves a glowing trail that follows its curve, plus a little blue stardust, and lands with a soft ring. It's easy to see on dark and white pages. Before, it was a pale star with a stiff straight tail that flew up and away from your cursor first.
+- **Your cursor turns into a star and flies to Downloads:** when a download starts, a neon blue arrow switches on right where your mouse is and turns into a glowing neon star. The star then flies into the downloads button (or the Library button), leaving a glowing trail that follows its curve plus a little blue stardust, and lands with a soft ring. It's easy to see on dark and white pages. Before, it was a pale star with a stiff straight tail that flew up and away from your cursor first.
 
 ## 1.8.4 — Shooting star fix
 

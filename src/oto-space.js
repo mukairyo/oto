@@ -296,15 +296,14 @@ function spaceFounderBack(m = cardModel(), { scale = 1 } = {}) {
 // streaks to the downloads button. The arc first drops, then sweeps across to the button, so it never flies up and
 // away first (when the button is lower than the cursor, as it usually is).
 function spaceStarFly(px, py, tx, ty, done) {
-  // (1.8.5) The mouse lights up as a neon arrow, then flies to Downloads tip first, leaving a glowing blue trail,
-  // and lands with a soft ring. Drawn on one canvas (no CSS filters); dark middle + neon edge reads on white and dark pages.
+  // (1.8.5) The mouse lights up as a neon arrow, turns into a neon star, and the star flies to Downloads leaving a
+  // glowing blue trail, then lands with a soft ring. Drawn on one canvas (no CSS filters); dark middle + neon edge reads on white and dark pages.
   const sx = px, sy = py;
   const dist = Math.hypot(tx - sx, ty - sy);
   const cx = sx + (tx - sx) * 0.3, cy = Math.min(sy, ty) - Math.min(200, 50 + dist * 0.3); // a gentle arc
   const at = (t) => { const u = 1 - t; return [u * u * sx + 2 * u * t * cx + t * t * tx, u * u * sy + 2 * u * t * cy + t * t * ty]; };
-  const dir = (t) => { const u = 1 - t; return Math.atan2(2 * u * (cy - sy) + 2 * t * (ty - cy), 2 * u * (cx - sx) + 2 * t * (tx - cx)); };
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2) * 0.35 + (1 - Math.pow(1 - t, 2.2)) * 0.65;
-  const BORN = 340, FLY = Math.round(Math.min(1050, 620 + dist * 0.45)), LAND = 520, TAIL_MS = 200;
+  const LIGHT = 300, MORPH = 260, BORN = LIGHT + MORPH, FLY = Math.round(Math.min(1050, 620 + dist * 0.45)), LAND = 520, TAIL_MS = 200;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const cv = h('canvas', { class: 'sh-shoot', 'aria-hidden': 'true' });
   const W = innerWidth, H = innerHeight;
@@ -318,14 +317,15 @@ function spaceStarFly(px, py, tx, ty, done) {
   const t0 = performance.now();
   // a plain pointer arrow, tip at (0,0)
   const ARROW = [[0, 0], [0, 17.5], [4.3, 13.5], [7.2, 20], [10, 18.8], [7.2, 12.5], [12.6, 12.5]];
-  const AXIS = Math.atan2(-13, -5); // from the arrow's body to its tip
-  const arrow = (x, y, s, rot, alpha) => {
+  // a five-point star, centre at (0,0)
+  const STAR = Array.from({ length: 10 }, (_, k) => { const a = -Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? 5.2 : 12; return [Math.cos(a) * r, Math.sin(a) * r]; });
+  const neon = (shape, x, y, s, rot, alpha) => {
     if (alpha <= 0.01 || s <= 0.02) return;
     g.save(); g.translate(x, y); g.rotate(rot); g.scale(s, s); g.lineJoin = 'round';
-    g.beginPath(); ARROW.forEach(([ax, ay], i) => (i ? g.lineTo(ax, ay) : g.moveTo(ax, ay))); g.closePath();
+    g.beginPath(); shape.forEach(([ax, ay], i) => (i ? g.lineTo(ax, ay) : g.moveTo(ax, ay))); g.closePath();
     g.globalAlpha = alpha;
     for (const [w, o] of [[10, 0.1], [6.5, 0.2], [3.8, 0.42]]) { g.strokeStyle = `rgba(59,130,246,${o})`; g.lineWidth = w; g.stroke(); }
-    const fill = g.createLinearGradient(0, 0, 10, 19); fill.addColorStop(0, 'rgba(14,22,58,.94)'); fill.addColorStop(1, 'rgba(4,6,18,.94)');
+    const fill = g.createLinearGradient(-6, -10, 10, 19); fill.addColorStop(0, 'rgba(14,22,58,.94)'); fill.addColorStop(1, 'rgba(4,6,18,.94)');
     g.fillStyle = fill; g.fill();
     g.shadowColor = 'rgba(59,130,246,1)'; g.shadowBlur = 18 * s;
     g.strokeStyle = '#4f8bff'; g.lineWidth = 1.9; g.stroke(); g.stroke(); // twice: a brighter neon edge
@@ -333,6 +333,8 @@ function spaceStarFly(px, py, tx, ty, done) {
     g.shadowBlur = 0;
     g.restore(); g.globalAlpha = 1;
   };
+  const arrow = (x, y, s, rot, alpha) => neon(ARROW, x, y, s, rot, alpha);
+  const star = (x, y, s, rot, alpha) => neon(STAR, x, y, s, rot, alpha);
   const ring = (x, y, r, w, o) => { g.strokeStyle = `rgba(61,123,255,${o.toFixed(3)})`; g.lineWidth = w; g.beginPath(); g.arc(x, y, Math.max(0.1, r), 0, Math.PI * 2); g.stroke(); };
   const drawTail = (now) => {
     while (trail.length && now - trail[0].t > TAIL_MS) trail.shift();
@@ -365,21 +367,24 @@ function spaceStarFly(px, py, tx, ty, done) {
   const frame = () => {
     const now = performance.now(), e = Math.max(0, now - t0), dt = last ? Math.min(40, now - last) : 16; last = now;
     g.clearRect(0, 0, W, H);
-    if (e < BORN) { // lights up where the mouse is
-      const k = e / BORN, s = 1.75 * (k < 0.5 ? 0.7 + 0.6 * (k / 0.5) : 1.3 - 0.3 * ((k - 0.5) / 0.5));
-      ring(sx + 5, sy + 9, 8 + 26 * k, 2, 0.55 * (1 - k));
-      arrow(sx, sy, s, 0, flicker[Math.min(flicker.length - 1, Math.floor(k * flicker.length))]);
+    if (e < LIGHT) { // the mouse lights up as a neon arrow
+      const k = e / LIGHT, sc = 1.75 * (k < 0.5 ? 0.7 + 0.6 * (k / 0.5) : 1.3 - 0.3 * ((k - 0.5) / 0.5));
+      arrow(sx, sy, sc, 0, flicker[Math.min(flicker.length - 1, Math.floor(k * flicker.length))]);
+    } else if (e < BORN) { // …and turns into a star
+      const k = (e - LIGHT) / MORPH, q = k * k * (3 - 2 * k);
+      ring(sx, sy, 6 + 30 * k, 2, 0.6 * (1 - k));
+      arrow(sx, sy, 1.75 * (1 - 0.6 * q), q * 1.2, 1 - q);
+      star(sx, sy, 1.35 * (k < 0.7 ? (k / 0.7) * 1.2 : 1.2 - 0.2 * ((k - 0.7) / 0.3)), (1 - q) * -1.6, Math.min(1, q * 1.6));
     } else if (e < BORN + FLY) {
       const raw = (e - BORN) / FLY, k = ease(raw), [x, y] = at(k);
-      let want = dir(k) - AXIS; want = Math.atan2(Math.sin(want), Math.cos(want));
-      const turn = Math.min(1, raw * 5); rotNow = want * (turn * turn * (3 - 2 * turn)); // turns to point where it is going
+      rotNow = raw * 2.4; // a slow spin on the way
       trail.push({ x, y, t: now });
       if (Math.random() < 0.5) {
         const p = trail[Math.max(0, trail.length - 3)];
         dust.push({ x: p.x + (Math.random() - 0.5) * 6, y: p.y + (Math.random() - 0.5) * 6, vx: (Math.random() - 0.5) * 0.05, vy: (Math.random() - 0.5) * 0.05, r: 0.8 + Math.random() * 1.3, life: 360 + Math.random() * 240, max: 600, c: Math.random() < 0.55 ? '#dbeafe' : '#3d7bff' });
       }
       drawDust(dust, dt); drawTail(now);
-      arrow(x, y, 1.75 * (1 - 0.4 * k), rotNow, 1);
+      star(x, y, 1.35 * (1 - 0.35 * k), rotNow, 1);
     } else {
       if (!caught) {
         caught = true;
@@ -390,7 +395,7 @@ function spaceStarFly(px, py, tx, ty, done) {
       drawDust(dust, dt); drawTail(now); drawDust(burst, dt);
       if (k < 1) {
         ring(tx, ty, 4 + 30 * Math.pow(k, 0.6), 2.5 * (1 - k) + 0.5, 0.75 * (1 - k));
-        if (k < 0.3) arrow(tx, ty, 1.05 * (1 - k / 0.3), rotNow, 1 - k / 0.3);
+        if (k < 0.3) star(tx, ty, 0.88 * (1 - k / 0.3), rotNow, 1 - k / 0.3);
       } else { cv.remove(); return; }
     }
     requestAnimationFrame(safe);
