@@ -3,6 +3,16 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.8.6 — Settings in space, badges you can chase
+
+- **Settings in the space look:** Settings now matches the start page and the Library. It has a dark, starry window, a glass sidebar, big titles with a short line under each, and each section on its own glass card.
+- **White, not blue:** the space look's highlights are white now: the selected item, the search glow, buttons and the start page. Your download star is a white neon star too, with a white glowing trail. It still shows up on white websites.
+- **Badges you can chase:** the Oto Card shows all 15 badges in a grid. Unlocked ones glow. Locked ones say what to do, and show how close you are, like "620 / 1,000" ads blocked. A bar shows the badge you're closest to. The secret badge stays secret.
+- **A friendlier empty Downloads page:** when nothing has downloaded yet, you see the star landing and where your files are saved, with **Open folder** and **Change**, plus three quick tips.
+- **Pick your downloads folder:** use **Change** in Library > Downloads to save files somewhere else. **Reset** goes back to Windows' Downloads folder. For safety, a whole drive, your user folder, Windows, Program Files and Oto's own data folder can't be picked.
+- **Drag files out:** drag a downloaded file card from the Library onto your desktop or into another app.
+- **Small fixes:** History shows times like "4:20 PM" (no leading zero), the same as the start page. The download animation option is now called "Neon star".
+
 ## 1.8.5 — Your cursor becomes a neon star
 
 - **Your cursor turns into a star and flies to Downloads:** when a download starts, your mouse pointer itself lights up as a neon blue arrow and turns into a glowing neon star (your real pointer hides meanwhile, and comes back when the star lands or as soon as you move the mouse). The star then flies into the downloads button (or the Library button), leaving a glowing trail that follows its curve plus a little blue stardust, and lands with a soft ring. It's easy to see on dark and white pages. Before, it was a pale star with a stiff straight tail that flew up and away from your cursor first.

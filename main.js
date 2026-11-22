@@ -656,13 +656,37 @@ function rememberFile(p) {
   while (KNOWN_FILES.size > 1000) KNOWN_FILES.delete(KNOWN_FILES.values().next().value);
   clearTimeout(knownTimer); knownTimer = setTimeout(() => saveOrWarn('known-files.json', [...KNOWN_FILES], 'the list of files you downloaded'), 1000);
 }
+// The downloads folder (1.8.6): Windows' own Downloads folder, unless you picked another one in Library > Downloads.
+// Only a folder chosen in the main process's own folder dialog is ever stored (the page can't hand us a path), and
+// folders that would open up far too much (a drive root, your whole user folder, Windows, Program Files, Oto's own
+// data) are refused, because Oto lets its window open files inside the downloads folder.
+const DLF = { path: '' };
+function dlFolderRefused(p) {
+  const norm = (x) => { try { return fs.realpathSync(path.resolve(x)).toLowerCase(); } catch { return path.resolve(String(x || '')).toLowerCase(); } };
+  const real = norm(p);
+  if (path.parse(real).root.toLowerCase() === real) return true;
+  const within = (dir) => { if (!dir) return false; const d = norm(dir); const rel = path.relative(d, real); return real === d || (!!rel && !rel.startsWith('..') && !path.isAbsolute(rel)); };
+  const env = process.env;
+  if (real === norm(app.getPath('home'))) return true;
+  return [env.SystemRoot, env.windir, env.ProgramFiles, env['ProgramFiles(x86)'], env.ProgramData, app.getPath('appData'), app.getPath('userData')].some(within);
+}
+function dlFolderLoad() {
+  const f = readJSON('download-folder.json', null);
+  DLF.path = '';
+  try { if (f && typeof f.path === 'string' && f.path && path.isAbsolute(f.path) && fs.statSync(f.path).isDirectory() && !dlFolderRefused(f.path)) DLF.path = f.path; } catch {}
+}
+dlFolderLoad();
+function dlFolder() {
+  if (DLF.path) { try { if (fs.statSync(DLF.path).isDirectory()) return DLF.path; } catch {} }
+  return app.getPath('downloads');
+}
 function fileAllowed(p) {
   if (typeof p !== 'string' || !p) return false;
   let real;
   try { real = fs.realpathSync(path.resolve(p)); } catch { return false; }
   if (KNOWN_FILES.has(path.resolve(p)) || KNOWN_FILES.has(real)) return true;
   const inside = (dir) => { try { const rel = path.relative(fs.realpathSync(dir), real); return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel); } catch { return false; } };
-  return inside(app.getPath('downloads')) || inside(path.join(app.getPath('pictures'), 'Oto Screenshots'));
+  return inside(app.getPath('downloads')) || (dlFolder() !== app.getPath('downloads') && inside(dlFolder())) || inside(path.join(app.getPath('pictures'), 'Oto Screenshots'));
 }
 
 function originOf(u) { try { return new URL(u).origin; } catch { return String(u || ''); } }
@@ -805,8 +829,8 @@ function setupSession(part = PARTITION) {
     } catch {}
     const base = () => ({ id, name: item.getSavePath() ? path.basename(item.getSavePath()) : name, url, path: item.getSavePath() || '', total: item.getTotalBytes(), received: item.getReceivedBytes(), startedAt: Math.round(item.getStartTime() * 1000) || Date.now() });
     if (!prefs.downloadsAsk) {
-      // Checked name, always inside Downloads, never overwriting an existing file (main/download-name.js)
-      try { item.setSavePath(require('./main/download-name.js').downloadPath(app.getPath('downloads'), name)); } catch { item.cancel(); return; }
+      // Checked name, always inside your downloads folder, never overwriting an existing file (main/download-name.js)
+      try { item.setSavePath(require('./main/download-name.js').downloadPath(dlFolder(), name)); } catch { item.cancel(); return; }
     }
     // With "ask where to save", Electron shows the Save dialog itself; we report once a path is chosen.
     let announced = false;
@@ -1093,6 +1117,31 @@ function setupIPC(ses) {
   ipcMain.on('theme:set', (_e, t) => { nativeTheme.themeSource = ['light', 'dark'].includes(t) ? t : 'system'; });
   ipcMain.on('clipboard:write', (_e, text) => clipboard.writeText(String(text || '')));
   ipcMain.on('shell:show', (_e, p) => { if (fileAllowed(p)) shell.showItemInFolder(p); });
+  // the downloads folder: where it is, open it, pick another one, or go back to Windows' Downloads
+  const dlFolderInfo = () => ({ path: dlFolder(), custom: dlFolder() !== app.getPath('downloads') });
+  ipcMain.handle('dl:folder', () => dlFolderInfo());
+  ipcMain.handle('dl:folderOpen', async () => { const d = dlFolder(); try { fs.mkdirSync(d, { recursive: true }); } catch {} return (await shell.openPath(d)) || ''; });
+  ipcMain.handle('dl:folderPick', async (e) => {
+    const r = await dialog.showOpenDialog(winOf(e), { title: 'Choose where your downloads go', defaultPath: dlFolder(), properties: ['openDirectory', 'createDirectory'] });
+    const pick = !r.canceled && r.filePaths && r.filePaths[0];
+    if (!pick) return null;
+    if (dlFolderRefused(pick)) {
+      await dialog.showMessageBox(winOf(e), { type: 'info', buttons: ['OK'], noLink: true, title: 'Pick another folder', message: 'Pick a folder of its own for downloads.', detail: 'A whole drive, your user folder, Windows, Program Files and Oto’s own data folder can’t be the downloads folder.' });
+      return { ...dlFolderInfo(), refused: true };
+    }
+    DLF.path = path.resolve(pick);
+    saveOrWarn('download-folder.json', { path: DLF.path }, 'your downloads folder');
+    return dlFolderInfo();
+  });
+  ipcMain.handle('dl:folderReset', () => { DLF.path = ''; saveOrWarn('download-folder.json', { path: '' }, 'your downloads folder'); return dlFolderInfo(); });
+  // drag a finished download out of the Library onto the desktop or into another app
+  ipcMain.on('dl:drag', (e, p) => {
+    try {
+      if (!fileAllowed(p) || !fs.statSync(p).isFile()) return;
+      const icon = nativeImage.createFromPath(ICON).resize({ width: 32, height: 32 });
+      e.sender.startDrag({ file: p, icon });
+    } catch {}
+  });
   ipcMain.on('clipboard:image', (_e, dataUrl) => { try { const img = nativeImage.createFromDataURL(String(dataUrl || '')); if (!img.isEmpty()) clipboard.writeImage(img); } catch {} });
   ipcMain.on('dl:action', (_e, id, act) => {
     const it = dlItems.get(id);

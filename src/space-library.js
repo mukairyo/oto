@@ -5,7 +5,7 @@
 // downloading and file cards for what landed. Without the space look the Library is exactly as before.
 /* global S, LIB, LIB_PAGES, LIB_RENDER, DL_LIVE, renderLibrary, closeLibrary, dlList, dlSub, fmtBytes, fmtWhen,
    groupByDay, libRow, libBtn, libEmpty, matchQ, favEl, hostOf, prettyUrl, newTab, save, oto, openDownload, renderDlCard,
-   v1Level, h, $, icon, esc, SPACE_STAR, media, V */
+   v1Level, v1Stats, V1_BADGES, h, $, icon, esc, SPACE_STAR, media, V */
 
 const SLIB = { hf: 'all' };
 const SLIB_DESC = {
@@ -21,9 +21,9 @@ const SLIB_DESC = {
 };
 const slibOn = () => document.body.classList.contains('space-home');
 const slibStar = (fill = '#E8F9FF', size = 14) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true"><path d="${SPACE_STAR}" fill="${fill}"/></svg>`;
-const SLIB_DOTS = ['#f87171', '#fbbf24', '#bef264', '#3ecf8e', '#7FE3FF', '#a78bfa', '#f9a8d4', '#e5e7eb'];
+const SLIB_DOTS = ['#f87171', '#fbbf24', '#bef264', '#3ecf8e', '#fdba74', '#a78bfa', '#f9a8d4', '#e5e7eb'];
 const slibDot = (s) => { let n = 0; for (const c of String(s)) n = (n * 31 + c.charCodeAt(0)) >>> 0; return SLIB_DOTS[n % SLIB_DOTS.length]; };
-const slibTime = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const slibTime = (ts) => new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); // 4:20 PM, like the start page
 
 function slibCounts() {
   const n = (x) => (x ? Number(x).toLocaleString() : '');
@@ -115,25 +115,58 @@ function slibHistory() {
 }
 
 // ---------------------------------------------------------------- Downloads: a ring card for what's coming in, cards for what landed
-const SLIB_EXT = { zip: '#7FE3FF', rar: '#7FE3FF', '7z': '#7FE3FF', pdf: '#f87171', png: '#a78bfa', jpg: '#a78bfa', jpeg: '#a78bfa', gif: '#a78bfa', webp: '#a78bfa', svg: '#a78bfa', mp4: '#fbbf24', mov: '#fbbf24', mkv: '#fbbf24', webm: '#fbbf24', mp3: '#f9a8d4', wav: '#f9a8d4', flac: '#f9a8d4', exe: '#bef264', msi: '#bef264', apk: '#bef264' };
+const SLIB_EXT = { zip: '#e5e7eb', rar: '#e5e7eb', '7z': '#e5e7eb', pdf: '#f87171', png: '#a78bfa', jpg: '#a78bfa', jpeg: '#a78bfa', gif: '#a78bfa', webp: '#a78bfa', svg: '#a78bfa', mp4: '#fbbf24', mov: '#fbbf24', mkv: '#fbbf24', webm: '#fbbf24', mp3: '#f9a8d4', wav: '#f9a8d4', flac: '#f9a8d4', exe: '#bef264', msi: '#bef264', apk: '#bef264' };
 function slibFileCard(r) {
   const ext = (/\.([a-z0-9]{1,5})$/i.exec(r.name || '') || [])[1] || 'file';
   const col = SLIB_EXT[ext.toLowerCase()] || '#e5e7eb';
   const ok = r.state === 'completed' && !r.missing;
   const meta = r.missing ? 'File moved or deleted' : r.state === 'completed' ? `${fmtBytes(r.total || r.received || 0)} · ${fmtWhen(r.startedAt)}` : `${r.state === 'cancelled' ? 'Cancelled' : 'Stopped'} · ${fmtWhen(r.startedAt)}`;
-  return h('article', { class: `sl-file${ok ? '' : ' off'}`, title: r.url || '' },
+  const card = h('article', { class: `sl-file${ok ? '' : ' off'}`, title: ok ? 'Drag it out to your desktop or another app' : r.url || '' },
     h('div', { class: 'sl-file-top' },
       h('span', { class: 'sl-tag', style: `--tag:${col}` }, ext.toUpperCase().slice(0, 4)),
       h('div', { class: 'lib-txt' }, h('b', {}, r.name), h('small', {}, meta)),
       r.url ? libBtn('reload', 'Download again', () => newTab(r.url, { background: true })) : null,
       libBtn('trash', 'Remove from list', () => { S.downloads = dlList().filter((x) => x !== r); save(); renderLibrary(); })),
     ok ? h('div', { class: 'sl-file-btns' }, h('button', { class: 'btn', onclick: () => openDownload(r) }, 'Open'), h('button', { class: 'btn', onclick: () => oto.showInFolder(r.path) }, 'Show in folder')) : null);
+  if (ok && oto.dlDrag) { // drag the file itself out of Oto (1.8.6)
+    card.draggable = true;
+    card.addEventListener('dragstart', (e) => { if (e.target.closest('button')) return; e.preventDefault(); oto.dlDrag(r.path); });
+  }
+  return card;
+}
+
+// the empty Downloads page (1.8.6): the star landing, where files go (open it, or pick another folder), and three tips
+const SLIB_DLF = { info: null, asked: false };
+function slibDlEmpty() {
+  if (!SLIB_DLF.asked && oto.dlFolder) { SLIB_DLF.asked = true; oto.dlFolder().then((f) => { SLIB_DLF.info = f; if (LIB.open && LIB.page === 'downloads') renderLibrary(); }).catch(() => {}); }
+  const f = SLIB_DLF.info;
+  const set = (p) => p.then((x) => { if (x) { SLIB_DLF.info = x; renderLibrary(); } }).catch(() => {});
+  const art = `<svg width="420" height="170" viewBox="0 0 420 170" aria-hidden="true"><defs><linearGradient id="sldt" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity=".7"/><stop offset="1" stop-color="#fff"/></linearGradient></defs>
+    <path class="trail" d="M20 40 Q170 -10 262 96" fill="none" stroke="url(#sldt)" stroke-width="10" stroke-linecap="round" opacity=".18"/>
+    <path class="trail" d="M20 40 Q170 -10 262 96" fill="none" stroke="url(#sldt)" stroke-width="2.6" stroke-linecap="round"/>
+    <g class="star" transform="translate(262 96) rotate(18) scale(1.2)"><path d="M0-12 3.1-4.2 11.4-3.7 5-1.4 7.1 9.7 0 4.2-7.1 9.7-5-1.4-11.4-3.7-3.1-4.2z" fill="#14151a" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></g>
+    <g transform="translate(300 118)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity=".85"><path d="M-30 0v22h60V0"/><path d="M0-22v26M-11-7 0 4 11-7"/></g>
+    <circle cx="300" cy="150" r="46" fill="none" stroke="#fff" stroke-opacity=".12"/><circle cx="90" cy="30" r="1.5" fill="#fff"/><circle cx="150" cy="60" r="1" fill="#fff"/><circle cx="200" cy="40" r="1.3" fill="#fff"/></svg>`;
+  const anim = S.settings.dlAnim || 'star';
+  const animName = { star: 'Neon star', file: 'A little file', orb: 'Glowing orb', off: 'Nothing' }[anim] || 'Neon star';
+  return h('div', { class: 'sl-dlempty' },
+    h('div', { class: 'art', html: art }),
+    h('h2', {}, 'Nothing has landed yet'),
+    h('p', {}, anim === 'off' ? 'Start a download and it shows up here as a card, newest first.' : 'Start a download and your cursor turns into a star that flies here. Your files will show up as cards, newest first.'),
+    h('div', { class: 'sl-dlfolder' }, h('span', { class: 'k' }, 'Saving to'), h('code', { title: f ? f.path : '' }, f ? f.path : 'Your Downloads folder'),
+      oto.dlFolderOpen ? h('button', { class: 'btn primary', onclick: () => oto.dlFolderOpen() }, 'Open folder') : null,
+      oto.dlFolderPick ? h('button', { class: 'btn', onclick: () => set(oto.dlFolderPick()) }, 'Change') : null,
+      f && f.custom && oto.dlFolderReset ? h('button', { class: 'btn ghost', title: 'Go back to Windows’ Downloads folder', onclick: () => set(oto.dlFolderReset()) }, 'Reset') : null),
+    h('div', { class: 'sl-tips' },
+      h('div', {}, h('b', {}, 'Find any file fast'), h('small', {}, 'Press ', h('kbd', {}, 'CTRL'), ' ', h('kbd', {}, 'J'), ' to jump here from anywhere.')),
+      h('div', {}, h('b', {}, 'Drag it out'), h('small', {}, 'Drag a file card onto your desktop or into another app.')),
+      h('div', {}, h('b', {}, `Your animation: ${animName}`), h('small', {}, 'Change it in Settings › General › Downloads.'))));
 }
 function slibLiveCard(r) {
   const pct = r.total ? Math.min(100, (r.received / r.total) * 100) : 0, R = 46, C = 2 * Math.PI * R;
   return h('section', { class: `sl-live${r.state === 'paused' ? ' paused' : ''}`, 'aria-label': `Downloading ${r.name}` },
-    h('span', { class: 'sl-comet', 'aria-hidden': 'true', html: '<svg width="260" height="80" viewBox="0 0 260 80"><defs><linearGradient id="slc" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#38bdf8" stop-opacity="0"/><stop offset="1" stop-color="#7FE3FF"/></linearGradient></defs><path d="M10 70 C80 60 160 30 236 12" fill="none" stroke="url(#slc)" stroke-width="2.4" stroke-linecap="round"/><circle cx="238" cy="11" r="4" fill="#fff"/><circle cx="238" cy="11" r="10" fill="#7FE3FF" fill-opacity=".3"/></svg>' }),
-    h('span', { class: 'sl-ring', role: 'img', 'aria-label': `${Math.round(pct)}%`, html: `<svg width="108" height="108" viewBox="0 0 108 108"><circle cx="54" cy="54" r="${R}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="5"/><circle cx="54" cy="54" r="${R}" fill="none" stroke="#7FE3FF" stroke-width="5" stroke-linecap="round" stroke-dasharray="${((C * (r.total ? pct : 30)) / 100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 54 54)"/><text x="54" y="60" text-anchor="middle" font-size="20" font-weight="600" fill="#ece8e1">${r.total ? `${Math.round(pct)}%` : '…'}</text></svg>` }),
+    h('span', { class: 'sl-comet', 'aria-hidden': 'true', html: '<svg width="260" height="80" viewBox="0 0 260 80"><defs><linearGradient id="slc" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset="1" stop-color="#FFFFFF"/></linearGradient></defs><path d="M10 70 C80 60 160 30 236 12" fill="none" stroke="url(#slc)" stroke-width="2.4" stroke-linecap="round"/><circle cx="238" cy="11" r="4" fill="#fff"/><circle cx="238" cy="11" r="10" fill="#FFFFFF" fill-opacity=".3"/></svg>' }),
+    h('span', { class: 'sl-ring', role: 'img', 'aria-label': `${Math.round(pct)}%`, html: `<svg width="108" height="108" viewBox="0 0 108 108"><circle cx="54" cy="54" r="${R}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="5"/><circle cx="54" cy="54" r="${R}" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-dasharray="${((C * (r.total ? pct : 30)) / 100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 54 54)"/><text x="54" y="60" text-anchor="middle" font-size="20" font-weight="600" fill="#ece8e1">${r.total ? `${Math.round(pct)}%` : '…'}</text></svg>` }),
     h('div', { class: 'sl-live-txt' }, h('span', { class: 'k' }, r.state === 'paused' ? 'PAUSED' : 'DOWNLOADING NOW'), h('b', {}, r.name), h('span', {}, dlSub(r))),
     h('div', { class: 'sl-live-btns' },
       h('button', { class: 'btn', onclick: () => oto.dlAction(r.id, r.state === 'paused' ? 'resume' : 'pause') }, r.state === 'paused' ? 'Resume' : 'Pause'),
@@ -141,11 +174,11 @@ function slibLiveCard(r) {
 }
 function slibDownloads(orig) {
   const list = dlList().filter((r) => matchQ(r.name, r.url));
-  if (!list.length) return [libEmpty('download', LIB.q ? 'No downloads match your search.' : 'Files you download land here, with a shooting star.')];
+  if (!list.length) return [LIB.q ? libEmpty('download', 'No downloads match your search.') : slibDlEmpty()];
   orig(); // (the original also checks which finished files still exist; its result redraws this page)
   const live = list.filter((r) => DL_LIVE.has(r.id)), done = list.filter((r) => !DL_LIVE.has(r.id));
   const tools = h('div', { class: 'sl-dltools' },
-    h('button', { class: 'btn', onclick: () => oto.showInFolder(list.find((r) => r.path)?.path || '') }, 'Open Downloads folder'),
+    h('button', { class: 'btn', onclick: () => (oto.dlFolderOpen ? oto.dlFolderOpen() : oto.showInFolder(list.find((r) => r.path)?.path || '')) }, 'Open downloads folder'),
     h('button', { class: 'btn', onclick: () => { S.downloads = dlList().filter((x) => DL_LIVE.has(x.id)); save(); renderLibrary(); renderDlCard(); } }, 'Clear list'));
   return [
     ...live.map(slibLiveCard),
@@ -154,12 +187,68 @@ function slibDownloads(orig) {
   ];
 }
 
+// ---------------------------------------------------------------- the Oto Card's badges, as a grid (1.8.6)
+// Unlocked badges glow; locked ones show what to do and, where it counts up, how close you are. The secret stays secret.
+const SLIB_BADGE_HOW = {
+  week: ['Use Oto on 7 days', (s) => [s.days, 7]], month: ['Use Oto on 30 days', (s) => [s.days, 30]],
+  blocker: ['Block 1,000 ads', (s) => [s.blocked, 1000]], wall: ['Block 10,000 ads', (s) => [s.blocked, 10000]],
+  spaces: ['Make 3 spaces', (s) => [s.spaces, 3]], split: ['Open two tabs side by side'], avocado: ['Try Avocado mode'],
+  folder: ['Make a tab folder'], shot: ['Take a screenshot'], theme: ['Open the theme maker'], wrapped: ['Open your Wrapped'],
+  owl: ['Browse late at night'], secret: ['Keep exploring…'], note: ['Write a note on a site'], focus: ['Finish a focus session'],
+};
+function slibBadges() {
+  if (typeof V1_BADGES === 'undefined') return null;
+  const got = S.v1Badges || {}, ids = Object.keys(V1_BADGES);
+  let st = { days: 1, blocked: 0, spaces: 1 };
+  try { st = v1Stats(); } catch { /* defaults */ }
+  let next = null;
+  const tiles = ids.map((id) => {
+    const [label, ic] = V1_BADGES[id], on = !!got[id], how = SLIB_BADGE_HOW[id] || ['Keep using Oto'];
+    const secret = id === 'secret' && !on;
+    const prog = !on && how[1] ? how[1](st) : null;
+    if (prog) { const pct = Math.min(0.999, prog[0] / prog[1]); if (!next || pct > next.pct) next = { id, pct, have: prog[0], need: prog[1] }; }
+    return h('div', { class: `sl-badge${on ? ' on' : ''}`, title: on ? `${label} — unlocked ${new Date(got[id]).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}` : how[0] },
+      h('span', { class: 'ic' }, secret ? h('span', { html: slibStar('#ece8e1', 16) }) : ic),
+      h('b', {}, secret ? '???' : label),
+      on ? h('small', { class: 'got' }, 'Unlocked · +15 XP')
+        : prog ? [h('span', { class: 'bar' }, h('i', { style: `width:${Math.max(3, Math.min(100, (prog[0] / prog[1]) * 100)).toFixed(0)}%` })), h('small', {}, `${Math.min(prog[0], prog[1]).toLocaleString()} / ${prog[1].toLocaleString()}`)]
+          : h('small', {}, how[0]));
+  });
+  const n = ids.filter((id) => got[id]).length;
+  let nextEl = null;
+  if (next) {
+    const left = next.need - next.have;
+    const per = { week: 1, month: 1, blocker: st.blocked / Math.max(1, st.days), wall: st.blocked / Math.max(1, st.days) }[next.id];
+    const eta = per > 0 ? Math.ceil(left / per) : 0;
+    const unit = next.id === 'spaces' ? `space${left === 1 ? '' : 's'}` : next.id === 'week' || next.id === 'month' ? `day${left === 1 ? '' : 's'}` : '';
+    const line = `${left.toLocaleString()}${unit ? ` ${unit}` : ''} to go${eta && next.id !== 'week' && next.id !== 'month' ? ` — about ${eta} day${eta === 1 ? '' : 's'} of normal browsing` : ''}.`;
+    nextEl = h('div', { class: 'sl-next' }, h('span', { class: 'ic' }, V1_BADGES[next.id][1]),
+      h('div', {}, h('b', {}, `Next up: ${V1_BADGES[next.id][0]}`), h('small', {}, line)),
+      h('span', { class: 'bar' }, h('i', { style: `width:${(next.pct * 100).toFixed(0)}%` })));
+  }
+  return h('section', { class: 'sl-badges' },
+    h('div', { class: 'sl-bh' }, h('h3', {}, 'Badges'), h('span', { class: 'n' }, `${n} OF ${ids.length} UNLOCKED`)),
+    h('p', {}, 'Each badge gives +15 XP. Locked ones show what to do and how close you are.'),
+    h('div', { class: 'sl-bgrid' }, ...tiles), nextEl);
+}
+function slibCardBadges(root) {
+  const row = [...root.querySelectorAll('.row2')].find((r) => (r.querySelector('.lab') || {}).textContent === 'Badges');
+  if (!row || row.dataset.space) return;
+  const grid = slibBadges();
+  if (!grid) return;
+  row.dataset.space = '1';
+  row.replaceChildren(grid);
+  row.classList.add('sl-badges-row');
+  const form = row.closest('.card-form');
+  if (form) form.append(row); // after the card's own options, since it's big now
+}
+
 let slibReady = false;
 function initSpaceLibrary() {
   if (slibReady) return;
   slibReady = true;
   const _rl = renderLibrary;
-  renderLibrary = function () { const out = _rl.apply(this, arguments); slibDecorate(); return out; };
+  renderLibrary = function () { const out = _rl.apply(this, arguments); slibDecorate(); if (slibOn() && LIB.page === 'card') setTimeout(() => { const r = $('#library'); if (r && slibOn() && LIB.page === 'card') slibCardBadges(r); }, 0); return out; }; // the badges wait for the card panel, which is also added a moment later
   const _h = LIB_RENDER.history, _d = LIB_RENDER.downloads;
   LIB_RENDER.history = function () { return slibOn() ? slibHistory() : _h.apply(this, arguments); };
   LIB_RENDER.downloads = function () { return slibOn() ? slibDownloads(() => _d.apply(this, arguments)) : _d.apply(this, arguments); };

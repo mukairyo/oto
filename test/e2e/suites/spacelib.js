@@ -37,6 +37,39 @@ module.exports = async (t) => {
   t.check('…what landed shows as file cards with a type tag, and the totals sit by the title', a.files.includes('notes.pdf') && a.tag === 'PDF' && /FILES/.test(a.stats || ''), JSON.stringify(a));
   await t.js('(oto.dlAction && 0, closeLibrary(), 1)');
 
+  // (1.8.6) History times read like the start page (4:20 PM, not 04:20 PM)
+  await t.js("(openLibrary('history'), 1)"); await t.sleep(300);
+  a = await J("return { times: [...document.querySelectorAll('#library .sl-visit')].map((r) => (r.textContent.match(/\\d{1,2}:\\d{2}\\s?[AP]M/i) || [''])[0]) };");
+  t.check('History times have no leading zero (4:20 PM, like the start page)', a.times.length > 0 && a.times.every((x) => x === '' || !/^0\d:/.test(x)), JSON.stringify(a));
+
+  // (1.8.6) the empty Downloads page: the star, where files go (open it / pick another), three tips
+  await t.js("(S.downloads = [], DL_LIVE.clear && DL_LIVE.clear(), openLibrary('downloads'), 1)"); await t.sleep(700);
+  a = await J(`const e = document.querySelector('#library .sl-dlempty'); return { e: !!e, h: e && e.querySelector('h2').textContent, path: e && (e.querySelector('.sl-dlfolder code') || {}).textContent,
+    btns: e && [...e.querySelectorAll('.sl-dlfolder .btn')].map((b) => b.textContent), tips: e ? e.querySelectorAll('.sl-tips > div').length : 0, star: !!(e && e.querySelector('.art .star')) };`);
+  t.check('an empty Downloads page shows the star, your downloads folder with Open folder and Change, and three tips',
+    a.e && a.h === 'Nothing has landed yet' && /Downloads/i.test(a.path || '') && a.btns.join() === 'Open folder,Change' && a.tips === 3 && a.star, JSON.stringify(a));
+  a = { f: JSON.parse(await t.js('oto.dlFolder().then((f) => JSON.stringify(f))')) };
+  t.check('…the folder comes from Oto itself (Windows’ Downloads unless you picked another)', a.f && typeof a.f.path === 'string' && a.f.custom === false, JSON.stringify(a));
+  await t.js('(closeLibrary(), 1)');
+
+  // (1.8.6) the Oto Card's badges as a grid: unlocked ones lit, locked ones with a hint or progress, the secret hidden
+  await t.js("(S.v1Badges = { week: Date.now(), split: Date.now() }, S.stats = Object.assign(S.stats || {}, { blocked: 620 }), openLibrary('card'), 1)"); await t.sleep(700);
+  a = await J(`const g = document.querySelector('#library .sl-badges'); return { g: !!g, n: g && g.querySelector('.n').textContent, tiles: g ? g.querySelectorAll('.sl-badge').length : 0,
+    on: g ? g.querySelectorAll('.sl-badge.on').length : 0, ads: g && [...g.querySelectorAll('.sl-badge')].map((x) => x.textContent).find((x) => /1,000 ads/.test(x)),
+    secret: g && [...g.querySelectorAll('.sl-badge b')].some((b) => b.textContent === '???'), next: g && (g.querySelector('.sl-next b') || {}).textContent, last: !!document.querySelector('#library .card-form > .sl-badges-row:last-child') };`);
+  t.check('the Oto Card shows all badges as a grid: 2 of 15 lit, "620 / 1,000" on the ads badge, the secret still hidden, and what’s next',
+    a.g && /2 OF 15/.test(a.n || '') && a.tiles === 15 && a.on === 2 && /620 \/ 1,000/.test(a.ads || '') && a.secret && /Next up: 1,000 ads blocked/.test(a.next || '') && a.last, JSON.stringify(a));
+  await t.js('(closeLibrary(), 1)');
+
+  // (1.8.6) Settings in the space look: dark starry window, a line under the title, and "Neon star"
+  await t.js("(openSettings('general'), 1)"); await t.sleep(400);
+  a = await J(`const sh = document.querySelector('#settings .sheet'); const cs = getComputedStyle(sh); return { bg: cs.backgroundImage, sub: (document.querySelector('#settings .ss-sub') || {}).textContent,
+    crumb: getComputedStyle(document.querySelector('#settings .v1-crumb') || sh).textTransform, neon: [...document.querySelectorAll('#settings .seg button')].some((b) => b.textContent === 'Neon star'),
+    shooting: [...document.querySelectorAll('#settings .seg button')].some((b) => b.textContent === 'Shooting star') };`);
+  t.check('Settings has the space look (starry background, a line under the title) and the download option is called "Neon star"',
+    /space\.webp/.test(a.bg) && /How Oto starts/.test(a.sub || '') && a.crumb === 'uppercase' && a.neon && !a.shooting, JSON.stringify(a));
+  await t.js('(closeSettings(), 1)');
+
   // without the space look, the Library is as before
   await t.js("(S.settings.spaceHome = false, spaceHome(), openLibrary('history'), 1)"); await t.sleep(300);
   a = await J("return { space: document.getElementById('library').classList.contains('space-lib'), brand: !!document.querySelector('#library .sl-brand'), old: !!document.querySelector('#library .lib-group') };");

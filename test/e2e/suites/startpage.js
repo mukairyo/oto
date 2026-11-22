@@ -62,7 +62,7 @@ module.exports = async (t) => {
   await t.sleep(2200);
   await t.js("(openLibrary('history'), 1)"); await t.sleep(300);
   a = await J("const l = document.getElementById('library'); return { bg: getComputedStyle(l).backgroundImage, accent: getComputedStyle(l).getPropertyValue('--accent').trim() };");
-  t.check('the Library pages have the space look (starfield, cyan)', /space\.webp/.test(a.bg) && /7FE3FF/i.test(a.accent), JSON.stringify(a));
+  t.check('the Library pages have the space look (starfield, white highlights since 1.8.6)', /space\.webp/.test(a.bg) && /^#fff(fff)?$/i.test((a.accent || '').trim()), JSON.stringify(a));
   await t.js('(closeLibrary(), 1)');
   a = await J("return V1_LEVELS.map((l) => { const s = spacePlanet(l.id, 40); return /<svg/.test(s) && s.length > 200; });");
   t.check('every level has its own planet (moon to galaxy)', Array.isArray(a) && a.length === 6 && a.every(Boolean), JSON.stringify(a));

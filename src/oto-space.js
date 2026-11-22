@@ -85,8 +85,8 @@ function cardSvgSpace(m = cardModel()) {
   <text x="${W - 22}" y="36" text-anchor="end" font-family="${mono}" font-size="10.5" letter-spacing="2" fill="#ece8e1" fill-opacity=".64">Nº ${esc(m.no || v1CardId())}</text>
   <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="3"/>
   <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="url(#${u}xp)" stroke-width="3" stroke-linecap="round" stroke-dasharray="${(C * pct).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 ${cx} ${cy})"/>
-  <circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="9" fill="#E8F9FF" fill-opacity=".18"/><circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="3.6" fill="#E8F9FF"/>
-  <ellipse cx="${cx}" cy="${cy}" rx="82" ry="24" fill="none" stroke="#7FE3FF" stroke-opacity=".16" stroke-dasharray="2 5" transform="rotate(-18 ${cx} ${cy})"/>
+  <circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="9" fill="#FFFFFF" fill-opacity=".18"/><circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="3.6" fill="#FFFFFF"/>
+  <ellipse cx="${cx}" cy="${cy}" rx="82" ry="24" fill="none" stroke="#FFFFFF" stroke-opacity=".16" stroke-dasharray="2 5" transform="rotate(-18 ${cx} ${cy})"/>
   <svg x="${cx - 70}" y="${cy - 70}" width="140" height="140" viewBox="0 0 100 100">${spacePlanetSvg(lv.id, { inner: true })}</svg>
   <text x="${cx}" y="300" text-anchor="middle" font-family="${mono}" font-size="10" letter-spacing="2.4" fill="${col}">LEVEL ${L.i + 1} · ${SPACE_KINDS[lv.id] || ''}</text>
   <text x="${cx}" y="344" text-anchor="middle" font-family="${serif}" font-size="44" fill="#ece8e1">${esc(lv.name)}</text>
@@ -105,9 +105,9 @@ function spaceCardBack(m = cardModel()) {
   const P = [[48, 150], [104, 182], [168, 140], [232, 186], [276, 146], [70, 236], [136, 252], [204, 236], [262, 262], [46, 300], [112, 322], [178, 300], [244, 324], [92, 372], [214, 372]];
   const pts = ids.map((id, k) => ({ id, on: !!got[id], x: P[k % P.length][0], y: P[k % P.length][1] }));
   const lit = pts.filter((p) => p.on);
-  const lines = lit.slice(1).map((p, k) => `<line x1="${lit[k].x}" y1="${lit[k].y}" x2="${p.x}" y2="${p.y}" stroke="#7FE3FF" stroke-opacity=".45"/>`).join('');
+  const lines = lit.slice(1).map((p, k) => `<line x1="${lit[k].x}" y1="${lit[k].y}" x2="${p.x}" y2="${p.y}" stroke="#FFFFFF" stroke-opacity=".45"/>`).join('');
   const dots = pts.map((p) => (p.on
-    ? `<circle cx="${p.x}" cy="${p.y}" r="11" fill="#7FE3FF" fill-opacity=".18"/><path transform="translate(${p.x - 6} ${p.y - 6}) scale(.5)" d="${SPACE_STAR}" fill="#E8F9FF"/>
+    ? `<circle cx="${p.x}" cy="${p.y}" r="11" fill="#FFFFFF" fill-opacity=".18"/><path transform="translate(${p.x - 6} ${p.y - 6}) scale(.5)" d="${SPACE_STAR}" fill="#FFFFFF"/>
        <text x="${p.x < 80 ? p.x - 10 : p.x > 240 ? p.x + 10 : p.x}" y="${p.y + 22}" text-anchor="${p.x < 80 ? 'start' : p.x > 240 ? 'end' : 'middle'}" font-family="${sans}" font-size="8.5" fill="#ece8e1" fill-opacity=".85">${esc(V1_BADGES[p.id][0])}</text>`
     : `<circle cx="${p.x}" cy="${p.y}" r="2.6" fill="#ece8e1" fill-opacity=".3"/>`)).join('');
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"><defs>
@@ -116,7 +116,7 @@ function spaceCardBack(m = cardModel()) {
   <g clip-path="url(#${u}c)"><rect width="${W}" height="${H}" fill="url(#${u}bg)"/>${spaceStars((m.seed || 7) + 99, W, H, 50)}</g>
   <rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="21.5" fill="none" stroke="#fff" stroke-opacity=".13"/>
   <text x="22" y="36" font-family="${mono}" font-size="10.5" letter-spacing="2" fill="#ece8e1" fill-opacity=".64">STAR CHART · BADGES</text>
-  <text x="${W - 22}" y="36" text-anchor="end" font-family="${mono}" font-size="10.5" letter-spacing="1.6" fill="#7FE3FF">${lit.length} / ${ids.length} FOUND</text>
+  <text x="${W - 22}" y="36" text-anchor="end" font-family="${mono}" font-size="10.5" letter-spacing="1.6" fill="#FFFFFF">${lit.length} / ${ids.length} FOUND</text>
   <text x="22" y="74" font-family="${serif}" font-size="26" fill="#ece8e1">Your sky so far</text>
   <text x="22" y="94" font-family="${sans}" font-size="11.5" fill="#ece8e1" fill-opacity=".7">Each badge lights a star. Hidden ones stay</text>
   <text x="22" y="109" font-family="${sans}" font-size="11.5" fill="#ece8e1" fill-opacity=".7">dark until you find them.</text>
@@ -193,6 +193,13 @@ function initSpace() {
   if (typeof v1CardFounder === 'function') v1CardFounder = function (m) { return spaceFounderSvg(m); };
   if (typeof v1CardOG === 'function') v1CardOG = function (m) { return spaceOGSvg(m); };
   if (typeof initSpaceLibrary === 'function') initSpaceLibrary();
+  // Settings in the space look (1.8.6): the look itself is CSS (#settings under body.space-home); this adds the one line
+  // under each page title. Done after the whole render (a microtask), so it works whichever wrapper runs first.
+  if (typeof renderSettings === 'function' && !renderSettings.spaceSub) {
+    const _rs = renderSettings;
+    renderSettings = function () { const r = _rs.apply(this, arguments); queueMicrotask(spaceSettingsSub); return r; };
+    renderSettings.spaceSub = true;
+  }
   const _uc = updateClock;
   updateClock = function () { _uc.apply(this, arguments); spaceHome(); };
   spaceHome();
@@ -204,6 +211,22 @@ if (typeof S !== 'undefined' && S && S.settings) initSpace();
 
 // ---------------------------------------------------------------- the Founder card: an ultramassive black hole (wide)
 // Only shown when main has signed it with the owner key (v1Edition() checks V1D.founder), as before.
+const SPACE_SET_SUB = {
+  general: 'How Oto starts, where downloads go, and your backups.', account: 'Sign in to sync your spaces and settings.',
+  appearance: 'Colours, themes and how Oto looks.', sidebar: 'What your sidebar shows, and where.', newtab: 'What you see when you open a new tab.',
+  search: 'Your search engine and shortcuts.', tabs: 'How tabs open, sleep and close.', privacy: 'Blocking, trackers, and what sites can see.',
+  performance: 'Keep Oto quick and light on memory.', bookmarks: 'Your saved pages.', extensions: 'Chrome extensions, in Oto.',
+  boosts: 'Your own touches on the sites you use.', mods: 'Change how Oto itself looks.', archive: 'Tabs you closed, ready to come back.',
+  shortcuts: 'Every keyboard shortcut in one place.', about: 'Your version, and updates.', icon: 'The icon Oto shows in your taskbar.',
+  feedback: 'Found a bug or have an idea? Tell us.',
+};
+function spaceSettingsSub() {
+  if (!document.body.classList.contains('space-home')) return;
+  const title = document.querySelector('#settings .set-pane .set-title');
+  if (!title || title.nextElementSibling?.classList.contains('ss-sub')) return;
+  const line = SPACE_SET_SUB[typeof settingsTab === 'string' ? settingsTab : ''];
+  if (line) title.after(h('p', { class: 'ss-sub' }, line));
+}
 function spaceRand(seed) { let s = (seed >>> 0) || 7; return () => { s = (s * 1103515245 + 12345) >>> 0; return s / 4294967296; }; }
 function spaceDiskStreaks(half, rnd) {
   let out = '';
@@ -296,8 +319,8 @@ function spaceFounderBack(m = cardModel(), { scale = 1 } = {}) {
 // streaks to the downloads button. The arc first drops, then sweeps across to the button, so it never flies up and
 // away first (when the button is lower than the cursor, as it usually is).
 function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
-  // (1.8.5) The mouse lights up as a neon arrow, turns into a neon star, and the star flies to Downloads leaving a
-  // glowing blue trail, then lands with a soft ring. Drawn on one canvas (no CSS filters); dark middle + neon edge reads on white and dark pages.
+  // (1.8.6: white) The mouse lights up as a neon arrow, turns into a neon star, and the star flies to Downloads leaving a
+  // glowing white trail, then lands with a soft ring. Drawn on one canvas (no CSS filters); dark middle + neon edge reads on white and dark pages.
   const sx = px, sy = py;
   const dist = Math.hypot(tx - sx, ty - sy);
   const cx = sx + (tx - sx) * 0.3, cy = Math.min(sy, ty) - Math.min(200, 50 + dist * 0.3); // a gentle arc
@@ -326,7 +349,7 @@ function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
   const trail = [], dust = [], burst = [];
   let caught = false, last = 0;
   const t0 = performance.now();
-  // a plain pointer arrow, tip at (0,0)
+  // a plain pointer arrow, tip at (0,0); everything is white neon with a dark middle
   const ARROW = [[0, 0], [0, 17.5], [4.3, 13.5], [7.2, 20], [10, 18.8], [7.2, 12.5], [12.6, 12.5]];
   // a five-point star, centre at (0,0)
   const STAR = Array.from({ length: 10 }, (_, k) => { const a = -Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? 5.2 : 12; return [Math.cos(a) * r, Math.sin(a) * r]; });
@@ -335,18 +358,19 @@ function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
     g.save(); g.translate(x, y); g.rotate(rot); g.scale(s, s); g.lineJoin = 'round';
     g.beginPath(); shape.forEach(([ax, ay], i) => (i ? g.lineTo(ax, ay) : g.moveTo(ax, ay))); g.closePath();
     g.globalAlpha = alpha;
-    for (const [w, o] of [[10, 0.1], [6.5, 0.2], [3.8, 0.42]]) { g.strokeStyle = `rgba(59,130,246,${o})`; g.lineWidth = w; g.stroke(); }
-    const fill = g.createLinearGradient(-6, -10, 10, 19); fill.addColorStop(0, 'rgba(14,22,58,.94)'); fill.addColorStop(1, 'rgba(4,6,18,.94)');
+    g.strokeStyle = 'rgba(15,23,42,.28)'; g.lineWidth = 4.6; g.stroke(); // a faint dark edge so it reads on white pages
+    for (const [w, o] of [[10, 0.08], [6.5, 0.16], [3.8, 0.34]]) { g.strokeStyle = `rgba(255,255,255,${o})`; g.lineWidth = w; g.stroke(); }
+    const fill = g.createLinearGradient(-6, -10, 10, 19); fill.addColorStop(0, 'rgba(30,32,40,.94)'); fill.addColorStop(1, 'rgba(6,7,10,.94)');
     g.fillStyle = fill; g.fill();
-    g.shadowColor = 'rgba(59,130,246,1)'; g.shadowBlur = 18 * s;
-    g.strokeStyle = '#4f8bff'; g.lineWidth = 1.9; g.stroke(); g.stroke(); // twice: a brighter neon edge
-    g.shadowBlur = 4 * s; g.shadowColor = 'rgba(147,197,253,1)'; g.strokeStyle = 'rgba(234,242,255,.95)'; g.lineWidth = 0.7; g.stroke();
+    g.shadowColor = 'rgba(255,255,255,.95)'; g.shadowBlur = 16 * s;
+    g.strokeStyle = '#ffffff'; g.lineWidth = 1.9; g.stroke(); g.stroke(); // twice: a brighter neon edge
+    g.shadowBlur = 4 * s; g.shadowColor = 'rgba(255,255,255,1)'; g.strokeStyle = '#ffffff'; g.lineWidth = 0.7; g.stroke();
     g.shadowBlur = 0;
     g.restore(); g.globalAlpha = 1;
   };
   const arrow = (x, y, s, rot, alpha) => neon(ARROW, x, y, s, rot, alpha);
   const star = (x, y, s, rot, alpha) => neon(STAR, x, y, s, rot, alpha);
-  const ring = (x, y, r, w, o) => { g.strokeStyle = `rgba(61,123,255,${o.toFixed(3)})`; g.lineWidth = w; g.beginPath(); g.arc(x, y, Math.max(0.1, r), 0, Math.PI * 2); g.stroke(); };
+  const ring = (x, y, r, w, o) => { g.strokeStyle = `rgba(255,255,255,${o.toFixed(3)})`; g.lineWidth = w; g.beginPath(); g.arc(x, y, Math.max(0.1, r), 0, Math.PI * 2); g.stroke(); };
   const drawTail = (now) => {
     while (trail.length && now - trail[0].t > TAIL_MS) trail.shift();
     if (trail.length < 2) return;
@@ -355,9 +379,9 @@ function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
     for (let pass = 0; pass < 3; pass++) { // wide glow, neon blue, white-hot core
       for (let i = 1; i < n; i++) {
         const p0 = trail[i - 1], p1 = trail[i], f = i / (n - 1);
-        if (pass === 0) { g.strokeStyle = `rgba(59,130,246,${(0.18 * Math.pow(f, 1.4)).toFixed(3)})`; g.lineWidth = 3 + 15 * Math.pow(f, 1.5); }
-        else if (pass === 1) { g.strokeStyle = `rgba(61,123,255,${(0.85 * Math.pow(f, 1.2)).toFixed(3)})`; g.lineWidth = 1 + 5 * Math.pow(f, 1.3); }
-        else { g.strokeStyle = `rgba(219,234,254,${(0.9 * Math.pow(f, 2)).toFixed(3)})`; g.lineWidth = 0.6 + 1.8 * Math.pow(f, 1.6); }
+        if (pass === 0) { g.strokeStyle = `rgba(15,23,42,${(0.14 * Math.pow(f, 1.4)).toFixed(3)})`; g.lineWidth = 2 + 9 * Math.pow(f, 1.5); } // a soft shadow, seen only on white pages
+        else if (pass === 1) { g.strokeStyle = `rgba(255,255,255,${(0.2 * Math.pow(f, 1.4)).toFixed(3)})`; g.lineWidth = 3 + 15 * Math.pow(f, 1.5); }
+        else { g.strokeStyle = `rgba(255,255,255,${(0.95 * Math.pow(f, 1.2)).toFixed(3)})`; g.lineWidth = 0.8 + 4.2 * Math.pow(f, 1.3); }
         g.beginPath(); g.moveTo(p0.x, p0.y); g.lineTo(p1.x, p1.y); g.stroke();
       }
     }
@@ -392,7 +416,7 @@ function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
       trail.push({ x, y, t: now });
       if (Math.random() < 0.5) {
         const p = trail[Math.max(0, trail.length - 3)];
-        dust.push({ x: p.x + (Math.random() - 0.5) * 6, y: p.y + (Math.random() - 0.5) * 6, vx: (Math.random() - 0.5) * 0.05, vy: (Math.random() - 0.5) * 0.05, r: 0.8 + Math.random() * 1.3, life: 360 + Math.random() * 240, max: 600, c: Math.random() < 0.55 ? '#dbeafe' : '#3d7bff' });
+        dust.push({ x: p.x + (Math.random() - 0.5) * 6, y: p.y + (Math.random() - 0.5) * 6, vx: (Math.random() - 0.5) * 0.05, vy: (Math.random() - 0.5) * 0.05, r: 0.8 + Math.random() * 1.3, life: 360 + Math.random() * 240, max: 600, c: Math.random() < 0.6 ? '#ffffff' : '#cbd5e1' });
       }
       drawDust(dust, dt); drawTail(now);
       star(x, y, 1.35 * (1 - 0.35 * k), rotNow, 1);
@@ -400,7 +424,7 @@ function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
       if (!caught) {
         caught = true;
         showMouse();
-        for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2 + Math.random() * 0.3, v = 0.07 + Math.random() * 0.09; burst.push({ x: tx, y: ty, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 1 + Math.random() * 1.5, life: 420 + Math.random() * 120, max: 540, c: i % 3 ? '#93c5fd' : '#ffffff' }); }
+        for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2 + Math.random() * 0.3, v = 0.07 + Math.random() * 0.09; burst.push({ x: tx, y: ty, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 1 + Math.random() * 1.5, life: 420 + Math.random() * 120, max: 540, c: i % 3 ? '#e2e8f0' : '#ffffff' }); }
         if (done) done();
       }
       const k = (e - BORN - FLY) / LAND;

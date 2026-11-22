@@ -5,7 +5,7 @@ of date. Libraries' channels (`crx-*` from electron-chrome-extensions, `@ghoster
 registered inside those libraries and are covered by the rules in `main/ipc-guard.js` and
 `docs/SECURITY_REVIEW_1.7.13.md`.
 
-128 registrations: 125 answer only Oto's own window (top frame of `src/index.html`), with a size limit; 98 also have
+133 registrations: 130 answer only Oto's own window (top frame of `src/index.html`), with a size limit; 103 also have
 an argument schema. Every one refuses `__proto__`/`constructor`/`prototype` keys (main/ipc-schema.js).
 
 | Channel | Kind | Where | Who may send | Schema | Size limit |
@@ -52,7 +52,12 @@ an argument schema. Every one refuses `__proto__`/`constructor`/`prototype` keys
 | `diag:info` | handle | main.js | Oto's window, top frame only | — | 1 MB |
 | `diag:save` | handle | main.js | Oto's window, top frame only | — | 16 MB |
 | `dl:action` | on | main.js | Oto's window, top frame only | yes | 1 MB |
+| `dl:drag` | on | main.js | Oto's window, top frame only | yes | 1 MB |
 | `dl:exists` | handle | main.js | Oto's window, top frame only | yes | 1 MB |
+| `dl:folder` | handle | main.js | Oto's window, top frame only | yes | 1 MB |
+| `dl:folderOpen` | handle | main.js | Oto's window, top frame only | yes | 1 MB |
+| `dl:folderPick` | handle | main.js | Oto's window, top frame only | yes | 1 MB |
+| `dl:folderReset` | handle | main.js | Oto's window, top frame only | yes | 1 MB |
 | `dl:open` | handle | main.js | Oto's window, top frame only | yes | 1 MB |
 | `drm:install` | handle | main.js | Oto's window, top frame only | — | 1 MB |
 | `drm:status` | handle | main.js | Oto's window, top frame only | — | 1 MB |
