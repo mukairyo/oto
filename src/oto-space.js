@@ -292,24 +292,33 @@ function spaceFounderBack(m = cardModel(), { scale = 1 } = {}) {
 }
 
 // ---------------------------------------------------------------- downloads: a shooting star into the downloads button
-function spaceStarFly(sx, sy, tx, ty, done) {
-  const cx = sx + (tx - sx) * 0.3, cy = Math.min(sy, ty) - Math.min(240, 80 + Math.hypot(tx - sx, ty - sy) * 0.3);
+// (1.8.5) a real falling star: it appears high above the page, on the far side from the downloads button, and
+// streaks DOWN in one smooth arc that only ever descends, speeding up like a meteor, into the button. Where you
+// clicked gets a small spark, so you can see which download it is.
+function spaceStarFly(px, py, tx, ty, done) {
+  const c = ($('#content') || document.body).getBoundingClientRect();
+  if (typeof dlRipple === 'function') dlRipple(px, py, 'start');
+  const side = tx < px ? 1 : -1; // start on the far side of the click from the button
+  const sx = Math.max(c.left + 40, Math.min(c.right - 40, px + side * Math.min(260, c.width * 0.25)));
+  const sy = c.top + Math.max(24, Math.min(90, (py - c.top) * 0.25));
+  const cx = sx + (tx - sx) * 0.55, cy = sy + (ty - sy) * 0.12; // control point between the ends in height: always falling
   const at = (t) => { const u = 1 - t; return [u * u * sx + 2 * u * t * cx + t * t * tx, u * u * sy + 2 * u * t * cy + t * t * ty]; };
   const ang = (t) => { const u = 1 - t, dx = 2 * u * (cx - sx) + 2 * t * (tx - cx), dy = 2 * u * (cy - sy) + 2 * t * (ty - cy); return (Math.atan2(dy, dx) * 180) / Math.PI; };
-  const N = 30, dur = 900;
+  const N = 36, dur = 1150;
   // (1.8.4) the head is one SVG with its own glow and a blue outline: no CSS filters (they drew a square on some PCs)
   // and it shows on white pages as well as dark ones
   const star = h('div', { class: 'sh-shoot', 'aria-hidden': 'true' }, h('i', { class: 'tail' }), h('b', { class: 'head', html: `<svg width="36" height="36" viewBox="-18 -18 36 36"><defs><radialGradient id="shg${++spaceUid}"><stop offset="0" stop-color="#ffffff"/><stop offset=".22" stop-color="#bdf3ff"/><stop offset=".55" stop-color="#38bdf8" stop-opacity=".45"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></radialGradient></defs><circle r="18" fill="url(#shg${spaceUid})"/><path transform="translate(-9 -9) scale(.75)" d="${SPACE_STAR}" fill="#ffffff" stroke="#0284c7" stroke-width="1.4" stroke-linejoin="round"/></svg>` }));
   document.body.append(star);
   const frames = Array.from({ length: N + 1 }, (_, i) => {
-    const t = i / N, [x, y] = at(t), sc = 1 - 0.45 * t;
-    return { transform: `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${ang(t).toFixed(1)}deg) scale(${sc.toFixed(3)})`, opacity: t < 0.08 ? t / 0.08 : 1, offset: t };
+    const t = i / N, [x, y] = at(t), sc = 0.75 + 0.35 * Math.sin(Math.PI * Math.min(1, t * 1.15)) * (1 - t * 0.4);
+    return { transform: `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${ang(t).toFixed(1)}deg) scale(${sc.toFixed(3)})`, opacity: t < 0.12 ? t / 0.12 : 1, offset: t };
   });
-  const a = star.animate(frames, { duration: dur, easing: 'cubic-bezier(.45,0,.7,1)', fill: 'forwards' });
+  const a = star.animate(frames, { duration: dur, easing: 'cubic-bezier(.55,0,.85,.6)', fill: 'forwards' }); // speeds up as it falls
   // a few sparkles left behind along the way
   for (let k = 1; k <= 7; k++) {
     setTimeout(() => {
-      const [x, y] = at(Math.min(1, k / 8 + 0.02));
+      if (!star.isConnected) return;
+      const hr = star.querySelector('.head').getBoundingClientRect(), x = hr.left + hr.width / 2, y = hr.top + hr.height / 2; // where the star is now
       const sp = h('div', { class: 'sh-spark', 'aria-hidden': 'true', style: `left:${x.toFixed(1)}px;top:${y.toFixed(1)}px` });
       document.body.append(sp);
       sp.animate([{ opacity: 0.9, transform: 'translate(-50%,-50%) scale(1)' }, { opacity: 0, transform: 'translate(-50%,-50%) scale(.2)' }], { duration: 520, easing: 'ease-out', fill: 'forwards' }).onfinish = () => sp.remove();
