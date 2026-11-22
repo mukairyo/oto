@@ -3,9 +3,9 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
-## 1.8.5 — A real falling star
+## 1.8.5 — The cursor becomes a star
 
-- **The download star now falls:** it appears high above the page and streaks down in one smooth arc, speeding up like a meteor, into the downloads button (or the Library button), with a small spark where you clicked. Before, it rose up from your cursor first, which looked backwards.
+- **Your cursor becomes the star:** when a download starts, a star lights up right under your mouse with a little twinkle, then streaks down and across into the downloads button (or the Library button) and bursts there. Before, it flew up and away from your cursor first, which looked backwards.
 
 ## 1.8.4 — Shooting star fix
 
