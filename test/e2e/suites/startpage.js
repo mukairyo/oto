@@ -56,6 +56,11 @@ module.exports = async (t) => {
   await t.sleep(2200);
   a = await J("dlFly({ x: 640, y: 360 }, 'x.zip'); const c = document.querySelector('.sh-nocursor'); return { cover: !!c, none: !!c && getComputedStyle(c).cursor === 'none', top: !!c && document.elementFromPoint(640, 360) === c };");
   t.check('…and your real mouse pointer hides while it turns into the star', a.cover && a.none && a.top, JSON.stringify(a));
+  a = await J("const c = document.querySelector('.sh-nocursor'); for (const [x, y] of [[660, 380], [720, 430]]) c && c.dispatchEvent(new MouseEvent('mousemove', { clientX: x, clientY: y, bubbles: true })); return { still: !!document.querySelector('.sh-nocursor'), nudge: typeof oto.cursorNudge };");
+  t.check('…it stays hidden while the star flies even if you move the mouse (1.8.7), and Oto can nudge Windows to redraw it', a.still && a.nudge === 'function', JSON.stringify(a));
+  await t.sleep(2400);
+  a = await J("dlFly({ x: 640, y: 360 }, 'x.zip'); const had = !!document.querySelector('.sh-nocursor'); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true })); return { had, gone: !document.querySelector('.sh-nocursor') };");
+  t.check('…and a key press brings it straight back', a.had && a.gone, JSON.stringify(a));
   await t.sleep(2400);
   a = await J("dlFly({ x: innerWidth / 2, y: innerHeight / 2, mouse: false }, 'preview.zip'); return { gone: !document.querySelector('.sh-nocursor') };");
   t.check('…it comes back when the star lands, and the Settings preview never hides it', a.gone, JSON.stringify(a));

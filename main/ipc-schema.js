@@ -62,6 +62,7 @@ const SCHEMAS = {
   'dl:open': [str(32768)], 'dl:action': [id, str(16)],
   // (1.8.6) the downloads folder: none of these take a path from the page except dragging a file out (checked by fileAllowed)
   'dl:folder': [], 'dl:folderOpen': [], 'dl:folderPick': [], 'dl:folderReset': [], 'dl:drag': [str(32768)],
+  'ui:cursorNudge': [], // (1.8.7) no arguments: main reads the pointer position itself
   'shot:open': [optStr(32768)], 'shot:show': [optStr(32768)], 'shot:save': [str(256 * 1024 * 1024)],
   'app:open': [URL_], 'app:install': [URL_, optStr(512), optStr(16 * 1024 * 1024)],
   // backups, clipboard, devices

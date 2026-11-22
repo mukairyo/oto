@@ -1134,6 +1134,19 @@ function setupIPC(ses) {
     return dlFolderInfo();
   });
   ipcMain.handle('dl:folderReset', () => { DLF.path = ''; saveOrWarn('download-folder.json', { path: '' }, 'your downloads folder'); return dlFolderInfo(); });
+  // (1.8.7) Windows only redraws the mouse pointer when the mouse moves, so when Oto hides it (your pointer "becomes"
+  // the download star) or brings it back, nudge the window with a mouse move at the pointer's real spot. No input from
+  // the page: we read the pointer position ourselves, and only for the window that asked.
+  ipcMain.on('ui:cursorNudge', (e) => {
+    try {
+      const w = winOf(e);
+      if (!w || w.isDestroyed() || !w.isFocused()) return;
+      const p = screen.getCursorScreenPoint(), b = w.getContentBounds(), z = e.sender.getZoomFactor() || 1;
+      const x = Math.round((p.x - b.x) / z), y = Math.round((p.y - b.y) / z);
+      if (x < 0 || y < 0 || x > b.width / z || y > b.height / z) return;
+      e.sender.sendInputEvent({ type: 'mouseMove', x, y });
+    } catch {}
+  });
   // drag a finished download out of the Library onto the desktop or into another app
   ipcMain.on('dl:drag', (e, p) => {
     try {

@@ -337,13 +337,17 @@ function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
   g.scale(dpr, dpr);
   // Your real mouse pointer hides while it "becomes" the star: a clear cover with no cursor sits on top for a moment.
   // It comes back as soon as you move or click, or when the star lands.
-  let cover = null, first = null;
-  const showMouse = () => { if (cover) { cover.remove(); cover = null; } };
+  // (1.8.7) It stays hidden while the star flies, even if you move the mouse; a click, a scroll or a key brings it back
+  // at once. Windows only redraws the pointer when the mouse moves, so Oto nudges it (main process) after each change.
+  let cover = null;
+  const nudge = () => { try { if (oto.cursorNudge) oto.cursorNudge(); } catch { /* best effort */ } };
+  const showMouse = () => { if (cover) { cover.remove(); cover = null; removeEventListener('keydown', showMouse, true); requestAnimationFrame(nudge); } };
   if (atMouse) {
     cover = h('div', { class: 'sh-nocursor', 'aria-hidden': 'true' });
-    cover.addEventListener('mousemove', (ev) => { if (!first) first = [ev.clientX, ev.clientY]; else if (Math.hypot(ev.clientX - first[0], ev.clientY - first[1]) > 5) showMouse(); });
     for (const ev of ['mousedown', 'wheel', 'contextmenu']) cover.addEventListener(ev, showMouse, { passive: true });
+    addEventListener('keydown', showMouse, true);
     document.body.append(cover);
+    requestAnimationFrame(() => { nudge(); setTimeout(nudge, 60); }); // once it's on screen, and once more in case the page was busy
     setTimeout(showMouse, 4000); // never longer than this
   }
   const trail = [], dust = [], burst = [];

@@ -3,6 +3,10 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.8.7 — Your pointer really disappears
+
+- **Your mouse pointer now really hides while it turns into the star:** on Windows the pointer only redraws when the mouse moves, so in 1.8.5 and 1.8.6 it usually stayed on screen. Oto now nudges Windows to redraw it right away. The pointer also stays hidden while the star flies, even if you move the mouse. It comes back when the star lands, or straight away if you click, scroll or press a key.
+
 ## 1.8.6 — Settings in space, badges you can chase
 
 - **Settings in the space look:** Settings now matches the start page and the Library. It has a dark, starry window, a glass sidebar, big titles with a short line under each, and each section on its own glass card.

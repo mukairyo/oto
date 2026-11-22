@@ -483,6 +483,7 @@ contextBridge.exposeInMainWorld('oto', {
   dlFolderPick: () => ipcRenderer.invoke('dl:folderPick'),
   dlFolderReset: () => ipcRenderer.invoke('dl:folderReset'),
   dlDrag: (p) => ipcRenderer.send('dl:drag', p),
+  cursorNudge: () => ipcRenderer.send('ui:cursorNudge'),
   clearData: () => ipcRenderer.invoke('data:clear'),
   syncSettings: (p) => ipcRenderer.send('settings:sync', p),
   listPermissions: () => ipcRenderer.invoke('perm:list'),
