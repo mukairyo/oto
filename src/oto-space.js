@@ -358,7 +358,7 @@ function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
     g.save(); g.translate(x, y); g.rotate(rot); g.scale(s, s); g.lineJoin = 'round';
     g.beginPath(); shape.forEach(([ax, ay], i) => (i ? g.lineTo(ax, ay) : g.moveTo(ax, ay))); g.closePath();
     g.globalAlpha = alpha;
-    g.strokeStyle = 'rgba(15,23,42,.28)'; g.lineWidth = 4.6; g.stroke(); // a faint dark edge so it reads on white pages
+    g.strokeStyle = 'rgba(15,23,42,.45)'; g.lineWidth = 5; g.stroke(); // a faint dark edge so it reads on white pages
     for (const [w, o] of [[10, 0.08], [6.5, 0.16], [3.8, 0.34]]) { g.strokeStyle = `rgba(255,255,255,${o})`; g.lineWidth = w; g.stroke(); }
     const fill = g.createLinearGradient(-6, -10, 10, 19); fill.addColorStop(0, 'rgba(30,32,40,.94)'); fill.addColorStop(1, 'rgba(6,7,10,.94)');
     g.fillStyle = fill; g.fill();
@@ -379,7 +379,7 @@ function spaceStarFly(px, py, tx, ty, done, atMouse = false) {
     for (let pass = 0; pass < 3; pass++) { // wide glow, neon blue, white-hot core
       for (let i = 1; i < n; i++) {
         const p0 = trail[i - 1], p1 = trail[i], f = i / (n - 1);
-        if (pass === 0) { g.strokeStyle = `rgba(15,23,42,${(0.14 * Math.pow(f, 1.4)).toFixed(3)})`; g.lineWidth = 2 + 9 * Math.pow(f, 1.5); } // a soft shadow, seen only on white pages
+        if (pass === 0) { g.strokeStyle = `rgba(15,23,42,${(0.26 * Math.pow(f, 1.3)).toFixed(3)})`; g.lineWidth = 2.5 + 8 * Math.pow(f, 1.4); } // a soft shadow, seen only on white pages
         else if (pass === 1) { g.strokeStyle = `rgba(255,255,255,${(0.2 * Math.pow(f, 1.4)).toFixed(3)})`; g.lineWidth = 3 + 15 * Math.pow(f, 1.5); }
         else { g.strokeStyle = `rgba(255,255,255,${(0.95 * Math.pow(f, 1.2)).toFixed(3)})`; g.lineWidth = 0.8 + 4.2 * Math.pow(f, 1.3); }
         g.beginPath(); g.moveTo(p0.x, p0.y); g.lineTo(p1.x, p1.y); g.stroke();
