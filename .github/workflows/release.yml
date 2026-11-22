@@ -16,7 +16,7 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Is this version already released?
         id: check
@@ -33,7 +33,7 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.check.outputs.skip != 'true'
         with:
           node-version: 22
@@ -45,7 +45,7 @@ jobs:
 
       # Production Widevine (VMP) signing for Netflix & co. — castlabs EVS, free account.
       # Set the repo secrets EVS_ACCOUNT_NAME and EVS_PASSWD to turn it on (build/vmp-sign.js).
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: steps.check.outputs.skip != 'true'
         with:
           python-version: '3.12'
@@ -95,7 +95,7 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Sync release notes from CHANGELOG.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
