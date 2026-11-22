@@ -296,51 +296,107 @@ function spaceFounderBack(m = cardModel(), { scale = 1 } = {}) {
 // streaks to the downloads button. The arc first drops, then sweeps across to the button, so it never flies up and
 // away first (when the button is lower than the cursor, as it usually is).
 function spaceStarFly(px, py, tx, ty, done) {
+  // (1.8.5) The mouse lights up as a neon arrow, then flies to Downloads tip first, leaving a glowing blue trail,
+  // and lands with a soft ring. Drawn on one canvas (no CSS filters); dark middle + neon edge reads on white and dark pages.
   const sx = px, sy = py;
-  const cx = sx + (tx - sx) * 0.15, cy = sy + (ty - sy) * 0.6;
+  const dist = Math.hypot(tx - sx, ty - sy);
+  const cx = sx + (tx - sx) * 0.3, cy = Math.min(sy, ty) - Math.min(200, 50 + dist * 0.3); // a gentle arc
   const at = (t) => { const u = 1 - t; return [u * u * sx + 2 * u * t * cx + t * t * tx, u * u * sy + 2 * u * t * cy + t * t * ty]; };
-  const ang = (t) => { const u = 1 - t, dx = 2 * u * (cx - sx) + 2 * t * (tx - cx), dy = 2 * u * (cy - sy) + 2 * t * (ty - cy); return (Math.atan2(dy, dx) * 180) / Math.PI; };
-  const N = 36, dur = 950;
-  // (1.8.4) the head is one SVG with its own glow and a blue outline: no CSS filters (they drew a square on some PCs)
-  // and it shows on white pages as well as dark ones
-  const star = h('div', { class: 'sh-shoot', 'aria-hidden': 'true' }, h('i', { class: 'tail' }), h('b', { class: 'head', html: `<svg width="36" height="36" viewBox="-18 -18 36 36"><defs><radialGradient id="shg${++spaceUid}"><stop offset="0" stop-color="#ffffff"/><stop offset=".22" stop-color="#bdf3ff"/><stop offset=".55" stop-color="#38bdf8" stop-opacity=".45"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></radialGradient></defs><circle r="18" fill="url(#shg${spaceUid})"/><path transform="translate(-9 -9) scale(.75)" d="${SPACE_STAR}" fill="#ffffff" stroke="#0284c7" stroke-width="1.4" stroke-linejoin="round"/></svg>` }));
-  document.body.append(star);
-  const frames = Array.from({ length: N + 1 }, (_, i) => {
-    const t = i / N, [x, y] = at(t), sc = 0.75 + 0.35 * Math.sin(Math.PI * Math.min(1, t * 1.15)) * (1 - t * 0.4);
-    return { transform: `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${ang(t).toFixed(1)}deg) scale(${sc.toFixed(3)})`, opacity: 1, offset: t };
-  });
-  // the twinkle: the star appears under the mouse (tail hidden), grows, settles, then the flight starts
-  const tail = star.querySelector('.tail');
-  tail.style.opacity = '0';
-  const start = frames[0].transform.replace(/scale\([^)]*\)/, '');
-  const born = star.animate([
-    { transform: `${start} scale(0.2)`, opacity: 0 },
-    { transform: `${start} scale(1.45)`, opacity: 1, offset: 0.55 },
-    { transform: `${start} scale(${frames[0].transform.match(/scale\(([^)]*)\)/)[1]})`, opacity: 1 },
-  ], { duration: 260, easing: 'cubic-bezier(.3,1.4,.5,1)', fill: 'forwards' });
-  let a = { onfinish: null };
-  born.onfinish = () => {
-    tail.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, fill: 'forwards' });
-    const fly = star.animate(frames, { duration: dur, easing: 'cubic-bezier(.45,0,.6,1)', fill: 'forwards' });
-    fly.onfinish = () => a.onfinish && a.onfinish();
+  const dir = (t) => { const u = 1 - t; return Math.atan2(2 * u * (cy - sy) + 2 * t * (ty - cy), 2 * u * (cx - sx) + 2 * t * (tx - cx)); };
+  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2) * 0.35 + (1 - Math.pow(1 - t, 2.2)) * 0.65;
+  const BORN = 340, FLY = Math.round(Math.min(1050, 620 + dist * 0.45)), LAND = 520, TAIL_MS = 200;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const cv = h('canvas', { class: 'sh-shoot', 'aria-hidden': 'true' });
+  const W = innerWidth, H = innerHeight;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  document.body.append(cv);
+  const g = cv.getContext('2d');
+  g.scale(dpr, dpr);
+  const trail = [], dust = [], burst = [];
+  let caught = false, last = 0;
+  const t0 = performance.now();
+  // a plain pointer arrow, tip at (0,0)
+  const ARROW = [[0, 0], [0, 17.5], [4.3, 13.5], [7.2, 20], [10, 18.8], [7.2, 12.5], [12.6, 12.5]];
+  const AXIS = Math.atan2(-13, -5); // from the arrow's body to its tip
+  const arrow = (x, y, s, rot, alpha) => {
+    if (alpha <= 0.01 || s <= 0.02) return;
+    g.save(); g.translate(x, y); g.rotate(rot); g.scale(s, s); g.lineJoin = 'round';
+    g.beginPath(); ARROW.forEach(([ax, ay], i) => (i ? g.lineTo(ax, ay) : g.moveTo(ax, ay))); g.closePath();
+    g.globalAlpha = alpha;
+    for (const [w, o] of [[10, 0.1], [6.5, 0.2], [3.8, 0.42]]) { g.strokeStyle = `rgba(59,130,246,${o})`; g.lineWidth = w; g.stroke(); }
+    const fill = g.createLinearGradient(0, 0, 10, 19); fill.addColorStop(0, 'rgba(14,22,58,.94)'); fill.addColorStop(1, 'rgba(4,6,18,.94)');
+    g.fillStyle = fill; g.fill();
+    g.shadowColor = 'rgba(59,130,246,1)'; g.shadowBlur = 18 * s;
+    g.strokeStyle = '#4f8bff'; g.lineWidth = 1.9; g.stroke(); g.stroke(); // twice: a brighter neon edge
+    g.shadowBlur = 4 * s; g.shadowColor = 'rgba(147,197,253,1)'; g.strokeStyle = 'rgba(234,242,255,.95)'; g.lineWidth = 0.7; g.stroke();
+    g.shadowBlur = 0;
+    g.restore(); g.globalAlpha = 1;
   };
-  // a few sparkles left behind along the way
-  for (let k = 1; k <= 7; k++) {
-    setTimeout(() => {
-      if (!star.isConnected) return;
-      const hr = star.querySelector('.head').getBoundingClientRect(), x = hr.left + hr.width / 2, y = hr.top + hr.height / 2; // where the star is now
-      const sp = h('div', { class: 'sh-spark', 'aria-hidden': 'true', style: `left:${x.toFixed(1)}px;top:${y.toFixed(1)}px` });
-      document.body.append(sp);
-      sp.animate([{ opacity: 0.9, transform: 'translate(-50%,-50%) scale(1)' }, { opacity: 0, transform: 'translate(-50%,-50%) scale(.2)' }], { duration: 520, easing: 'ease-out', fill: 'forwards' }).onfinish = () => sp.remove();
-    }, 260 + (dur * k) / 8);
-  }
-  a.onfinish = () => {
-    star.remove();
-    const burst = h('div', { class: 'sh-burst', 'aria-hidden': 'true', style: `left:${tx}px;top:${ty}px` });
-    document.body.append(burst);
-    setTimeout(() => burst.remove(), 700);
-    if (done) done();
+  const ring = (x, y, r, w, o) => { g.strokeStyle = `rgba(61,123,255,${o.toFixed(3)})`; g.lineWidth = w; g.beginPath(); g.arc(x, y, Math.max(0.1, r), 0, Math.PI * 2); g.stroke(); };
+  const drawTail = (now) => {
+    while (trail.length && now - trail[0].t > TAIL_MS) trail.shift();
+    if (trail.length < 2) return;
+    const n = trail.length;
+    g.lineCap = 'round';
+    for (let pass = 0; pass < 3; pass++) { // wide glow, neon blue, white-hot core
+      for (let i = 1; i < n; i++) {
+        const p0 = trail[i - 1], p1 = trail[i], f = i / (n - 1);
+        if (pass === 0) { g.strokeStyle = `rgba(59,130,246,${(0.18 * Math.pow(f, 1.4)).toFixed(3)})`; g.lineWidth = 3 + 15 * Math.pow(f, 1.5); }
+        else if (pass === 1) { g.strokeStyle = `rgba(61,123,255,${(0.85 * Math.pow(f, 1.2)).toFixed(3)})`; g.lineWidth = 1 + 5 * Math.pow(f, 1.3); }
+        else { g.strokeStyle = `rgba(219,234,254,${(0.9 * Math.pow(f, 2)).toFixed(3)})`; g.lineWidth = 0.6 + 1.8 * Math.pow(f, 1.6); }
+        g.beginPath(); g.moveTo(p0.x, p0.y); g.lineTo(p1.x, p1.y); g.stroke();
+      }
+    }
   };
+  const drawDust = (list, dt) => {
+    for (let i = list.length - 1; i >= 0; i--) {
+      const d = list[i];
+      d.life -= dt; if (d.life <= 0) { list.splice(i, 1); continue; }
+      d.x += d.vx * dt; d.y += d.vy * dt; d.vx *= 0.985; d.vy = d.vy * 0.985 + 0.00012 * dt;
+      const k = d.life / d.max;
+      g.globalAlpha = k; g.fillStyle = d.c;
+      g.beginPath(); g.arc(d.x, d.y, d.r * (0.4 + 0.6 * k), 0, Math.PI * 2); g.fill();
+    }
+    g.globalAlpha = 1;
+  };
+  const flicker = [0, 0.9, 0.25, 1, 0.55, 1, 1, 1]; // the neon switching on
+  let rotNow = 0;
+  const frame = () => {
+    const now = performance.now(), e = Math.max(0, now - t0), dt = last ? Math.min(40, now - last) : 16; last = now;
+    g.clearRect(0, 0, W, H);
+    if (e < BORN) { // lights up where the mouse is
+      const k = e / BORN, s = 1.75 * (k < 0.5 ? 0.7 + 0.6 * (k / 0.5) : 1.3 - 0.3 * ((k - 0.5) / 0.5));
+      ring(sx + 5, sy + 9, 8 + 26 * k, 2, 0.55 * (1 - k));
+      arrow(sx, sy, s, 0, flicker[Math.min(flicker.length - 1, Math.floor(k * flicker.length))]);
+    } else if (e < BORN + FLY) {
+      const raw = (e - BORN) / FLY, k = ease(raw), [x, y] = at(k);
+      let want = dir(k) - AXIS; want = Math.atan2(Math.sin(want), Math.cos(want));
+      const turn = Math.min(1, raw * 5); rotNow = want * (turn * turn * (3 - 2 * turn)); // turns to point where it is going
+      trail.push({ x, y, t: now });
+      if (Math.random() < 0.5) {
+        const p = trail[Math.max(0, trail.length - 3)];
+        dust.push({ x: p.x + (Math.random() - 0.5) * 6, y: p.y + (Math.random() - 0.5) * 6, vx: (Math.random() - 0.5) * 0.05, vy: (Math.random() - 0.5) * 0.05, r: 0.8 + Math.random() * 1.3, life: 360 + Math.random() * 240, max: 600, c: Math.random() < 0.55 ? '#dbeafe' : '#3d7bff' });
+      }
+      drawDust(dust, dt); drawTail(now);
+      arrow(x, y, 1.75 * (1 - 0.4 * k), rotNow, 1);
+    } else {
+      if (!caught) {
+        caught = true;
+        for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2 + Math.random() * 0.3, v = 0.07 + Math.random() * 0.09; burst.push({ x: tx, y: ty, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 1 + Math.random() * 1.5, life: 420 + Math.random() * 120, max: 540, c: i % 3 ? '#93c5fd' : '#ffffff' }); }
+        if (done) done();
+      }
+      const k = (e - BORN - FLY) / LAND;
+      drawDust(dust, dt); drawTail(now); drawDust(burst, dt);
+      if (k < 1) {
+        ring(tx, ty, 4 + 30 * Math.pow(k, 0.6), 2.5 * (1 - k) + 0.5, 0.75 * (1 - k));
+        if (k < 0.3) arrow(tx, ty, 1.05 * (1 - k / 0.3), rotNow, 1 - k / 0.3);
+      } else { cv.remove(); return; }
+    }
+    requestAnimationFrame(safe);
+  };
+  const safe = () => { try { frame(); } catch (err) { cv.remove(); if (!caught && done) done(); } };
+  requestAnimationFrame(safe);
 }
 
 // ---------------------------------------------------------------- the OG card: "first light" (wide), Oto's first logo
