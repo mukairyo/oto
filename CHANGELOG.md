@@ -3,7 +3,10 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
-## 1.8.9 — Centred, and a media player that matches the sidebar
+## 1.8.9 — The Library lives in your sidebar
+
+- **The Library opens in your sidebar:** opening the Library (Ctrl+J, or the Library button) opens the sidebar fully, even if it's the thin strip or hidden, and the sidebar becomes the Library menu, in the sidebar's own style. You get **← Back to your tabs** (or Esc), a LIBRARY block, numbered pages under "01 SAVED" and "02 YOUR OTO" with counts, and an "OTO // LIBRARY" barcode at the bottom. The page itself no longer has its own menu, so Downloads, History and the rest get the full width.
+- **Everything rises in with a little bounce:** the Library menu rises from below one item after another and bounces into place, and each page rises in the same way when you open it. Going back drops the menu away, gives the sidebar back exactly as it was, and your tabs rise back in. If you've turned animations off, nothing moves.
 
 - **The start page's orbit ring is centred on "Good morning / Good night":** it used to sit at a fixed spot in the window, so on smaller windows it drifted below the greeting.
 - **The ring on the empty Downloads page is centred on the download tray.**

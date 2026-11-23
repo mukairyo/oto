@@ -5,7 +5,7 @@
 // downloading and file cards for what landed. Without the space look the Library is exactly as before.
 /* global S, LIB, LIB_PAGES, LIB_RENDER, DL_LIVE, renderLibrary, closeLibrary, dlList, dlSub, fmtBytes, fmtWhen,
    groupByDay, libRow, libBtn, libEmpty, matchQ, favEl, hostOf, prettyUrl, newTab, save, oto, openDownload, renderDlCard,
-   v1Level, v1Stats, V1_BADGES, h, $, icon, esc, SPACE_STAR, media, V */
+   v1Level, v1Stats, V1_BADGES, h, $, icon, esc, SPACE_STAR, media, V, rtBarcode, animOn, applyLayout:writable, closeLibrary:writable */
 
 const SLIB = { hf: 'all' };
 const SLIB_DESC = {
@@ -243,12 +243,95 @@ function slibCardBadges(root) {
   if (form) form.append(row); // after the card's own options, since it's big now
 }
 
+// ---------------------------------------------------------------- the Library menu in the sidebar (1.8.9)
+// Opening the Library opens the sidebar fully (a thin strip or a hidden sidebar opens for as long as the Library is
+// open) and the sidebar becomes the Library menu, in the sidebar's own style; the menu inside the page goes away.
+// The menu rises in from below with a little bounce, one item after another; each page rises in the same way; and
+// "Back to your tabs" (or Esc) drops the menu away and gives the sidebar back exactly as it was.
+const SLIB_SB_GROUPS = [['SAVED', ['downloads', 'history', 'passwords', 'media']], ['YOUR OTO', ['spaces', 'boosts', 'routing', 'card', 'phone']]];
+const SLIB_SB = { took: [], t: 0 };
+function slibSidebarMenu(first) {
+  const sb = $('#sidebar');
+  if (!sb) return;
+  const counts = slibCounts();
+  let i = 0, n = 0;
+  const kids = [
+    h('button', { class: 'sbl-back', style: `--i:${i++}`, title: 'Back to your tabs (Esc)', onclick: () => closeLibrary() }, h('span', { class: 'ic', html: icon('back') }), h('span', {}, 'Back to your tabs'), h('kbd', {}, 'ESC')),
+    h('div', { class: 'sbl-ws', style: `--i:${i++}` }, h('span', { class: 'g' }, '音'), h('div', {}, h('b', {}, 'LIBRARY'), h('small', {}, 'OTO // EVERYTHING YOU KEEP'))),
+  ];
+  SLIB_SB_GROUPS.forEach(([g, ks], gi) => {
+    kids.push(h('div', { class: 'sbl-sec', style: `--i:${i++}` }, `${String(gi + 1).padStart(2, '0')}   ${g}`));
+    for (const k of ks) {
+      const p = LIB_PAGES.find((x) => x[0] === k);
+      if (!p) continue;
+      n++;
+      kids.push(h('button', { class: `sbl-it${LIB.page === k ? ' on' : ''}`, style: `--i:${i++}`, 'aria-current': LIB.page === k ? 'page' : null,
+        onclick: () => { if (LIB.page === k) return; LIB.page = k; LIB.q = ''; renderLibrary(true); } },
+      h('span', { class: 'n' }, String(n).padStart(2, '0')), h('span', { class: 'ic', html: icon(p[2]) }), h('span', { class: 't' }, p[1]), h('em', {}, counts[k] || '')));
+    }
+  });
+  kids.push(h('div', { class: 'sbl-foot', style: `--i:${i++}`, 'aria-hidden': 'true' }, h('div', { class: 'r' }, h('span', {}, 'OTO // LIBRARY'), h('span', {}, 'LIVE')),
+    h('div', { class: 'bc', style: typeof rtBarcode === 'function' ? `background-image:${rtBarcode()}` : '' }), h('div', { class: 's' }, 'OTO — DESKTOP')));
+  let el = $('#sbLib');
+  const fresh = !el;
+  if (!el) { el = h('nav', { id: 'sbLib', 'aria-label': 'Library' }); const head = $('#sbHead'); if (head) head.after(el); else sb.prepend(el); }
+  el.replaceChildren(...kids);
+  if (fresh && first && animOn()) { el.classList.add('rise'); setTimeout(() => el.classList.remove('rise'), 1400); }
+}
+function slibSidebarOpen(first) {
+  const b = document.body;
+  b.classList.remove('sb-lib-out', 'sb-lib-back');
+  if (!b.classList.contains('sb-lib')) {
+    // a thin strip or a hidden sidebar opens fully while the Library is open (put back exactly on close)
+    SLIB_SB.took = ['rail', 'compact'].filter((c) => b.classList.contains(c));
+    b.classList.remove('rail', 'compact', 'rail-open', 'peek');
+    b.classList.add('sb-lib');
+    if (SLIB_SB.took.length && animOn()) { b.classList.add('sb-lib-grow'); setTimeout(() => b.classList.remove('sb-lib-grow'), 420); }
+  }
+  slibSidebarMenu(first);
+}
+function slibSidebarClose() {
+  const b = document.body;
+  if (!b.classList.contains('sb-lib')) return;
+  const finish = () => {
+    if (LIB.open) return; // opened again meanwhile
+    const el = $('#sbLib'); if (el) el.remove();
+    b.classList.remove('sb-lib', 'sb-lib-out');
+    const give = () => { for (const c of SLIB_SB.took) b.classList.add(c); SLIB_SB.took = []; };
+    if (animOn()) {
+      b.classList.add('sb-lib-back');
+      setTimeout(() => b.classList.remove('sb-lib-back'), 900);
+      if (SLIB_SB.took.length) { b.classList.add('sb-lib-shrink'); setTimeout(() => { b.classList.remove('sb-lib-shrink'); if (!LIB.open) give(); }, 260); } else give();
+    } else give();
+  };
+  if (animOn() && $('#sbLib')) { b.classList.add('sb-lib-out'); clearTimeout(SLIB_SB.t); SLIB_SB.t = setTimeout(finish, 300); } else finish();
+}
+
 let slibReady = false;
 function initSpaceLibrary() {
   if (slibReady) return;
   slibReady = true;
   const _rl = renderLibrary;
-  renderLibrary = function () { const out = _rl.apply(this, arguments); slibDecorate(); if (slibOn() && LIB.page === 'card') setTimeout(() => { const r = $('#library'); if (r && slibOn() && LIB.page === 'card') slibCardBadges(r); }, 0); return out; }; // the badges wait for the card panel, which is also added a moment later
+  renderLibrary = function (first) {
+    const out = _rl.apply(this, arguments);
+    if (slibOn() && LIB.open) {
+      slibSidebarOpen(first);
+      const main = document.querySelector('#library .lib-main');
+      if (main && first && animOn()) main.classList.add('sl-rise'); // each page rises in with a little bounce
+    }
+    slibDecorate(); if (slibOn() && LIB.page === 'card') setTimeout(() => { const r = $('#library'); if (r && slibOn() && LIB.page === 'card') slibCardBadges(r); }, 0); return out; }; // the badges wait for the card panel, which is also added a moment later
+  const _cl = closeLibrary;
+  closeLibrary = function () { const was = LIB.open; const r = _cl.apply(this, arguments); if (was && !LIB.open) slibSidebarClose(); return r; };
+  // if the layout is re-applied while the Library has the sidebar (a settings change), keep it open until close
+  if (typeof applyLayout === 'function') {
+    const _al = applyLayout;
+    applyLayout = function () {
+      const r = _al.apply(this, arguments);
+      const b = document.body;
+      if (b.classList.contains('sb-lib')) { const now = ['rail', 'compact'].filter((c) => b.classList.contains(c)); if (now.length) { SLIB_SB.took = now; b.classList.remove('rail', 'compact', 'rail-open', 'peek'); } }
+      return r;
+    };
+  }
   const _h = LIB_RENDER.history, _d = LIB_RENDER.downloads;
   LIB_RENDER.history = function () { return slibOn() ? slibHistory() : _h.apply(this, arguments); };
   LIB_RENDER.downloads = function () { return slibOn() ? slibDownloads(() => _d.apply(this, arguments)) : _d.apply(this, arguments); };

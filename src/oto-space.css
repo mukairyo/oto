@@ -391,3 +391,47 @@ body.space-home .media-card .mc-btns .icon-btn.sm:first-child:hover { background
 body.space-home.rail:not(.rail-open) .media-card { display: none; }
 @media (prefers-reduced-motion: reduce) { body.space-home .media-card.playing::after, body.space-home .media-card.playing .sh-np-wave { animation: none; } }
 body.reduce-motion.space-home .media-card.playing::after, body.reduce-motion.space-home .media-card.playing .sh-np-wave { animation: none; }
+
+/* ================================================================ the Library menu in the sidebar (1.8.9) */
+body.space-home.sb-lib #sidebar > :not(#sbHead):not(#sbLib):not(.sb-foot):not(.sb-resize) { display: none !important; }
+body.space-home.sb-lib #library .lib-nav { display: none !important; }
+body.space-home.sb-lib-grow #sidebar { animation: sbLibGrow .4s cubic-bezier(.2, .9, .3, 1); overflow: hidden; }
+body.space-home.sb-lib-shrink #sidebar { animation: sbLibShrink .26s cubic-bezier(.5, 0, .7, .4) forwards; overflow: hidden; }
+@keyframes sbLibGrow { from { width: var(--rail-w, 52px); } to { width: var(--sbw); } }
+@keyframes sbLibShrink { from { width: var(--sbw); } to { width: var(--rail-w, 52px); } }
+#sbLib { display: none; }
+body.space-home.sb-lib #sbLib { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 6px 4px 0 2px; overflow-y: auto; }
+#sbLib .sbl-back { display: flex; align-items: center; gap: 10px; margin: 2px 0 6px; padding: 9px 12px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, .1); background: none; color: rgba(236, 232, 225, .85); font: 500 13px Inter, 'Segoe UI', system-ui, sans-serif; cursor: pointer; text-align: left; }
+#sbLib .sbl-back:hover { color: #fff; border-color: rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .05); }
+#sbLib .sbl-back .ic svg { width: 15px; height: 15px; display: block; }
+#sbLib .sbl-back kbd { margin-left: auto; font: 500 9px 'JetBrains Mono', Consolas, monospace; letter-spacing: .14em; color: rgba(236, 232, 225, .4); background: none; border: 0; }
+#sbLib .sbl-ws { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, .1); }
+#sbLib .sbl-ws .g { font-size: 18px; color: #ece8e1; }
+#sbLib .sbl-ws b { display: block; font: 500 11px 'JetBrains Mono', Consolas, monospace; letter-spacing: .24em; color: #ece8e1; }
+#sbLib .sbl-ws small { display: block; margin-top: 2px; font: 500 8px 'JetBrains Mono', Consolas, monospace; letter-spacing: .2em; color: rgba(236, 232, 225, .4); }
+#sbLib .sbl-sec { display: flex; align-items: center; gap: 10px; padding: 14px 4px 8px; font: 500 9.5px/1 'JetBrains Mono', Consolas, monospace; letter-spacing: .22em; color: rgba(236, 232, 225, .38); white-space: pre; }
+#sbLib .sbl-sec::after { content: ''; flex: 1; height: 1px; background: rgba(255, 255, 255, .075); }
+#sbLib .sbl-it { position: relative; display: flex; align-items: center; gap: 12px; height: 36px; flex: none; padding: 0 10px; border: 0; border-radius: 6px; background: none; color: rgba(236, 232, 225, .85); font: 400 14px Inter, 'Segoe UI', system-ui, sans-serif; cursor: pointer; text-align: left; }
+#sbLib .sbl-it:hover { background: rgba(255, 255, 255, .05); color: #fff; }
+#sbLib .sbl-it .n { width: 14px; font: 500 9px 'JetBrains Mono', Consolas, monospace; color: rgba(236, 232, 225, .38); letter-spacing: .05em; }
+#sbLib .sbl-it .ic svg { width: 16px; height: 16px; display: block; opacity: .8; }
+#sbLib .sbl-it em { margin-left: auto; font: 500 10px 'JetBrains Mono', Consolas, monospace; font-style: normal; letter-spacing: .08em; color: rgba(236, 232, 225, .42); }
+#sbLib .sbl-it.on { color: #fff; background: linear-gradient(90deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .03)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .4), 0 0 18px rgba(255, 255, 255, .08); }
+#sbLib .sbl-it.on::before { content: ''; position: absolute; left: -6px; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: #fff; box-shadow: 0 0 8px #fff; }
+#sbLib .sbl-it.on .n, #sbLib .sbl-it.on .ic svg { color: #fff; opacity: 1; }
+#sbLib .sbl-foot { margin: auto 2px 0; padding: 10px 2px 4px; border-top: 1px solid rgba(255, 255, 255, .075); }
+#sbLib .sbl-foot .r { display: flex; justify-content: space-between; font: 500 8.5px 'JetBrains Mono', Consolas, monospace; letter-spacing: .22em; color: rgba(236, 232, 225, .38); }
+#sbLib .sbl-foot .bc { height: 14px; margin: 8px 0 6px; background-repeat: no-repeat; background-size: auto 14px; opacity: .55; }
+#sbLib .sbl-foot .s { font: 500 7.5px 'JetBrains Mono', Consolas, monospace; letter-spacing: .25em; color: rgba(236, 232, 225, .22); }
+/* rise in from below with a little bounce, one after another */
+@keyframes sbRise { 0% { transform: translateY(46px); opacity: 0; } 20% { opacity: 1; } 55% { transform: translateY(-7px); } 76% { transform: translateY(2px); } 100% { transform: none; opacity: 1; } }
+@keyframes sbDrop { to { transform: translateY(60px); opacity: 0; } }
+#sbLib.rise > * { animation: sbRise .7s cubic-bezier(.25, .8, .35, 1) both; animation-delay: calc(var(--i, 0) * 45ms + 90ms); }
+body.space-home.sb-lib-out #sbLib > * { animation: sbDrop .26s cubic-bezier(.5, 0, .8, .4) forwards; animation-delay: calc((14 - var(--i, 0)) * 14ms); }
+body.space-home.sb-lib-back #sidebar > :not(#sbHead):not(.sb-resize) { animation: sbRise .6s cubic-bezier(.25, .8, .35, 1) both; }
+body.space-home.sb-lib-back #sbScroll { animation-delay: 60ms !important; }
+body.space-home.sb-lib-back .sb-foot { animation-delay: 120ms !important; }
+body.space-home #library .lib-main.sl-rise > * { animation: sbRise .75s cubic-bezier(.25, .8, .35, 1) both; }
+body.space-home #library .lib-main.sl-rise > .lib-body { animation-delay: 60ms; }
+@media (prefers-reduced-motion: reduce) { #sbLib.rise > *, body.space-home.sb-lib-out #sbLib > *, body.space-home.sb-lib-back #sidebar > *, body.space-home #library .lib-main.sl-rise > *, body.space-home.sb-lib-grow #sidebar, body.space-home.sb-lib-shrink #sidebar { animation: none !important; } }
+body.reduce-motion #sbLib.rise > *, body.reduce-motion.sb-lib-out #sbLib > *, body.reduce-motion.sb-lib-back #sidebar > *, body.reduce-motion #library .lib-main.sl-rise > * { animation: none !important; }

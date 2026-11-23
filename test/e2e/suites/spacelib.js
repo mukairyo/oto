@@ -37,6 +37,24 @@ module.exports = async (t) => {
   t.check('…what landed shows as file cards with a type tag, and the totals sit by the title', a.files.includes('notes.pdf') && a.tag === 'PDF' && /FILES/.test(a.stats || ''), JSON.stringify(a));
   await t.js('(oto.dlAction && 0, closeLibrary(), 1)');
 
+  // (1.8.9) the Library menu lives in the sidebar: a thin strip opens fully while the Library is open
+  await t.sleep(600); // let the previous close finish
+  await t.js("(S.settings.compact = false, S.settings.collapsed = true, applyLayout(), 1)"); await t.sleep(300);
+  const sbBefore = JSON.parse(await t.js("JSON.stringify(['rail', 'compact'].filter((c) => document.body.classList.contains(c)))"));
+  await t.js("(openLibrary('downloads'), 1)"); await t.sleep(900);
+  a = await J(`const m = document.getElementById('sbLib'); const nav = document.querySelector('#library .lib-nav'); return { sbLib: document.body.classList.contains('sb-lib'), rail: document.body.classList.contains('rail'),
+    items: m ? [...m.querySelectorAll('.sbl-it .t')].map((x) => x.textContent) : [], on: m && (m.querySelector('.sbl-it.on .t') || {}).textContent, back: !!(m && m.querySelector('.sbl-back')),
+    navHidden: !nav || getComputedStyle(nav).display === 'none', tabsHidden: getComputedStyle(document.getElementById('sbScroll')).display === 'none', sbw: Math.round(document.getElementById('sidebar').getBoundingClientRect().width) };`);
+  t.check('opening the Library opens the thin sidebar fully and shows the Library menu there (9 pages, Downloads lit, Back to your tabs), not inside the page',
+    a.sbLib && !a.rail && a.items.length === 9 && a.on === 'Downloads' && a.back && a.navHidden && a.tabsHidden && a.sbw > 150, JSON.stringify(a));
+  await t.js("(document.querySelectorAll('#sbLib .sbl-it')[1].click(), 1)"); await t.sleep(400);
+  a = await J("return { page: LIB.page, on: (document.querySelector('#sbLib .sbl-it.on .t') || {}).textContent };");
+  t.check('…clicking History in the sidebar opens History', a.page === 'history' && a.on === 'History', JSON.stringify(a));
+  await t.js('(closeLibrary(), 1)'); await t.sleep(1300);
+  a = await J("return { sbLib: document.body.classList.contains('sb-lib'), rail: document.body.classList.contains('rail'), menu: !!document.getElementById('sbLib'), tabs: getComputedStyle(document.getElementById('sbScroll')).display !== 'none' };");
+  t.check('…and Back to your tabs gives the sidebar back exactly as it was (thin strip again, tabs showing)', !a.sbLib && sbBefore.includes('rail') && a.rail && !a.menu && a.tabs, JSON.stringify({ sbBefore, ...a }));
+  await t.js("(S.settings.collapsed = false, applyLayout(), 1)"); await t.sleep(300);
+
   // (1.8.6) History times read like the start page (4:20 PM, not 04:20 PM)
   await t.js("(openLibrary('history'), 1)"); await t.sleep(300);
   a = await J("return { times: [...document.querySelectorAll('#library .sl-visit')].map((r) => (r.textContent.match(/\\d{1,2}:\\d{2}\\s?[AP]M/i) || [''])[0]) };");
