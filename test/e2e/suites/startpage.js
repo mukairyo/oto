@@ -72,6 +72,9 @@ module.exports = async (t) => {
   t.check('the media player matches the sidebar ("NOW PLAYING ─ ● ON AIR", a barcode strip, above the footer), and the active tab is white glass (not cream)',
     a.shown && /NOW PLAYING/.test(a.label) && /ON AIR/.test(a.state) && a.wave && a.aboveFoot && /gradient/.test(a.tab || ''), JSON.stringify(a));
   await t.js("(media = null, renderMedia(), 1)");
+  // (1.8.9) the video bar on other sites' videos: Oto's look (no purple-pink), and slower speeds too
+  a = await J("return { slow: V1_VIDEO_JS.includes('data-s=\".5\"'), q: V1_VIDEO_JS.includes('data-s=\"1.25\"'), old: /a855f7|ec4899/.test(V1_VIDEO_JS), mono: /JetBrains Mono/.test(V1_VIDEO_JS) };");
+  t.check('the video bar on other sites has the Oto look (no purple-pink) and offers 0.5× and 1.25× too', a.slow && a.q && !a.old && a.mono, JSON.stringify(a));
   await t.js("(openLibrary('history'), 1)"); await t.sleep(300);
   a = await J("const l = document.getElementById('library'); return { bg: getComputedStyle(l).backgroundImage, accent: getComputedStyle(l).getPropertyValue('--accent').trim() };");
   t.check('the Library pages have the space look (starfield, white highlights since 1.8.6)', /space\.webp/.test(a.bg) && /^#fff(fff)?$/i.test((a.accent || '').trim()), JSON.stringify(a));

@@ -9,6 +9,7 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 - **The ring on the empty Downloads page is centred on the download tray.**
 - **The tab you're on** (and the Essential you're on) uses white glass with a soft glow instead of the cream box.
 - **The sidebar's media player matches the sidebar:** a "NOW PLAYING ─── ● ON AIR" heading in the same small mono letters as "01 ESSENTIALS", a thin line instead of a card, a small square cover with the artist in mono caps, a barcode strip like the footer's that slides while music plays, and plain square buttons. It now sits above the "OTO // BROWSER" footer.
+- **The video bar on other websites has the new look:** when you hover a video on a site that isn't YouTube, the speed / loop / screenshot / picture-in-picture bar is now dark with a thin border and mono letters, with the current speed lit in white (the old purple-pink is gone). It also has **0.5×** (slower) and **1.25×** speeds now.
 
 ## 1.8.8 — Your normal pointer is back
 
