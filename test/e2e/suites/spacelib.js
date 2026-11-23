@@ -4,6 +4,7 @@
 module.exports = async (t) => {
   const J = async (code) => JSON.parse(await t.js(`JSON.stringify((() => { ${code} })())`));
   await t.open('http://news.site/');
+  await t.sleep(1500); // let this visit be recorded first (slow machines record it late, after the sample history below)
   await t.js(`(() => { const D = 864e5, now = Date.now(); S.history = [
     { u: 'http://radio.site/', t: 'Radio', ts: now - 60e3 }, { u: 'http://kitchen.site/', t: 'Kitchen', ts: now - 120e3 },
     { u: 'http://radio.site/b', t: 'Radio B', ts: now - D - 60e3 }, { u: 'http://old.site/', t: 'Old', ts: now - 9 * D }]; return 1; })()`);
@@ -23,7 +24,7 @@ module.exports = async (t) => {
   t.check('…"Today" shows only today', a.rows === 2 && a.on === 'Today', JSON.stringify(a));
   await t.js("[...document.querySelectorAll('#library .sl-chip')].find((b) => b.textContent === 'All').click(), 1"); await t.sleep(200);
   const before = await t.js('S.tabs.length');
-  await t.js("document.querySelector('#library .sl-visit').click(), 1"); await t.sleep(400);
+  await t.js("[...document.querySelectorAll('#library .sl-visit')].find((r) => r.textContent.includes('radio.site') && !r.textContent.includes('Radio B')).click(), 1"); await t.sleep(400);
   a = await J("return { open: !!document.getElementById('library') && !document.getElementById('library').hidden, tabs: S.tabs.length, url: (activeTab() || {}).url };");
   t.check('…clicking a visit opens it in a new tab', a.tabs === before + 1 && /radio\.site/.test(a.url || ''), JSON.stringify(a));
 
