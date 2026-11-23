@@ -68,9 +68,9 @@ module.exports = async (t) => {
   await t.open('http://fine.site/', 1200);
   a = await J(`document.body.classList.remove('rail'); document.body.classList.add('rail-open'); media = { tabId: activeTab().id, playing: true }; renderMedia();
     const c = document.getElementById('mediaCard'), tb = document.querySelector('.tab.active');
-    return { shown: !c.hidden, label: getComputedStyle(c, '::before').content, play: getComputedStyle(c.querySelector('.mc-btns .icon-btn')).backgroundColor, tab: tb && getComputedStyle(tb).backgroundImage };`);
-  t.check('the media player is a glass card saying "NOW PLAYING" with a white play button, and the active tab is white glass (not cream)',
-    a.shown && /NOW PLAYING/.test(a.label) && /255, 255, 255/.test(a.play) && /gradient/.test(a.tab || ''), JSON.stringify(a));
+    return { shown: !c.hidden, label: getComputedStyle(c, '::before').content, state: getComputedStyle(c, '::after').content, wave: !!c.querySelector('.sh-np-wave'), aboveFoot: !document.getElementById('rtFoot') || !!(document.getElementById('rtFoot').compareDocumentPosition(c) & Node.DOCUMENT_POSITION_PRECEDING), tab: tb && getComputedStyle(tb).backgroundImage };`);
+  t.check('the media player matches the sidebar ("NOW PLAYING ─ ● ON AIR", a barcode strip, above the footer), and the active tab is white glass (not cream)',
+    a.shown && /NOW PLAYING/.test(a.label) && /ON AIR/.test(a.state) && a.wave && a.aboveFoot && /gradient/.test(a.tab || ''), JSON.stringify(a));
   await t.js("(media = null, renderMedia(), 1)");
   await t.js("(openLibrary('history'), 1)"); await t.sleep(300);
   a = await J("const l = document.getElementById('library'); return { bg: getComputedStyle(l).backgroundImage, accent: getComputedStyle(l).getPropertyValue('--accent').trim() };");

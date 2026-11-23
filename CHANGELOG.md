@@ -3,12 +3,12 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
-## 1.8.9 — Centred, and the sidebar joins the space look
+## 1.8.9 — Centred, and a media player that matches the sidebar
 
 - **The start page's orbit ring is centred on "Good morning / Good night":** it used to sit at a fixed spot in the window, so on smaller windows it drifted below the greeting.
 - **The ring on the empty Downloads page is centred on the download tray.**
 - **The tab you're on** (and the Essential you're on) uses white glass with a soft glow instead of the cream box.
-- **A new media player in the sidebar:** a glass card that says "NOW PLAYING" with a glowing dot, a bigger cover picture, and round buttons with a white play/pause button.
+- **The sidebar's media player matches the sidebar:** a "NOW PLAYING ─── ● ON AIR" heading in the same small mono letters as "01 ESSENTIALS", a thin line instead of a card, a small square cover with the artist in mono caps, a barcode strip like the footer's that slides while music plays, and plain square buttons. It now sits above the "OTO // BROWSER" footer.
 
 ## 1.8.8 — Your normal pointer is back
 

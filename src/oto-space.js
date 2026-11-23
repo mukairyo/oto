@@ -213,6 +213,19 @@ function initSpace() {
   if (typeof v1CardFounder === 'function') v1CardFounder = function (m) { return spaceFounderSvg(m); };
   if (typeof v1CardOG === 'function') v1CardOG = function (m) { return spaceOGSvg(m); };
   if (typeof initSpaceLibrary === 'function') initSpaceLibrary();
+  // the media player in the sidebar's style (1.8.9): a barcode strip between the track and the buttons
+  if (typeof renderMedia === 'function' && !renderMedia.spaceWave) {
+    const _rm = renderMedia;
+    renderMedia = function () {
+      const r = _rm.apply(this, arguments);
+      const card = $('#mediaCard'), btns = card && card.querySelector('.mc-btns');
+      const foot = $('#rtFoot');
+      if (card && foot && document.body.classList.contains('space-home') && foot.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING) foot.before(card); // above the footer
+      if (btns && !card.querySelector('.sh-np-wave')) btns.before(h('div', { class: 'sh-np-wave', 'aria-hidden': 'true', style: typeof rtBarcode === 'function' ? `background-image:${rtBarcode()}` : '' }));
+      return r;
+    };
+    renderMedia.spaceWave = true;
+  }
   // Settings in the space look (1.8.6): the look itself is CSS (#settings under body.space-home); this adds the one line
   // under each page title. Done after the whole render (a microtask), so it works whichever wrapper runs first.
   if (typeof renderSettings === 'function' && !renderSettings.spaceSub) {
