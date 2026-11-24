@@ -2,7 +2,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 const CHANNELS = new Set([
-  'cmd', 'tab:open', 'search', 'blocked', 'download', 'download-tab', 'perm:ask', 'perm:cancel', 'screen:pick', 'screen:cancel', 'danger', 'yt-wall', 'window-fullscreen', 'overlay-sampled',
+  'cmd', 'tab:open', 'search', 'blocked', 'download', 'download-tab', 'perm:ask', 'perm:cancel', 'screen:pick', 'screen:cancel', 'device:pick', 'device:update', 'device:cancel', 'danger', 'yt-wall', 'window-fullscreen', 'overlay-sampled',
   'win-state', 'page-mouse', 'ext:create-tab', 'ext:select-tab', 'ext:remove-tab', 'ext:changed', 'ext:refused', 'glance', 'update', 'vpn', 'ctx:show', 'ctrl-hold', 'quick:open', 'account:status', 'drm:ready', 'save-failed', 'data-damaged',
 ]);
 
@@ -68,6 +68,8 @@ contextBridge.exposeInMainWorld('oto', {
   resetPermission: (key) => ipcRenderer.invoke('perm:reset', key),
   setPermission: (key, val) => ipcRenderer.invoke('perm:set', key, val),
   replyScreen: (id, sourceId, audio) => ipcRenderer.send('screen:reply', id, sourceId || null, !!audio),
+  replyDevice: (id, deviceId) => ipcRenderer.send('device:reply', id, deviceId),
+  rbxAds: () => ipcRenderer.invoke('rbx:ads'),
   pwArm: (wcId, opts) => ipcRenderer.invoke('pw:arm', wcId, opts),
   pwFillInto: (wcId, id) => ipcRenderer.invoke('pw:fillInto', wcId, id),
   clearSite: (origin) => ipcRenderer.invoke('site:clear', origin),

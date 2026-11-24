@@ -127,6 +127,15 @@ function spaceCardBack(m = cardModel()) {
   <text x="${W - 22}" y="${H - 32}" text-anchor="end" font-family="${mono}" font-size="9.5" letter-spacing="1.2" fill="#ece8e1" fill-opacity=".6">${esc(L.cur.name.toUpperCase())} · ${L.xp.toLocaleString()} XP</text></svg>`;
 }
 
+function spaceBarsPaint(tabId, bars) {
+  const wave = document.querySelector(`.tab[data-id="${CSS.escape(String(tabId))}"] .audio .v1-wave`);
+  if (!wave) return;
+  const is = wave.querySelectorAll('i');
+  if (!bars) { wave.classList.remove('live'); is.forEach((i) => { i.style.height = ''; }); return; }
+  wave.classList.add('live');
+  const max = wave.clientHeight || 10;
+  is.forEach((i, n) => { i.style.height = `${Math.round(2 + (+bars[n] / 9) * (max - 2))}px`; });
+}
 // ---------------------------------------------------------------- the New Tab start page
 // (1.8.9) The orbit ring is centred on the greeting itself, not at a fixed spot in the window, so it stays around
 // "Good night" whatever the window's size.
@@ -213,6 +222,24 @@ function initSpace() {
   if (typeof v1CardFounder === 'function') v1CardFounder = function (m) { return spaceFounderSvg(m); };
   if (typeof v1CardOG === 'function') v1CardOG = function (m) { return spaceOGSvg(m); };
   if (typeof initSpaceLibrary === 'function') initSpaceLibrary();
+  // (1.9.0) Sound bars that move with the sound: the page measures the playing sound (page-preload.js, "Sound bars")
+  // and sends four digits; the tab's bars follow them (with the kick on music, with the voices elsewhere). Nothing
+  // arrives for sound that can't be measured, and then the bars keep their normal animation.
+  if (typeof bindView === 'function' && !bindView.spaceBars) {
+    const _bv = bindView;
+    bindView = function (tab, v) {
+      _bv.apply(this, arguments);
+      try {
+        v.wv.addEventListener('ipc-message', (e) => {
+          if (e.channel !== 'oto:bars') return;
+          const msg = String(e.args && e.args[0] || '');
+          v.bars = /^[0-9]{4}$/.test(msg) ? msg : '';
+          spaceBarsPaint(tab.id, v.bars);
+        });
+      } catch { /* no bars for this tab */ }
+    };
+    bindView.spaceBars = true;
+  }
   // the media player in the sidebar's style (1.8.9): a barcode strip between the track and the buttons
   if (typeof renderMedia === 'function' && !renderMedia.spaceWave) {
     const _rm = renderMedia;

@@ -116,7 +116,13 @@ test('the page preload for websites only asks fixed, flags-only questions', () =
   const pp = read('page-preload.js');
   const calls = pp.match(/ipcRenderer\.\w+\(\s*'[^']+'/g) || [];
   // oto:page from pages and frames; oto:worker from service workers only (a number: the per-site fingerprint seed)
-  assert.deepStrictEqual([...new Set(calls)], ["ipcRenderer.sendSync('oto:page'", "ipcRenderer.send('oto:yt-wall'", "ipcRenderer.once('oto:shown'", "ipcRenderer.sendSync('oto:worker'"]);
+  assert.deepStrictEqual([...new Set(calls)], ["ipcRenderer.sendSync('oto:page'", "ipcRenderer.send('oto:yt-wall'", "ipcRenderer.once('oto:shown'", "ipcRenderer.sendToHost('oto:bars'", "ipcRenderer.sendSync('oto:worker'"]);
+  // oto:bars (1.9.0): the sound bars' four digits (or "x" = stopped), sent only to Oto's own window (sendToHost: the
+  // tab's <webview>, never the main process), and only from the "Sound bars" block; nothing comes back to the page
+  assert.ok((pp.match(/ipcRenderer\.sendToHost\('oto:bars', /g) || []).length === 2);
+  assert.match(pp, /ipcRenderer\.sendToHost\('oto:bars', 'x'\)/);
+  assert.match(pp, /function send\(msg\) \{ if \(msg === last\) return; last = msg; try \{ ipcRenderer\.sendToHost\('oto:bars', msg\);/);
+  assert.doesNotMatch(main, /ipcMain\.(on|handle)\(\s*'oto:bars'/, 'the main process never takes oto:bars');
   // oto:yt-wall (1.7.4): "YouTube's ad-blocker wall is still up", with no data; main.js only takes it from the top
   // frame of a YouTube tab, at most once a minute, and only shows an offer in Oto's window
   assert.match(pp, /ipcRenderer\.send\('oto:yt-wall'\)/);

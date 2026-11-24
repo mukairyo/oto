@@ -12,7 +12,8 @@
 // This file runs in every frame, also frames from other sites inside a page (where trackers usually sit); a frame
 // gets the changes of the site you are on. Background workers get the same: main/worker-guard.js runs otoFarble
 // inside dedicated workers, and this file is also the preload of service workers (see the end of the file).
-// Nothing is read from the page.
+// Nothing is read from the page, except one thing (1.9.0): while a video or sound plays, its loudness in a few
+// frequency bands is measured for the sound bars in Oto's sidebar (see "Sound bars" below).
 'use strict';
 const inPage = typeof window !== 'undefined' && typeof document !== 'undefined';
 if (inPage) try {
@@ -420,6 +421,78 @@ function otoYouTubeAds() {
     } catch (e) {}
   }, 250);
 }
+
+// Sound bars (1.9.0): while a video or sound plays on this page, measure how loud it is in a few frequency bands and
+// send just four small numbers (0–9) to Oto's sidebar, about 20 times a second, so the tab's sound bars move with
+// it: with the kick drum on music sites (or anything with a strong bass beat), with the voices on everything else.
+// The sound is copied with captureStream(), so playback itself is never touched; nothing is recorded, kept or sent
+// anywhere else, and the page can't see any of it (this runs in Oto's own isolated world). A sound that can't be
+// measured (protected music, a video from another site without permission) leaves the normal animation.
+if (inPage) try {
+  const { ipcRenderer } = require('electron');
+  const MUSIC = /(^|\.)(music\.youtube\.com|open\.spotify\.com|soundcloud\.com|music\.apple\.com|deezer\.com|tidal\.com|bandcamp\.com|music\.amazon\.[a-z.]+|pandora\.com|audiomack\.com|mixcloud\.com|last\.fm|radio\.garden)$/i.test(location.hostname);
+  let ctx = null, cur = null, timer = 0, last = '';
+  const state = { bassAvg: 0, kick: 0, voice: [0, 0, 0, 0], peak: 0.2, bassLong: 0, voiceLong: 0, silent: 0 };
+  const stop = () => {
+    if (timer) { clearInterval(timer); timer = 0; }
+    if (cur) { try { cur.src.disconnect(); cur.an.disconnect(); cur.mute.disconnect(); } catch (e) {} cur = null; }
+    if (last !== 'x') { last = 'x'; try { ipcRenderer.sendToHost('oto:bars', 'x'); } catch (e) {} }
+  };
+  const band = (data, hz0, hz1, binHz) => { const a = Math.max(1, Math.round(hz0 / binHz)), b = Math.min(data.length - 1, Math.round(hz1 / binHz)); let t = 0; for (let i = a; i <= b; i++) t += data[i]; return t / ((b - a + 1) * 255); };
+  const tick = () => {
+    if (!cur || !cur.el || cur.el.paused || cur.el.ended) return stop();
+    const { an, data } = cur;
+    an.getByteFrequencyData(data);
+    const binHz = ctx.sampleRate / an.fftSize;
+    const bass = band(data, 40, 150, binHz), low = band(data, 150, 400, binHz);
+    const v = [band(data, 300, 600, binHz), band(data, 600, 1200, binHz), band(data, 1200, 2400, binHz), band(data, 2400, 4200, binHz)];
+    const all = bass + low + v[0] + v[1] + v[2] + v[3];
+    if (all < 0.01) { if (++state.silent > 40) { state.silent = 0; return send('x'); } } else state.silent = 0; // can't be measured, or quiet
+    const voiceNow = (v[0] + v[1] + v[2]) / 3;
+    state.bassLong = state.bassLong * 0.985 + bass * 0.015; state.voiceLong = state.voiceLong * 0.985 + voiceNow * 0.015;
+    const beat = MUSIC || state.bassLong > state.voiceLong * 1.35;
+    let out;
+    if (beat) { // the kick: a jump in the bass over its recent average, quick up, smooth down
+      state.bassAvg = state.bassAvg * 0.9 + bass * 0.1;
+      const hit = Math.max(0, bass - state.bassAvg * 1.06) * 6;
+      state.kick = Math.max(state.kick * 0.8, Math.min(1, hit + bass * 0.25));
+      const k = state.kick;
+      out = [k, k * 0.7 + low * 0.5, k * 0.9, k * 0.5 + v[3] * 0.9];
+    } else { // the voice: four slices of the voice range, each following its own loudness
+      state.peak = Math.max(state.peak * 0.995, ...v, 0.12);
+      out = v.map((x, i) => { const n = Math.min(1, x / state.peak); state.voice[i] = n > state.voice[i] ? state.voice[i] * 0.4 + n * 0.6 : state.voice[i] * 0.75 + n * 0.25; return state.voice[i]; });
+      out = [out[1], out[0], out[2], out[3]];
+    }
+    send(out.map((x) => Math.max(0, Math.min(9, Math.round(x * 9)))).join(''));
+  };
+  function send(msg) { if (msg === last) return; last = msg; try { ipcRenderer.sendToHost('oto:bars', msg); } catch (e) {} }
+  const follow = (el) => {
+    if (!(el instanceof HTMLMediaElement) || el.muted) return;
+    if (cur && cur.el === el) return;
+    try {
+      const stream = el.captureStream ? el.captureStream() : null;
+      if (!stream) return;
+      const start = () => {
+        if (!stream.getAudioTracks().length) return false;
+        if (!ctx) ctx = new AudioContext({ latencyHint: 'playback' });
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+        if (cur) { try { cur.src.disconnect(); cur.an.disconnect(); cur.mute.disconnect(); } catch (e) {} }
+        const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser(), mute = ctx.createGain();
+        an.fftSize = 1024; an.smoothingTimeConstant = 0.5; mute.gain.value = 0; // measured, not played a second time
+        src.connect(an); an.connect(mute); mute.connect(ctx.destination);
+        cur = { el, src, an, mute, data: new Uint8Array(an.frequencyBinCount) };
+        if (!timer) timer = setInterval(tick, 50);
+        return true;
+      };
+      if (!start()) stream.addEventListener('addtrack', () => { if (!cur || cur.el !== el) start(); }, { once: true });
+    } catch (e) { /* this sound can't be measured: the normal animation stays */ }
+  };
+  document.addEventListener('playing', (e) => follow(e.target), true);
+  document.addEventListener('volumechange', (e) => { if (cur && e.target === cur.el && cur.el.muted) stop(); else if (!e.target.muted && !e.target.paused) follow(e.target); }, true);
+  document.addEventListener('pause', (e) => { if (cur && e.target === cur.el) stop(); }, true);
+  document.addEventListener('ended', (e) => { if (cur && e.target === cur.el) stop(); }, true);
+  window.addEventListener('pagehide', stop);
+} catch {}
 
 // Service workers (scripts a site leaves running in the background) get the same protection: main.js registers this
 // file as their preload too. The per-site number comes from the site the service worker belongs to.

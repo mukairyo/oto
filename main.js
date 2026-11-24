@@ -318,6 +318,15 @@ const { popupTitle } = require('./main/popup-title.js');
 
 // Every page (webview) gets keyboard shortcuts, tab-style popups and a context menu.
 app.on('web-contents-created', (_e, contents) => {
+  // (1.9.0) Web Bluetooth: Oto's device picker; the list fills in as Bluetooth finds devices
+  contents.on('select-bluetooth-device', (event, devices, callback) => {
+    event.preventDefault();
+    const list = (devices || []).map((d) => ({ id: String(d.deviceId), key: String(d.deviceId), name: String(d.deviceName || 'Unnamed device'), detail: '' }));
+    const open = [...devicePicks.entries()].find(([, p]) => p.kind === 'bluetooth' && p.wc === contents);
+    if (open) { const [id, p] = open; p.devices = list; p.callback = callback; send('device:update', { id, devices: list.slice(0, 200).map((d) => ({ id: d.id, name: d.name.slice(0, 120), detail: '' })) }); return; }
+    devicePick('bluetooth', contents, originOf(contents.getURL() || ''), list, callback);
+  });
+
   if (contents.getType() !== 'webview') return;
   contents.on('before-input-event', (e, input) => handleKeys(e, input, contents));
   // Calls (WebRTC): how much of this PC's network the page may find out follows the Shield level and the site
@@ -645,6 +654,26 @@ let perms = {};
 let permSeq = 0;
 const pendingPerms = new Map();
 const screenPicks = new Map();
+// (1.9.0) Device pickers: Bluetooth, serial, USB and HID. A site that wants a device asks the browser for a list, and
+// Oto shows its own picker. Only the device you pick is given to that site, for as long as Oto is open (nothing is
+// saved); a site you blocked from devices in its site settings isn't asked at all. The picker closes, and nothing is
+// given, if the page goes to another site, closes, or 2 minutes pass.
+const DEVICE_KINDS = new Set(['serial', 'hid', 'usb', 'bluetooth']);
+const devicePicks = new Map();
+const deviceGrants = new Set(); // `${origin}|${kind}|${deviceKey}`, this run only
+function devicePick(kind, wc, origin, devices, callback) {
+  if (!win || !origin || !/^https?:/.test(origin) || permDecide(origin, kind) === false) { try { callback(''); } catch {} return 0; }
+  const id = ++permSeq;
+  const cancel = () => { const p = devicePicks.get(id); if (!p) return; devicePicks.delete(id); clearTimeout(p.timer); p.cleanup(); try { p.callback(''); } catch {} send('device:cancel', id); };
+  const onNav = (ev, _url, inPlace, isMain) => { const main = ev && typeof ev.isMainFrame === 'boolean' ? ev.isMainFrame : isMain; const same = ev && typeof ev.isSameDocument === 'boolean' ? ev.isSameDocument : inPlace; if (main && !same && originOf((ev && ev.url) || _url) !== origin) cancel(); };
+  if (wc) { try { wc.on('did-start-navigation', onNav); wc.once('destroyed', cancel); } catch {} }
+  const cleanup = () => { try { if (wc && !wc.isDestroyed()) { wc.removeListener('did-start-navigation', onNav); wc.removeListener('destroyed', cancel); } } catch {} };
+  const timer = setTimeout(cancel, 120000);
+  devicePicks.set(id, { kind, origin, devices, callback, timer, cleanup, wc });
+  send('device:pick', { id, origin, kind, devices: devices.slice(0, 200).map((d) => ({ id: d.id, name: d.name.slice(0, 120), detail: String(d.detail || '').slice(0, 120) })) });
+  return id;
+}
+
 
 // Files Oto may open or show for you: ones it downloaded or saved itself, or anything in your Downloads
 // and Oto Screenshots folders. A path coming from the UI is never opened just because it was asked for.
@@ -774,6 +803,7 @@ function setupSession(part = PARTITION) {
     if (ALWAYS.has(permission)) return true;
     const o = originOf(origin);
     if (permission === 'display-capture') return permDecide(o, 'display-capture') !== false;
+    if (DEVICE_KINDS.has(permission)) return permDecide(o, permission) !== false; // (1.9.0) Oto's device picker asks next
     if (permission === 'media') return mediaParts(details && details.mediaType ? [details.mediaType] : []).every((p) => permDecide(o, p) === true);
     return permDecide(o, permission) === true;
   });
@@ -803,6 +833,38 @@ function setupSession(part = PARTITION) {
       screenPicks.set(id, { callback, sources, timer, cleanup, stillThere });
       send('screen:pick', { id, origin, audio: process.platform === 'win32' && !!request.audioRequested,
         sources: sources.map((s) => ({ id: s.id, name: s.name, kind: s.id.startsWith('screen') ? 'screen' : 'window', thumb: s.thumbnail && !s.thumbnail.isEmpty() ? s.thumbnail.toDataURL() : '', icon: s.appIcon && !s.appIcon.isEmpty() ? s.appIcon.toDataURL() : '' })) });
+    });
+  }
+  // (1.9.0) Devices: serial (including serial over Bluetooth, which apps for earbuds like ear (web) use), USB and HID.
+  // The site asks for a list; Oto shows its own picker; only the device you pick is given to that site (see devicePick).
+  const frameWc = (frame) => { try { return frame ? webContents.fromFrame(frame) : null; } catch { return null; } };
+  ses.on('select-serial-port', (event, portList, wc, callback) => {
+    event.preventDefault();
+    const origin = originOf((wc && wc.getURL()) || '');
+    devicePick('serial', wc, origin, (portList || []).map((d) => ({ id: String(d.portId), key: String(d.deviceInstanceId || d.portId),
+      name: String(d.displayName || d.portName || 'Serial device'), detail: [d.portName, d.usbDriverName || (d.vendorId ? 'USB' : '')].filter(Boolean).join(' · ') })), callback);
+  });
+  ses.on('select-hid-device', (event, details, callback) => {
+    event.preventDefault();
+    const wc = frameWc(details && details.frame), origin = originOf((details && details.frame && details.frame.url) || (wc && wc.getURL()) || '');
+    devicePick('hid', wc, origin, ((details && details.deviceList) || []).map((d) => ({ id: String(d.deviceId), key: String(d.deviceId),
+      name: String(d.name || 'HID device'), detail: d.vendorId ? `ID ${Number(d.vendorId).toString(16).padStart(4, '0')}:${Number(d.productId || 0).toString(16).padStart(4, '0')}` : '' })), callback);
+  });
+  ses.on('select-usb-device', (event, details, callback) => {
+    event.preventDefault();
+    const wc = frameWc(details && details.frame), origin = originOf((details && details.frame && details.frame.url) || (wc && wc.getURL()) || '');
+    devicePick('usb', wc, origin, ((details && details.deviceList) || []).map((d) => ({ id: String(d.deviceId), key: String(d.deviceId),
+      name: String(d.productName || 'USB device'), detail: String(d.manufacturerName || '') })), callback);
+  });
+  // A device you picked stays given to that site until Oto closes (getPorts / getDevices find it again); nothing is saved.
+  if (ses.setDevicePermissionHandler) {
+    ses.setDevicePermissionHandler((details) => {
+      const kind = details && details.deviceType, d = (details && details.device) || {};
+      if (!DEVICE_KINDS.has(kind)) return false;
+      const origin = originOf(details.origin || '');
+      if (permDecide(origin, kind) === false) return false;
+      const key = String(kind === 'serial' ? (d.deviceInstanceId || d.portId) : d.deviceId);
+      return deviceGrants.has(`${origin}|${kind}|${key}`);
     });
   }
   { // "Block cookies" for a site works in every Space's cookie jar, not just the main one
@@ -1181,6 +1243,25 @@ function setupIPC(ses) {
   SH.setupShieldIPC();
   VPN.setupIPC(ipcMain);
   FEEDBACK.setupIPC(ipcMain);
+  // (1.9.0) Classic Roblox's old ads: random pictures from the Roblox Wiki's ad gallery (main/roblox-ads.js)
+  let rbxAds = null;
+  ipcMain.handle('rbx:ads', async () => {
+    if (!rbxAds) {
+      const ses = session.fromPartition(PARTITION);
+      rbxAds = require('./main/roblox-ads.js').createRobloxAds({ dir: path.join(app.getPath('userData'), 'roblox-ads'), fetch: (u) => ses.fetch(u, { credentials: 'omit' }) });
+    }
+    try { return await rbxAds.pick(); } catch { return { sky1: null, sky2: null, board: null, rect: null }; }
+  });
+  ipcMain.on('device:reply', (_e, id, deviceId) => {
+    const p = devicePicks.get(id);
+    if (!p) return;
+    devicePicks.delete(id); clearTimeout(p.timer); p.cleanup();
+    const d = typeof deviceId === 'string' && deviceId ? p.devices.find((x) => x.id === deviceId) : null;
+    let still = true; try { still = !p.wc || (!p.wc.isDestroyed() && originOf(p.wc.getURL()) === p.origin); } catch { still = false; }
+    if (!d || !still) { try { p.callback(''); } catch {} return; }
+    deviceGrants.add(`${p.origin}|${p.kind}|${d.key || d.id}`);
+    try { p.callback(d.id); } catch {}
+  });
   ipcMain.on('screen:reply', (_e, id, sourceId, audio) => {
     const p = screenPicks.get(id);
     if (!p) return;

@@ -26,6 +26,8 @@ function h(tag, attrs = {}, ...kids) {
 
 const ICONS = {
   back: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
+  bluetooth: '<path d="m7 7 10 10-5 5V2l5 5L7 17"/>',
+  plug: '<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0zM12 17v5"/>',
   fwd: '<path d="M5 12h14M12 5l7 7-7 7"/>',
   reload: '<path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',

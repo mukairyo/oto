@@ -241,3 +241,19 @@ body.skin-rt .ver-grid small { color: var(--rt-fg3); }
 #amb-wash { position: fixed; inset: 0; z-index: 46; pointer-events: none; opacity: 0; transition: opacity .6s ease; mix-blend-mode: color; overflow: hidden; }
 #amb-wash.on { opacity: var(--af-a, .7); }
 @media (prefers-reduced-motion: reduce) { #amb-frame, #amb-wash { transition: none; } }
+/* (1.9.0) device picker: Bluetooth, serial, USB, HID */
+.v1-dev { width: min(560px, calc(100vw - 48px)); }
+.v1-dev .dv-list { display: flex; flex-direction: column; gap: 6px; overflow: auto; min-height: 140px; max-height: 340px; padding: 2px; }
+.v1-dev .dv-item { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border: 0; border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--k-line); color: var(--k-fg); text-align: left; cursor: pointer; font: inherit; }
+.v1-dev .dv-item:hover { box-shadow: inset 0 0 0 1px var(--k-line2); }
+.v1-dev .dv-item.on { box-shadow: inset 0 0 0 2px var(--k-cream); }
+.v1-dev .dv-item .ic svg { width: 18px; height: 18px; display: block; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+.v1-dev .dv-item .nm { display: flex; flex-direction: column; min-width: 0; }
+.v1-dev .dv-item .nm b { font-weight: 500; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v1-dev .dv-item .nm small { margin-top: 2px; font: 500 9.5px var(--k-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--k-fg3); }
+.v1-dev .dv-empty { display: flex; align-items: center; gap: 12px; padding: 22px 14px; color: var(--k-fg2); font-size: 13px; line-height: 1.5; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--k-line); }
+.v1-dev .dv-spin { flex: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--k-line2); border-top-color: var(--k-fg); animation: dvSpin .9s linear infinite; }
+@keyframes dvSpin { to { transform: rotate(360deg); } }
+.v1-dev .dv-note { color: var(--k-fg3); font-size: 12px; }
+body.space-home .v1-dev .dv-item.on { box-shadow: inset 0 0 0 1px rgba(255,255,255,.55), 0 0 16px rgba(255,255,255,.1); background: rgba(255,255,255,.06); }
+@media (prefers-reduced-motion: reduce) { .v1-dev .dv-spin { animation: none; } }

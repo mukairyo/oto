@@ -435,3 +435,17 @@ body.space-home #library .lib-main.sl-rise > * { animation: sbRise .75s cubic-be
 body.space-home #library .lib-main.sl-rise > .lib-body { animation-delay: 60ms; }
 @media (prefers-reduced-motion: reduce) { #sbLib.rise > *, body.space-home.sb-lib-out #sbLib > *, body.space-home.sb-lib-back #sidebar > *, body.space-home #library .lib-main.sl-rise > *, body.space-home.sb-lib-grow #sidebar, body.space-home.sb-lib-shrink #sidebar { animation: none !important; } }
 body.reduce-motion #sbLib.rise > *, body.reduce-motion.sb-lib-out #sbLib > *, body.reduce-motion.sb-lib-back #sidebar > *, body.reduce-motion #library .lib-main.sl-rise > * { animation: none !important; }
+
+/* ================================================================ the tab's sound icon in the sidebar's style (1.9.0):
+   thin white bars in a hairline box, "MUTE" in mono on hover — no cream */
+body.space-home .tab .audio { width: auto !important; min-width: 22px; height: 18px !important; padding: 0 5px; border-radius: 3px !important; background: none !important;
+  color: rgba(236, 232, 225, .72) !important; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); }
+body.space-home .tab .audio:hover { background: rgba(255, 255, 255, .08) !important; color: #fff !important; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .4); }
+body.space-home .tab .audio svg.i { width: 12px !important; height: 12px !important; }
+body.space-home .tab .audio .v1-wave { gap: 1.5px; height: 10px; }
+body.space-home .tab .audio .v1-wave i { width: 1.5px; border-radius: 0; background: currentColor; }
+body.space-home .tab .audio.playing { color: #fff !important; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .3), 0 0 10px rgba(255, 255, 255, .08); }
+body.space-home .tab .audio.playing:hover::after { content: 'MUTE'; font: 500 8.5px/1 'JetBrains Mono', Consolas, monospace; letter-spacing: .16em; }
+body.space-home .tab.active .audio { color: #fff !important; }
+body.space-home .tab .audio .v1-wave i { animation-name: shTabWave; }
+@keyframes shTabWave { 0%, 100% { height: 3px; } 50% { height: 10px; } }

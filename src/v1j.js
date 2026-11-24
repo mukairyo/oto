@@ -651,6 +651,50 @@ function v1ScreenPick(p) {
   }
 }
 
+// (1.9.0) Device picker: a site wants a Bluetooth, serial, USB or HID device. You pick one (or cancel); only that one
+// is given to the site, until Oto closes. Bluetooth lists fill in as devices are found.
+const DEV = { open: null, queue: [] };
+const DEV_WORDS = {
+  bluetooth: ['BLUETOOTH', 'a Bluetooth device', 'Looking for Bluetooth devices… Make sure the device is on and close by.'],
+  serial: ['SERIAL', 'a device', 'No devices yet. For earbuds and other Bluetooth gadgets, pair them in Windows Bluetooth settings first, then try again.'],
+  usb: ['USB', 'a USB device', 'No USB devices found. Plug the device in, then try again.'],
+  hid: ['HID', 'a controller, keyboard or other HID device', 'No devices found. Plug the device in, then try again.'],
+};
+function v1DevicePick(p) {
+  if (DEV.open) { DEV.queue.push(p); return; }
+  const host = hostOf(p.origin) || 'This site';
+  const w = DEV_WORDS[p.kind] || DEV_WORDS.serial;
+  let devices = p.devices || [], sel = null;
+  const layer = v1Layer(() => done(null));
+  const list = h('div', { class: 'dv-list', role: 'listbox', 'aria-label': 'Devices' });
+  const go = h('button', { class: 'pri', disabled: true, onclick: () => done(sel) });
+  go.textContent = 'CONNECT';
+  const paint = () => {
+    if (sel && !devices.some((d) => d.id === sel)) sel = null;
+    list.replaceChildren(...(devices.length ? devices.map((d) => h('button', { class: `dv-item${sel === d.id ? ' on' : ''}`, role: 'option', 'aria-selected': sel === d.id ? 'true' : 'false',
+      onclick: () => { sel = d.id; paint(); }, ondblclick: () => done(d.id) },
+    h('span', { class: 'ic', html: icon(p.kind === 'bluetooth' || /bluetooth/i.test(d.detail + d.name) ? 'bluetooth' : 'plug') }),
+    h('span', { class: 'nm' }, h('b', {}, d.name), d.detail ? h('small', {}, d.detail) : null))) : [h('div', { class: 'dv-empty' }, p.kind === 'bluetooth' ? h('span', { class: 'dv-spin', 'aria-hidden': 'true' }) : null, h('span', {}, w[2]))]));
+    go.disabled = !sel;
+  };
+  const box = h('div', { class: 'v1-scr v1-dev enter' },
+    h('div', { class: 'sh-crumb' }, h('i', {}), h('b', {}, '音'), h('span', {}, `CONNECT / ${w[0]}`), h('em', {})),
+    h('h1', {}, 'Connect a device'),
+    h('p', { class: 'sub' }, h('b', {}, host), ` wants to connect to ${w[1]}. Pick one, and only that one is shared with this site until you close Oto.`),
+    list,
+    h('div', { class: 'sc-foot' }, h('span', { class: 'dv-note' }, 'Only connect devices you trust this site with.'), h('button', { onclick: () => done(null) }, 'CANCEL'), go));
+  layer.append(box);
+  DEV.open = { id: p.id, layer, update: (d) => { devices = d || []; paint(); } };
+  paint();
+  function done(deviceId) {
+    if (!DEV.open) return;
+    oto.replyDevice(p.id, deviceId || '');
+    layer.remove(); DEV.open = null;
+    if (deviceId) { const d = devices.find((x) => x.id === deviceId); toast(`Connected ${d ? d.name : 'the device'} to ${host}`, { icon: 'plug', timeout: 2600 }); }
+    const next = DEV.queue.shift(); if (next) v1DevicePick(next);
+  }
+}
+
 function initV1j() {
   // A stopped page load looks like "cancelled" to the tab, so show the warning page ourselves.
   oto.on('danger', (d) => {
@@ -682,6 +726,9 @@ function initV1j() {
     } } });
   });
   oto.on('screen:pick', (p) => v1ScreenPick(p));
+  oto.on('device:pick', (p) => v1DevicePick(p));
+  oto.on('device:update', (u) => { if (DEV.open && u && DEV.open.id === u.id) DEV.open.update(u.devices); else { const q = DEV.queue.find((x) => x.id === (u && u.id)); if (q) q.devices = u.devices; } });
+  oto.on('device:cancel', (id) => { if (DEV.open && DEV.open.id === id) { DEV.open.layer.remove(); DEV.open = null; const next = DEV.queue.shift(); if (next) v1DevicePick(next); } else DEV.queue = DEV.queue.filter((x) => x.id !== id); });
   oto.on('screen:cancel', (id) => { if (SCR.open && SCR.open.id === id) { SCR.open.layer.remove(); SCR.open = null; } SCR.queue = SCR.queue.filter((x) => x.id !== id); });
   Object.assign(ICONS, SHP_ICONS);
   // YouTube switches on every YouTube page

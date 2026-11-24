@@ -384,3 +384,5 @@ body.rail:not(.rail-open) .v1-upd { display: none; }
 /* the Ctrl L hint only when there's room (hover) */
 body.v1 .url-pill .v1-kbd { display: none; }
 body.v1 .url-pill:hover .v1-kbd { display: inline; }
+/* (1.9.0) the bars follow the real sound (src/oto-space.js spaceBarsPaint) */
+.v1-wave.live i { animation: none !important; transition: height 60ms linear; }
