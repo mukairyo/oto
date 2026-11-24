@@ -81,9 +81,11 @@ module.exports = async (t) => {
   await t.js('(closeLibrary(), 1)');
   a = await J("return V1_LEVELS.map((l) => { const s = spacePlanet(l.id, 40); return /<svg/.test(s) && s.length > 200; });");
   t.check('every level has its own planet (moon to galaxy)', Array.isArray(a) && a.length === 6 && a.every(Boolean), JSON.stringify(a));
-  // (1.9.1) Battery saver's "fewer animations" stops the orbit star instead of spinning it a thousand times a second
-  a = await J(`const was = S.settings.v1Saver, b = document.querySelector('#shSky .orbit b'), st = () => { const c = getComputedStyle(b); return [c.animationName, c.animationIterationCount]; };
+  // (1.9.1) Battery saver's "fewer animations" stops looping animations (like the orbit star) instead of spinning them a
+  // thousand times a second. Tried on an element of its own: the orbit star is already still when the PC asks for less motion.
+  a = await J(`const was = S.settings.v1Saver, b = document.body.appendChild(document.createElement('i'));
+    b.style.cssText = 'position:fixed;width:1px;height:1px;animation:shOrbit 46s linear infinite'; const st = () => getComputedStyle(b).animationIterationCount;
     const off = st(); S.settings.v1Saver = 'on'; v1ApplySaver(); const on = st(), cls = document.body.classList.contains('v1-saver');
-    S.settings.v1Saver = was; v1ApplySaver(); return { off, on, cls };`);
-  t.check('Battery saver stops the orbit star (plays once) rather than racing it round', a.cls && a.off[0] === 'shOrbit' && a.off[1] === 'infinite' && a.on[1] === '1', JSON.stringify(a));
+    S.settings.v1Saver = was; v1ApplySaver(); b.remove(); return { off, on, cls };`);
+  t.check('Battery saver stops looping animations like the orbit star (they play once) rather than racing them round', a.cls && a.off === 'infinite' && a.on === '1', JSON.stringify(a));
 };
