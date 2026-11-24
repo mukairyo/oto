@@ -244,14 +244,36 @@ const rbxPic = (u) => (typeof u === 'string' && /^data:image\/(png|jpeg|gif|webp
 async function rbxAdPics() {
   try { const r = (typeof oto !== 'undefined' && oto.rbxAds) ? await oto.rbxAds() : null; return r ? { sky1: rbxPic(r.sky1), sky2: rbxPic(r.sky2), board: rbxPic(r.board), rect: rbxPic(r.rect) } : {}; } catch { return {}; }
 }
+// The look goes on the moment a page is ready and never waits for anything from the web (1.9.1). Before, it waited
+// for the ad pictures from the Roblox Wiki; when the Wiki was slow or never answered, roblox.com stayed as it is today
+// until Settings put the look on again. Now the ads start as Oto's own drawings (or the pictures from the last page)
+// and the gallery pictures swap in when they come, within 10 seconds or not at all.
+const rbxWait = (p, ms, fallback) => Promise.race([Promise.resolve(p).catch(() => fallback), new Promise((r) => setTimeout(() => r(fallback), ms))]);
+let rbxAdsCache = null;
+// put a style sheet in, then take the old one out (no flash); '' just takes it out
+async function rbxSwap(v, k, css) {
+  let key = null;
+  if (css) { try { key = await v.wv.insertCSS(css); } catch {} }
+  const old = v[k]; v[k] = key;
+  if (old) { try { await v.wv.removeInsertedCSS(old); } catch {} }
+}
 async function rbxApply(v) {
   if (!v || !v.wv) return;
   let url = '';
   try { url = v.wv.getURL(); } catch { return; }
-  if (v.rbxKey) { try { await v.wv.removeInsertedCSS(v.rbxKey); } catch {} v.rbxKey = null; }
-  if (!RBX_HOST.test(url) || !rbxOn()) return;
-  const ads = rbxAdsOn() ? RBX_ADS_CSS(await rbxAdPics()) : '';
-  try { if (v.rbxKey) { await v.wv.removeInsertedCSS(v.rbxKey); v.rbxKey = null; } v.rbxKey = await v.wv.insertCSS((await rbxFonts()) + rbxCss(rbxYear()) + ads); } catch {}
+  const run = v.rbxRun = (v.rbxRun || 0) + 1; // a newer run (next page, a setting changed) wins
+  if (!RBX_HOST.test(url) || !rbxOn()) { await rbxSwap(v, 'rbxKey', ''); await rbxSwap(v, 'rbxAdsKey', ''); return; }
+  const fonts = await rbxWait(rbxFonts(), 1500, '');
+  if (run !== v.rbxRun) return;
+  await rbxSwap(v, 'rbxKey', fonts + rbxCss(rbxYear()));
+  if (!fonts) rbxFonts().then((f) => { if (f && run === v.rbxRun) rbxSwap(v, 'rbxKey', f + rbxCss(rbxYear())); }); // the font came late
+  if (!rbxAdsOn()) { await rbxSwap(v, 'rbxAdsKey', ''); return; }
+  const had = rbxAdsCache;
+  await rbxSwap(v, 'rbxAdsKey', RBX_ADS_CSS(had || {}));
+  const pics = await rbxWait(rbxAdPics(), 10000, {});
+  if (!Object.values(pics).some(Boolean)) return;
+  rbxAdsCache = pics; // new pictures for the next page
+  if (!had && run === v.rbxRun && rbxAdsOn()) await rbxSwap(v, 'rbxAdsKey', RBX_ADS_CSS(pics));
 }
 function rbxRefresh() { for (const v of V.values()) if (v && v.ready) rbxApply(v); }
 let rbxReady = false;
@@ -261,7 +283,7 @@ function initRobloxClassic() {
   const _bind = bindView;
   bindView = function (tab, v) {
     _bind.apply(this, arguments);
-    try { v.wv.addEventListener('dom-ready', () => { v.rbxKey = null; rbxApply(v); }); } catch {}
+    try { v.wv.addEventListener('dom-ready', () => { v.rbxKey = null; v.rbxAdsKey = null; rbxApply(v); }); } catch {} // a new page starts without our sheets
   };
   rbxFonts(); // read the font once, early
 }

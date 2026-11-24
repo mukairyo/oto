@@ -24,6 +24,13 @@ module.exports = async (t) => {
       fixed: /var\\(--rbx-w,970px\\)/.test(on), bad: [rbxPic('javascript:alert(1)'), rbxPic('https://x.example/a.png'), rbxPic('data:text/html;base64,PHNjcmlwdD4=')].every((x) => x === null), ok: rbxPic(png) === png, adsOn: rbxAdsOn() };`);
   t.check('the old ads: four places (two tall, a banner, a box), only pictures that go nowhere, gallery pictures or Oto’s own drawings, nothing loaded from the web by the page',
     a.places >= 3 && a.noLinks && a.drawn && a.pics === 4 && a.fixed && a.bad && a.ok && a.adsOn, JSON.stringify(a));
+  // (1.9.1) the look goes on by itself the moment a page is ready, even when the ad pictures never come
+  await t.js("(window.__rbxHost = RBX_HOST.test, RBX_HOST.test = (u) => /^http:\\/\\/roblox\\.site\\//.test(u), window.__rbxPics = rbxAdPics, rbxAdPics = () => new Promise(() => {}), S.settings.rbxYear = 2011, 1)");
+  await t.open('http://roblox.site/', 1200);
+  a = await t.js(`(async () => { const v = V.get(activeTab().id); return await v.wv.executeJavaScript("JSON.stringify({ bg: getComputedStyle(document.body).backgroundColor, w: getComputedStyle(document.getElementById('content')).maxWidth, ad: getComputedStyle(document.getElementById('content'), '::before').backgroundImage.slice(0, 30) })"); })()`);
+  a = JSON.parse(a);
+  t.check('Classic Roblox goes on by itself when roblox.com opens, in the year picked, even when the Wiki’s ad pictures never come (Oto’s drawn ads stand in)', a.bg === 'rgb(0, 4, 68)' && a.w === '900px' && /^url\("data:image\/svg/.test(a.ad), JSON.stringify(a));
+  await t.js("(RBX_HOST.test = window.__rbxHost, rbxAdPics = window.__rbxPics, S.settings.rbxYear = 2016, 1)");
   await t.js("(openSettings('appearance'), 1)"); await t.sleep(300);
   a = await J("const r = [...document.querySelectorAll('#settings .set-row')].find((x) => /Classic Roblox/.test(x.textContent)); return { row: !!r, on: !!(r && r.querySelector('.switch.on')) };");
   t.check('Settings › Appearance has a Classic Roblox switch (on)', a.row && a.on, JSON.stringify(a));

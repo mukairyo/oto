@@ -12,6 +12,9 @@ const { execFileSync } = require('child_process');
 
 const page = (title, body) => `<!doctype html><meta charset="utf-8"><title>${title}</title><body style="font:15px sans-serif;padding:30px">${body}</body>`;
 const SITES = {
+  // stand-ins for roblox.com and youtube.com (the suites point Classic Roblox / YouTube in Oto's look at them)
+  'roblox.site': () => '<!doctype html><meta charset="utf-8"><title>Roblox</title><body class="rbx-body light-theme"><div id="header" class="rbx-header">Charts</div><div id="wrap" class="wrap no-gutter-ads logged-out"><main class="container-main"><div id="content" class="content"><h1>Charts</h1></div></main></div></body>',
+  'tube.site': () => '<!doctype html><html dark><meta charset="utf-8"><title>YouTube</title><body><ytd-app><div id="content">Home</div></ytd-app></body></html>',
   'news.site': () => page('News', `<h1>News</h1><p>Normal page with trackers.</p>
     <script src="http://tracker.site/analytics.js"></script><img src="http://tracker.site/collect?v=1">`),
   'fine.site': () => page('Fine', '<h1>A normal site</h1><a id="dl" href="/report.pdf" download>report</a> <a id="nt" href="/slow.bin" target="_blank">get the file</a>'),

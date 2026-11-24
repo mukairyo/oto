@@ -15,6 +15,12 @@ module.exports = async (t) => {
   t.check('…laid out like Oto: its space badge for the logo, the start page’s search box, numbered hairline cards for results, the channel card without YouTube’s banner glow', Object.values(a).every(Boolean), JSON.stringify(a));
   const fonts = await t.js('ytsFonts()');
   t.check('…with Instrument Serif and JetBrains Mono (4 faces) handed to the page inline', (fonts.match(/@font-face/g) || []).length === 4 && (fonts.match(/data:font\/woff2;base64,/g) || []).length === 4, String(fonts).slice(0, 80));
+  // (1.9.1) on by itself the moment a YouTube page is ready
+  await t.js("(window.__ytsHost = YTS_HOST.test, YTS_HOST.test = (u) => /^http:\\/\\/tube\\.site\\//.test(u), 1)");
+  await t.open('http://tube.site/', 1200);
+  a = JSON.parse(await t.js(`(async () => { const v = V.get(activeTab().id); return await v.wv.executeJavaScript("JSON.stringify({ bg: getComputedStyle(document.documentElement).backgroundColor, stars: /radial-gradient/.test(getComputedStyle(document.documentElement).backgroundImage) })"); })()`));
+  t.check('…and goes on by itself when YouTube opens', a.bg === 'rgb(11, 11, 12)' && a.stars, JSON.stringify(a));
+  await t.js("(YTS_HOST.test = window.__ytsHost, 1)");
   await t.js("(openSettings('appearance'), 1)"); await t.sleep(300);
   a = await J("const r = [...document.querySelectorAll('#settings .set-row')].find((x) => /YouTube in Oto/.test(x.textContent)); return { row: !!r, on: !!(r && r.querySelector('.switch.on')) };");
   t.check('Settings › Appearance › Websites has a switch for it (on)', a.row && a.on, JSON.stringify(a));

@@ -1248,7 +1248,7 @@ function setupIPC(ses) {
   ipcMain.handle('rbx:ads', async () => {
     try { return await rbxAdsMod().pick(); } catch { return { sky1: null, sky2: null, board: null, rect: null }; }
   });
-  const rbxAdsMod = () => { if (!rbxAds) { const ses = session.fromPartition(PARTITION); rbxAds = require('./main/roblox-ads.js').createRobloxAds({ dir: path.join(app.getPath('userData'), 'roblox-ads'), fetch: (u) => ses.fetch(u, { credentials: 'omit' }) }); } return rbxAds; };
+  const rbxAdsMod = () => { if (!rbxAds) { const ses = session.fromPartition(PARTITION); rbxAds = require('./main/roblox-ads.js').createRobloxAds({ dir: path.join(app.getPath('userData'), 'roblox-ads'), fetch: (u) => ses.fetch(u, { credentials: 'omit', signal: AbortSignal.timeout(8000) }) }); } return rbxAds; };
   ipcMain.handle('rbx:adsInfo', () => { try { return rbxAdsMod().counts(); } catch { return { total: 0, sky: 0, board: 0, rect: 0 }; } });
   // your own ad pictures: a zip or a folder you pick in Oto's own dialog (the page never hands over a path)
   ipcMain.handle('rbx:adsImport', async (e) => {

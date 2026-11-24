@@ -200,13 +200,21 @@ tp-yt-paper-tooltip #tooltip,.ytp-tooltip-text{background:${C.cream}!important;c
 `;
 }
 
+// on the moment a page is ready (the fonts are Oto's own files; it never waits more than 1.5 s for them)
 async function ytsApply(v) {
   if (!v || !v.wv) return;
   let url = '';
   try { url = v.wv.getURL(); } catch { return; }
-  if (v.ytsKey) { try { await v.wv.removeInsertedCSS(v.ytsKey); } catch {} v.ytsKey = null; }
-  if (!YTS_HOST.test(url) || !ytsOn()) return;
-  try { const k = await v.wv.insertCSS((await ytsFonts()) + ytsCss()); if (v.ytsKey) await v.wv.removeInsertedCSS(v.ytsKey); v.ytsKey = k; } catch {}
+  const run = v.ytsRun = (v.ytsRun || 0) + 1;
+  let key = null;
+  if (YTS_HOST.test(url) && ytsOn()) {
+    const fonts = ytsFontCss !== null ? ytsFontCss : await Promise.race([ytsFonts(), new Promise((r) => setTimeout(() => r(''), 1500))]);
+    if (run !== v.ytsRun) return;
+    try { key = await v.wv.insertCSS(fonts + ytsCss()); } catch {}
+    if (!fonts) ytsFonts().then((f) => { if (f && run === v.ytsRun) ytsApply(v); }); // the fonts came late: put them in too
+  }
+  const old = v.ytsKey; v.ytsKey = key; // put the new sheet in first, then take the old one out: no flash
+  if (old) { try { await v.wv.removeInsertedCSS(old); } catch {} }
 }
 function ytsRefresh() { for (const v of V.values()) if (v && v.ready) ytsApply(v); }
 let ytsReady = false;
