@@ -5,7 +5,7 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 
 ## 1.9.2 — Site themes stay on
 
-- **Classic Roblox and YouTube in Oto's look stay on:** going from Roblox Home to Profile, Messages or Communities sometimes brought up today's Roblox, and the look only came back after you changed something in Settings. YouTube could do the same. Each themed page now carries a small marker. A moment after every page change and every finished load, Oto checks for it and puts the look back by itself, usually before you notice.
+- **Classic Roblox and YouTube in Oto's look stay on:** going from Roblox Home to Profile, Messages or Communities sometimes brought up today's Roblox, and the look only came back after you changed something in Settings. YouTube could do the same. Each themed page now carries a small marker. A moment after every page change and every finished load, Oto checks for it and puts the look back by itself, usually before you notice. Changes to a tab's theme also run one at a time now: before, an older, slower one could take out the look a newer one had just put on.
 
 ## 1.9.1 — YouTube in Oto's look, and Roblox's menu fits the year
 

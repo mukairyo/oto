@@ -201,30 +201,32 @@ tp-yt-paper-tooltip #tooltip,.ytp-tooltip-text{background:${C.cream}!important;c
 `;
 }
 
-// on the moment a page is ready (the fonts are Oto's own files; it never waits more than 1.5 s for them)
-async function ytsApply(v) {
+// On the moment a page is ready, never waiting for the fonts (they're added when read). Every change to a tab's sheet
+// runs one at a time, in order (1.9.2): before, an older, slower run could take out the sheet a newer one had just put
+// in, and the page stayed as plain YouTube.
+function ytsQueue(v, fn) { v.ytsQ = (v.ytsQ || Promise.resolve()).then(fn).catch((e) => { v.ytsErr = String((e && e.message) || e); }); return v.ytsQ; }
+async function ytsApplyNow(v) {
   if (!v || !v.wv) return;
   let url = '';
   try { url = v.wv.getURL(); } catch { return; }
-  const run = v.ytsRun = (v.ytsRun || 0) + 1;
+  const want = YTS_HOST.test(url) && ytsOn();
   let key = null;
-  if (YTS_HOST.test(url) && ytsOn()) {
-    const fonts = ytsFontCss !== null ? ytsFontCss : await Promise.race([ytsFonts(), new Promise((r) => setTimeout(() => r(''), 1500))]);
-    if (run !== v.ytsRun) return;
-    try { key = await v.wv.insertCSS(fonts + ytsCss()); } catch {}
-    if (!fonts) ytsFonts().then((f) => { if (f && run === v.ytsRun) ytsApply(v); }); // the fonts came late: put them in too
-  }
-  const old = v.ytsKey; v.ytsKey = key; // put the new sheet in first, then take the old one out: no flash
+  if (want) { try { key = await v.wv.insertCSS((ytsFontCss || '') + ytsCss()); } catch (e) { v.ytsErr = String((e && e.message) || e); } }
+  const old = v.ytsKey; v.ytsKey = key; // the new sheet goes in first, then the old one comes out: no flash
   if (old) { try { await v.wv.removeInsertedCSS(old); } catch {} }
+  if (want && ytsFontCss === null) ytsFonts().then((f) => { if (f) ytsApply(v); });
 }
-async function ytsCheck(v) {
-  if (!v || !v.wv || !ytsOn()) return;
-  let url = '';
-  try { url = v.wv.getURL(); } catch { return; }
-  if (!YTS_HOST.test(url)) return;
-  let mark = '';
-  try { mark = await v.wv.executeJavaScript("getComputedStyle(document.documentElement).getPropertyValue('--oto-yts').trim()"); } catch { return; }
-  if (String(mark) !== '1') { v.ytsKey = null; ytsApply(v); }
+function ytsApply(v) { return ytsQueue(v, () => ytsApplyNow(v)); }
+function ytsCheck(v) {
+  return ytsQueue(v, async () => {
+    if (!v || !v.wv || !ytsOn()) return;
+    let url = '';
+    try { url = v.wv.getURL(); } catch { return; }
+    if (!YTS_HOST.test(url)) return;
+    let mark = '';
+    try { mark = await v.wv.executeJavaScript("getComputedStyle(document.documentElement).getPropertyValue('--oto-yts').trim()"); } catch (e) { v.ytsErr = String((e && e.message) || e); }
+    if (String(mark) !== '1') { v.ytsKey = null; await ytsApplyNow(v); }
+  });
 }
 function ytsRefresh() { for (const v of V.values()) if (v && v.ready) ytsApply(v); }
 let ytsReady = false;

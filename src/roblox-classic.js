@@ -250,43 +250,54 @@ async function rbxAdPics() {
 // until Settings put the look on again. Now the ads start as Oto's own drawings (or the pictures from the last page)
 // and the gallery pictures swap in when they come, within 10 seconds or not at all.
 const rbxWait = (p, ms, fallback) => Promise.race([Promise.resolve(p).catch(() => fallback), new Promise((r) => setTimeout(() => r(fallback), ms))]);
-let rbxAdsCache = null;
-// put a style sheet in, then take the old one out (no flash); '' just takes it out
-async function rbxSwap(v, k, css) {
+let rbxAdsCache = null, rbxPicsBusy = false;
+// Every change to a tab's sheets runs one at a time, in order (1.9.2). Before, two runs could overlap (a page change,
+// the safety net, the late font, the ad pictures) and a slower, older one could take out the sheet a newer one had just
+// put in, leaving the page without the look.
+function rbxQueue(v, fn) { v.rbxQ = (v.rbxQ || Promise.resolve()).then(fn).catch((e) => { v.rbxErr = String((e && e.message) || e); }); return v.rbxQ; }
+// put a sheet in, then take the old one out (no flash); '' just takes it out
+async function rbxSwapNow(v, k, css) {
   let key = null;
-  if (css) { try { key = await v.wv.insertCSS(css); } catch {} }
+  if (css) { try { key = await v.wv.insertCSS(css); } catch (e) { v.rbxErr = String((e && e.message) || e); } }
   const old = v[k]; v[k] = key;
   if (old) { try { await v.wv.removeInsertedCSS(old); } catch {} }
 }
-async function rbxApply(v) {
+// The look goes on the moment a page is ready and never waits for anything: not the Roblox Wiki's ad pictures (they
+// swap in when they come, within 10 seconds or not at all) and not the font (added when it's read).
+async function rbxApplyNow(v) {
   if (!v || !v.wv) return;
   let url = '';
   try { url = v.wv.getURL(); } catch { return; }
-  const run = v.rbxRun = (v.rbxRun || 0) + 1; // a newer run (next page, a setting changed) wins
-  if (!RBX_HOST.test(url) || !rbxOn()) { await rbxSwap(v, 'rbxKey', ''); await rbxSwap(v, 'rbxAdsKey', ''); return; }
-  const fonts = await rbxWait(rbxFonts(), 1500, '');
-  if (run !== v.rbxRun) return;
-  await rbxSwap(v, 'rbxKey', fonts + rbxCss(rbxYear()));
-  if (!fonts) rbxFonts().then((f) => { if (f && run === v.rbxRun) rbxSwap(v, 'rbxKey', f + rbxCss(rbxYear())); }); // the font came late
-  if (!rbxAdsOn()) { await rbxSwap(v, 'rbxAdsKey', ''); return; }
-  const had = rbxAdsCache;
-  await rbxSwap(v, 'rbxAdsKey', RBX_ADS_CSS(had || {}));
-  const pics = await rbxWait(rbxAdPics(), 10000, {});
-  if (!Object.values(pics).some(Boolean)) return;
-  rbxAdsCache = pics; // new pictures for the next page
-  if (!had && run === v.rbxRun && rbxAdsOn()) await rbxSwap(v, 'rbxAdsKey', RBX_ADS_CSS(pics));
+  const want = RBX_HOST.test(url) && rbxOn();
+  await rbxSwapNow(v, 'rbxKey', want ? (rbxFontCss || '') + rbxCss(rbxYear()) : '');
+  await rbxSwapNow(v, 'rbxAdsKey', want && rbxAdsOn() ? RBX_ADS_CSS(rbxAdsCache || {}) : '');
+  if (!want) return;
+  if (rbxFontCss === null) rbxFonts().then((f) => { if (f) rbxApply(v); });
+  if (rbxAdsOn() && !rbxPicsBusy) {
+    const had = !!rbxAdsCache;
+    rbxPicsBusy = true;
+    rbxWait(rbxAdPics(), 10000, {}).then((pics) => {
+      rbxPicsBusy = false;
+      if (!Object.values(pics || {}).some(Boolean)) return;
+      rbxAdsCache = pics; // fresh pictures for the next page
+      if (!had) rbxApply(v); // the first page gets them as soon as they come
+    });
+  }
 }
+function rbxApply(v) { return rbxQueue(v, () => rbxApplyNow(v)); }
 // The look carries a marker (--oto-rbx: the year). If a page comes up without it (seen on real roblox.com when going
 // from Home to Profile, Messages or Communities: the page stayed as today's Roblox until Settings put the look on
 // again), the look goes back on by itself. Reading one style value is all this does in the page.
-async function rbxCheck(v) {
-  if (!v || !v.wv || !rbxOn()) return;
-  let url = '';
-  try { url = v.wv.getURL(); } catch { return; }
-  if (!RBX_HOST.test(url)) return;
-  let mark = '';
-  try { mark = await v.wv.executeJavaScript("getComputedStyle(document.documentElement).getPropertyValue('--oto-rbx').trim()"); } catch { return; }
-  if (String(mark) !== String(rbxYear())) { v.rbxKey = null; v.rbxAdsKey = null; rbxApply(v); }
+function rbxCheck(v) {
+  return rbxQueue(v, async () => {
+    if (!v || !v.wv || !rbxOn()) return;
+    let url = '';
+    try { url = v.wv.getURL(); } catch { return; }
+    if (!RBX_HOST.test(url)) return;
+    let mark = '';
+    try { mark = await v.wv.executeJavaScript("getComputedStyle(document.documentElement).getPropertyValue('--oto-rbx').trim()"); } catch (e) { v.rbxErr = String((e && e.message) || e); }
+    if (String(mark) !== String(rbxYear())) { v.rbxKey = null; v.rbxAdsKey = null; await rbxApplyNow(v); }
+  });
 }
 function rbxRefresh() { for (const v of V.values()) if (v && v.ready) rbxApply(v); }
 let rbxReady = false;
