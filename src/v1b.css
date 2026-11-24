@@ -40,7 +40,9 @@
 .v1-batt[hidden] { display: none; }
 .v1-batt svg.i { width: 14px; height: 14px; }
 body:has(.v1-batt:not([hidden])) .v1-title { display: none; }
-body.v1-saver *, body.v1-saver *::before, body.v1-saver *::after { animation-duration: .001s !important; transition-duration: .001s !important; }
+/* Fewer animations: everything jumps to its end. A looping animation (the star going round the orbit, twinkles,
+   spinners) plays once and stops: with only the short duration it looped a thousand times a second instead. */
+body.v1-saver *, body.v1-saver *::before, body.v1-saver *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
 
 /* 10 · loading line */
 body.v1:not(.skin-rt) #progress { height: 3px; background: linear-gradient(90deg, var(--accent), var(--v1-glow, #ec4899), #22d3ee) no-repeat; background-size: 45% 100%; box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 70%, transparent); border-radius: 0 3px 3px 0; }

@@ -6,6 +6,7 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 ## 1.9.1 — Roblox's menu fits the year
 
 - **Classic Roblox, signed in:** Roblox's left menu now matches the year you picked. From 2010 to 2014 it turns into the second bar under the top bar, where those links were back then. From 2015 to 2017 it's the narrow white column on the left. Before, it was a wide column on the page colour: in 2011 you couldn't read it, and it covered the left ad. The page gets its width back, and the side ads move so the menu never covers them.
+- **Battery saver:** turning it on no longer makes the star on the start page's orbit ring race round. "Fewer animations" squeezed every animation to almost no time, so ones that loop forever looped about a thousand times a second. Now they play once and stop.
 
 ## 1.9.0 — Devices, sound bars that dance, and classic Roblox
 
