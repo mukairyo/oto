@@ -466,6 +466,8 @@ function seg(options, value, onPick) {
   return h('div', { class: 'seg' }, ...options.map(([val, label]) =>
     h('button', { class: val === value ? 'on' : '', onclick: () => { onPick(val); renderSettings(); } }, label)));
 }
+// (1.9.0) how many ad pictures you imported for Classic Roblox (asked once when Settings opens)
+const RBX_ADS_INFO = { total: 0, sky: 0, board: 0, rect: 0, asked: false };
 function sw(on, onToggle) {
   return h('button', { class: `switch${on ? ' on' : ''}`, role: 'switch', 'aria-checked': String(on), onclick: () => { onToggle(!on); renderSettings(); } });
 }
@@ -532,6 +534,7 @@ const PAGE_RENDER = {
 
   appearance() {
     const st = S.settings;
+    if (!RBX_ADS_INFO.asked && oto.rbxAdsInfo) { RBX_ADS_INFO.asked = true; oto.rbxAdsInfo().then((r) => { if (r) { Object.assign(RBX_ADS_INFO, r); if (settingsTab === 'appearance') renderSettings(); } }).catch(() => {}); }
     return [
       section('Theme',
         row('Theme', 'Oto’s look: near-black, editorial, with serif headings, small mono labels and a cream highlight.', h('div', { class: 'skin-picks' }, ...Object.entries(SKINS).map(([k, l]) => h('button', {
@@ -544,7 +547,11 @@ const PAGE_RENDER = {
         row('Classic Roblox', 'Shows roblox.com the way it looked around 2015–2017: the bright blue top bar, Source Sans, white cards and green Play buttons.',
           sw(st.rbxClassic !== false, (on) => { setPref('rbxClassic', on); if (typeof rbxRefresh === 'function') rbxRefresh(); })),
         st.rbxClassic !== false ? row('Old ads in Classic Roblox', 'Retro ad boxes beside the page and on top, like back then. Just pictures of made-up games: they go nowhere.',
-          sw(st.rbxAds !== false, (on) => { setPref('rbxAds', on); if (typeof rbxRefresh === 'function') rbxRefresh(); })) : null),
+          sw(st.rbxAds !== false, (on) => { setPref('rbxAds', on); if (typeof rbxRefresh === 'function') rbxRefresh(); })) : null,
+        st.rbxClassic !== false && st.rbxAds !== false ? row('Ad pictures', RBX_ADS_INFO.total ? `Using your ${RBX_ADS_INFO.total} imported pictures (${RBX_ADS_INFO.sky} tall, ${RBX_ADS_INFO.board} banners, ${RBX_ADS_INFO.rect} boxes). They stay on this PC.` : 'Random ads from the Roblox Wiki’s ad gallery, fetched when needed. Or import your own pictures from a .zip or a folder.',
+          h('div', { class: 'set-btns' },
+            h('button', { class: 'btn', onclick: async () => { const r = await oto.rbxAdsImport(); if (!r) return; if (r.error) { toast(r.error, { icon: 'x' }); return; } Object.assign(RBX_ADS_INFO, r); toast(r.added ? `Imported ${r.added} ad pictures` : 'No new ad pictures found there', { icon: 'check' }); renderSettings(); if (typeof rbxRefresh === 'function') rbxRefresh(); } }, 'Import…'),
+            RBX_ADS_INFO.total ? h('button', { class: 'btn', onclick: async () => { const r = await oto.rbxAdsClear(); if (r) Object.assign(RBX_ADS_INFO, r); renderSettings(); if (typeof rbxRefresh === 'function') rbxRefresh(); } }, 'Remove') : null)) : null),
       section('Text & size',
         row('Interface font', 'Only changes Oto itself, not websites.', select(Object.entries(UI_FONTS).map(([k, f]) => [k, f[0]]), st.uiFont, setLook('uiFont'))),
         row('Interface size', null, slider(st.uiScale, 0.8, 1.3, 0.05, (v) => `${Math.round(v * 100)}%`, setLook('uiScale'))),

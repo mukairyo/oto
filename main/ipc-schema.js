@@ -46,7 +46,7 @@ const SCHEMAS = {
   // permissions and site data
   'perm:set': [str(9000), permVal],
   'perm:reply': [id, permVal],
-  'rbx:ads': [], // (1.9.0) no arguments: random pictures for Classic Roblox's ad places
+  'rbx:ads': [], 'rbx:adsInfo': [], 'rbx:adsImport': [], 'rbx:adsClear': [], // (1.9.0) no arguments: random pictures for Classic Roblox's ad places
   'device:reply': [id, optStr(512)], // (1.9.0) the device id must be one Oto offered in that picker
   'perm:reset': [optStr(9000)],
   'site:clear': [URL_],

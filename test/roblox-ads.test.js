@@ -46,3 +46,25 @@ test('something that is not a picture is refused', async () => {
   const p = await createRobloxAds({ dir, fetch }).pick();
   assert.strictEqual(p.sky1, null);
 });
+test('your own ad pictures: a zip is read in memory, only real pictures are kept (by their bytes), and then used instead of the wiki', async () => {
+  const AdmZip = require('adm-zip');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oto-rbx-'));
+  const pngOf = (w, h) => { const b = Buffer.alloc(64); Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(b, 0); b.writeUInt32BE(13, 8); b.write('IHDR', 12, 'latin1'); b.writeUInt32BE(w, 16); b.writeUInt32BE(h, 20); return b; };
+  const webpOf = (w, h) => { const b = Buffer.alloc(40); b.write('RIFF', 0, 'latin1'); b.write('WEBP', 8, 'latin1'); b.write('VP8 ', 12, 'latin1'); b.writeUInt16LE(w, 26); b.writeUInt16LE(h, 28); return b; };
+  const zip = new AdmZip();
+  zip.addFile('sky.png', pngOf(160, 600)); zip.addFile('banner.jpg', webpOf(728, 90)); zip.addFile('box.png', pngOf(300, 250));
+  zip.addFile('../../evil.exe', Buffer.from('MZ not a picture at all, just some bytes here')); zip.addFile('odd.png', pngOf(500, 250));
+  const zf = path.join(dir, 'ads.zip'); zip.writeZip(zf);
+  let fetched = 0;
+  const ads = createRobloxAds({ dir: path.join(dir, 'data'), fetch: async () => { fetched++; throw new Error('no web'); } });
+  const r = ads.importFrom(zf);
+  assert.deepStrictEqual([r.added, r.sky, r.board, r.rect], [3, 1, 1, 1]);
+  const files = fs.readdirSync(path.join(dir, 'data', 'imported')).sort();
+  assert.ok(files.every((f) => /^([a-f0-9]{24}\.(png|webp)|list\.json)$/.test(f)), files.join());
+  assert.ok(!fs.existsSync(path.join(dir, 'evil.exe')) && !fs.existsSync(path.join(dir, 'data', 'evil.exe')));
+  const p = await ads.pick();
+  assert.match(p.sky1, /^data:image\/png;base64,/); assert.match(p.board, /^data:image\/webp;base64,/); assert.match(p.rect, /^data:image\/png;base64,/);
+  assert.strictEqual(fetched, 0, 'the wiki is not asked when you have your own pictures');
+  assert.strictEqual(ads.importFrom(zf).added, 0, 'importing the same pictures again adds nothing');
+  assert.strictEqual(ads.clearImported().total, 0);
+});

@@ -1246,12 +1246,18 @@ function setupIPC(ses) {
   // (1.9.0) Classic Roblox's old ads: random pictures from the Roblox Wiki's ad gallery (main/roblox-ads.js)
   let rbxAds = null;
   ipcMain.handle('rbx:ads', async () => {
-    if (!rbxAds) {
-      const ses = session.fromPartition(PARTITION);
-      rbxAds = require('./main/roblox-ads.js').createRobloxAds({ dir: path.join(app.getPath('userData'), 'roblox-ads'), fetch: (u) => ses.fetch(u, { credentials: 'omit' }) });
-    }
-    try { return await rbxAds.pick(); } catch { return { sky1: null, sky2: null, board: null, rect: null }; }
+    try { return await rbxAdsMod().pick(); } catch { return { sky1: null, sky2: null, board: null, rect: null }; }
   });
+  const rbxAdsMod = () => { if (!rbxAds) { const ses = session.fromPartition(PARTITION); rbxAds = require('./main/roblox-ads.js').createRobloxAds({ dir: path.join(app.getPath('userData'), 'roblox-ads'), fetch: (u) => ses.fetch(u, { credentials: 'omit' }) }); } return rbxAds; };
+  ipcMain.handle('rbx:adsInfo', () => { try { return rbxAdsMod().counts(); } catch { return { total: 0, sky: 0, board: 0, rect: 0 }; } });
+  // your own ad pictures: a zip or a folder you pick in Oto's own dialog (the page never hands over a path)
+  ipcMain.handle('rbx:adsImport', async (e) => {
+    const r = await dialog.showOpenDialog(winOf(e), { title: 'Import ad pictures (a .zip, or pick a folder)', properties: ['openFile', 'openDirectory'], filters: [{ name: 'Zip or pictures', extensions: ['zip'] }] });
+    const p = !r.canceled && r.filePaths && r.filePaths[0];
+    if (!p) return null;
+    try { return rbxAdsMod().importFrom(p); } catch (err) { return { error: String((err && err.message) || 'Could not read that.').slice(0, 200) }; }
+  });
+  ipcMain.handle('rbx:adsClear', () => { try { return rbxAdsMod().clearImported(); } catch { return null; } });
   ipcMain.on('device:reply', (_e, id, deviceId) => {
     const p = devicePicks.get(id);
     if (!p) return;
