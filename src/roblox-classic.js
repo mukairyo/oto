@@ -1,4 +1,4 @@
-// Oto — Classic Roblox (1.9.0): roblox.com in the look it had around 2015–2017. A style sheet Oto adds to Roblox's
+// Oto — Classic Roblox (1.9.0): roblox.com in the look it had in a year you pick, from 2010 to 2017. A style sheet Oto adds to Roblox's
 // pages (nothing else on the page changes, nothing is sent anywhere): the bright blue top bar, Source Sans, the light
 // grey page with white cards, blue links and buttons, green Play buttons and small square corners. Roblox's own
 // logo and pictures are kept (the logo is just shown in white on the blue bar). Roblox's dark theme is shown light,
@@ -25,53 +25,99 @@ async function rbxFonts() {
   return rbxFontCss;
 }
 const RBX_FONT = '"Oto Source Sans","Source Sans Pro","Source Sans 3","Segoe UI",Arial,sans-serif';
-const RBX_CSS = `
+// Each year's look, measured from the Internet Archive's copies of roblox.com's games page (mid-year): the top bar,
+// the page and content colours, the content width, boxes, buttons and the font. 2016 and 2017 looked the same there.
+const RBX_YEARS = {
+  2010: { font: 'Verdana,Geneva,sans-serif', text: '#000', muted: '#555', link: '#0000ff', page: '#f8fcff', pageImg: 'linear-gradient(#bfe0ff,#f8fcff 420px)', panel: '#e5f1fd', width: 900,
+    bar: '#6e99c9', barImg: 'linear-gradient(#83aad6,#6e99c9 55%,#5a86b8)', barLine: '#3d6a9f', barText: '#fff', barWeight: 700, barSize: 15, navFont: 'Arial,Helvetica,sans-serif',
+    card: { bg: '#fff', border: '2px solid #6e99c9', radius: 0, shadow: 'none' }, head: '#2a4f80',
+    btn: { bg: 'linear-gradient(#ffffff,#d6d6d6)', border: '1px solid #777', color: '#000', radius: 0 }, emph: { bg: 'linear-gradient(#83aad6,#4d7bb0)', border: '1px solid #3d6a9f', color: '#fff' },
+    play: { bg: 'linear-gradient(#5fd35f,#22a322)', border: '1px solid #157a15', radius: 2 } },
+  2011: { font: 'Arial,Helvetica,sans-serif', text: '#000', muted: '#666', link: '#0055b3', page: '#000444', pageImg: 'radial-gradient(ellipse at 50% 0,#173a8a,#000444 70%)', panel: '#fff', width: 900,
+    bar: '#1d5fb0', barImg: 'linear-gradient(#5b9be0,#2a6fc4 50%,#1a58a8 51%,#1d5fb0)', barLine: '#0b2f66', barText: '#fff', barWeight: 700, barSize: 15, navFont: 'Arial,Helvetica,sans-serif',
+    card: { bg: '#fff', border: '1px solid #aaa', radius: 0, shadow: 'none' }, head: '#333',
+    btn: { bg: '#fff', border: '1px solid #333', color: '#333', radius: 0 }, emph: { bg: 'linear-gradient(#5b9be0,#1d5fb0)', border: '1px solid #0b2f66', color: '#fff' },
+    play: { bg: 'linear-gradient(#6fd36f,#2aa52a)', border: '1px solid #167a16', radius: 3 } },
+  2012: { font: 'Arial,Helvetica,sans-serif', text: '#000', muted: '#666', link: '#0055b3', page: '#e6e6e6', pageImg: 'none', panel: '#fff', width: 970,
+    bar: '#114081', barImg: 'linear-gradient(#114081 0,#114081 10px,#5b9be0 10px,#2a6fc4 25px,#1a58a8 26px,#1d5fb0)', barLine: '#0b2f66', barText: '#fff', barWeight: 700, barSize: 16, navFont: 'Arial,Helvetica,sans-serif',
+    card: { bg: '#fff', border: '1px solid #aaa', radius: 0, shadow: 'none' }, head: '#333',
+    btn: { bg: '#fff', border: '1px solid #333', color: '#333', radius: 0 }, emph: { bg: 'linear-gradient(#5b9be0,#1d5fb0)', border: '1px solid #0b2f66', color: '#fff' },
+    play: { bg: 'linear-gradient(#6fd36f,#2aa52a)', border: '1px solid #167a16', radius: 3 } },
+  2013: { font: 'Arial,Helvetica,sans-serif', text: '#000', muted: '#666', link: '#0055b3', page: '#e6e6e6', pageImg: 'none', panel: '#fff', width: 970,
+    bar: '#114081', barImg: 'linear-gradient(#2a5aa5,#114081)', barLine: '#082a5c', barText: '#fff', barWeight: 700, barSize: 13, navFont: 'Arial,Helvetica,sans-serif',
+    card: { bg: '#fff', border: '1px solid #ccc', radius: 0, shadow: 'none' }, head: '#333',
+    btn: { bg: 'linear-gradient(#fff,#e9e9e9)', border: '1px solid #aaa', color: '#333', radius: 3 }, emph: { bg: 'linear-gradient(#3d86d8,#1b5cb0)', border: '1px solid #114081', color: '#fff' },
+    play: { bg: 'linear-gradient(#5fcf5f,#2a9c2a)', border: '1px solid #1c7a1c', radius: 3 } },
+  2014: { font: RBX_FONT, text: '#343434', muted: '#777', link: '#0852b7', page: '#fff', pageImg: 'none', panel: '#fff', width: 970,
+    bar: '#2d528f', barImg: 'none', barLine: '#1f3d6e', barText: '#fff', barWeight: 400, barSize: 16, navFont: RBX_FONT,
+    card: { bg: '#fff', border: '1px solid #ddd', radius: 0, shadow: 'none' }, head: '#343434',
+    btn: { bg: '#fff', border: '1px solid #ccc', color: '#343434', radius: 0 }, emph: { bg: 'linear-gradient(#2f76d6,#0852b7)', border: '1px solid #0852b7', color: '#fff' },
+    play: { bg: '#02b757', border: '1px solid #02a04c', radius: 0 } },
+  2015: { font: RBX_FONT, text: '#191919', muted: '#757575', link: '#00a2ff', page: '#f2f2f2', pageImg: 'none', panel: 'transparent', width: 970,
+    bar: '#0074bd', barImg: 'none', barLine: '#0074bd', barText: '#fff', barWeight: 400, barSize: 16, navFont: RBX_FONT,
+    card: { bg: '#fff', border: '0', radius: 3, shadow: '0 1px 4px rgba(25,25,25,.2)' }, head: '#191919',
+    btn: { bg: '#fff', border: '1px solid #b8b8b8', color: '#393b3d', radius: 3 }, emph: { bg: '#00a2ff', border: '1px solid #00a2ff', color: '#fff' },
+    play: { bg: '#02b757', border: '1px solid #02b757', radius: 3 } },
+  2016: { font: RBX_FONT, text: '#191919', muted: '#757575', link: '#00a2ff', page: '#e3e3e3', pageImg: 'none', panel: 'transparent', width: 970,
+    bar: '#0074bd', barImg: 'none', barLine: '#0074bd', barText: '#fff', barWeight: 400, barSize: 16, navFont: RBX_FONT,
+    card: { bg: '#fff', border: '0', radius: 3, shadow: '0 1px 4px rgba(25,25,25,.2)' }, head: '#191919',
+    btn: { bg: '#fff', border: '1px solid #b8b8b8', color: '#393b3d', radius: 3 }, emph: { bg: '#00a2ff', border: '1px solid #00a2ff', color: '#fff' },
+    play: { bg: '#02b757', border: '1px solid #02b757', radius: 3 } },
+};
+RBX_YEARS[2017] = RBX_YEARS[2016];
+const RBX_YEAR_LIST = Object.keys(RBX_YEARS).map(Number);
+const rbxYear = () => { const y = +S.settings.rbxYear; return RBX_YEARS[y] ? y : 2016; };
+function rbxCss(asked = rbxYear()) {
+  const year = RBX_YEARS[asked] ? Number(asked) : 2016, Y = RBX_YEARS[year];
+  const r = (n) => `${n}px`;
+  return `
 body.rbx-body,body.rbx-body.light-theme,body.rbx-body.dark-theme{
---color-surface-0:#f2f2f2!important;--color-surface-100:#fff!important;--color-surface-200:#fff!important;--color-surface-300:#e3e3e3!important;
---color-content-emphasis:#191919!important;--color-content-default:#393b3d!important;--color-content-muted:#757575!important;--color-content-link:#00a2ff!important;
---color-action-emphasis-background:#00a2ff!important;--color-action-emphasis-foreground:#fff!important;--color-action-emphasis-border:#00a2ff!important;
---color-action-soft-emphasis-background:#e5f6ff!important;--color-action-soft-emphasis-foreground:#0074bd!important;
---color-action-standard-background:#fff!important;--color-action-standard-foreground:#393b3d!important;--color-action-standard-border:#b8b8b8!important;
---color-action-sub-emphasis-background:#393b3d!important;--color-action-sub-emphasis-foreground:#fff!important;
---color-action-subtle-foreground:#393b3d!important;--color-action-subtle-border:#b8b8b8!important;
---color-action-link-foreground:#00a2ff!important;--color-action-utility-foreground:#393b3d!important;
---color-stroke-default:#e3e3e3!important;--color-stroke-emphasis:#b8b8b8!important;--color-stroke-muted:#ececec!important;
---color-system-emphasis:#00a2ff!important;--color-system-success:#02b757!important;--color-system-contrast:#191919!important;
+--color-surface-0:${Y.page}!important;--color-surface-100:#fff!important;--color-surface-200:#fff!important;--color-surface-300:#e3e3e3!important;
+--color-content-emphasis:${Y.text}!important;--color-content-default:${Y.text}!important;--color-content-muted:${Y.muted}!important;--color-content-link:${Y.link}!important;
+--color-action-emphasis-foreground:${Y.emph.color}!important;--color-action-standard-background:#fff!important;--color-action-standard-foreground:${Y.btn.color}!important;
+--color-action-link-foreground:${Y.link}!important;--color-action-utility-foreground:${Y.text}!important;--color-action-subtle-foreground:${Y.text}!important;
+--color-stroke-default:#dcdcdc!important;--color-stroke-emphasis:#b8b8b8!important;--color-stroke-muted:#ececec!important;
+--color-system-emphasis:${Y.link}!important;--color-system-success:#02b757!important;--color-system-contrast:${Y.text}!important;
 --color-shift-100:rgba(0,0,0,.03)!important;--color-shift-200:rgba(0,0,0,.05)!important;--color-shift-300:rgba(0,0,0,.08)!important;--color-shift-400:rgba(0,0,0,.11)!important;
 --color-common-navigation-bar:#fff!important;--color-navigation-background:#fff!important;--color-navigation-image:none!important;
 --config-theme-text-font:"Oto Source Sans"!important;--config-text-font:"Oto Source Sans"!important;
---radius-small:3px!important;--radius-medium:3px!important;--radius-large:3px!important;
-color-scheme:light;background:#f2f2f2!important;color:#393b3d!important;font-family:${RBX_FONT}!important}
-body.rbx-body :is(h1,h2,h3,h4,h5,h6,p,a,span,div,li,button,input,textarea,select,label,td,th,strong,b,small){font-family:${RBX_FONT}!important}
-#theme-background{background:#f2f2f2!important;background-image:none!important}
-body.rbx-body #wrap,body.rbx-body .container-main{background:transparent!important}
-/* the top bar: bright blue, white text, white logo, a white square search box */
-body.rbx-body #header,body.rbx-body .rbx-header{background:#00a2ff!important;border-bottom:0!important;box-shadow:0 1px 3px rgba(0,0,0,.25)!important}
-body.rbx-body .rbx-header :is(a,.text-header,.nav-menu-title,.font-header-2,.rbx-navbar a,span:not([class*="icon"])){color:#fff!important}
-body.rbx-body .rbx-header .rbx-navbar a{font-weight:400!important;font-size:16px!important}
+--radius-small:${r(Y.card.radius)}!important;--radius-medium:${r(Y.card.radius)}!important;--radius-large:${r(Y.card.radius)}!important;
+--rbx-w:${Y.width}px;color-scheme:light;background:${Y.page} ${Y.pageImg === 'none' ? '' : Y.pageImg}!important;background-attachment:fixed!important;color:${Y.text}!important;font-family:${Y.font}!important}
+body.rbx-body :is(h1,h2,h3,h4,h5,h6,p,a,span,div,li,button,input,textarea,select,label,td,th,strong,b,small){font-family:${Y.font}!important}
+#theme-background{background:transparent!important;background-image:none!important}
+body.rbx-body #wrap{background:transparent!important}
+body.rbx-body #content{max-width:var(--rbx-w)!important;margin-left:auto!important;margin-right:auto!important;background:${Y.panel}!important;${Y.panel === 'transparent' ? '' : `padding:12px 18px 24px!important;box-shadow:0 0 0 1px rgba(0,0,0,.08);--color-surface-0:${Y.panel}!important;`}}
+/* the top bar */
+body.rbx-body #header,body.rbx-body .rbx-header{background:${Y.bar} ${Y.barImg === 'none' ? '' : Y.barImg}!important;border-bottom:1px solid ${Y.barLine}!important;box-shadow:0 1px 3px rgba(0,0,0,.25)!important}
+body.rbx-body .rbx-header :is(a,.text-header,.nav-menu-title,.font-header-2,.rbx-navbar a,span:not([class*="icon"])){color:${Y.barText}!important;font-family:${Y.navFont}!important}
+body.rbx-body .rbx-header .rbx-navbar a{font-weight:${Y.barWeight}!important;font-size:${Y.barSize}px!important}
 body.rbx-body .rbx-header .rbx-navbar a:hover{text-decoration:underline!important;background:transparent!important}
 body.rbx-body #nav-logo-link :is(img,svg,span,div),body.rbx-body .rbx-header [class*="icon-logo"],body.rbx-body .rbx-header [class*="icon-nav"],body.rbx-body .rbx-header #header-menu-icon *{filter:brightness(0) invert(1)!important}
-body.rbx-body #navbar-search-input,body.rbx-body .rbx-header .navbar-search,body.rbx-body .rbx-header .input-group{background:#fff!important;color:#191919!important;border:0!important;border-radius:3px!important;box-shadow:none!important}
+body.rbx-body #navbar-search-input,body.rbx-body .rbx-header .navbar-search,body.rbx-body .rbx-header .input-group{background:#fff!important;color:#191919!important;border:0!important;border-radius:${r(Math.min(3, Y.card.radius))}!important;box-shadow:none!important}
 body.rbx-body #navbar-search-input::placeholder{color:#757575!important}
 body.rbx-body .rbx-header .input-addon-btn,body.rbx-body .rbx-header .input-addon-btn *{color:#757575!important;filter:none!important}
-/* the left menu (signed in): white, with dark text */
+/* the left menu (signed in) */
 body.rbx-body :is(#left-navigation-container,.rbx-left-col,#navigation){background:#fff!important;border-right:1px solid #e3e3e3!important}
-body.rbx-body :is(#navigation,.rbx-left-col) :is(a,.text-nav,span){color:#191919!important}
+body.rbx-body :is(#navigation,.rbx-left-col) :is(a,.text-nav,span){color:${Y.text}!important}
 body.rbx-body :is(#navigation,.rbx-left-col) li a:hover{background:#f2f2f2!important}
-/* cards and pictures: white cards with a soft shadow, small square corners */
-body.rbx-body .game-card-container{background:#fff!important;border-radius:3px!important;box-shadow:0 1px 4px rgba(25,25,25,.2)!important;overflow:hidden}
-body.rbx-body :is(.game-card-thumb-container,.thumbnail-2d-container,.item-card-thumb-container,.avatar-card-image,.game-card-thumb,[class*="thumbnail"] img){border-radius:3px!important}
-body.rbx-body .game-card-name{color:#191919!important;font-weight:600!important;padding:0 6px!important}
-body.rbx-body .game-card-info,body.rbx-body .game-card-info *{color:#757575!important}
-body.rbx-body :is(h1,h2,.container-header h2,.sort-header,.font-header-1){color:#191919!important;font-weight:400!important}
-body.rbx-body a:not(.btn-primary-md):not([class*="btn-"]):not(.foundation-web-button):not(.game-card-link):hover{color:#00a2ff}
-/* buttons: square-ish blue, white secondary with a grey line, green Play */
-body.rbx-body :is(button,a)[class*="btn-"],body.rbx-body .foundation-web-button{border-radius:3px!important}
-body.rbx-body :is(.btn-primary-md,.btn-primary-lg,.btn-cta-md,.btn-cta-lg,.btn-secondary-md){font-weight:600!important}
-body.rbx-body :is(.btn-common-play-game-lg,.btn-common-play-game-md,[data-testid="play-button"],#game-details-play-button-container button,.btn-growth-lg,.btn-growth-md,.btn-growth-sm,.btn-growth-xs,button.play-button){background:#02b757!important;border-color:#02b757!important;color:#fff!important;border-radius:3px!important}
-body.rbx-body :is(.btn-common-play-game-lg,[data-testid="play-button"],#game-details-play-button-container button,button.play-button):hover{background:#3fc679!important;border-color:#3fc679!important}
+/* boxes, pictures and headings */
+body.rbx-body .game-card-container{background:${Y.card.bg}!important;border:${Y.card.border}!important;border-radius:${r(Y.card.radius)}!important;box-shadow:${Y.card.shadow}!important;overflow:hidden}
+body.rbx-body :is(.game-card-thumb-container,.thumbnail-2d-container,.item-card-thumb-container,.avatar-card-image,.game-card-thumb,[class*="thumbnail"] img){border-radius:${r(Y.card.radius)}!important}
+body.rbx-body .game-card-name{color:${Y.text}!important;font-weight:${year <= 2013 ? 700 : 600}!important;padding:0 6px!important}
+body.rbx-body .game-card-info,body.rbx-body .game-card-info *{color:${Y.muted}!important}
+body.rbx-body :is(h1,h2,.container-header h2,.sort-header,.font-header-1){color:${Y.head}!important;font-weight:${year <= 2014 ? 700 : 400}!important}
+body.rbx-body a:not([class*="btn-"]):not(.foundation-web-button):not(.game-card-link):hover{color:${Y.link}}
+${year <= 2012 ? `body.rbx-body #content a:not([class*="btn-"]):not(.foundation-web-button):not(.game-card-link){color:${Y.link}!important}` : ''}
+/* buttons */
+body.rbx-body :is(button,a)[class*="btn-"],body.rbx-body .foundation-web-button{border-radius:${r(Y.btn.radius)}!important}
+body.rbx-body :is(.btn-secondary-md,.btn-control-md,.btn-control-sm,.btn-secondary-lg){background:${Y.btn.bg}!important;border:${Y.btn.border}!important;color:${Y.btn.color}!important}
+body.rbx-body :is(.btn-primary-md,.btn-primary-lg,.btn-cta-md,.btn-cta-lg){background:${Y.emph.bg}!important;border:${Y.emph.border}!important;color:${Y.emph.color}!important;font-weight:600!important}
+body.rbx-body :is(.btn-common-play-game-lg,.btn-common-play-game-md,[data-testid="play-button"],#game-details-play-button-container button,.btn-growth-lg,.btn-growth-md,.btn-growth-sm,.btn-growth-xs,button.play-button){background:${Y.play.bg}!important;border:${Y.play.border}!important;color:#fff!important;border-radius:${r(Y.play.radius)}!important}
+body.rbx-body :is(.btn-common-play-game-lg,[data-testid="play-button"],#game-details-play-button-container button,button.play-button):hover{filter:brightness(1.08)!important}
 body.rbx-body :is(.btn-common-play-game-lg,[data-testid="play-button"],#game-details-play-button-container button) *{color:#fff!important;filter:none!important}
 `;
+}
+const RBX_CSS = rbxCss(2016); // kept for the tests: the 2016 look
 // The old ads (asked for in 1.9.0): tall ads beside the page, a banner on top and a box at the bottom, like
 // 2015–2017 Roblox had. Each page shows a random set from the Roblox Wiki's user-ad gallery, fetched and kept by Oto
 // (main/roblox-ads.js); without the internet, Oto's own drawings of made-up games stand in. They're only pictures:
@@ -137,13 +183,12 @@ const RBX_AD_REPORT = rbxSvg('<svg xmlns="http://www.w3.org/2000/svg" width="60"
 // a picture from the gallery gets the old "ADVERTISEMENT" label above it and "Report" below; Oto's drawings have them built in
 const rbxAdBg = (pic, w, h) => (pic ? `${RBX_AD_LABEL} center top/300px 14px no-repeat,${RBX_AD_REPORT} right bottom/60px 12px no-repeat,url("${pic}") center 16px/${w}px ${h}px no-repeat` : '');
 const RBX_ADS_CSS = (ads = {}) => `
-body.rbx-body #content{max-width:1000px!important;margin-left:auto!important;margin-right:auto!important}
 body.rbx-body #content::before{content:"";display:block;width:728px;max-width:100%;height:120px;margin:14px auto 6px;pointer-events:none;background:${rbxAdBg(ads.board, 728, 90) || `${rbxSvg(RBX_AD_BOARD)} center/contain no-repeat`}}
 body.rbx-body #content::after{content:"";display:block;clear:both;width:300px;height:280px;margin:24px auto 30px;pointer-events:none;background:${rbxAdBg(ads.rect, 300, 250) || 'none'}${ads.rect ? '' : ';display:none'}}
-@media (min-width:1380px){
+@media (min-width:1360px){
 body.rbx-body::before,body.rbx-body::after{content:"";position:fixed;top:64px;width:160px;height:630px;z-index:2;pointer-events:none}
-body.rbx-body::before{left:calc(50% - 500px - 180px);background:${rbxAdBg(ads.sky1, 160, 600) || `${rbxSvg(RBX_AD_SKY_1)} center/contain no-repeat`}}
-body.rbx-body::after{right:calc(50% - 500px - 180px);background:${rbxAdBg(ads.sky2, 160, 600) || `${rbxSvg(RBX_AD_SKY_2)} center/contain no-repeat`}}}
+body.rbx-body::before{left:calc(50% - var(--rbx-w,970px) / 2 - 180px);background:${rbxAdBg(ads.sky1, 160, 600) || `${rbxSvg(RBX_AD_SKY_1)} center/contain no-repeat`}}
+body.rbx-body::after{right:calc(50% - var(--rbx-w,970px) / 2 - 180px);background:${rbxAdBg(ads.sky2, 160, 600) || `${rbxSvg(RBX_AD_SKY_2)} center/contain no-repeat`}}}
 @media (max-height:700px){body.rbx-body::before,body.rbx-body::after{display:none!important}}
 `;
 const rbxPic = (u) => (typeof u === 'string' && /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(u) ? u : null);
@@ -157,7 +202,7 @@ async function rbxApply(v) {
   if (v.rbxKey) { try { await v.wv.removeInsertedCSS(v.rbxKey); } catch {} v.rbxKey = null; }
   if (!RBX_HOST.test(url) || !rbxOn()) return;
   const ads = rbxAdsOn() ? RBX_ADS_CSS(await rbxAdPics()) : '';
-  try { if (v.rbxKey) { await v.wv.removeInsertedCSS(v.rbxKey); v.rbxKey = null; } v.rbxKey = await v.wv.insertCSS((await rbxFonts()) + RBX_CSS + ads); } catch {}
+  try { if (v.rbxKey) { await v.wv.removeInsertedCSS(v.rbxKey); v.rbxKey = null; } v.rbxKey = await v.wv.insertCSS((await rbxFonts()) + rbxCss(rbxYear()) + ads); } catch {}
 }
 function rbxRefresh() { for (const v of V.values()) if (v && v.ready) rbxApply(v); }
 let rbxReady = false;
