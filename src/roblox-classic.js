@@ -13,8 +13,11 @@ async function rbxFonts() {
   if (rbxFontCss !== null) return rbxFontCss;
   try {
     const faces = await Promise.all(RBX_FONT_FILES.map(async ([w, f]) => {
-      const blob = await (await fetch(f)).blob();
-      const url = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
+      // labelled as a font ourselves: on Windows a file:// read comes back as "unknown data"
+      const bytes = new Uint8Array(await (await fetch(f)).arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      const url = `data:font/woff2;base64,${btoa(bin)}`;
       return `@font-face{font-family:"Oto Source Sans";font-style:normal;font-weight:${w};font-display:swap;src:url(${url}) format("woff2")}`;
     }));
     rbxFontCss = faces.join('');
