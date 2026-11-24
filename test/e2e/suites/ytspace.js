@@ -20,6 +20,7 @@ module.exports = async (t) => {
   await t.open('http://tube.site/', 400);
   for (let i = 0; i < 28 && !(await t.js(`(async () => { const v = V.get(activeTab().id); try { return /^http:\\/\\/tube\\.site/.test(v.wv.getURL()) && await v.wv.executeJavaScript("getComputedStyle(document.documentElement).backgroundColor !== 'rgba(0, 0, 0, 0)' || getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)'"); } catch { return false; } })()`)); i++) await t.sleep(200); // up to ~6 s: a slow machine is still loading the page
   a = JSON.parse(await t.js(`(async () => { const v = V.get(activeTab().id); return await v.wv.executeJavaScript("JSON.stringify({ bg: getComputedStyle(document.documentElement).backgroundColor, stars: /radial-gradient/.test(getComputedStyle(document.documentElement).backgroundImage) })"); })()`));
+  a.why = await t.js(`(() => { const t2 = activeTab(); const v = t2 && V.get(t2.id); let u = ''; try { u = v.wv.getURL(); } catch (e) { u = 'err'; } return JSON.stringify({ tab: t2 && t2.url, u, key: !!(v && v.ytsKey), ready: !!(v && v.ready), on: ytsOn(), tabs: S.tabs.length }); })()`);
   t.check('…and goes on by itself when YouTube opens', a.bg === 'rgb(11, 11, 12)' && a.stars, JSON.stringify(a));
   await t.js("(YTS_HOST.test = window.__ytsHost, 1)");
   await t.js("(openSettings('appearance'), 1)"); await t.sleep(300);
