@@ -236,22 +236,35 @@ function ytsCheck(v) {
   });
 }
 function ytsRefresh() { for (const v of V.values()) if (v && v.ready) ytsApply(v); }
+// Hooks on each tab's page: on a new page the look goes on; after every page change and finished load the safety net
+// looks for the marker. They're attached when a tab's view is made, and also by a sweep once a second, because a view
+// made before this file's hook was in place (it happens at start-up, depending on load order: CI caught tabs whose
+// page events never reached the look at all) would otherwise never get them.
+const ytsHooked = new WeakSet();
+function ytsHook(v) {
+  if (!v || !v.wv || ytsHooked.has(v.wv)) return false;
+  ytsHooked.add(v.wv);
+  try {
+    v.wv.addEventListener('dom-ready', () => { v.ytsKey = null; ytsApply(v); }); // a new page starts without our sheets
+    const later = () => { clearTimeout(v.ytsT1); clearTimeout(v.ytsT2); v.ytsT1 = setTimeout(() => ytsCheck(v), 400); v.ytsT2 = setTimeout(() => ytsCheck(v), 2000); };
+    v.wv.addEventListener('did-navigate', later);
+    v.wv.addEventListener('did-navigate-in-page', (e) => { if (e.isMainFrame) later(); });
+    v.wv.addEventListener('did-stop-loading', later);
+  } catch {}
+  return true;
+}
 let ytsReady = false;
 function initYoutubeSpace() {
-  if (ytsReady || typeof bindView !== 'function') return;
+  if (ytsReady) return;
   ytsReady = true;
-  const _bind = bindView;
-  bindView = function (tab, v) {
-    _bind.apply(this, arguments);
-    try {
-      v.wv.addEventListener('dom-ready', () => { v.ytsKey = null; ytsApply(v); });
-      // the safety net (as for Classic Roblox): put the look back if a page comes up without it
-      const later = () => { clearTimeout(v.ytsT1); clearTimeout(v.ytsT2); v.ytsT1 = setTimeout(() => ytsCheck(v), 400); v.ytsT2 = setTimeout(() => ytsCheck(v), 2000); };
-      v.wv.addEventListener('did-navigate', later);
-      v.wv.addEventListener('did-navigate-in-page', (e) => { if (e.isMainFrame) later(); });
-      v.wv.addEventListener('did-stop-loading', later);
-    } catch {}
-  };
-  ytsFonts(); // read the fonts once, early
+  if (typeof bindView === 'function') {
+    const _bind = bindView;
+    bindView = function (tab, v) { _bind.apply(this, arguments); ytsHook(v); };
+  }
+  setInterval(() => { if (typeof V === 'undefined') return; for (const v of V.values()) if (ytsHook(v) && v.ready) ytsCheck(v); }, 1000);
+  ytsFonts(); // read the font(s) once, early
 }
-if (typeof S !== 'undefined' && typeof bindView === 'function') initYoutubeSpace();
+// Always, straight away. (Before 1.9.2 this waited for "S" to exist, but S is only filled in once start-up has read the
+// saved state; when that took longer than loading this file, the hooks were never set up and the look only went on
+// when Settings changed. That was the "have to put it back by hand" bug.)
+initYoutubeSpace();

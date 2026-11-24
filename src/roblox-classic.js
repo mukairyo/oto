@@ -308,22 +308,35 @@ function rbxCheck(v) {
   });
 }
 function rbxRefresh() { for (const v of V.values()) if (v && v.ready) rbxApply(v); }
+// Hooks on each tab's page: on a new page the look goes on; after every page change and finished load the safety net
+// looks for the marker. They're attached when a tab's view is made, and also by a sweep once a second, because a view
+// made before this file's hook was in place (it happens at start-up, depending on load order: CI caught tabs whose
+// page events never reached the look at all) would otherwise never get them.
+const rbxHooked = new WeakSet();
+function rbxHook(v) {
+  if (!v || !v.wv || rbxHooked.has(v.wv)) return false;
+  rbxHooked.add(v.wv);
+  try {
+    v.wv.addEventListener('dom-ready', () => { v.rbxKey = null; v.rbxAdsKey = null; rbxApply(v); }); // a new page starts without our sheets
+    const later = () => { clearTimeout(v.rbxT1); clearTimeout(v.rbxT2); v.rbxT1 = setTimeout(() => rbxCheck(v), 400); v.rbxT2 = setTimeout(() => rbxCheck(v), 2000); };
+    v.wv.addEventListener('did-navigate', later);
+    v.wv.addEventListener('did-navigate-in-page', (e) => { if (e.isMainFrame) later(); });
+    v.wv.addEventListener('did-stop-loading', later);
+  } catch {}
+  return true;
+}
 let rbxReady = false;
 function initRobloxClassic() {
-  if (rbxReady || typeof bindView !== 'function') return;
+  if (rbxReady) return;
   rbxReady = true;
-  const _bind = bindView;
-  bindView = function (tab, v) {
-    _bind.apply(this, arguments);
-    try {
-      v.wv.addEventListener('dom-ready', () => { v.rbxKey = null; v.rbxAdsKey = null; rbxApply(v); }); // a new page starts without our sheets
-      // the safety net: after every page change and finished load, look for the marker and put the look back if it's gone
-      const later = () => { clearTimeout(v.rbxT1); clearTimeout(v.rbxT2); v.rbxT1 = setTimeout(() => rbxCheck(v), 400); v.rbxT2 = setTimeout(() => rbxCheck(v), 2000); };
-      v.wv.addEventListener('did-navigate', later);
-      v.wv.addEventListener('did-navigate-in-page', (e) => { if (e.isMainFrame) later(); });
-      v.wv.addEventListener('did-stop-loading', later);
-    } catch {}
-  };
-  rbxFonts(); // read the font once, early
+  if (typeof bindView === 'function') {
+    const _bind = bindView;
+    bindView = function (tab, v) { _bind.apply(this, arguments); rbxHook(v); };
+  }
+  setInterval(() => { if (typeof V === 'undefined') return; for (const v of V.values()) if (rbxHook(v) && v.ready) rbxCheck(v); }, 1000);
+  rbxFonts(); // read the font(s) once, early
 }
-if (typeof S !== 'undefined' && typeof bindView === 'function') initRobloxClassic();
+// Always, straight away. (Before 1.9.2 this waited for "S" to exist, but S is only filled in once start-up has read the
+// saved state; when that took longer than loading this file, the hooks were never set up and the look only went on
+// when Settings changed. That was the "have to put it back by hand" bug.)
+initRobloxClassic();
