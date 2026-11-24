@@ -123,6 +123,7 @@ function rbxCss(asked = rbxYear()) {
   const year = RBX_YEARS[asked] ? Number(asked) : 2016, Y = RBX_YEARS[year];
   const r = (n) => `${n}px`;
   return `
+:root{--oto-rbx:${year}}
 body.rbx-body,body.rbx-body.light-theme,body.rbx-body.dark-theme{
 --color-surface-0:${Y.page}!important;--color-surface-100:#fff!important;--color-surface-200:#fff!important;--color-surface-300:#e3e3e3!important;
 --color-content-emphasis:${Y.text}!important;--color-content-default:${Y.text}!important;--color-content-muted:${Y.muted}!important;--color-content-link:${Y.link}!important;
@@ -275,6 +276,18 @@ async function rbxApply(v) {
   rbxAdsCache = pics; // new pictures for the next page
   if (!had && run === v.rbxRun && rbxAdsOn()) await rbxSwap(v, 'rbxAdsKey', RBX_ADS_CSS(pics));
 }
+// The look carries a marker (--oto-rbx: the year). If a page comes up without it (seen on real roblox.com when going
+// from Home to Profile, Messages or Communities: the page stayed as today's Roblox until Settings put the look on
+// again), the look goes back on by itself. Reading one style value is all this does in the page.
+async function rbxCheck(v) {
+  if (!v || !v.wv || !rbxOn()) return;
+  let url = '';
+  try { url = v.wv.getURL(); } catch { return; }
+  if (!RBX_HOST.test(url)) return;
+  let mark = '';
+  try { mark = await v.wv.executeJavaScript("getComputedStyle(document.documentElement).getPropertyValue('--oto-rbx').trim()"); } catch { return; }
+  if (String(mark) !== String(rbxYear())) { v.rbxKey = null; v.rbxAdsKey = null; rbxApply(v); }
+}
 function rbxRefresh() { for (const v of V.values()) if (v && v.ready) rbxApply(v); }
 let rbxReady = false;
 function initRobloxClassic() {
@@ -283,7 +296,14 @@ function initRobloxClassic() {
   const _bind = bindView;
   bindView = function (tab, v) {
     _bind.apply(this, arguments);
-    try { v.wv.addEventListener('dom-ready', () => { v.rbxKey = null; v.rbxAdsKey = null; rbxApply(v); }); } catch {} // a new page starts without our sheets
+    try {
+      v.wv.addEventListener('dom-ready', () => { v.rbxKey = null; v.rbxAdsKey = null; rbxApply(v); }); // a new page starts without our sheets
+      // the safety net: after every page change and finished load, look for the marker and put the look back if it's gone
+      const later = () => { clearTimeout(v.rbxT1); clearTimeout(v.rbxT2); v.rbxT1 = setTimeout(() => rbxCheck(v), 400); v.rbxT2 = setTimeout(() => rbxCheck(v), 2000); };
+      v.wv.addEventListener('did-navigate', later);
+      v.wv.addEventListener('did-navigate-in-page', (e) => { if (e.isMainFrame) later(); });
+      v.wv.addEventListener('did-stop-loading', later);
+    } catch {}
   };
   rbxFonts(); // read the font once, early
 }

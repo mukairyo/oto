@@ -9,8 +9,8 @@ module.exports = async (t) => {
   t.check('Classic Roblox applies to roblox.com and its subdomains only, and is on by default', a.yes.every(Boolean) && !a.no.some(Boolean) && a.on && a.css, JSON.stringify(a));
   a = await J(`const css = RBX_YEAR_LIST.map((y) => rbxCss(y)); return { list: RBX_YEAR_LIST, def: rbxYear(), distinct: new Set(css).size,
     y10: /#6e99c9/.test(css[0]) && /Verdana/.test(css[0]) && /--rbx-w:900px/.test(css[0]), y11: /#000444/.test(css[1]), y13: /#114081/.test(css[3]), y14: /#2d528f/.test(css[4]),
-    y16: rbxCss(2016) === RBX_CSS && rbxCss(2017) === RBX_CSS, bad: rbxCss(1999) === RBX_CSS };`);
-  t.check('a look for every year from 2010 to 2017 (2016 by default; 2017 looked like 2016)', JSON.stringify(a.list) === '[2010,2011,2012,2013,2014,2015,2016,2017]' && a.def === 2016 && a.distinct === 7
+    y16: rbxCss(2016) === RBX_CSS && rbxCss(2017).replace(/--oto-rbx:\\d+/, '') === RBX_CSS.replace(/--oto-rbx:\\d+/, ''), bad: rbxCss(1999) === RBX_CSS };`);
+  t.check('a look for every year from 2010 to 2017 (2016 by default; 2017 looked like 2016)', JSON.stringify(a.list) === '[2010,2011,2012,2013,2014,2015,2016,2017]' && a.def === 2016 && a.distinct >= 7
     && a.y10 && a.y11 && a.y13 && a.y14 && a.y16 && a.bad, JSON.stringify(a));
   a = await J(`const bar = rbxCss(2011), col = rbxCss(2016);
     return { bar: /--left-nav-reserved-width:0px/.test(bar) && /flex-direction:row/.test(bar) && /top:40px/.test(bar) && !/175px/.test(bar),
@@ -32,6 +32,12 @@ module.exports = async (t) => {
   a = JSON.parse(a);
   a.why = await t.js(`(() => { const t2 = activeTab(); const v = t2 && V.get(t2.id); let u = ''; try { u = v.wv.getURL(); } catch (e) { u = 'err'; } return JSON.stringify({ tab: t2 && t2.url, u, key: !!(v && v.rbxKey), ready: !!(v && v.ready), on: rbxOn(), tabs: S.tabs.length }); })()`);
   t.check('Classic Roblox goes on by itself when roblox.com opens, in the year picked, even when the Wiki’s ad pictures never come (Oto’s drawn ads stand in)', a.bg === 'rgb(0, 4, 68)' && a.w === '900px' && /^url\("data:image\/svg/.test(a.ad), JSON.stringify(a));
+  // (1.9.1) the safety net: if the look goes missing from a page (as on real roblox.com going from Home to Profile), it comes back by itself
+  await t.js(`(async () => { const v = V.get(activeTab().id); await v.wv.removeInsertedCSS(v.rbxKey); await v.wv.executeJavaScript("history.pushState({}, '', '/users/1/profile')"); return 1; })()`);
+  const gone = await t.js(`V.get(activeTab().id).wv.executeJavaScript("getComputedStyle(document.body).backgroundColor")`);
+  await t.sleep(2600);
+  const back = await t.js(`V.get(activeTab().id).wv.executeJavaScript("getComputedStyle(document.body).backgroundColor")`);
+  t.check('…and if it goes missing from a page, it puts itself back within a second or two', gone !== 'rgb(0, 4, 68)' && back === 'rgb(0, 4, 68)', JSON.stringify({ gone, back }));
   await t.js("(RBX_HOST.test = window.__rbxHost, rbxAdPics = window.__rbxPics, S.settings.rbxYear = 2016, 1)");
   await t.js("(openSettings('appearance'), 1)"); await t.sleep(300);
   a = await J("const r = [...document.querySelectorAll('#settings .set-row')].find((x) => /Classic Roblox/.test(x.textContent)); return { row: !!r, on: !!(r && r.querySelector('.switch.on')) };");

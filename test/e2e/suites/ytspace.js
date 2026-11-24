@@ -22,6 +22,12 @@ module.exports = async (t) => {
   a = JSON.parse(await t.js(`(async () => { const v = V.get(activeTab().id); return await v.wv.executeJavaScript("JSON.stringify({ bg: getComputedStyle(document.documentElement).backgroundColor, stars: /radial-gradient/.test(getComputedStyle(document.documentElement).backgroundImage) })"); })()`));
   a.why = await t.js(`(() => { const t2 = activeTab(); const v = t2 && V.get(t2.id); let u = ''; try { u = v.wv.getURL(); } catch (e) { u = 'err'; } return JSON.stringify({ tab: t2 && t2.url, u, key: !!(v && v.ytsKey), ready: !!(v && v.ready), on: ytsOn(), tabs: S.tabs.length }); })()`);
   t.check('…and goes on by itself when YouTube opens', a.bg === 'rgb(11, 11, 12)' && a.stars, JSON.stringify(a));
+  // (1.9.1) the safety net: if the look goes missing from a page (as on real roblox.com going from Home to Profile), it comes back by itself
+  await t.js(`(async () => { const v = V.get(activeTab().id); await v.wv.removeInsertedCSS(v.ytsKey); await v.wv.executeJavaScript("history.pushState({}, '', '/users/1/profile')"); return 1; })()`);
+  const gone = await t.js(`V.get(activeTab().id).wv.executeJavaScript("getComputedStyle(document.documentElement).backgroundColor")`);
+  await t.sleep(2600);
+  const back = await t.js(`V.get(activeTab().id).wv.executeJavaScript("getComputedStyle(document.documentElement).backgroundColor")`);
+  t.check('…and if it goes missing from a page, it puts itself back within a second or two', gone !== 'rgb(11, 11, 12)' && back === 'rgb(11, 11, 12)', JSON.stringify({ gone, back }));
   await t.js("(YTS_HOST.test = window.__ytsHost, 1)");
   await t.js("(openSettings('appearance'), 1)"); await t.sleep(300);
   a = await J("const r = [...document.querySelectorAll('#settings .set-row')].find((x) => /YouTube in Oto/.test(x.textContent)); return { row: !!r, on: !!(r && r.querySelector('.switch.on')) };");

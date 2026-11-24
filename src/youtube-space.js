@@ -68,6 +68,7 @@ function ytsCss() {
   const hair = `linear-gradient(${C.line},${C.line}) no-repeat`;
   return `
 html,html[dark],html[light],[dark],[light],html[darker-dark-theme]{${vars}color-scheme:dark}
+:root{--oto-yts:1}
 html,body,ytd-app{${YTS_STARS}}
 body{color:${C.fg}}
 ::selection{background:${C.cream};color:${C.ink}}
@@ -216,6 +217,15 @@ async function ytsApply(v) {
   const old = v.ytsKey; v.ytsKey = key; // put the new sheet in first, then take the old one out: no flash
   if (old) { try { await v.wv.removeInsertedCSS(old); } catch {} }
 }
+async function ytsCheck(v) {
+  if (!v || !v.wv || !ytsOn()) return;
+  let url = '';
+  try { url = v.wv.getURL(); } catch { return; }
+  if (!YTS_HOST.test(url)) return;
+  let mark = '';
+  try { mark = await v.wv.executeJavaScript("getComputedStyle(document.documentElement).getPropertyValue('--oto-yts').trim()"); } catch { return; }
+  if (String(mark) !== '1') { v.ytsKey = null; ytsApply(v); }
+}
 function ytsRefresh() { for (const v of V.values()) if (v && v.ready) ytsApply(v); }
 let ytsReady = false;
 function initYoutubeSpace() {
@@ -224,7 +234,14 @@ function initYoutubeSpace() {
   const _bind = bindView;
   bindView = function (tab, v) {
     _bind.apply(this, arguments);
-    try { v.wv.addEventListener('dom-ready', () => { v.ytsKey = null; ytsApply(v); }); } catch {}
+    try {
+      v.wv.addEventListener('dom-ready', () => { v.ytsKey = null; ytsApply(v); });
+      // the safety net (as for Classic Roblox): put the look back if a page comes up without it
+      const later = () => { clearTimeout(v.ytsT1); clearTimeout(v.ytsT2); v.ytsT1 = setTimeout(() => ytsCheck(v), 400); v.ytsT2 = setTimeout(() => ytsCheck(v), 2000); };
+      v.wv.addEventListener('did-navigate', later);
+      v.wv.addEventListener('did-navigate-in-page', (e) => { if (e.isMainFrame) later(); });
+      v.wv.addEventListener('did-stop-loading', later);
+    } catch {}
   };
   ytsFonts(); // read the fonts once, early
 }

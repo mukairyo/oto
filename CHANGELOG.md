@@ -3,6 +3,10 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.9.2 — Site themes stay on
+
+- **Classic Roblox and YouTube in Oto's look stay on:** going from Roblox Home to Profile, Messages or Communities sometimes brought up today's Roblox, and the look only came back after you changed something in Settings. YouTube could do the same. Each themed page now carries a small marker. A moment after every page change and every finished load, Oto checks for it and puts the look back by itself, usually before you notice.
+
 ## 1.9.1 — YouTube in Oto's look, and Roblox's menu fits the year
 
 - **YouTube in Oto's look:** youtube.com now looks like part of Oto instead of YouTube with darker colours. The logo becomes Oto's space badge ("音 TUBE · OTO // YOUTUBE"), and the search box looks like the one on the start page, with its star. Search results are numbered hairline cards ("01 // VIDEO", or "ON AIR" for live streams), and the channel card loses YouTube's banner glow. YouTube's own sidebar gets numbered mono headings ("01  EXPLORE") and serif entries. The page is black with stars and uses white highlights instead of blue. Video titles are serif, chips are hairline boxes with the picked one in cream, Subscribe is cream, and the played part of the video bar is white instead of red. It uses Oto's own fonts, the stars are drawn by the browser, and nothing is loaded from the web. Turn it off in Settings › Appearance › Websites.
