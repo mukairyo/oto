@@ -12,6 +12,11 @@ module.exports = async (t) => {
     y16: rbxCss(2016) === RBX_CSS && rbxCss(2017) === RBX_CSS, bad: rbxCss(1999) === RBX_CSS };`);
   t.check('a look for every year from 2010 to 2017 (2016 by default; 2017 looked like 2016)', JSON.stringify(a.list) === '[2010,2011,2012,2013,2014,2015,2016,2017]' && a.def === 2016 && a.distinct === 7
     && a.y10 && a.y11 && a.y13 && a.y14 && a.y16 && a.bad, JSON.stringify(a));
+  a = await J(`const bar = rbxCss(2011), col = rbxCss(2016);
+    return { bar: /--left-nav-reserved-width:0px/.test(bar) && /flex-direction:row/.test(bar) && /top:40px/.test(bar) && !/175px/.test(bar),
+      col: /--left-nav-reserved-width:175px/.test(col) && /width:175px/.test(col) && !/flex-direction:row/.test(col),
+      allBar: [2010, 2012, 2013, 2014].every((y) => /flex-direction:row/.test(rbxCss(y))), light: /left-nav\{[^}]*background:#fff/.test(col) };`);
+  t.check('the signed-in menu: a bar under the top bar up to 2014, a narrow white column from 2015, never on the page colour', a.bar && a.col && a.allBar && a.light, JSON.stringify(a));
   const fonts = await t.js('rbxFonts()');
   t.check('…with Source Sans (3 weights) handed to the page inline', (fonts.match(/@font-face/g) || []).length === 3 && /data:font\/woff2;base64,/.test(fonts), String(fonts).slice(0, 80));
   a = await J(`const off = RBX_ADS_CSS({}), png = 'data:image/png;base64,iVBORw0KGgo=', on = RBX_ADS_CSS({ sky1: png, sky2: png, board: png, rect: png });

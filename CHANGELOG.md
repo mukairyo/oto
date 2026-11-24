@@ -3,6 +3,10 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.9.1 — Roblox's menu fits the year
+
+- **Classic Roblox, signed in:** Roblox's left menu now matches the year you picked. From 2010 to 2014 it turns into the second bar under the top bar, where those links were back then. From 2015 to 2017 it's the narrow white column on the left. Before, it was a wide column on the page colour: in 2011 you couldn't read it, and it covered the left ad. The page gets its width back, and the side ads move so the menu never covers them.
+
 ## 1.9.0 — Devices, sound bars that dance, and classic Roblox
 
 - **Connect devices to websites:** sites that talk to devices now work in Oto. That includes apps for earbuds like ear (web) for Nothing and CMF buds, game controllers, microcontroller boards, USB gadgets and Bluetooth devices. When a site asks, Oto shows its own picker with the devices it found. Pick one, and only that one is shared with that site until you close Oto. Nothing is saved. Cancel, or the page leaving, gives the site nothing, and a site you've blocked from devices in its site settings isn't even asked. For Bluetooth earbuds, pair them in Windows Bluetooth settings first.

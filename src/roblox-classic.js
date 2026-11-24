@@ -67,6 +67,58 @@ const RBX_YEARS = {
 RBX_YEARS[2017] = RBX_YEARS[2016];
 const RBX_YEAR_LIST = Object.keys(RBX_YEARS).map(Number);
 const rbxYear = () => { const y = +S.settings.rbxYear; return RBX_YEARS[y] ? y : 2016; };
+// The signed-in menu. Roblox draws it as a 289px column on the left (on the page colour, so it went dark in 2011)
+// and keeps that much of the page free for it. Up to 2014 there was no such column: the same links sat in a second
+// bar under the top bar, so for those years the column becomes that bar and the page gets its full width back.
+// From 2015 it was a narrow white column, 175px wide.
+const RBX_SUBBARS = {
+  2010: { bg: 'linear-gradient(#4f7db3,#3d6a9f)', line: '#2c5384', color: '#fff', sep: 'rgba(255,255,255,.22)', font: '700 12px/28px Arial,Helvetica,sans-serif', on: 'rgba(255,255,255,.18)' },
+  2011: { bg: 'linear-gradient(#f7f7f7,#d8d8d8)', line: '#a9a9a9', color: '#222', sep: '#b9b9b9', font: '700 12px/28px Arial,Helvetica,sans-serif', on: 'rgba(0,0,0,.08)' },
+  2012: { bg: 'linear-gradient(#f7f7f7,#d8d8d8)', line: '#a9a9a9', color: '#222', sep: '#b9b9b9', font: '700 12px/28px Arial,Helvetica,sans-serif', on: 'rgba(0,0,0,.08)' },
+  2013: { bg: 'linear-gradient(#fdfdfd,#e4e4e4)', line: '#bdbdbd', color: '#333', sep: '#cfcfcf', font: '700 12px/28px Arial,Helvetica,sans-serif', on: 'rgba(0,0,0,.07)' },
+  2014: { bg: '#f2f2f2', line: '#d6d6d6', color: '#343434', sep: '#dcdcdc', font: `400 15px/28px ${RBX_FONT}`, on: 'rgba(0,0,0,.06)' },
+};
+function rbxNavCss(year, Y) {
+  const N = 'body.rbx-body #left-navigation-container .left-nav', I = `${N} nav>ul>li .text-title-large`;
+  const both = `${N}>div>:not(:first-child){display:none!important}
+${I}>span:not(.fill){font:inherit!important;color:inherit!important}
+${N} nav>ul>li:not(:has(.text-title-large)) :is(p,span,div,a){color:${Y.text}!important}`;
+  const B = RBX_SUBBARS[year];
+  if (B) {
+    return `/* the signed-in menu, as the bar under the top bar */
+body.rbx-body #wrap.logged-in,body.rbx-body .logged-in{--left-nav-reserved-width:0px!important}
+body.rbx-body #wrap.logged-in main.container-main{margin-top:43px!important}
+${N}{position:fixed!important;top:40px!important;left:0!important;right:0!important;width:auto!important;height:29px!important;visibility:visible!important;transform:none!important;background:${B.bg}!important;border-bottom:1px solid ${B.line}!important;z-index:1000!important;overflow:hidden!important;box-shadow:0 1px 2px rgba(0,0,0,.12)!important}
+${N}>div,${N}>div>div:first-child{width:auto!important;height:28px!important;overflow:hidden!important;flex:1 1 auto}
+${N}>div>div>div{padding:0!important;gap:0!important}
+${N} nav>ul{flex-direction:row!important;flex-wrap:nowrap!important;justify-content:center!important;gap:0!important;padding:0!important;margin:0!important}
+${N} nav>ul>li{margin:0!important}
+${N} nav>ul>li:not(:has(.text-title-large)),${N} nav>ul>li:first-child{display:none!important}
+${I}{height:28px!important;padding:0 12px!important;gap:0!important;border-radius:0!important;border-left:1px solid ${B.sep}!important;color:${B.color}!important;font:${B.font}!important;background:none!important;white-space:nowrap}
+${N} nav>ul>li:has(.text-title-large):last-of-type .text-title-large{border-right:1px solid ${B.sep}!important}
+${I}>span[class*="size-1000"],${I}>[role="presentation"]{display:none!important}
+${I}:hover{text-decoration:underline!important}
+${I}.bg-shift-200{background:${B.on}!important}
+${I} .fill{padding:0 0 0 5px!important;flex:none!important}
+${both}
+body.rbx-body:has(#wrap.logged-in)::before,body.rbx-body:has(#wrap.logged-in)::after{top:93px!important}`;
+  }
+  return `/* the signed-in menu, as the narrow white column of 2015–2017 */
+@media (min-width:1141px){body.rbx-body #wrap.logged-in,body.rbx-body .logged-in{--left-nav-reserved-width:175px!important}}
+${N}{background:#fff!important;border-right:1px solid #dcdcdc!important;box-shadow:none!important}
+${N}>div,${N}>div>div:first-child{width:175px!important}
+${N}>div>div>div{padding:8px 6px!important;gap:8px!important}
+${N} nav>ul{gap:1px!important}
+${I}{font:400 16px/1.25 ${RBX_FONT}!important;color:#191919!important;border-radius:0!important;padding:5px 6px!important;gap:8px!important;min-height:36px}
+${I}>span[class*="size-1000"]{width:26px!important;height:26px!important;opacity:.75}
+${I}.bg-shift-200{background:#f2f2f2!important;box-shadow:inset 3px 0 0 ${Y.bar}}
+${N} .radius-circle{width:28px!important;height:28px!important}
+${both}
+@media (min-width:1141px){
+body.rbx-body:has(#wrap.logged-in)::before{left:calc(175px + (100vw - 175px) / 2 - var(--rbx-w,970px) / 2 - 180px)!important}
+body.rbx-body:has(#wrap.logged-in)::after{right:calc((100vw - 175px) / 2 - var(--rbx-w,970px) / 2 - 180px)!important}}
+@media (max-width:1559px){body.rbx-body:has(#wrap.logged-in)::before,body.rbx-body:has(#wrap.logged-in)::after{display:none!important}}`;
+}
 function rbxCss(asked = rbxYear()) {
   const year = RBX_YEARS[asked] ? Number(asked) : 2016, Y = RBX_YEARS[year];
   const r = (n) => `${n}px`;
@@ -96,10 +148,7 @@ body.rbx-body #nav-logo-link :is(img,svg,span,div),body.rbx-body .rbx-header [cl
 body.rbx-body #navbar-search-input,body.rbx-body .rbx-header .navbar-search,body.rbx-body .rbx-header .input-group{background:#fff!important;color:#191919!important;border:0!important;border-radius:${r(Math.min(3, Y.card.radius))}!important;box-shadow:none!important}
 body.rbx-body #navbar-search-input::placeholder{color:#757575!important}
 body.rbx-body .rbx-header .input-addon-btn,body.rbx-body .rbx-header .input-addon-btn *{color:#757575!important;filter:none!important}
-/* the left menu (signed in) */
-body.rbx-body :is(#left-navigation-container,.rbx-left-col,#navigation){background:#fff!important;border-right:1px solid #e3e3e3!important}
-body.rbx-body :is(#navigation,.rbx-left-col) :is(a,.text-nav,span){color:${Y.text}!important}
-body.rbx-body :is(#navigation,.rbx-left-col) li a:hover{background:#f2f2f2!important}
+${rbxNavCss(year, Y)}
 /* boxes, pictures and headings */
 body.rbx-body .game-card-container{background:${Y.card.bg}!important;border:${Y.card.border}!important;border-radius:${r(Y.card.radius)}!important;box-shadow:${Y.card.shadow}!important;overflow:hidden}
 body.rbx-body :is(.game-card-thumb-container,.thumbnail-2d-container,.item-card-thumb-container,.avatar-card-image,.game-card-thumb,[class*="thumbnail"] img){border-radius:${r(Y.card.radius)}!important}
