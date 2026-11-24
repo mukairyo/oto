@@ -17,7 +17,8 @@ module.exports = async (t) => {
   t.check('…with Instrument Serif and JetBrains Mono (4 faces) handed to the page inline', (fonts.match(/@font-face/g) || []).length === 4 && (fonts.match(/data:font\/woff2;base64,/g) || []).length === 4, String(fonts).slice(0, 80));
   // (1.9.1) on by itself the moment a YouTube page is ready
   await t.js("(window.__ytsHost = YTS_HOST.test, YTS_HOST.test = (u) => /^http:\\/\\/tube\\.site\\//.test(u), 1)");
-  await t.open('http://tube.site/', 1200);
+  await t.open('http://tube.site/', 400);
+  for (let i = 0; i < 28 && !(await t.js(`(async () => { const v = V.get(activeTab().id); try { return /^http:\\/\\/tube\\.site/.test(v.wv.getURL()) && await v.wv.executeJavaScript("getComputedStyle(document.documentElement).backgroundColor !== 'rgba(0, 0, 0, 0)' || getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)'"); } catch { return false; } })()`)); i++) await t.sleep(200); // up to ~6 s: a slow machine is still loading the page
   a = JSON.parse(await t.js(`(async () => { const v = V.get(activeTab().id); return await v.wv.executeJavaScript("JSON.stringify({ bg: getComputedStyle(document.documentElement).backgroundColor, stars: /radial-gradient/.test(getComputedStyle(document.documentElement).backgroundImage) })"); })()`));
   t.check('…and goes on by itself when YouTube opens', a.bg === 'rgb(11, 11, 12)' && a.stars, JSON.stringify(a));
   await t.js("(YTS_HOST.test = window.__ytsHost, 1)");

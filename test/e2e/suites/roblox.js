@@ -26,7 +26,8 @@ module.exports = async (t) => {
     a.places >= 3 && a.noLinks && a.drawn && a.pics === 4 && a.fixed && a.bad && a.ok && a.adsOn, JSON.stringify(a));
   // (1.9.1) the look goes on by itself the moment a page is ready, even when the ad pictures never come
   await t.js("(window.__rbxHost = RBX_HOST.test, RBX_HOST.test = (u) => /^http:\\/\\/roblox\\.site\\//.test(u), window.__rbxPics = rbxAdPics, rbxAdPics = () => new Promise(() => {}), S.settings.rbxYear = 2011, 1)");
-  await t.open('http://roblox.site/', 1200);
+  await t.open('http://roblox.site/', 400);
+  for (let i = 0; i < 28 && !(await t.js(`(async () => { const v = V.get(activeTab().id); try { return /^http:\\/\\/roblox\\.site/.test(v.wv.getURL()) && await v.wv.executeJavaScript("getComputedStyle(document.documentElement).backgroundColor !== 'rgba(0, 0, 0, 0)' || getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)'"); } catch { return false; } })()`)); i++) await t.sleep(200); // up to ~6 s: a slow machine is still loading the page
   a = await t.js(`(async () => { const v = V.get(activeTab().id); return await v.wv.executeJavaScript("JSON.stringify({ bg: getComputedStyle(document.body).backgroundColor, w: getComputedStyle(document.getElementById('content')).maxWidth, ad: getComputedStyle(document.getElementById('content'), '::before').backgroundImage.slice(0, 30) })"); })()`);
   a = JSON.parse(a);
   t.check('Classic Roblox goes on by itself when roblox.com opens, in the year picked, even when the Wiki’s ad pictures never come (Oto’s drawn ads stand in)', a.bg === 'rgb(0, 4, 68)' && a.w === '900px' && /^url\("data:image\/svg/.test(a.ad), JSON.stringify(a));
