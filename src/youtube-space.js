@@ -1,0 +1,181 @@
+'use strict';
+// YouTube in Oto's look (1.9.1): youtube.com (the site itself, not Music, Studio, Kids or the phone site) dressed
+// like Oto's space sidebar: near-black with a field of stars, cream-white highlights, hairline borders, Instrument
+// Serif titles and small spaced-out mono labels with numbers ("01  EXPLORE"), and the active entry lit like the
+// active tab. The fonts are Oto's own (OFL), handed to the page inline; the stars are drawn in CSS. Nothing is loaded
+// from the web and no script runs in the page. Settings › Appearance › Websites turns it off.
+const YTS_HOST = /^https:\/\/(www\.)?youtube\.com(\/|$)/i;
+const ytsOn = () => S.settings.ytSpace !== false;
+const YTS_FONT_FILES = [
+  ['Oto Instrument Serif', 400, 'normal', 'fonts/instrument-serif-latin-400-normal.woff2'],
+  ['Oto Instrument Serif', 400, 'italic', 'fonts/instrument-serif-latin-400-italic.woff2'],
+  ['Oto JetBrains Mono', 400, 'normal', 'fonts/jetbrains-mono-latin-400-normal.woff2'],
+  ['Oto JetBrains Mono', 500, 'normal', 'fonts/jetbrains-mono-latin-500-normal.woff2'],
+];
+let ytsFontCss = null;
+async function ytsFonts() {
+  if (ytsFontCss !== null) return ytsFontCss;
+  try {
+    const faces = await Promise.all(YTS_FONT_FILES.map(async ([family, w, style, f]) => {
+      // labelled as a font ourselves: on Windows a file:// read comes back as "unknown data"
+      const bytes = new Uint8Array(await (await fetch(f)).arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      return `@font-face{font-family:"${family}";font-style:${style};font-weight:${w};font-display:swap;src:url(data:font/woff2;base64,${btoa(bin)}) format("woff2")}`;
+    }));
+    ytsFontCss = faces.join('');
+  } catch { ytsFontCss = ''; }
+  return ytsFontCss;
+}
+
+// Oto's space-sidebar colours (the same as the sidebar's own)
+const YTS = { bg: '#0b0b0c', panel: '#0f0f11', raise: '#141416', menu: '#161618', line: 'rgba(255,255,255,.075)', line2: 'rgba(255,255,255,.14)',
+  fg: '#ece8e1', fg2: 'rgba(236,232,225,.64)', fg3: 'rgba(236,232,225,.38)', cream: '#e7dfd1', ink: '#131313' };
+const YTS_SERIF = '"Oto Instrument Serif","Instrument Serif",Georgia,"Times New Roman",serif';
+const YTS_MONO = '"Oto JetBrains Mono","JetBrains Mono","Cascadia Mono",Consolas,monospace';
+// three layers of stars that repeat at different sizes, so the pattern never lines up; plus a faint glow at the top
+const ytsDots = (size, dots) => dots.map(([x, y, r, a]) => `radial-gradient(${r}px ${r}px at ${x}px ${y}px,rgba(255,255,255,${a}),transparent 70%)`).map((g) => [g, size]);
+const YTS_STAR_LAYERS = [
+  ...ytsDots(263, [[23, 41, 1.2, .55], [151, 97, 1, .35], [92, 188, 1.6, .7], [219, 230, 1, .3], [57, 129, 1, .25]]),
+  ...ytsDots(419, [[310, 60, 1.3, .5], [40, 300, 1, .4], [201, 377, 1.8, .8], [377, 214, 1, .3]]),
+  ...ytsDots(601, [[480, 130, 1.1, .45], [130, 520, 1.4, .6], [560, 470, 1, .3], [290, 300, 2, .9]]),
+  ['radial-gradient(ellipse 80% 50% at 50% -10%,rgba(255,255,255,.045),transparent 70%)', '100% 100%'],
+];
+const YTS_STARS = `background-color:${YTS.bg}!important;background-image:${YTS_STAR_LAYERS.map((l) => l[0]).join(',')}!important;background-size:${YTS_STAR_LAYERS.map((l) => (typeof l[1] === 'number' ? `${l[1]}px ${l[1]}px` : l[1])).join(',')}!important;background-attachment:fixed!important`;
+
+function ytsCss() {
+  const C = YTS;
+  const sys = (k, v) => `--yt-sys-color-baseline--${k}:${v}!important;`;
+  const spec = (k, v) => `--yt-spec-${k}:${v}!important;`;
+  const colors = [
+    ['base-background', 'transparent'], ['raised-background', C.raise], ['surface-container', C.panel], ['menu-background', C.menu],
+    ['additive-background', 'rgba(255,255,255,.05)'], ['outline', C.line2], ['outline-opaque', '#262628'], ['outline-rim', C.line2],
+    ['text-primary', C.fg], ['text-secondary', C.fg2], ['text-disabled', C.fg3], ['icon-inactive', C.fg2], ['icon-disabled', C.fg3],
+    ['call-to-action', '#fff'], ['call-to-action-hover', C.cream], ['overlay-call-to-action', '#fff'], ['suggested-action', 'rgba(255,255,255,.08)'],
+    ['inverted-background', C.cream], ['inverted-background-hover', '#fff'], ['mono-filled-hover', '#fff'], ['text-primary-inverse', C.ink],
+    ['tonal-background', 'rgba(255,255,255,.04)'], ['mono-tonal-hover', 'rgba(255,255,255,.09)'], ['button-chip-background-hover', 'rgba(255,255,255,.09)'],
+    ['frosted-glass-desktop', 'rgba(11,11,12,.82)'], ['touch-response', '#fff'], ['shadow-medium', 'rgba(0,0,0,.6)'],
+  ];
+  const legacy = [
+    ['base-background', 'transparent'], ['raised-background', C.raise], ['menu-background', C.menu], ['general-background-a', 'transparent'],
+    ['general-background-b', 'transparent'], ['general-background-c', C.panel], ['brand-background-solid', C.bg], ['brand-background-primary', 'rgba(11,11,12,.9)'],
+    ['brand-background-secondary', 'rgba(11,11,12,.8)'], ['text-primary', C.fg], ['text-secondary', C.fg2], ['text-disabled', C.fg3], ['icon-inactive', C.fg2],
+    ['10-percent-layer', C.line2], ['badge-chip-background', 'rgba(255,255,255,.05)'], ['additive-background', 'rgba(255,255,255,.05)'], ['outline', C.line2],
+    ['call-to-action', '#fff'], ['touch-response', '#fff'], ['mono-filled', C.cream], ['mono-tonal', 'rgba(255,255,255,.04)'],
+  ];
+  const vars = colors.map(([k, v]) => sys(k, v)).join('') + legacy.map(([k, v]) => spec(k, v)).join('');
+  const label = `font:500 10px/1.2 ${YTS_MONO}!important;letter-spacing:.22em!important;text-transform:uppercase!important;color:${C.fg3}!important`;
+  const hair = `linear-gradient(${C.line},${C.line}) no-repeat`;
+  return `
+html,html[dark],html[light],[dark],[light],html[darker-dark-theme]{${vars}color-scheme:dark}
+html,body,ytd-app{${YTS_STARS}}
+body{color:${C.fg}}
+::selection{background:${C.cream};color:${C.ink}}
+::-webkit-scrollbar{width:8px!important;height:8px!important;background:transparent!important}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1)!important;border-radius:0!important;border:0!important}
+/* the top bar: frosted black with a hairline, like the sidebar's edge */
+#masthead-container #background,ytd-masthead #background{background:rgba(11,11,12,.82)!important;backdrop-filter:blur(14px)}
+#masthead-container{box-shadow:inset 0 -1px 0 ${C.line}!important}
+ytd-masthead{background:transparent!important}
+/* the search box, like Oto's address box: hairline, square-ish corners, serif text */
+:is(.ytSearchboxComponentInputBox,ytd-searchbox #container){background:rgba(255,255,255,.03)!important;border:1px solid ${C.line2}!important;border-right:0!important;border-radius:8px 0 0 8px!important;box-shadow:none!important}
+:is(.ytSearchboxComponentInput,ytd-searchbox input#search){font:400 18px/1.2 ${YTS_SERIF}!important;color:${C.fg}!important;letter-spacing:.01em}
+:is(.ytSearchboxComponentInput,ytd-searchbox input#search)::placeholder{color:${C.fg3}!important}
+:is(.ytSearchboxComponentSearchButton,#search-icon-legacy){background:rgba(255,255,255,.06)!important;border:1px solid ${C.line2}!important;border-radius:0 8px 8px 0!important}
+:is(.ytSearchboxComponentInputBoxHasFocus,ytd-searchbox[has-focus] #container){border-color:rgba(255,255,255,.32)!important}
+.ytSearchboxComponentSuggestionsContainer,.sbdd_b{background:${C.menu}!important;border:1px solid ${C.line2}!important;border-radius:8px!important}
+/* the guide (YouTube's own sidebar) as Oto's: panel, numbered mono headings with a hairline, serif entries, lit active row */
+#guide-content,tp-yt-app-drawer #contentContainer,ytd-mini-guide-renderer{background:rgba(11,11,12,.86)!important;backdrop-filter:blur(10px)}
+#guide-content{box-shadow:inset -1px 0 0 ${C.line}!important}
+ytd-guide-renderer #sections{counter-reset:yts-sec}
+ytd-guide-section-renderer{border-top:0!important}
+ytd-guide-section-renderer #guide-section-title{${label};display:block!important;padding:14px 12px 8px 14px!important;background:${hair} right 12px center/calc(100% - 140px) 1px!important}
+ytd-guide-section-renderer #guide-section-title::before{content:counter(yts-sec,decimal-leading-zero) "\\00a0\\00a0\\00a0";counter-increment:yts-sec}
+ytd-guide-section-renderer #items{counter-reset:yts-it}
+ytd-guide-entry-renderer{counter-increment:yts-it}
+ytd-guide-entry-renderer tp-yt-paper-item{border-radius:4px!important;min-height:36px!important;padding:0 10px!important}
+ytd-guide-entry-renderer tp-yt-paper-item::before{content:counter(yts-it,decimal-leading-zero);font:500 9px ${YTS_MONO};color:${C.fg3};width:16px;flex:none;letter-spacing:.05em;margin-right:6px}
+ytd-guide-entry-renderer .title,ytd-guide-entry-renderer yt-formatted-string.title{font:400 17px/1.1 ${YTS_SERIF}!important;color:${C.fg}!important;letter-spacing:.005em}
+ytd-guide-entry-renderer yt-icon,ytd-guide-entry-renderer yt-img-shadow{opacity:.78}
+ytd-guide-entry-renderer:hover tp-yt-paper-item{background:rgba(255,255,255,.04)!important}
+ytd-guide-entry-renderer[active] tp-yt-paper-item{background:linear-gradient(90deg,rgba(255,255,255,.13),rgba(255,255,255,.03))!important;box-shadow:inset 1px 0 0 rgba(255,255,255,.7)}
+ytd-guide-entry-renderer[active] :is(.title,yt-icon){color:#fff!important;opacity:1}
+ytd-guide-entry-renderer[active] tp-yt-paper-item::before{color:rgba(255,255,255,.6)}
+ytd-guide-collapsible-section-entry-renderer #header-entry .title{font:400 17px/1.1 ${YTS_SERIF}!important}
+ytd-guide-signin-promo-renderer,#footer.ytd-guide-renderer{${label};text-transform:none!important;letter-spacing:.02em!important;line-height:1.6!important}
+ytd-mini-guide-entry-renderer .title{font:500 8.5px/1.3 ${YTS_MONO}!important;letter-spacing:.12em!important;text-transform:uppercase!important;color:${C.fg2}!important}
+ytd-mini-guide-entry-renderer[active] .title{color:#fff!important}
+ytd-mini-guide-entry-renderer[active]{background:linear-gradient(rgba(255,255,255,.1),rgba(255,255,255,.02))!important;border-radius:6px!important}
+/* the topic chips: hairline boxes with mono caps; the picked one in cream, like the active tab */
+#chips-wrapper,ytd-feed-filter-chip-bar-renderer #chips-wrapper,#header.ytd-rich-grid-renderer{background:rgba(11,11,12,.86)!important;backdrop-filter:blur(10px)}
+:is(yt-chip-cloud-chip-renderer,.ytChipShapeChip){background:transparent!important;box-shadow:inset 0 0 0 1px ${C.line2}!important;border-radius:4px!important}
+:is(yt-chip-cloud-chip-renderer,.ytChipShapeChip) :is(#text,yt-formatted-string,.ytChipShapeChipText),.ytChipShapeChip{font:500 10.5px/1 ${YTS_MONO}!important;letter-spacing:.14em!important;text-transform:uppercase!important;color:${C.fg2}!important}
+:is(yt-chip-cloud-chip-renderer:hover,.ytChipShapeChip:hover){background:rgba(255,255,255,.05)!important}
+:is(yt-chip-cloud-chip-renderer[selected],.ytChipShapeActive){background:${C.cream}!important;box-shadow:none!important}
+:is(yt-chip-cloud-chip-renderer[selected],.ytChipShapeActive) :is(#text,yt-formatted-string,.ytChipShapeChipText),.ytChipShapeActive{color:${C.ink}!important}
+/* videos: softer corners, serif titles, mono details */
+:is(ytd-thumbnail,yt-thumbnail-view-model,.yt-thumbnail-view-model,a.yt-lockup-view-model__content-image,a.ytLockupViewModelContentImage,ytd-playlist-thumbnail) :is(img,yt-image,.yt-core-image,.ytCoreImageHost),
+:is(ytd-thumbnail,.ytThumbnailViewModelImage,yt-thumbnail-view-model,ytd-playlist-thumbnail),#thumbnail.ytd-thumbnail{border-radius:6px!important}
+:is(ytd-thumbnail:hover,a.yt-lockup-view-model__content-image:hover,a.ytLockupViewModelContentImage:hover) :is(img,.yt-core-image,.ytCoreImageHost){box-shadow:0 0 0 1px rgba(255,255,255,.35)}
+:is(#video-title,.yt-lockup-metadata-view-model__title,.ytLockupMetadataViewModelTitle,h3.yt-lockup-metadata-view-model__heading-reset,h3.ytLockupMetadataViewModelHeadingReset) :is(span,yt-formatted-string),#video-title,.yt-lockup-metadata-view-model__title,.ytLockupMetadataViewModelTitle{font-family:${YTS_SERIF}!important;font-weight:400!important;letter-spacing:.005em!important}
+ytd-rich-item-renderer :is(#video-title,.yt-lockup-metadata-view-model__title,.ytLockupMetadataViewModelTitle) :is(span,yt-formatted-string),ytd-rich-item-renderer :is(#video-title,.yt-lockup-metadata-view-model__title,.ytLockupMetadataViewModelTitle){font-size:19px!important;line-height:1.18!important}
+ytd-video-renderer #video-title,ytd-video-renderer #video-title yt-formatted-string{font-size:22px!important;line-height:1.2!important}
+ytd-compact-video-renderer #video-title,#secondary yt-lockup-view-model :is(.yt-lockup-metadata-view-model__title,.ytLockupMetadataViewModelTitle) :is(span,yt-formatted-string){font-size:16.5px!important;line-height:1.2!important}
+:is(#metadata-line,ytd-video-meta-block #metadata,.yt-content-metadata-view-model__metadata-row,.ytContentMetadataViewModelMetadataRow) :is(span,a){font-family:${YTS_MONO}!important;font-size:11px!important;letter-spacing:.02em!important;color:${C.fg3}!important}
+:is(ytd-channel-name,#channel-name) :is(a,yt-formatted-string),:is(.yt-content-metadata-view-model__metadata-row,.ytContentMetadataViewModelMetadataRow):first-child :is(span,a){color:${C.fg2}!important}
+:is(ytd-thumbnail-overlay-time-status-renderer,.yt-badge-shape--thumbnail-default,.ytBadgeShapeThumbnailDefault){background:rgba(11,11,12,.82)!important;color:${C.fg}!important;font-family:${YTS_MONO}!important;letter-spacing:.04em!important;border-radius:3px!important;box-shadow:inset 0 0 0 1px ${C.line2}}
+ytd-thumbnail-overlay-resume-playback-renderer #progress,.ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment{background:#fff!important}
+/* links in descriptions and comments: white with a faint underline instead of blue */
+:is(ytd-text-inline-expander,#description,ytd-comment-view-model,#content-text,yt-attributed-string) a:not([class*="ytSpecButton"]):not([class*="yt-spec-button"]){color:#fff!important;text-decoration:underline!important;text-decoration-color:rgba(255,255,255,.3)!important;text-underline-offset:2px}
+/* shelf and section headings: mono caps with a hairline, like "JUMP BACK IN · LAST SIGNALS" */
+:is(ytd-rich-shelf-renderer,ytd-reel-shelf-renderer,ytd-shelf-renderer,ytd-horizontal-card-list-renderer,ytd-item-section-header-renderer) #title:not(:empty),
+ytd-rich-section-renderer #title-text,yt-section-header-view-model .yt-shelf-header-layout__title,.ytShelfHeaderLayoutTitle{${label};font-size:11px!important}
+/* the watch page: a big serif title, hairline boxes, the cream Subscribe */
+ytd-watch-metadata h1 yt-formatted-string,ytd-watch-metadata #title h1{font:400 34px/1.1 ${YTS_SERIF}!important;letter-spacing:.005em!important;color:${C.fg}!important}
+ytd-watch-metadata #description,ytd-watch-metadata #description-inner,#description.ytd-watch-metadata{background:rgba(255,255,255,.025)!important;box-shadow:inset 0 0 0 1px ${C.line}!important;border-radius:8px!important}
+ytd-watch-metadata #info-container,ytd-watch-info-text #info span{font-family:${YTS_MONO}!important;font-size:12px!important;letter-spacing:.02em}
+:is(ytd-comments-header-renderer h2,ytd-comments-header-renderer #count) yt-formatted-string,ytd-comments-header-renderer #count{${label};font-size:11px!important}
+ytd-comment-view-model #author-text,ytd-comment-renderer #author-text{font-family:${YTS_MONO}!important;font-size:12px!important;letter-spacing:.02em}
+/* buttons: hairline pills; the filled one (Subscribe, Sign in) in cream; blue "Sign in" outlines in white
+   (YouTube writes these classes both ways: yt-spec-button-shape-next--tonal and ytSpecButtonShapeNextTonal) */
+:is(.yt-spec-button-shape-next--tonal.yt-spec-button-shape-next--mono,.ytSpecButtonShapeNextTonal.ytSpecButtonShapeNextMono){background:rgba(255,255,255,.03)!important;box-shadow:inset 0 0 0 1px ${C.line2}!important}
+:is(.yt-spec-button-shape-next--tonal.yt-spec-button-shape-next--mono,.ytSpecButtonShapeNextTonal.ytSpecButtonShapeNextMono):hover{background:rgba(255,255,255,.08)!important}
+:is(.yt-spec-button-shape-next--filled.yt-spec-button-shape-next--mono,.ytSpecButtonShapeNextFilled.ytSpecButtonShapeNextMono){background:${C.cream}!important;color:${C.ink}!important}
+:is(.yt-spec-button-shape-next--filled.yt-spec-button-shape-next--mono,.ytSpecButtonShapeNextFilled.ytSpecButtonShapeNextMono):hover{background:#fff!important}
+:is(.yt-spec-button-shape-next--outline,.ytSpecButtonShapeNextOutline){border-color:${C.line2}!important}
+:is(.yt-spec-button-shape-next--call-to-action,.ytSpecButtonShapeNextCallToAction):is(.yt-spec-button-shape-next--outline,.ytSpecButtonShapeNextOutline){color:#fff!important;border-color:rgba(255,255,255,.3)!important}
+:is(.yt-spec-button-shape-next--call-to-action,.ytSpecButtonShapeNextCallToAction):is(.yt-spec-button-shape-next--outline,.ytSpecButtonShapeNextOutline) *{color:#fff!important}
+/* menus and pop-ups */
+tp-yt-paper-listbox,ytd-menu-popup-renderer,ytd-multi-page-menu-renderer,yt-sheet-view-model,.ytSheetViewModelContextual{background:${C.menu}!important;border:1px solid ${C.line2}!important;border-radius:8px!important;box-shadow:0 30px 80px -10px rgba(0,0,0,.75)!important}
+tp-yt-paper-dialog,ytd-popup-container tp-yt-paper-dialog{background:${C.panel}!important;border:1px solid ${C.line2}!important}
+tp-yt-paper-tooltip #tooltip,.ytp-tooltip-text{background:${C.cream}!important;color:${C.ink}!important;font-family:${YTS_MONO}!important;letter-spacing:.04em;border-radius:3px!important}
+/* the player: a white played bar and knob instead of red, like Oto's own media bar */
+.ytp-play-progress,.ytp-swatch-background-color,.ytp-load-progress+.ytp-play-progress{background:linear-gradient(90deg,${C.cream},#fff)!important}
+.ytp-scrubber-button,.ytp-swatch-background-color.ytp-scrubber-button{background:#fff!important;box-shadow:0 0 10px rgba(255,255,255,.6)!important}
+.ytp-volume-slider-handle,.ytp-volume-slider-handle::before{background:#fff!important}
+.ytp-settings-menu,.ytp-popup{background:rgba(11,11,12,.92)!important;border:1px solid ${C.line2};border-radius:8px!important}
+.ytp-chrome-bottom .ytp-time-display{font-family:${YTS_MONO}!important;letter-spacing:.02em}
+`;
+}
+
+async function ytsApply(v) {
+  if (!v || !v.wv) return;
+  let url = '';
+  try { url = v.wv.getURL(); } catch { return; }
+  if (v.ytsKey) { try { await v.wv.removeInsertedCSS(v.ytsKey); } catch {} v.ytsKey = null; }
+  if (!YTS_HOST.test(url) || !ytsOn()) return;
+  try { const k = await v.wv.insertCSS((await ytsFonts()) + ytsCss()); if (v.ytsKey) await v.wv.removeInsertedCSS(v.ytsKey); v.ytsKey = k; } catch {}
+}
+function ytsRefresh() { for (const v of V.values()) if (v && v.ready) ytsApply(v); }
+let ytsReady = false;
+function initYoutubeSpace() {
+  if (ytsReady || typeof bindView !== 'function') return;
+  ytsReady = true;
+  const _bind = bindView;
+  bindView = function (tab, v) {
+    _bind.apply(this, arguments);
+    try { v.wv.addEventListener('dom-ready', () => { v.ytsKey = null; ytsApply(v); }); } catch {}
+  };
+  ytsFonts(); // read the fonts once, early
+}
+if (typeof S !== 'undefined' && typeof bindView === 'function') initYoutubeSpace();

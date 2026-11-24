@@ -544,6 +544,8 @@ const PAGE_RENDER = {
         row('Space colours', 'Each space has its own gradient. Right-click a space dot to change it.',
           h('button', { class: 'btn', onclick: () => { closeSettings(); openWsDialog(currentWs(), { focusColours: true }); } }, 'Change colours'))),
       section('Websites',
+        row('YouTube in Oto’s look', 'Dresses youtube.com like Oto’s space sidebar: black with stars, white highlights, serif titles and small mono labels.',
+          sw(st.ytSpace !== false, (on) => { setPref('ytSpace', on); if (typeof ytsRefresh === 'function') ytsRefresh(); })),
         row('Classic Roblox', 'Shows roblox.com the way it looked back then: the old top bar, colours, font, boxes and green Play buttons.',
           sw(st.rbxClassic !== false, (on) => { setPref('rbxClassic', on); if (typeof rbxRefresh === 'function') rbxRefresh(); })),
         st.rbxClassic !== false && typeof RBX_YEAR_LIST !== 'undefined' ? row('Year', 'Which year’s roblox.com to bring back.',

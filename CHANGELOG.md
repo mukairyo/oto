@@ -3,8 +3,9 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
-## 1.9.1 — Roblox's menu fits the year
+## 1.9.1 — YouTube in Oto's look, and Roblox's menu fits the year
 
+- **YouTube in Oto's look:** youtube.com now looks like Oto's space sidebar. It has a black background with stars, white highlights instead of blue, hairline borders, serif video titles, and small numbered mono labels in YouTube's own sidebar ("01  EXPLORE"). The page you're on is lit like the active tab, chips are hairline boxes with the picked one in cream, Subscribe is cream, and the played part of the video bar is white instead of red. It uses Oto's own fonts, the stars are drawn by the browser, and nothing is loaded from the web. Turn it off in Settings › Appearance › Websites.
 - **Classic Roblox, signed in:** Roblox's left menu now matches the year you picked. From 2010 to 2014 it turns into the second bar under the top bar, where those links were back then. From 2015 to 2017 it's the narrow white column on the left. Before, it was a wide column on the page colour: in 2011 you couldn't read it, and it covered the left ad. The page gets its width back, and the side ads move so the menu never covers them.
 - **Battery saver:** turning it on no longer makes the star on the start page's orbit ring race round. "Fewer animations" squeezed every animation to almost no time, so ones that loop forever looped about a thousand times a second. Now they play once and stop.
 
