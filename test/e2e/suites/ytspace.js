@@ -11,7 +11,7 @@ module.exports = async (t) => {
     noWeb: !/url\\(["']?(https?:|\\/\\/)/i.test(c), white: /ytp-play-progress[^{]*\\{background:linear-gradient\\(90deg,#e7dfd1,#fff\\)/.test(c) };`);
   t.check('…the sidebar’s colours, a field of stars drawn in CSS, serif titles and mono labels, a white played bar, nothing loaded from the web', Object.values(a).every(Boolean), JSON.stringify(a));
   a = await J(`const c = ytsCss(); return { logo: /a#logo::before\\{content:"音"/.test(c) && /OTO \\/\\/ YOUTUBE/.test(c), star: /InputBox[^{]*::before\\{content:"✦"/.test(c),
-    cards: /ytd-search ytd-video-renderer #dismissible\\{[^}]*border-radius:10px/.test(c), numbered: /counter\\(yts-r,decimal-leading-zero\\)/.test(c), onAir: /ON AIR/.test(c), noBanner: /ytCinematicContainerViewModelFadeToThemeContainer[^{]*\\{display:none/.test(c) };`);
+    noYtGlass: /ytSearchboxComponentInnerSearchIcon[^{]*\\{display:none/.test(c), chips: /span\\[style\\*="border-radius"\\] a\\{text-decoration:none/.test(c), cards: /ytd-search ytd-video-renderer #dismissible\\{[^}]*border-radius:10px/.test(c), numbered: /counter\\(yts-r,decimal-leading-zero\\)/.test(c), onAir: /ON AIR/.test(c), noBanner: /ytCinematicContainerViewModelFadeToThemeContainer[^{]*\\{display:none/.test(c) };`);
   t.check('…laid out like Oto: its space badge for the logo, the start page’s search box, numbered hairline cards for results, the channel card without YouTube’s banner glow', Object.values(a).every(Boolean), JSON.stringify(a));
   const fonts = await t.js('ytsFonts()');
   t.check('…with Instrument Serif and JetBrains Mono (4 faces) handed to the page inline', (fonts.match(/@font-face/g) || []).length === 4 && (fonts.match(/data:font\/woff2;base64,/g) || []).length === 4, String(fonts).slice(0, 80));

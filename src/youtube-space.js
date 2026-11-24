@@ -127,7 +127,12 @@ ytd-compact-video-renderer #video-title,#secondary yt-lockup-view-model :is(.yt-
 :is(ytd-thumbnail-overlay-time-status-renderer,.yt-badge-shape--thumbnail-default,.ytBadgeShapeThumbnailDefault){background:rgba(11,11,12,.82)!important;color:${C.fg}!important;font-family:${YTS_MONO}!important;letter-spacing:.04em!important;border-radius:3px!important;box-shadow:inset 0 0 0 1px ${C.line2}}
 ytd-thumbnail-overlay-resume-playback-renderer #progress,.ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment{background:#fff!important}
 /* links in descriptions and comments: white with a faint underline instead of blue */
-:is(ytd-text-inline-expander,#description,ytd-comment-view-model,#content-text,yt-attributed-string) a:not([class*="ytSpecButton"]):not([class*="yt-spec-button"]){color:#fff!important;text-decoration:underline!important;text-decoration-color:rgba(255,255,255,.3)!important;text-underline-offset:2px}
+:is(ytd-text-inline-expander,#description,ytd-comment-view-model,#content-text,yt-attributed-string) a:not([class*="ytSpecButton"]):not([class*="yt-spec-button"]):not(span[style*="border-radius"] a){color:#fff!important;text-decoration:underline!important;text-decoration-color:rgba(255,255,255,.3)!important;text-underline-offset:2px}
+/* the little link boxes YouTube draws in descriptions and comments (a channel or video with the YouTube icon, a search
+   with a magnifier): a hairline box with room inside and no underline (1.9.3: the text touched the edges and the
+   underline hung out below the box) */
+:is(ytd-text-inline-expander,#description,ytd-comment-view-model,#content-text,yt-attributed-string,.ytAttributedStringHost) span[style*="border-radius"]{background:rgba(255,255,255,.06)!important;box-shadow:inset 0 0 0 1px ${C.line2}!important;padding:1px 6px 2px!important;border-radius:5px!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+:is(ytd-text-inline-expander,#description,ytd-comment-view-model,#content-text,yt-attributed-string,.ytAttributedStringHost) span[style*="border-radius"] a{text-decoration:none!important;color:#fff!important}
 /* shelf and section headings: mono caps with a hairline, like "JUMP BACK IN · LAST SIGNALS" */
 :is(ytd-rich-shelf-renderer,ytd-reel-shelf-renderer,ytd-shelf-renderer,ytd-horizontal-card-list-renderer,ytd-item-section-header-renderer) #title:not(:empty),
 ytd-rich-section-renderer #title-text,yt-section-header-view-model .yt-shelf-header-layout__title,.ytShelfHeaderLayoutTitle{${label};font-size:11px!important}
@@ -158,6 +163,8 @@ ytd-topbar-logo-renderer a#logo>div::after{content:"OTO // YOUTUBE";font:500 8.5
 /* the search box, like the start page's: one rounded box with a star, serif text and a key hint */
 :is(.ytSearchboxComponentInputBox,ytd-searchbox #container){position:relative!important;border-radius:10px 0 0 10px!important;padding-left:38px!important;background:rgba(255,255,255,.025)!important}
 :is(.ytSearchboxComponentInputBox,ytd-searchbox #container)::before{content:"✦";position:absolute;left:15px;top:50%;transform:translateY(-50%);font-size:14px;color:${C.fg};pointer-events:none}
+/* YouTube puts its own magnifier inside the box when it's clicked; the star already marks it (1.9.3: they sat on top of the text) */
+.ytSearchboxComponentInnerSearchIcon,ytd-searchbox #search-icon.ytd-searchbox{display:none!important}
 :is(.ytSearchboxComponentSearchButton,#search-icon-legacy){border-radius:0 10px 10px 0!important;background:rgba(255,255,255,.025)!important;border-left:1px solid ${C.line}!important;width:56px!important}
 :is(.ytSearchboxComponentSearchButton,#search-icon-legacy) :is(yt-icon,svg,.ytIconWrapperHost){color:${C.fg2}!important;fill:${C.fg2}!important}
 yt-searchbox:not(:focus-within) .ytSearchboxComponentInputBox::after{content:"/";position:absolute;right:10px;top:50%;transform:translateY(-50%);font:500 10px/1 ${YTS_MONO};color:${C.fg2};padding:4px 7px;border:1px solid ${C.line2};border-radius:4px;pointer-events:none}

@@ -3,6 +3,10 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.9.3 — YouTube search box and link boxes
+
+- **YouTube in Oto's look:** clicking into YouTube's search box no longer shows YouTube's magnifier on top of the star and the text. The little link boxes in descriptions and comments (a channel or video with the YouTube icon, or a search) now have room inside and no underline hanging out below.
+
 ## 1.9.2 — Site themes stay on
 
 - **Classic Roblox and YouTube in Oto's look go on by themselves, every time:** going to a new Roblox page (Home to Profile, Messages or Communities) often brought up today's Roblox, and the look only came back after you changed something in Settings. YouTube could do the same. The cause: both themes set themselves up as soon as their files loaded, but only if Oto had already read your saved settings by then. On a slower start, with more tabs or a busier PC, it hadn't, so the themes never hooked into page loads. They now always set themselves up. They also check once a second for any tab they missed, and each themed page carries a small marker so a missing look goes back on by itself. Changes to a tab's theme run one at a time, and every request to the page has a time limit, so nothing can get stuck.
