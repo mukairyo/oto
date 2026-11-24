@@ -145,6 +145,48 @@ ytd-comment-view-model #author-text,ytd-comment-renderer #author-text{font-famil
 :is(.yt-spec-button-shape-next--outline,.ytSpecButtonShapeNextOutline){border-color:${C.line2}!important}
 :is(.yt-spec-button-shape-next--call-to-action,.ytSpecButtonShapeNextCallToAction):is(.yt-spec-button-shape-next--outline,.ytSpecButtonShapeNextOutline){color:#fff!important;border-color:rgba(255,255,255,.3)!important}
 :is(.yt-spec-button-shape-next--call-to-action,.ytSpecButtonShapeNextCallToAction):is(.yt-spec-button-shape-next--outline,.ytSpecButtonShapeNextOutline) *{color:#fff!important}
+/* ---------- Oto's layout, not YouTube's ---------- */
+/* the logo: Oto's space badge ("音  TUBE · OTO // YOUTUBE", like the sidebar's "HOME · OTO // SPACE") */
+ytd-topbar-logo-renderer a#logo>div>*,ytd-topbar-logo-renderer #country-code,ytd-topbar-logo-renderer ytd-yoodle-renderer{display:none!important}
+ytd-topbar-logo-renderer a#logo{display:flex!important;align-items:center;gap:10px;height:38px;box-sizing:border-box;padding:0 14px 0 11px!important;border:1px solid ${C.line2};border-radius:6px;background:rgba(255,255,255,.015);text-decoration:none!important}
+ytd-topbar-logo-renderer a#logo:hover{background:rgba(255,255,255,.05)}
+ytd-topbar-logo-renderer a#logo::before{content:"音";font:400 17px/1 "Yu Gothic UI","Meiryo","Noto Sans CJK JP",sans-serif;color:${C.fg}}
+ytd-topbar-logo-renderer a#logo>div{display:flex!important;flex-direction:column;gap:4px;width:auto!important;height:auto!important}
+ytd-topbar-logo-renderer a#logo>div::before{content:"TUBE";font:700 12px/1 Inter,"Segoe UI",system-ui,sans-serif;letter-spacing:.24em;color:${C.fg}}
+ytd-topbar-logo-renderer a#logo>div::after{content:"OTO // YOUTUBE";font:500 8.5px/1 ${YTS_MONO};letter-spacing:.2em;color:${C.fg3}}
+/* the search box, like the start page's: one rounded box with a star, serif text and a key hint */
+:is(.ytSearchboxComponentInputBox,ytd-searchbox #container){position:relative!important;border-radius:10px 0 0 10px!important;padding-left:38px!important;background:rgba(255,255,255,.025)!important}
+:is(.ytSearchboxComponentInputBox,ytd-searchbox #container)::before{content:"✦";position:absolute;left:15px;top:50%;transform:translateY(-50%);font-size:14px;color:${C.fg};pointer-events:none}
+:is(.ytSearchboxComponentSearchButton,#search-icon-legacy){border-radius:0 10px 10px 0!important;background:rgba(255,255,255,.025)!important;border-left:1px solid ${C.line}!important;width:56px!important}
+:is(.ytSearchboxComponentSearchButton,#search-icon-legacy) :is(yt-icon,svg,.ytIconWrapperHost){color:${C.fg2}!important;fill:${C.fg2}!important}
+yt-searchbox:not(:focus-within) .ytSearchboxComponentInputBox::after{content:"/";position:absolute;right:10px;top:50%;transform:translateY(-50%);font:500 10px/1 ${YTS_MONO};color:${C.fg2};padding:4px 7px;border:1px solid ${C.line2};border-radius:4px;pointer-events:none}
+/* search results: numbered hairline cards, like "Jump back in" on the start page */
+ytd-search ytd-item-section-renderer #contents{counter-reset:yts-r}
+ytd-search ytd-video-renderer{counter-increment:yts-r;margin-top:12px!important}
+ytd-search ytd-video-renderer #dismissible{background:rgba(255,255,255,.02)!important;box-shadow:inset 0 0 0 1px ${C.line}!important;border-radius:10px!important;padding:12px!important;transition:background .15s,box-shadow .15s}
+ytd-search ytd-video-renderer #dismissible:hover{background:rgba(255,255,255,.045)!important;box-shadow:inset 0 0 0 1px ${C.line2}!important}
+ytd-search ytd-video-renderer ytd-thumbnail.ytd-video-renderer{max-width:340px!important}
+ytd-search ytd-video-renderer .text-wrapper{padding-left:8px!important}
+ytd-search ytd-video-renderer #meta::before{content:counter(yts-r,decimal-leading-zero) "\\00a0\\00a0//\\00a0\\00a0VIDEO";display:block;${label};font-size:9.5px!important;margin:2px 0 10px;padding-right:8px;background:${hair} right center/calc(100% - 150px) 1px}
+ytd-search ytd-video-renderer:has(:is(.badge-style-type-live-now-alternate,.ytBadgeShapeLive)) #meta::before{content:counter(yts-r,decimal-leading-zero) "\\00a0\\00a0//\\00a0\\00a0ON AIR"}
+ytd-search ytd-video-renderer :is(#description-text,.metadata-snippet-text,.metadata-snippet-container) :is(span,yt-formatted-string),ytd-search ytd-video-renderer #description-text{color:${C.fg3}!important;font-size:12.5px!important}
+ytd-search ytd-video-renderer #channel-info ytd-channel-name :is(a,yt-formatted-string){font:500 11px/1.4 ${YTS_MONO}!important;letter-spacing:.06em!important;text-transform:uppercase;color:${C.fg2}!important}
+ytd-search ytd-video-renderer #expandable-metadata :is(#header,ytd-expandable-metadata-renderer){background:transparent!important;box-shadow:inset 0 0 0 1px ${C.line}!important;border-radius:6px!important}
+:is(.badge-style-type-live-now-alternate,.badge-style-type-live-now,.ytBadgeShapeLive,.yt-badge-shape--live){background:transparent!important;color:#fff!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.45)!important;border-radius:3px!important;font-family:${YTS_MONO}!important;letter-spacing:.12em!important}
+:is(ytd-badge-supported-renderer .badge,.ytBadgeShapeHost:not(.ytBadgeShapeThumbnailDefault)){border-radius:3px!important;font-family:${YTS_MONO}!important;letter-spacing:.06em!important}
+/* the channel / artist card on top of results: a plain hairline panel, no YouTube banner glow */
+yt-official-card-view-model,ytd-universal-watch-card-renderer{display:block;background:rgba(255,255,255,.02)!important;box-shadow:inset 0 0 0 1px ${C.line}!important;border-radius:10px!important;overflow:hidden;margin-top:12px!important}
+yt-official-card-view-model :is(.ytCinematicContainerViewModelFadeToThemeContainer,.ytPageHeaderViewModelBackground){display:none!important}
+yt-official-card-view-model :is(.ytOfficialCardViewModelHostCinematicContentContainer,.ytwHorizontalShelfViewModelOuterContainer,yt-page-header-view-model){background:transparent!important}
+yt-official-card-view-model::before{content:"ON\\00a0\\00a0//\\00a0\\00a0CHANNEL";display:block;${label};font-size:9.5px!important;padding:14px 16px 0;background:${hair} right 16px bottom 5px/calc(100% - 190px) 1px}
+.ytPageHeaderViewModelTitle :is(span,.ytAttributedStringHost),.ytPageHeaderViewModelTitle{font:400 40px/1.05 ${YTS_SERIF}!important;letter-spacing:.005em!important;color:${C.fg}!important}
+.ytPageHeaderViewModelContentMetadata :is(span,a){font-family:${YTS_MONO}!important;font-size:11px!important;letter-spacing:.04em!important;color:${C.fg3}!important}
+/* grids (home, shelves) and the list beside a video: the same quiet cards */
+ytd-rich-item-renderer :is(yt-lockup-view-model,#content>ytd-rich-grid-media),ytd-search grid-shelf-view-model .ytGridShelfViewModelGridShelfItem{background:rgba(255,255,255,.02);box-shadow:inset 0 0 0 1px ${C.line};border-radius:10px;padding:8px 8px 4px;transition:background .15s}
+ytd-rich-item-renderer :is(yt-lockup-view-model,#content>ytd-rich-grid-media):hover,ytd-search grid-shelf-view-model .ytGridShelfViewModelGridShelfItem:hover{background:rgba(255,255,255,.045);box-shadow:inset 0 0 0 1px ${C.line2}}
+ytd-search grid-shelf-view-model{display:block;margin-top:16px}
+#secondary :is(yt-lockup-view-model,ytd-compact-video-renderer){border-radius:8px;padding:4px;transition:background .15s}
+#secondary :is(yt-lockup-view-model,ytd-compact-video-renderer):hover{background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px ${C.line}}
 /* menus and pop-ups */
 tp-yt-paper-listbox,ytd-menu-popup-renderer,ytd-multi-page-menu-renderer,yt-sheet-view-model,.ytSheetViewModelContextual{background:${C.menu}!important;border:1px solid ${C.line2}!important;border-radius:8px!important;box-shadow:0 30px 80px -10px rgba(0,0,0,.75)!important}
 tp-yt-paper-dialog,ytd-popup-container tp-yt-paper-dialog{background:${C.panel}!important;border:1px solid ${C.line2}!important}
