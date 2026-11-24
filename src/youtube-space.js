@@ -204,6 +204,8 @@ tp-yt-paper-tooltip #tooltip,.ytp-tooltip-text{background:${C.cream}!important;c
 // On the moment a page is ready, never waiting for the fonts (they're added when read). Every change to a tab's sheet
 // runs one at a time, in order (1.9.2): before, an older, slower run could take out the sheet a newer one had just put
 // in, and the page stayed as plain YouTube.
+// every call into the page gets a time limit, so one that never answers can't hold up the rest
+const ytsTimed = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error(`no answer in ${ms} ms`)), ms))]);
 function ytsQueue(v, fn) { v.ytsQ = (v.ytsQ || Promise.resolve()).then(fn).catch((e) => { v.ytsErr = String((e && e.message) || e); }); return v.ytsQ; }
 async function ytsApplyNow(v) {
   if (!v || !v.wv) return;
@@ -211,9 +213,14 @@ async function ytsApplyNow(v) {
   try { url = v.wv.getURL(); } catch { return; }
   const want = YTS_HOST.test(url) && ytsOn();
   let key = null;
-  if (want) { try { key = await v.wv.insertCSS((ytsFontCss || '') + ytsCss()); } catch (e) { v.ytsErr = String((e && e.message) || e); } }
-  const old = v.ytsKey; v.ytsKey = key; // the new sheet goes in first, then the old one comes out: no flash
-  if (old) { try { await v.wv.removeInsertedCSS(old); } catch {} }
+  if (want) {
+    v.ytsStage = 'insert';
+    const p = v.wv.insertCSS((ytsFontCss || '') + ytsCss());
+    try { key = await ytsTimed(p, 4000); } catch (e) { v.ytsErr = String((e && e.message) || e); p.then((late) => { (v.ytsLate = v.ytsLate || []).push(late); }, () => {}); }
+  }
+  const old = [v.ytsKey, ...(v.ytsLate || [])].filter(Boolean); v.ytsKey = key; v.ytsLate = []; // the new sheet goes in first, then the old ones come out: no flash
+  v.ytsStage = 'done';
+  for (const o of old) { try { await ytsTimed(v.wv.removeInsertedCSS(o), 2000); } catch {} }
   if (want && ytsFontCss === null) ytsFonts().then((f) => { if (f) ytsApply(v); });
 }
 function ytsApply(v) { return ytsQueue(v, () => ytsApplyNow(v)); }
@@ -224,7 +231,7 @@ function ytsCheck(v) {
     try { url = v.wv.getURL(); } catch { return; }
     if (!YTS_HOST.test(url)) return;
     let mark = '';
-    try { mark = await v.wv.executeJavaScript("getComputedStyle(document.documentElement).getPropertyValue('--oto-yts').trim()"); } catch (e) { v.ytsErr = String((e && e.message) || e); }
+    v.ytsStage = 'check'; try { mark = await ytsTimed(v.wv.executeJavaScript("getComputedStyle(document.documentElement).getPropertyValue('--oto-yts').trim()"), 2000); } catch (e) { v.ytsErr = String((e && e.message) || e); }
     if (String(mark) !== '1') { v.ytsKey = null; await ytsApplyNow(v); }
   });
 }

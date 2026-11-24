@@ -255,12 +255,20 @@ let rbxAdsCache = null, rbxPicsBusy = false;
 // the safety net, the late font, the ad pictures) and a slower, older one could take out the sheet a newer one had just
 // put in, leaving the page without the look.
 function rbxQueue(v, fn) { v.rbxQ = (v.rbxQ || Promise.resolve()).then(fn).catch((e) => { v.rbxErr = String((e && e.message) || e); }); return v.rbxQ; }
+// Every call into the page gets a time limit, so one that never answers can't hold up the rest. A sheet that goes in
+// after its time is still taken out later.
+const rbxTimed = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error(`no answer in ${ms} ms`)), ms))]);
 // put a sheet in, then take the old one out (no flash); '' just takes it out
 async function rbxSwapNow(v, k, css) {
   let key = null;
-  if (css) { try { key = await v.wv.insertCSS(css); } catch (e) { v.rbxErr = String((e && e.message) || e); } }
-  const old = v[k]; v[k] = key;
-  if (old) { try { await v.wv.removeInsertedCSS(old); } catch {} }
+  if (css) {
+    v.rbxStage = `insert ${k}`;
+    const p = v.wv.insertCSS(css);
+    try { key = await rbxTimed(p, 4000); } catch (e) { v.rbxErr = String((e && e.message) || e); p.then((late) => { (v[`${k}Late`] = v[`${k}Late`] || []).push(late); }, () => {}); }
+  }
+  const old = [v[k], ...(v[`${k}Late`] || [])].filter(Boolean); v[k] = key; v[`${k}Late`] = [];
+  v.rbxStage = `done ${k}`;
+  for (const o of old) { try { await rbxTimed(v.wv.removeInsertedCSS(o), 2000); } catch {} }
 }
 // The look goes on the moment a page is ready and never waits for anything: not the Roblox Wiki's ad pictures (they
 // swap in when they come, within 10 seconds or not at all) and not the font (added when it's read).
@@ -295,7 +303,7 @@ function rbxCheck(v) {
     try { url = v.wv.getURL(); } catch { return; }
     if (!RBX_HOST.test(url)) return;
     let mark = '';
-    try { mark = await v.wv.executeJavaScript("getComputedStyle(document.documentElement).getPropertyValue('--oto-rbx').trim()"); } catch (e) { v.rbxErr = String((e && e.message) || e); }
+    v.rbxStage = 'check'; try { mark = await rbxTimed(v.wv.executeJavaScript("getComputedStyle(document.documentElement).getPropertyValue('--oto-rbx').trim()"), 2000); } catch (e) { v.rbxErr = String((e && e.message) || e); }
     if (String(mark) !== String(rbxYear())) { v.rbxKey = null; v.rbxAdsKey = null; await rbxApplyNow(v); }
   });
 }
