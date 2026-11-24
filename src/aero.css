@@ -1,0 +1,174 @@
+/* Oto — Frutiger Aero (1.9.3). The same layout as the Oto look (it rides on body.skin-rt / body.space-home), dressed
+   in the glossy late-2000s style: a deep-to-pale sky with a sun glow, light ribbons and green hills (drawn by
+   aeroBackground() in themes.js), frosted glass panels, white text with a soft shadow, Segoe UI instead of the serif
+   and mono, and shiny aqua (and green "on") buttons with a highlight across the top half. All drawn in CSS. */
+
+:root body.skin-rt.skin-aero {
+  --aero-font: 'Segoe UI', 'Frutiger', 'Myriad Pro', 'Helvetica Neue', Tahoma, sans-serif;
+  --aero-thin: 'Segoe UI Light', 'Segoe UI', 'Frutiger', 'Helvetica Neue', Tahoma, sans-serif;
+  --aero-ink: #0a3d73;
+  --aero-glass: linear-gradient(180deg, rgba(255,255,255,.36), rgba(255,255,255,.12) 49%, rgba(8,80,170,.12) 51%, rgba(8,80,170,.2));
+  --aero-glass-edge: rgba(255,255,255,.62);
+  --aero-shadow: 0 10px 34px -8px rgba(0,55,120,.45), inset 0 1px 0 rgba(255,255,255,.75);
+  /* aqua gel button: bright top half, deeper bottom half */
+  --aero-gel: linear-gradient(180deg, #e8fbff 0%, #a9e6ff 46%, #39aef0 50%, #1f93e3 76%, #62cbff 100%);
+  --aero-gel-green: linear-gradient(180deg, #f0ffe6 0%, #b6f08d 46%, #4cc021 50%, #2c9e12 76%, #78dd45 100%);
+  --rt-bg: #1d7fd6; --rt-panel: rgba(255,255,255,.16); --rt-raise: rgba(255,255,255,.24);
+  --rt-line: rgba(255,255,255,.34); --rt-line2: rgba(255,255,255,.56);
+  --rt-fg: #ffffff; --rt-fg2: rgba(255,255,255,.9); --rt-fg3: rgba(240,250,255,.76);
+  --rt-cream: #ffffff; --rt-ink: var(--aero-ink);
+  --rt-mono: var(--aero-font); --rt-serif: var(--aero-thin);
+  --hover: rgba(255,255,255,.18); --press: rgba(255,255,255,.28);
+  --input: rgba(255,255,255,.2); --input-hover: rgba(255,255,255,.3);
+  --panel-shadow: 0 24px 70px -12px rgba(0,50,115,.55), 0 0 0 1px var(--aero-glass-edge);
+  --accent: #ffffff; --accent-soft: rgba(255,255,255,.22);
+  background-color: var(--rt-bg);
+}
+/* Segoe UI everywhere in the window, over the Oto look's serif and mono (the :is() with an id that never matches only
+   lifts this rule above the look's id-based font rules) */
+body.skin-aero, body.skin-aero :is(*, #aero-a#aero-b#aero-c):not(svg):not(path) { font-family: var(--aero-font) !important; }
+body.skin-aero :is(h1, #greet, .set-title, .lib-title, .sl-title, #aero-a#aero-b#aero-c#aero-d) { font-family: var(--aero-thin) !important; }
+body.skin-aero { text-shadow: 0 1px 2px rgba(0,45,100,.35); }
+body.skin-aero input, body.skin-aero textarea, body.skin-aero kbd { text-shadow: none; }
+
+/* ---------- the start page ---------- */
+body.skin-aero.space-home #empty { background: var(--bg-image) !important; background-size: var(--bg-size) !important; color: #fff; }
+body.skin-aero.space-home #shSky { display: none !important; }
+#aeroSky { display: none; }
+body.skin-aero #aeroSky { display: block; position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+body.skin-aero #aeroSky i {
+  position: absolute; border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 9%, rgba(255,255,255,.35) 18%, rgba(255,255,255,0) 34%),
+    radial-gradient(circle at 70% 78%, rgba(160,240,255,.45), rgba(160,240,255,0) 42%),
+    radial-gradient(circle, rgba(255,255,255,0) 58%, rgba(255,255,255,.55) 69%, rgba(200,245,255,.2) 72%, rgba(255,255,255,0) 74%);
+  box-shadow: inset 0 0 12px rgba(255,255,255,.35);
+  animation: aeroFloat 22s ease-in-out infinite;
+}
+@keyframes aeroFloat {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(14px, -26px); }
+  50% { transform: translate(-8px, -52px); }
+  75% { transform: translate(10px, -26px); }
+  100% { transform: translate(0, 0); }
+}
+@media (prefers-reduced-motion: reduce) { body.skin-aero #aeroSky i { animation: none; } }
+body.reduce-motion.skin-aero #aeroSky i { animation: none; }
+
+body.skin-aero.space-home #empty #greet {
+  font: 300 76px/1.05 var(--aero-thin) !important; letter-spacing: -.01em !important; color: #fff !important;
+  text-shadow: 0 2px 18px rgba(0,60,140,.35), 0 0 30px rgba(255,255,255,.35);
+  -webkit-box-reflect: below -14px linear-gradient(transparent 58%, rgba(255,255,255,.22));
+}
+body.skin-aero.space-home #empty .rt-sub, body.skin-aero.space-home #empty #rtSub { color: rgba(255,255,255,.92) !important; font-size: 16px !important; }
+body.skin-aero.space-home #empty .rt-crumb, body.skin-aero.space-home #empty .rt-crumb * { color: rgba(255,255,255,.88) !important; letter-spacing: .18em !important; font-weight: 600 !important; }
+
+/* the search box: a glossy white pill with a blue glow */
+body.skin-aero.space-home #empty .empty-search {
+  height: 54px !important; border-radius: 27px !important; padding: 0 10px 0 20px !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(244,251,255,.9) 50%, rgba(226,243,255,.88)) !important;
+  border: 1px solid rgba(255,255,255,.95) !important; color: #3d6c99 !important; text-shadow: none;
+  box-shadow: 0 10px 34px -6px rgba(0,70,160,.45), 0 0 0 4px rgba(120,205,255,.28), inset 0 1px 0 #fff !important;
+}
+body.skin-aero.space-home #empty .empty-search:hover { box-shadow: 0 12px 38px -6px rgba(0,70,160,.5), 0 0 0 5px rgba(120,205,255,.4), inset 0 1px 0 #fff !important; }
+body.skin-aero.space-home #empty .empty-search .ic-slot svg { color: #1f93e3 !important; fill: #1f93e3 !important; }
+body.skin-aero.space-home #empty .empty-search kbd { background: var(--aero-gel) !important; color: var(--aero-ink) !important; border: 1px solid rgba(20,110,190,.45) !important; border-radius: 10px !important; font-weight: 600 !important; }
+
+/* the cards: frosted glass with a highlight across the top */
+body.skin-aero.space-home #empty .v1-widgets .wg, body.skin-aero.space-home #empty .v1-jump .v1-jc {
+  background: var(--aero-glass) !important; backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid var(--aero-glass-edge) !important; border-radius: 16px !important; box-shadow: var(--aero-shadow) !important; color: #fff !important;
+}
+body.skin-aero.space-home #empty .v1-widgets .wg:hover, body.skin-aero.space-home #empty .v1-jump .v1-jc:hover { background: linear-gradient(180deg, rgba(255,255,255,.46), rgba(255,255,255,.22) 50%, rgba(255,255,255,.14) 52%, rgba(255,255,255,.24)) !important; }
+body.skin-aero.space-home #empty .v1-widgets .k, body.skin-aero.space-home #empty .v1-jump .sh-k, body.skin-aero.space-home #empty .v1-widgets small,
+body.skin-aero.space-home #empty .v1-jump .v1-jc small { color: rgba(255,255,255,.88) !important; letter-spacing: .12em; }
+body.skin-aero.space-home #empty .v1-widgets .wg.card .bar { background: rgba(255,255,255,.3) !important; border-radius: 6px; height: 6px !important; box-shadow: inset 0 1px 2px rgba(0,50,110,.3); }
+body.skin-aero.space-home #empty .v1-widgets .wg.card .bar i { background: var(--aero-gel-green) !important; border-radius: 6px; box-shadow: 0 0 8px rgba(120,230,80,.6); }
+body.skin-aero.space-home #empty .empty-hints, body.skin-aero.space-home #empty .empty-hints * { color: rgba(255,255,255,.9) !important; }
+body.skin-aero.space-home #empty .empty-hints kbd { background: rgba(255,255,255,.22) !important; border: 1px solid rgba(255,255,255,.6) !important; border-radius: 6px !important; color: #fff !important; }
+body.skin-aero.space-home #empty #clock { color: #fff !important; letter-spacing: .1em !important; }
+
+/* ---------- the window chrome and sidebar: tinted frosted glass ---------- */
+:root body.skin-aero #sidebar, :root body.skin-aero #topstrip, :root body.skin-aero #peekTop, :root body.skin-aero .lib-nav {
+  background: linear-gradient(180deg, rgba(6,58,138,.46), rgba(8,72,156,.32) 55%, rgba(10,92,176,.42)) !important;
+  backdrop-filter: blur(16px) saturate(1.4);
+}
+body.skin-aero #sidebar { box-shadow: inset -1px 0 0 rgba(255,255,255,.45), inset -2px 0 0 rgba(0,40,100,.18) !important; }
+body.skin-aero #topstrip { box-shadow: inset 0 -1px 0 rgba(255,255,255,.4) !important; }
+/* the active tab: a glossy glass pill */
+body.skin-aero.space-home .tab.active, body.skin-aero .tab.active {
+  background: linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,.3) 48%, rgba(170,225,255,.24) 52%, rgba(200,240,255,.42)) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.8), 0 4px 14px -4px rgba(0,50,120,.5) !important; border-radius: 10px !important;
+}
+body.skin-aero.space-home .tab.active .title { color: #fff !important; font-weight: 600 !important; text-shadow: 0 1px 2px rgba(0,45,100,.55); }
+body.skin-aero.space-home .tab:not(.active):hover { background: rgba(255,255,255,.14) !important; border-radius: 10px !important; }
+body.skin-aero.space-home .ess { background: var(--aero-glass) !important; border: 1px solid rgba(255,255,255,.55) !important; border-radius: 12px !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.7) !important; }
+body.skin-aero.space-home .ess.active { background: linear-gradient(180deg, rgba(255,255,255,.7), rgba(255,255,255,.35) 50%, rgba(170,225,255,.3) 52%, rgba(210,245,255,.5)) !important; box-shadow: inset 0 0 0 1px #fff, 0 0 16px rgba(160,230,255,.7) !important; }
+/* inputs in the chrome (the sidebar's address box, the space switcher) */
+body.skin-aero #sidebar :is(.sb-url, .url, .omni, input), body.skin-aero #sidebar .ws-btn, body.skin-aero #sidebar .ws-title {
+  background: linear-gradient(180deg, rgba(255,255,255,.3), rgba(255,255,255,.14)) !important; border-color: rgba(255,255,255,.6) !important; border-radius: 10px !important;
+}
+/* the main frame around pages: a glass edge */
+body.skin-aero #main, body.skin-aero .view-wrap, body.skin-aero #views { border-radius: 10px; }
+
+/* ---------- Settings and the Library: a deep sky panel with glass sections ---------- */
+:root body.skin-aero {
+  --aero-deep: radial-gradient(55% 40% at 88% -4%, rgba(255,255,255,.4), rgba(255,255,255,0) 70%),
+    linear-gradient(112deg, rgba(255,255,255,0) 36%, rgba(255,255,255,.14) 45%, rgba(255,255,255,0) 56%),
+    radial-gradient(70% 22% at 30% 112%, rgba(120,215,80,.55), rgba(120,215,80,0) 70%),
+    linear-gradient(180deg, #0a50a6, #1a7cd6 55%, #2e98e6);
+}
+body.skin-aero.space-home #settings .sheet, body.skin-aero.space-home #library {
+  --bg: #1a7cd6; --card: rgba(255,255,255,.16); --card-border: rgba(255,255,255,.5); --input: rgba(255,255,255,.18); --input-hover: rgba(255,255,255,.28);
+  --hover: rgba(255,255,255,.16); --press: rgba(255,255,255,.26); --fg: #fff; --fg-2: rgba(255,255,255,.94); --fg-3: rgba(245,252,255,.86);
+  --accent: #fff; --accent-soft: rgba(255,255,255,.2);
+  color: #fff; background: var(--aero-deep) !important;
+}
+body.skin-aero.space-home #settings .sheet { box-shadow: 0 0 0 1px rgba(255,255,255,.7), inset 0 1px 0 rgba(255,255,255,.8), 0 40px 120px rgba(0,40,100,.55) !important; }
+body.skin-aero.space-home #settings.overlay { background: rgba(10,60,130,.3) !important; }
+body.skin-aero.space-home #settings .set-nav { background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.08)) !important; border-right: 1px solid rgba(255,255,255,.45) !important; }
+body.skin-aero.space-home #settings .set-nav::before { color: rgba(255,255,255,.9) !important; letter-spacing: .18em !important; }
+body.skin-aero.space-home #settings :is(.set-nav button, .set-nav a).on, body.skin-aero.space-home #settings .set-nav .on {
+  background: linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,.3) 48%, rgba(170,225,255,.24) 52%, rgba(200,240,255,.42)) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.85), 0 3px 10px -3px rgba(0,50,120,.45) !important; border-radius: 9px !important; color: #fff !important;
+}
+body.skin-aero.space-home #settings :is(.set-section, .set-card, .set-group), body.skin-aero.space-home #library :is(.sl-box, .sl-live, .sl-file, .lib-search-wrap) {
+  background: var(--aero-glass) !important; border: 1px solid rgba(255,255,255,.55) !important; box-shadow: var(--aero-shadow) !important; border-radius: 14px !important;
+}
+body.skin-aero.space-home #settings .v1-ssearch, body.skin-aero.space-home #library .lib-search-wrap {
+  background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(232,246,255,.9)) !important; color: var(--aero-ink) !important; box-shadow: inset 0 1px 2px rgba(0,50,110,.25), 0 0 0 1px rgba(255,255,255,.9) !important; text-shadow: none;
+}
+body.skin-aero.space-home #settings .v1-ssearch input, body.skin-aero.space-home #library .lib-search-wrap input { color: var(--aero-ink) !important; }
+body.skin-aero.space-home #settings h1, body.skin-aero.space-home #settings .set-title { font-weight: 300 !important; color: #fff !important; text-shadow: 0 2px 14px rgba(0,50,120,.4) !important; }
+
+/* ---------- controls everywhere: glossy gel ---------- */
+body.skin-aero .seg { background: rgba(255,255,255,.14) !important; border: 1px solid rgba(255,255,255,.5) !important; border-radius: 12px !important; box-shadow: inset 0 1px 3px rgba(0,50,110,.25) !important; }
+body.skin-aero .seg button.on, body.skin-aero.space-home #settings .seg button.on, body.skin-aero.space-home #library .seg button.on, body.skin-aero.space-home #library .chip.on {
+  background: var(--aero-gel) !important; color: var(--aero-ink) !important; text-shadow: 0 1px 0 rgba(255,255,255,.6) !important; font-weight: 600 !important;
+  box-shadow: inset 0 0 0 1px rgba(20,110,190,.55), 0 2px 6px rgba(0,60,140,.35) !important; border-radius: 9px !important;
+}
+body.skin-aero .switch, body.skin-aero.space-home #settings .switch { background: linear-gradient(180deg, rgba(0,40,100,.35), rgba(255,255,255,.18)) !important; box-shadow: inset 0 1px 3px rgba(0,40,100,.45), 0 0 0 1px rgba(255,255,255,.55) !important; }
+body.skin-aero .switch.on, body.skin-aero.space-home #settings .switch.on { background: var(--aero-gel-green) !important; box-shadow: inset 0 0 0 1px rgba(30,120,20,.55), 0 0 10px rgba(120,230,80,.55) !important; }
+body.skin-aero .switch::after, body.skin-aero .switch.on::after, body.skin-aero.space-home #settings .switch.on::after {
+  background: radial-gradient(circle at 40% 30%, #fff, #e6f3ff 60%, #b9d9f2) !important; box-shadow: 0 1px 3px rgba(0,40,90,.5) !important;
+}
+body.skin-aero .btn, body.skin-aero.space-home #settings .btn, body.skin-aero.space-home #library .btn {
+  background: linear-gradient(180deg, rgba(255,255,255,.6), rgba(255,255,255,.28) 48%, rgba(170,225,255,.22) 52%, rgba(210,240,255,.4)) !important;
+  border: 1px solid rgba(255,255,255,.8) !important; color: #fff !important; border-radius: 10px !important; box-shadow: 0 2px 8px -2px rgba(0,50,120,.45) !important;
+}
+body.skin-aero .btn.primary, body.skin-aero.space-home #library .btn.primary { background: var(--aero-gel) !important; color: var(--aero-ink) !important; text-shadow: 0 1px 0 rgba(255,255,255,.6) !important; border-color: rgba(20,110,190,.55) !important; }
+
+/* ---------- menus and pop-ups: light glass ---------- */
+body.skin-aero :is(.menu, .ctx, .v1-menu, .popover, .dropdown, .v1-scr .v1-box, .v1-pop) {
+  background: linear-gradient(180deg, rgba(40,120,210,.92), rgba(18,92,186,.94)) !important; border: 1px solid rgba(255,255,255,.7) !important;
+  box-shadow: 0 20px 60px -10px rgba(0,40,100,.6), inset 0 1px 0 rgba(255,255,255,.6) !important; border-radius: 12px !important; color: #fff !important; backdrop-filter: blur(16px);
+}
+body.skin-aero.space-home #settings .v1-ssearch input, body.skin-aero.space-home #library .lib-search-wrap input { background: transparent !important; box-shadow: none !important; }
+body.skin-aero.space-home #settings :is(small, .sub, .desc, .hint, .set-row p) { color: rgba(245,252,255,.88) !important; }
+body.skin-aero #settings .v1-ssearch :is(input, input:focus, input:hover, #aero-a#aero-b#aero-c) { background: transparent !important; box-shadow: none !important; color: var(--aero-ink) !important; }
+body.skin-aero #rtFoot, body.skin-aero #rtFoot * { color: #fff !important; text-shadow: 0 1px 2px rgba(0,45,100,.6) !important; }
+
+/* the picker card in Settings › Appearance › Theme */
+.sk-aero .sp-art { background: radial-gradient(40% 40% at 78% 18%, rgba(255,255,255,.9), rgba(255,255,255,0) 70%), radial-gradient(90% 40% at 30% 120%, #6fd447, rgba(111,212,71,0) 70%), linear-gradient(180deg, #0a56b0, #42aaee 60%, #b0e2ff); box-shadow: inset 0 0 0 1px rgba(255,255,255,.6); }
+.sk-aero .sp-art i:nth-child(1) { background: linear-gradient(180deg, rgba(255,255,255,.45), rgba(255,255,255,.18)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.6); }
+.sk-aero .sp-art i:nth-child(2) { background: linear-gradient(180deg, #e8fbff, #a9e6ff 46%, #39aef0 50%, #1f93e3); border-radius: 6px !important; }
+.sk-aero .sp-art i:nth-child(3) { background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.95) 0 10%, rgba(255,255,255,.2) 30%, rgba(255,255,255,0) 50%), linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,.12)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.6); }

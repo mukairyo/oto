@@ -537,7 +537,7 @@ const PAGE_RENDER = {
     if (!RBX_ADS_INFO.asked && oto.rbxAdsInfo) { RBX_ADS_INFO.asked = true; oto.rbxAdsInfo().then((r) => { if (r) { Object.assign(RBX_ADS_INFO, r); if (settingsTab === 'appearance') renderSettings(); } }).catch(() => {}); }
     return [
       section('Theme',
-        row('Theme', 'Oto’s look: near-black, editorial, with serif headings, small mono labels and a cream highlight.', h('div', { class: 'skin-picks' }, ...Object.entries(SKINS).map(([k, l]) => h('button', {
+        row('Theme', skinIsAero() ? 'Frutiger Aero: a bright sky with green hills and bubbles, frosted glass and glossy aqua buttons.' : 'Oto’s look: near-black, editorial, with serif headings, small mono labels and a cream highlight.', h('div', { class: 'skin-picks' }, ...Object.entries(SKINS).map(([k, l]) => h('button', {
           class: `skin-pick sk-${k}${skinOf() === k ? ' on' : ''}`, onclick: () => { setPref('skin', k); applyTheme(); renderSettings(); },
         }, h('span', { class: 'sp-art' }, h('i'), h('i'), h('i')), h('b', {}, l))))),
         skinIsRt() ? null : row('Appearance', 'Websites follow this too, where they support it.', seg([['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], st.theme, setTheme)),

@@ -3,8 +3,9 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
-## 1.9.3 — YouTube search box and link boxes
+## 1.9.3 — Frutiger Aero, and YouTube fixes
 
+- **New theme: Frutiger Aero.** Pick it in Settings › Appearance › Theme. Oto keeps its layout but gets the glossy late-2000s look: a bright sky that fades from deep to pale blue, with a sun glow, light ribbons and green hills at the bottom. Glossy bubbles drift up behind the start page, and they stay still if you've asked for less motion. The sidebar, Settings and the Library are frosted blue glass, and the text is white with a soft shadow. The active tab is a shiny glass pill, buttons and picked options are aqua gel, switches turn green when on, and the search bar is a glossy white pill with a blue glow. "Good evening" is in thin Segoe UI with a glass reflection underneath. Everything is drawn by the browser: no Windows wallpapers, logos or pictures. Switch back to Oto with the same picker.
 - **YouTube in Oto's look:** clicking into YouTube's search box no longer shows YouTube's magnifier on top of the star and the text. The little link boxes in descriptions and comments (a channel or video with the YouTube icon, or a search) now have room inside and no underline hanging out below.
 
 ## 1.9.2 — Site themes stay on
