@@ -14,4 +14,7 @@ module.exports = async (t) => {
   a = await J("return { aero: document.body.classList.contains('skin-aero'), rt: document.body.classList.contains('skin-rt'), bubblesShown: !!(document.getElementById('aeroSky') && getComputedStyle(document.getElementById('aeroSky')).display !== 'none') };");
   t.check('…and picking Oto puts the near-black look back', !a.aero && a.rt && !a.bubblesShown, JSON.stringify(a));
   await t.js('(closeSettings(), 1)');
+  // (1.9.5) on Linux the window manager handles windows: Oto's own minimise / maximise / close buttons are hidden
+  a = await J("return { linux: document.body.classList.contains('os-linux'), shown: getComputedStyle(document.getElementById('winctl')).display !== 'none' };");
+  t.check('window buttons: hidden on Linux, shown on Windows', process.platform === 'linux' ? (a.linux && !a.shown) : (!a.linux && a.shown), JSON.stringify(a));
 };

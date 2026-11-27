@@ -740,6 +740,8 @@ browser-action-list { display: flex; gap: 2px; }
 browser-action-list::part(action) { width: 28px; height: 28px; border-radius: 7px; }
 browser-action-list::part(action):hover { background-color: var(--hover); }
 .winctl { display: flex; height: var(--strip-h); }
+/* (1.9.5) Linux: the window manager has its own (or keys) for this */
+body.os-linux .winctl, body.os-linux .setup-win { display: none !important; }
 .winctl button { width: 46px; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--fg); opacity: .85; transition: background .1s; }
 .winctl button:hover { background: var(--hover); opacity: 1; }
 .winctl button.close:hover { background: #c42b1c; color: #fff; }

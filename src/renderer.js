@@ -2075,6 +2075,9 @@ function wire() {
 // ================================================================ boot
 (async function boot() {
   const [saved, info] = await Promise.all([oto.loadState(), oto.info()]);
+  // (1.9.5) Linux: the window manager (Hyprland, GNOME, KDE…) handles windows, so Oto's own minimise / maximise / close
+  // buttons are hidden there (styles.css: body.os-linux)
+  document.body.classList.toggle('os-linux', !!info && info.platform === 'linux');
   INFO = info || {};
   S = migrate(saved);
   oto.setTheme(S.settings.theme);
