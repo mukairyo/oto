@@ -366,6 +366,7 @@ const COMMANDS = [
   ['devtools', 'Developer tools', ['F12', 'Ctrl+Shift+I']],
   ['toggleTop', 'Auto-hide top bar on / off', ['Ctrl+Shift+B']],
   ['bookmark', 'Bookmark this page', []],
+  ['closeWindow', 'Close window', ['Ctrl+Shift+W']],
   ['splitView', 'Split view on / off', ['Ctrl+Shift+S']],
   ['pip', 'Picture in picture', ['Ctrl+Shift+P']],
 ];

@@ -91,7 +91,7 @@ const DEFAULT_KEYS = {
   'Ctrl+=': 'zoomIn', 'Ctrl+Shift+=': 'zoomIn', 'Ctrl+-': 'zoomOut', 'Ctrl+0': 'zoomReset',
   'F12': 'devtools', 'Ctrl+Shift+I': 'devtools', 'Ctrl+Shift+Alt+I': 'uiDevtools',
   'Ctrl+,': 'settings', 'F11': 'fullscreen', 'Ctrl+H': 'history', 'Ctrl+Shift+B': 'toggleTop',
-  'Ctrl+Shift+S': 'splitView', 'Ctrl+Shift+P': 'pip', 'Ctrl+J': 'downloads', 'Ctrl+Shift+O': 'library',
+  'Ctrl+Shift+W': 'closeWindow', 'Ctrl+Shift+S': 'splitView', 'Ctrl+Shift+P': 'pip', 'Ctrl+J': 'downloads', 'Ctrl+Shift+O': 'library',
 };
 
 function comboOf(input) {
@@ -167,6 +167,8 @@ function handleKeys(event, input, wc) {
   // The UI's own DevTools could change anything in the UI, so release builds only allow them for the owner.
   if (cmd === 'uiDevtools') { if (w && (!app.isPackaged || UPDATES.ownerOn)) w.webContents.openDevTools({ mode: 'detach' }); return; }
   if (cmd === 'avocado') { createAvocadoWindow(); return; }
+  // (1.9.8) on Linux Oto has no close button of its own (the desktop's keys do it); this works everywhere
+  if (cmd === 'closeWindow') { if (w && !w.isDestroyed()) w.close(); return; }
   sendVia(wc, 'cmd', cmd);
 }
 

@@ -794,6 +794,12 @@ body.autohide-top #topstrip {
   border-radius: 0 0 14px 14px; transform: translateY(calc(-100% - 12px));
 }
 body.autohide-top.peek-top #topstrip { transform: none; box-shadow: var(--panel-shadow); }
+/* (1.9.8) Slid out of sight, the top bar and the sidebar's head no longer count as places to drag the window from.
+   The window's drag areas are worked out from where these sit in the layout, without the slide, so the hidden top
+   bar still lay over the top of the page as an invisible drag strip: buttons up there (like a site's top-right
+   buttons) only worked on their edges, where one of Oto's hidden buttons happened to be. */
+body.autohide-top:not(.peek-top) #topstrip, body.autohide-top:not(.peek-top) #topstrip *,
+body.compact:not(.peek) #sidebar .drag, body.compact:not(.peek) #sidebar .drag * { -webkit-app-region: no-drag !important; }
 body.autohide-top #main { padding-top: var(--gap, 8px); }
 body.autohide-top.compact #sidebar, body.autohide-top #peek { top: 0; }
 body.autohide-top #frame { flex: 1; }

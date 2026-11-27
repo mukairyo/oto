@@ -3,9 +3,11 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
-## 1.9.8 — Open Sky from the Space button
+## 1.9.8 — Open Sky from the Space button, and clicks at the top of pages
 
 - **"Open Sky" in the Space menu:** click your Space's name at the top of the sidebar (HOME) and the first item is now "Open Sky", with its shortcut shown next to it. On Linux, Ctrl+Shift+Space can be taken by the desktop (Hyprland, or an input-method switcher) before Oto ever sees it, so the shortcut alone could leave no way into Sky. Double-clicking the Space's name also only opened its menu.
+- **Buttons at the top of a page work again with the top bar hidden:** with Oto's top bar set to hide, buttons along the top of a website (like the panel button at the top right of claude.ai) only reacted on their edges. The hidden top bar was still an invisible "drag the window" strip lying over the top of the page. While it's out of sight it no longer is; once it slides in, you can drag the window by it as before. The same goes for the hidden sidebar's head.
+- **Ctrl+Shift+W closes the window:** on Linux, Oto has no close button of its own (your desktop's keys do that), so a second Oto window could be hard to close. Ctrl+Shift+W now closes the window you're in, on Windows too. It's listed in Settings › Shortcuts, where you can change it.
 - **The shortcut shows the Space bar:** Settings › Shortcuts listed the Space overview as "Ctrl Shift" with nothing after it, because the Space bar was shown as a blank. It now reads "Ctrl Shift Space". You can change it there to keys your desktop doesn't use.
 
 ## 1.9.7 — Ambient light through the boxes, and shooting stars

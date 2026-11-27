@@ -25,4 +25,18 @@ module.exports = async (t) => {
   await t.js('setSidebarMode("expanded"), 1'); await t.sleep(900);
   a = JSON.parse(await look());
   t.check('expanded again: the heading is back', a.mode === 'expanded' && (!a.skin || a.heading === 'block') && a.tilesInside, JSON.stringify(a));
+  // (1.9.8) slid out of sight, the top bar and the sidebar's head aren't window-drag areas over the page any more
+  a = JSON.parse(await t.js(`(() => { const b = document.body, had = [...b.classList]; const reg = (e) => getComputedStyle(e).getPropertyValue('-webkit-app-region') || getComputedStyle(e).webkitAppRegion;
+    b.classList.add('autohide-top'); b.classList.remove('peek-top'); const hidden = reg(document.getElementById('topstrip'));
+    b.classList.add('peek-top'); const shown = reg(document.getElementById('topstrip'));
+    b.className = had.join(' '); return JSON.stringify({ hidden, shown }); })()`));
+  t.check('the top bar, slid away, is no longer an invisible drag strip over the top of the page (shown, it still drags the window)', a.hidden === 'no-drag' && a.shown === 'drag', JSON.stringify(a));
+  // (1.9.8) Ctrl+Shift+W closes the window (Linux has no close button of Oto's own)
+  {
+    const { BrowserWindow } = require('electron');
+    await t.js('(oto.openAvocado(), 1)'); await t.sleep(4000);
+    const avo = BrowserWindow.getAllWindows().find((w) => /avocado=1/.test(w.webContents.getURL()));
+    if (avo) { avo.focus(); avo.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'W', modifiers: ['control', 'shift'] }); avo.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'W', modifiers: ['control', 'shift'] }); await t.sleep(1500); }
+    t.check('Ctrl+Shift+W closes the window it was pressed in', !!avo && avo.isDestroyed(), avo ? `destroyed: ${avo.isDestroyed()}` : 'no window');
+  }
 };
