@@ -39,4 +39,13 @@ module.exports = async (t) => {
     if (avo) { avo.focus(); avo.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'W', modifiers: ['control', 'shift'] }); avo.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'W', modifiers: ['control', 'shift'] }); await t.sleep(1500); }
     t.check('Ctrl+Shift+W closes the window it was pressed in', !!avo && avo.isDestroyed(), avo ? `destroyed: ${avo.isDestroyed()}` : 'no window');
   }
+  // (1.9.8) a tab drag that never got its "dragend" (dropping a tab on the page to split re-draws the sidebar; on Linux
+  // its dragend then didn't come) no longer leaves the pages deaf to clicks: the mouse moving again ends it
+  await t.open('http://fine.site/', 1200); await t.open('http://nav.site/', 1200);
+  await t.js("(() => { const other = S.tabs.find((x) => /fine\\.site/.test(x.url)); dragId = other.id; document.body.classList.add('dragging'); startSplit(other.id); render(); return 1; })()"); await t.sleep(400);
+  const stuck = await t.js("getComputedStyle(document.querySelector('#views webview.split-l, #views webview.split-r')).pointerEvents");
+  t.ui.sendInputEvent({ type: 'mouseMove', x: 700, y: 400 }); await t.sleep(300);
+  a = JSON.parse(await t.js("JSON.stringify({ dragging: document.body.classList.contains('dragging'), drag: dragId, pe: [...document.querySelectorAll('#views webview.split-l, #views webview.split-r')].map((w) => getComputedStyle(w).pointerEvents) })"));
+  t.check('after splitting by dragging a tab onto the page, both sides take clicks again even if the drag never reported its end', stuck === 'none' && !a.dragging && a.drag === null && a.pe.length === 2 && a.pe.every((x) => x === 'auto'), JSON.stringify({ stuck, a }));
+  await t.js('(endSplit(), 1)');
 };

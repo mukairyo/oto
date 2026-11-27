@@ -1085,20 +1085,30 @@ let dragId = null;
 function clearDropMarks() {
   document.querySelectorAll('.drop-before,.drop-after,.ws-btn.drop').forEach((n) => n.classList.remove('drop-before', 'drop-after', 'drop'));
 }
+// (1.9.8) While a tab is dragged, pages don't take the mouse (so it can be dropped on them). The drag was only ended
+// by the dragged tab's own "dragend", but dropping a tab on the page to split re-draws the sidebar, and on Linux that
+// tab's dragend then never came: the pages stayed deaf to clicks ("can't click anything in split view"). Now any end
+// of a drag ends it: a drop anywhere, a dragend anywhere, or the mouse simply moving again (it doesn't during a drag).
+function endTabDrag() {
+  const was = dragId !== null || document.body.classList.contains('dragging');
+  dragId = null;
+  document.body.classList.remove('dragging');
+  clearDropMarks();
+  if (was) render();
+}
+document.addEventListener('drop', () => setTimeout(endTabDrag, 0), true);
+document.addEventListener('dragend', endTabDrag, true);
+document.addEventListener('mousemove', (e) => { if (!e.buttons && document.body.classList.contains('dragging')) endTabDrag(); }, true);
+window.addEventListener('blur', () => { if (document.body.classList.contains('dragging')) setTimeout(() => { if (document.body.classList.contains('dragging') && !document.hasFocus()) endTabDrag(); }, 400); });
 function bindDrag(el, t, zone) {
   el.addEventListener('dragstart', (e) => {
     dragId = t.id;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', t.url);
     el.classList.add('drag-src');
-    requestAnimationFrame(() => document.body.classList.add('dragging'));
+    requestAnimationFrame(() => { if (dragId === t.id) document.body.classList.add('dragging'); }); // (not after a drag that already ended)
   });
-  el.addEventListener('dragend', () => {
-    dragId = null;
-    document.body.classList.remove('dragging');
-    clearDropMarks();
-    render();
-  });
+  el.addEventListener('dragend', endTabDrag);
   el.addEventListener('dragover', (e) => {
     if (!dragId || dragId === t.id) return;
     e.preventDefault(); e.stopPropagation();

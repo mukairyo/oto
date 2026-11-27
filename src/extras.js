@@ -123,11 +123,14 @@ function initSplitBar() {
     const move = (ev) => { sp.ratio = clamp((ev.clientX - box.left) / box.width, 0.2, 0.8); $('#views').style.setProperty('--split', String(sp.ratio)); };
     const up = () => {
       document.body.classList.remove('split-drag');
-      bar.removeEventListener('pointermove', move); bar.removeEventListener('pointerup', up);
+      bar.removeEventListener('pointermove', move); bar.removeEventListener('pointerup', up); bar.removeEventListener('pointercancel', up); bar.removeEventListener('lostpointercapture', up);
       save();
     };
     bar.addEventListener('pointermove', move);
     bar.addEventListener('pointerup', up);
+    // (1.9.8) a drag the system cancels (Linux/Wayland can) ends it too: before, the pages stayed unclickable
+    bar.addEventListener('pointercancel', up);
+    bar.addEventListener('lostpointercapture', up);
   });
 }
 
