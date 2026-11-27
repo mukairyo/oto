@@ -5,6 +5,7 @@ What's new and what got fixed in each version of Oto. Oto updates itself — you
 
 ## 1.9.5 — YouTube on Linux, and System24 lists
 
+- **Hidden sidebar on Linux:** with the sidebar hidden, moving the mouse to the edge made it glitch, opening and closing over and over. On Wayland (Hyprland, GNOME or KDE on Wayland), Linux doesn't tell apps where the mouse is outside their own window, so the position Oto asked for was out of date. On Wayland, Oto now goes only by the mouse moving over its own edge strip and sidebar, so it opens when you reach the edge and closes when you leave.
 - **No window buttons on Linux:** Oto's own minimise, maximise and close buttons at the top right are gone on Linux, where your window manager (Hyprland, GNOME, KDE…) already handles windows with its own buttons or keys. Windows keeps them.
 - **YouTube in Oto's look on Linux:** Linux tells websites "light" unless your desktop is set to dark, so YouTube used its light theme there. That left Oto's look half on: a white top bar and Mix panel, and invisible video titles and sidebar icons. The look now covers YouTube's light theme too, so it's the same dark Oto look on Linux and Windows.
 - **Ambient light on Linux:** the glow around videos only came on with YouTube's dark theme, so it never showed on Linux. With YouTube in Oto's look the page is always dark, so the glow now shows whatever theme YouTube is in.

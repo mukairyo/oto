@@ -1472,8 +1472,10 @@ const { pwOk, pwLoad, pwDec, pwUpsert, pwSyncExport, pwSyncMerge, setupPasswordI
 function setupWindowIPC() {
   // Where the mouse really is, relative to Oto's window — web pages swallow mouse events on Windows,
   // so the UI asks this to know when you've moved out of a slid-open sidebar or top bar.
+  // (1.9.5) not on Wayland, where the system's answer is stale (main/platform.js): the UI then goes by its own mouse events
+  const cursorOk = require('./main/platform.js').cursorTrusted();
   ipcMain.handle('win:cursor', () => {
-    if (!win || win.isDestroyed()) return null;
+    if (!win || win.isDestroyed() || !cursorOk) return null;
     const p = screen.getCursorScreenPoint();
     const b = win.getContentBounds();
     // Screen DIPs -> the UI's CSS pixels (differs if the UI page itself is zoomed).
