@@ -129,6 +129,27 @@ ytd-playlist-panel-video-renderer #index{font:500 10px ${YTS_MONO}!important;col
 ytd-playlist-panel-video-renderer :is(ytd-thumbnail,#thumbnail,img){border-radius:0!important}
 ytd-playlist-panel-video-renderer[selected]{background:${C.fg}!important}
 ytd-playlist-panel-video-renderer[selected] :is(#video-title,#video-title *,#byline *,#channel-name *,#index,yt-icon){color:${C.ink}!important}
+/* (1.9.5) under the video, the same way: the channel row's buttons square, the description and the comments as boxes with
+   their label in the top border, mono names and times, dashed lines between comments, straight reply lines */
+ytd-watch-metadata :is(.ytSpecButtonShapeNextHost,.yt-spec-button-shape-next,.ytSegmentedLikeDislikeButtonViewModelSegmentedButtonsWrapper,segmented-like-dislike-button-view-model *,#subscribe-button *,yt-touch-feedback-shape,.ytSpecTouchFeedbackShapeStroke,.ytSpecTouchFeedbackShapeFill){border-radius:0!important}
+ytd-watch-metadata #owner :is(.ytSpecButtonShapeNextHost,.yt-spec-button-shape-next),ytd-watch-metadata #actions :is(.ytSpecButtonShapeNextHost,.yt-spec-button-shape-next){font-family:${YTS_MONO}!important;font-size:12px!important;letter-spacing:.02em!important}
+ytd-watch-metadata :is(#description,#description.ytd-watch-metadata){position:relative!important;overflow:visible!important;border:1px solid ${C.line2}!important;border-radius:0!important;box-shadow:none!important;background:${C.bg}!important;margin-top:20px!important}
+ytd-watch-metadata #description::before{content:"about";position:absolute;top:-0.72em;left:10px;padding:0 6px;background:${C.bg};font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em;color:${C.fg2};z-index:2}
+ytd-watch-metadata #description :is(ytd-text-inline-expander,#description-inner,#snippet){background:transparent!important;border-radius:0!important}
+ytd-comments#comments{display:block!important;position:relative!important;border:1px solid ${C.line2}!important;padding:18px 16px 8px!important;margin-top:26px!important;background:${C.bg}!important}
+ytd-comments#comments::before{content:"comments";position:absolute;top:-0.72em;left:10px;padding:0 6px;background:${C.bg};font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em;color:${C.fg2};z-index:2}
+ytd-comments#comments :is(.ytSpecButtonShapeNextHost,.yt-spec-button-shape-next,yt-touch-feedback-shape,tp-yt-paper-button,#sort-menu *){border-radius:0!important}
+ytd-comments-header-renderer #placeholder-area,ytd-comment-simplebox-renderer #placeholder-area{font-family:${YTS_MONO}!important;font-size:12.5px!important;color:${C.fg3}!important;border-bottom:1px dashed ${C.line2}!important}
+:is(ytd-comment-thread-renderer,ytd-comment-view-model) :is(#author-text,#author-text span,.ytCommentViewModelAuthorText){font:500 12px/1.3 ${YTS_MONO}!important;color:${C.fg}!important;text-decoration:none!important;letter-spacing:.01em!important}
+:is(ytd-comment-thread-renderer,ytd-comment-view-model) :is(#published-time-text,#published-time-text a,.published-time-text a){font:400 11px/1.3 ${YTS_MONO}!important;color:${C.fg3}!important;text-decoration:none!important}
+:is(ytd-comment-thread-renderer,ytd-comment-view-model) :is(#translate-button,#translate-button *,#vote-count-middle,#vote-count-left,.ytCommentViewModelTranslate){font-family:${YTS_MONO}!important;font-size:11.5px!important;color:${C.fg2}!important;letter-spacing:.02em!important}
+ytd-comment-thread-renderer{border-bottom:1px dashed ${C.line}!important;padding:10px 0 8px!important;margin:0!important}
+ytd-comment-thread-renderer:last-of-type{border-bottom:0!important}
+:is(ytd-comment-thread-renderer,ytd-comment-view-model,ytd-comment-replies-renderer) :is([class*="hreadline"],[class*="hreadLine"],[class*="Connector"],[id*="threadline"],.thread-line){border-radius:0!important;border-color:${C.line2}!important}
+:is(ytd-comment-thread-renderer,ytd-comment-view-model,ytd-watch-metadata #owner) :is(#author-thumbnail img,yt-img-shadow,yt-img-shadow img,#avatar img,.ytCoreImageHost){border-radius:2px!important}
+:is(ytd-comment-thread-renderer,ytd-comment-view-model) #content-text :is(span,a){font-size:13.5px!important;line-height:1.5!important}
+/* the chat replay box on the right (Open panel) */
+#chat-container :is(ytd-live-chat-frame,#show-hide-button),ytd-live-chat-frame#chat{border-radius:0!important;border:1px solid ${C.line2}!important;background:${C.bg}!important}
 /* "Up next" beside a video */
 #secondary #related{position:relative!important;border:1px solid ${C.line2}!important;padding:16px 8px 6px!important;margin-top:14px!important}
 #secondary #related::before{content:"up next";position:absolute;top:-0.72em;left:10px;padding:0 6px;background:${C.bg};font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em;color:${C.fg2};z-index:2}
@@ -159,7 +180,7 @@ ytd-compact-video-renderer #video-title,#secondary yt-lockup-view-model :is(.yt-
 :is(ytd-thumbnail-overlay-time-status-renderer,.yt-badge-shape--thumbnail-default,.ytBadgeShapeThumbnailDefault){background:rgba(11,11,12,.82)!important;color:${C.fg}!important;font-family:${YTS_MONO}!important;letter-spacing:.04em!important;border-radius:3px!important;box-shadow:inset 0 0 0 1px ${C.line2}}
 ytd-thumbnail-overlay-resume-playback-renderer #progress,.ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment{background:#fff!important}
 /* links in descriptions and comments: white with a faint underline instead of blue */
-:is(ytd-text-inline-expander,#description,ytd-comment-view-model,#content-text,yt-attributed-string) a:not([class*="ytSpecButton"]):not([class*="yt-spec-button"]):not(span[style*="border-radius"] a){color:#fff!important;text-decoration:underline!important;text-decoration-color:rgba(255,255,255,.3)!important;text-underline-offset:2px}
+:is(ytd-text-inline-expander,#description,ytd-comment-view-model,#content-text,yt-attributed-string) a:not([class*="ytSpecButton"]):not([class*="yt-spec-button"]):not(span[style*="border-radius"] a):not(#author-text):not(#published-time-text a):not(.published-time-text a){color:#fff!important;text-decoration:underline!important;text-decoration-color:rgba(255,255,255,.3)!important;text-underline-offset:2px}
 /* the little link boxes YouTube draws in descriptions and comments (a channel or video with the YouTube icon, a search
    with a magnifier): a hairline box with room inside and no underline (1.9.3: the text touched the edges and the
    underline hung out below the box) */
