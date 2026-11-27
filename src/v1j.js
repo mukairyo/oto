@@ -211,7 +211,14 @@ function ambFrameShow(f, box, zoom = 1) {
     if (content) { content.classList.remove('v1-amb'); content.style.removeProperty('--v1-amb'); }
   }
 }
-setInterval(ambFrameTick, 120);
+// (1.9.7) as often as the glow in the page (its "fps" setting, 5–60 a second) while it shows; it looked choppy next to
+// the page's glow at a fixed 8 a second. While there's no glow, it only looks about 8 times a second.
+function ambFrameLoop() {
+  const t0 = performance.now();
+  let fps = 30; try { fps = Math.max(5, Math.min(60, Number(ytAmb().fps) || 30)); } catch {} // (S may not be read yet at start-up)
+  Promise.resolve().then(ambFrameTick).catch(() => {}).finally(() => setTimeout(ambFrameLoop, Math.max(4, (AMBF.on ? 1000 / fps : 120) - (performance.now() - t0))));
+}
+ambFrameLoop();
 // while a slider moves: only the glow's settings change, the YouTube switches' CSS stays as it is
 function ytAmbRefresh() { for (const v of V.values()) if (v && v.ready && v.wv) { try { ytAmbApply(v, v.wv.getURL()); } catch {} } }
 function ytRefresh() { for (const v of V.values()) if (v && v.ready) ytApply(v); }

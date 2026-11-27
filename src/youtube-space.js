@@ -66,10 +66,24 @@ function ytsCss() {
   const vars = colors.map(([k, v]) => sys(k, v)).join('') + legacy.map(([k, v]) => spec(k, v)).join('');
   const label = `font:500 10px/1.2 ${YTS_MONO}!important;letter-spacing:.22em!important;text-transform:uppercase!important;color:${C.fg3}!important`;
   const hair = `linear-gradient(${C.line},${C.line}) no-repeat`;
+  // (1.9.7) a see-through System24 box: the top border is drawn in two pieces with a gap where the label sits (the label
+  // used to cover the line with a black patch, which needed a solid black box), so the box itself can let the ambient
+  // light and the stars through; a light dark tint keeps the text readable over a bright glow
+  const seeBox = (gap) => `border-top-color:transparent!important;background:linear-gradient(${C.line2},${C.line2}) left top/10px 1px no-repeat border-box,linear-gradient(${C.line2},${C.line2}) right top/calc(100% - ${10 + gap}px) 1px no-repeat border-box,rgba(11,11,12,.3)!important`;
   return `
 html,html[dark],html[light],[dark],[light],html[darker-dark-theme],ytd-app,ytd-app *{${vars}color-scheme:dark}
 :root{--oto-yts:1}
-html,body,ytd-app{${YTS_STARS}}
+html{${YTS_STARS}}
+body,ytd-app{background:transparent!important}
+/* (1.9.7) shooting stars passing by now and then, like Oto for Android's sky: two streaks on their own slow cycles (13 s
+   and 19 s, so the pattern takes minutes to repeat), one from the left and one from the right, each crossing for about
+   a second. They sit between the stars and the page, move without repainting the page, and stay still for "reduce motion". */
+html::before,html::after{content:"";position:fixed;top:0;left:0;width:150px;height:1.5px;border-radius:1px;z-index:-1;pointer-events:none;opacity:0;will-change:transform,opacity;background:linear-gradient(90deg,rgba(255,248,236,0),rgba(255,248,236,.9))}
+html::before{animation:yts-meteor-a 13s linear 3s infinite}
+html::after{background:linear-gradient(270deg,rgba(255,248,236,0),rgba(255,248,236,.9));animation:yts-meteor-b 19s linear 9s infinite}
+@keyframes yts-meteor-a{0%{opacity:0;transform:translate(14vw,10vh) rotate(20deg)}1%{opacity:1}7%{opacity:.9}9%{opacity:0;transform:translate(46vw,28vh) rotate(20deg)}100%{opacity:0;transform:translate(46vw,28vh) rotate(20deg)}}
+@keyframes yts-meteor-b{0%{opacity:0;transform:translate(82vw,6vh) rotate(-22deg)}1%{opacity:1}5%{opacity:.9}6.5%{opacity:0;transform:translate(52vw,22vh) rotate(-22deg)}100%{opacity:0;transform:translate(52vw,22vh) rotate(-22deg)}}
+@media (prefers-reduced-motion:reduce){html::before,html::after{animation:none!important;display:none!important}}
 body{color:${C.fg}}
 ::selection{background:${C.cream};color:${C.ink}}
 ::-webkit-scrollbar{width:8px!important;height:8px!important;background:transparent!important}
@@ -139,11 +153,11 @@ ytd-playlist-panel-video-renderer[selected] :is(#video-title,#video-title *,#byl
    their label in the top border, mono names and times, dashed lines between comments, straight reply lines */
 ytd-watch-metadata :is(.ytSpecButtonShapeNextHost,.yt-spec-button-shape-next,.ytSegmentedLikeDislikeButtonViewModelSegmentedButtonsWrapper,segmented-like-dislike-button-view-model *,#subscribe-button *,yt-touch-feedback-shape,.ytSpecTouchFeedbackShapeStroke,.ytSpecTouchFeedbackShapeFill){border-radius:0!important}
 ytd-watch-metadata #owner :is(.ytSpecButtonShapeNextHost,.yt-spec-button-shape-next),ytd-watch-metadata #actions :is(.ytSpecButtonShapeNextHost,.yt-spec-button-shape-next){font-family:${YTS_MONO}!important;font-size:12px!important;letter-spacing:.02em!important}
-ytd-watch-metadata :is(#description,#description.ytd-watch-metadata){position:relative!important;overflow:visible!important;border:1px solid ${C.line2}!important;border-radius:0!important;box-shadow:none!important;background:${C.bg}!important;margin-top:20px!important}
-ytd-watch-metadata #description::before{content:"about";position:absolute;top:-0.72em;left:10px;padding:0 6px;background:${C.bg};font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em;color:${C.fg2};z-index:2}
-ytd-watch-metadata #description :is(ytd-text-inline-expander,#description-inner,#snippet){background:transparent!important;border-radius:0!important}
-ytd-comments#comments{display:block!important;position:relative!important;border:1px solid ${C.line2}!important;padding:18px 16px 8px!important;margin-top:26px!important;background:${C.bg}!important}
-ytd-comments#comments::before{content:"comments";position:absolute;top:-0.72em;left:10px;padding:0 6px;background:${C.bg};font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em;color:${C.fg2};z-index:2}
+ytd-watch-metadata :is(#description,#description.ytd-watch-metadata){position:relative!important;overflow:visible!important;border:1px solid ${C.line2}!important;border-radius:0!important;box-shadow:none!important;${seeBox(52)};margin-top:20px!important}
+ytd-watch-metadata #description::before{content:"about";position:absolute;top:-0.72em;left:10px;padding:0 6px;background:transparent;font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em;color:${C.fg2};z-index:2}
+ytd-watch-metadata #description :is(ytd-text-inline-expander,#description-inner,#snippet){background:transparent!important;border-radius:0!important;box-shadow:none!important}
+ytd-comments#comments{display:block!important;position:relative!important;border:1px solid ${C.line2}!important;padding:18px 16px 8px!important;margin-top:26px!important;${seeBox(76)}}
+ytd-comments#comments::before{content:"comments";position:absolute;top:-0.72em;left:10px;padding:0 6px;background:transparent;font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em;color:${C.fg2};z-index:2}
 ytd-comments#comments :is(.ytSpecButtonShapeNextHost,.yt-spec-button-shape-next,yt-touch-feedback-shape,tp-yt-paper-button,#sort-menu *){border-radius:0!important}
 ytd-comments-header-renderer #placeholder-area,ytd-comment-simplebox-renderer #placeholder-area{font-family:${YTS_MONO}!important;font-size:12.5px!important;color:${C.fg3}!important;border-bottom:1px dashed ${C.line2}!important}
 :is(ytd-comment-thread-renderer,ytd-comment-view-model) :is(#author-text,#author-text span,.ytCommentViewModelAuthorText){font:500 12px/1.3 ${YTS_MONO}!important;color:${C.fg}!important;text-decoration:none!important;letter-spacing:.01em!important}
@@ -157,8 +171,8 @@ ytd-comment-thread-renderer:last-of-type{border-bottom:0!important}
 /* the chat replay box on the right (Open panel) */
 #chat-container :is(ytd-live-chat-frame,#show-hide-button),ytd-live-chat-frame#chat{border-radius:0!important;border:1px solid ${C.line2}!important;background:${C.bg}!important}
 /* "Up next" beside a video */
-#secondary #related{position:relative!important;border:1px solid ${C.line2}!important;padding:16px 8px 6px!important;margin-top:14px!important}
-#secondary #related::before{content:"up next";position:absolute;top:-0.72em;left:10px;padding:0 6px;background:${C.bg};font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em;color:${C.fg2};z-index:2}
+#secondary #related{position:relative!important;border:1px solid ${C.line2}!important;padding:16px 8px 6px!important;margin-top:14px!important;${seeBox(68)}}
+#secondary #related::before{content:"up next";position:absolute;top:-0.72em;left:10px;padding:0 6px;background:transparent;font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em;color:${C.fg2};z-index:2}
 #secondary #related :is(.ytLockupMetadataViewModelTitle,#video-title) :is(span,yt-formatted-string),#secondary #related :is(.ytLockupMetadataViewModelTitle,#video-title){font:400 12.5px/1.35 ${YTS_MONO}!important;letter-spacing:.005em!important}
 #secondary #related :is(yt-lockup-view-model,ytd-compact-video-renderer){border-radius:0!important}
 #secondary #related :is(ytd-thumbnail,.ytThumbnailViewModelImage,img,.ytCoreImageHost){border-radius:0!important}
@@ -211,7 +225,6 @@ ytd-thumbnail-overlay-resume-playback-renderer #progress,.ytThumbnailOverlayProg
 ytd-rich-section-renderer #title-text,yt-section-header-view-model .yt-shelf-header-layout__title,.ytShelfHeaderLayoutTitle{${label};font-size:11px!important}
 /* the watch page: a big serif title, hairline boxes, the cream Subscribe */
 ytd-watch-metadata h1 yt-formatted-string,ytd-watch-metadata #title h1{font:400 34px/1.1 ${YTS_SERIF}!important;letter-spacing:.005em!important;color:${C.fg}!important}
-ytd-watch-metadata #description,ytd-watch-metadata #description-inner,#description.ytd-watch-metadata{background:rgba(255,255,255,.025)!important;box-shadow:inset 0 0 0 1px ${C.line}!important;border-radius:8px!important}
 ytd-watch-metadata #info-container,ytd-watch-info-text #info span{font-family:${YTS_MONO}!important;font-size:12px!important;letter-spacing:.02em}
 :is(ytd-comments-header-renderer h2,ytd-comments-header-renderer #count) yt-formatted-string,ytd-comments-header-renderer #count{${label};font-size:11px!important}
 ytd-comment-view-model #author-text,ytd-comment-renderer #author-text{font-family:${YTS_MONO}!important;font-size:12px!important;letter-spacing:.02em}

@@ -1,7 +1,7 @@
 {
   "name": "oto",
   "productName": "Oto",
-  "version": "1.9.600",
+  "version": "1.9.700",
   "description": "Oto — a calm, minimal browser for Windows.",
   "homepage": "https://github.com/mukairyo/oto",
   "main": "main.js",
@@ -177,5 +177,5 @@
     },
     "afterSign": "build/vmp-sign.js"
   },
-  "otoVersion": "1.9.6"
+  "otoVersion": "1.9.7"
 }

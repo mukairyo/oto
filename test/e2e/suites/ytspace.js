@@ -40,6 +40,10 @@ module.exports = async (t) => {
   await t.sleep(2200);
   a = JSON.parse(await t.js(`V.get(activeTab().id).wv.executeJavaScript("JSON.stringify({ dark: document.documentElement.hasAttribute('dark'), text: getComputedStyle(document.getElementById('lt')).color, playlist: getComputedStyle(document.getElementById('playlist')).display, blur: getComputedStyle(document.getElementById('header')).backdropFilter })")`));
   t.check('…YouTube draws its own dark theme under the look (and keeps it when YouTube takes it away); an empty playlist panel stays hidden; the chip row isn’t under a blurred header', a.dark === true && a.text === 'rgb(241, 241, 241)' && a.playlist === 'none' && a.blur === 'none', JSON.stringify(a));
+  // (1.9.7) the boxes under the video let the ambient light through (a light tint, the top border drawn around the
+  // label); shooting stars pass by between the stars and the page
+  a = JSON.parse(await t.js(`V.get(activeTab().id).wv.executeJavaScript("JSON.stringify((() => { const c = getComputedStyle(document.getElementById('comments')), b = getComputedStyle(document.documentElement, '::before'), f = getComputedStyle(document.documentElement, '::after'); return { bg: c.backgroundColor, top: c.borderTopColor, label: getComputedStyle(document.getElementById('comments'), '::before').backgroundColor, meteors: [b.animationName, f.animationName, b.position, b.zIndex], page: getComputedStyle(document.body).backgroundColor }; })())")`));
+  t.check('…the comments box is see-through (the ambient light shows through it), its label leaves a gap in the top line; shooting stars pass behind the page', a.bg === 'rgba(11, 11, 12, 0.3)' && a.top === 'rgba(0, 0, 0, 0)' && a.label === 'rgba(0, 0, 0, 0)' && a.meteors.join() === 'yts-meteor-a,yts-meteor-b,fixed,-1' && a.page === 'rgba(0, 0, 0, 0)', JSON.stringify(a));
   await t.js("(S.settings.ytSpace = false, ytsRefresh(), 1)"); await t.sleep(900);
   a = await t.js(`V.get(activeTab().id).wv.executeJavaScript("document.documentElement.hasAttribute('dark')")`);
   t.check('…and with the look off, the page goes back to the theme YouTube picked', a === false, String(a));

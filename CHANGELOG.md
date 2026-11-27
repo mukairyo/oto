@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.9.7 — Ambient light through the boxes, and shooting stars
+
+- **The light shows through the boxes:** under a video, the "about" and "comments" boxes (and "Up next") were solid black, so the ambient light stopped at them while it lit up the title and channel row above. They're see-through now, with only a light dark tint so the text stays readable. Each box's label still sits in its top border.
+- **Spread above 100 % does something now:** past 100 % the light reached further down the page, but it went behind the solid boxes, so 400 % looked the same as 100 %. With see-through boxes, a bigger spread carries the light further down, through the description and the comments.
+- **The glow around Oto at the same speed:** the glow around Oto's own window (sidebar, top bar, edges) updated about 8 times a second, so it lagged behind the glow in the page. It now updates as often as your ambient light "FPS" setting (up to 60 a second).
+- **Shooting stars on YouTube:** with YouTube in Oto's look, a shooting star now passes by behind the page now and then, like in Oto for Android's sky: one from the left, one from the right, each on its own slow rhythm. They're off when your system asks for reduced motion.
+
 ## 1.9.6 — YouTube's light theme, fixed properly
 
 - **Dark text and white parts on YouTube (Linux):** with YouTube in its light theme, parts of the page stayed half light. The description, "How this was made" and "Games" were dark text on black. The channel name, the buttons beside it and the details in "Up next" were too dark to read. The channel page's tabs bar (Home, Videos, Shorts…) and the playlist rows were white. While the look is on, Oto now switches the YouTube page to YouTube's own dark theme, the same way YouTube does it itself, so everything starts dark and the look sits on top as on Windows. It only changes that page: no YouTube setting or account choice is touched, and turning the look off gives YouTube back its own theme.
