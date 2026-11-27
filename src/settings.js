@@ -383,7 +383,8 @@ function keyCombo(e) {
   else if (e.code === 'Comma') k = ',';
   return (e.ctrlKey ? 'Ctrl+' : '') + (e.shiftKey ? 'Shift+' : '') + (e.altKey ? 'Alt+' : '') + k;
 }
-const prettyCombo = (c) => c.replace(/\+/g, ' ').replace('ArrowLeft', '←').replace('ArrowRight', '→').replace(/ = ?$/, ' =');
+// (1.9.8) the Space bar is the key ' ': it showed as nothing ("Ctrl Shift" for Ctrl+Shift+Space)
+const prettyCombo = (c) => c.replace(/\+ $/, '+Space').replace(/^ $/, 'Space').replace(/\+/g, ' ').replace('ArrowLeft', '←').replace('ArrowRight', '→').replace(/ = ?$/, ' =');
 let recording = null;
 function startRecording(cmd) {
   stopRecording();

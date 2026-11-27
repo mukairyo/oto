@@ -3,6 +3,11 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.9.8 — Open Sky from the Space button
+
+- **"Open Sky" in the Space menu:** click your Space's name at the top of the sidebar (HOME) and the first item is now "Open Sky", with its shortcut shown next to it. On Linux, Ctrl+Shift+Space can be taken by the desktop (Hyprland, or an input-method switcher) before Oto ever sees it, so the shortcut alone could leave no way into Sky. Double-clicking the Space's name also only opened its menu.
+- **The shortcut shows the Space bar:** Settings › Shortcuts listed the Space overview as "Ctrl Shift" with nothing after it, because the Space bar was shown as a blank. It now reads "Ctrl Shift Space". You can change it there to keys your desktop doesn't use.
+
 ## 1.9.7 — Ambient light through the boxes, and shooting stars
 
 - **The light shows through the boxes:** under a video, the "about" and "comments" boxes (and "Up next") were solid black, so the ambient light stopped at them while it lit up the title and channel row above. They're see-through now, with only a light dark tint so the text stays readable. Each box's label still sits in its top border.

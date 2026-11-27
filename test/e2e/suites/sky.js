@@ -131,4 +131,12 @@ module.exports = async (t) => {
   t.check('the Sky switch brings Sky View back', a.sky && a.view === 'sky', JSON.stringify(a));
   await shot('4-final');
   await t.js('v1CloseOverview(), 1');
+  // (1.9.8) Sky opens from the Space button's menu too (its shortcut can be taken by the desktop on Linux), and the
+  // shortcut shows as "Ctrl Shift Space" (the Space bar showed as nothing)
+  await t.js("(S.settings.overviewView = 'grid', wsMenu(currentWs(), 40, 80), 1)"); await t.sleep(200);
+  a = await J("const b = [...document.querySelectorAll('#menu .mi')].find((x) => /Open Sky/.test(x.textContent)); const k = b && b.querySelector('.k'); if (b) b.click(); return { item: !!b, key: k ? k.textContent : null };");
+  await t.sleep(900);
+  const b2 = await J("return { open: !!document.querySelector('#v1Ov'), sky: SKY.on, view: S.settings.overviewView, label: prettyCombo('Ctrl+Shift+ ') };");
+  t.check('the Space button’s menu has “Open Sky” (with its shortcut, Ctrl Shift Space), and it opens Sky', a.item && a.key === 'Ctrl Shift Space' && b2.open && b2.sky && b2.view === 'sky' && b2.label === 'Ctrl Shift Space', JSON.stringify({ a, b2 }));
+  await t.js('v1CloseOverview(), 1');
 };

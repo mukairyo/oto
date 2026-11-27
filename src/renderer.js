@@ -1555,6 +1555,10 @@ function wsSwatch(w) {
 
 function wsMenu(w, x, y) {
   showMenu(x, y, [
+    // (1.9.8) Sky (the space overview) from here too: its shortcut can be taken by the desktop before Oto sees it
+    // (Hyprland, an input method), and double-clicking this button opened this menu instead
+    typeof v1Overview === 'function' ? { label: 'Open Sky', icon: 'grid', k: (() => { try { return prettyCombo(combosFor('overview')[0] || ''); } catch { return ''; } })(), run: () => { S.settings.overviewView = 'sky'; save(); if (typeof V1O !== 'undefined' && V1O.open) v1CloseOverview(); v1Overview(); } } : null,
+    typeof v1Overview === 'function' ? '-' : null,
     { label: 'Change colours…', icon: 'palette', run: () => openWsDialog(w, { focusColours: true }) },
     { label: 'Edit space…', icon: 'edit', run: () => openWsDialog(w) },
     S.settings.spaceMenuNew ? { label: 'New space…', icon: 'plus', run: () => openWsDialog() } : null,
