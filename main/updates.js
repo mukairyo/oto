@@ -180,7 +180,8 @@ module.exports = function createUpdates(ctx) {
       return false;
     }
     ownerTries.n = 0; ownerOn = true; ownerKey = normKey(key);
-    try { if (safeStorage.isEncryptionAvailable()) writeJSON('owner.json', { k: safeStorage.encryptString(ownerKey).toString('base64') }); } catch {}
+    // (1.9.4) not with Linux's no-keyring fallback, whose key is the same for everyone (main/keyring.js)
+    try { if (require('./keyring.js').strongLock(safeStorage, { packaged: app.isPackaged === true })) writeJSON('owner.json', { k: safeStorage.encryptString(ownerKey).toString('base64') }); } catch {}
     return true;
   }
   function ownerSign(msg) {

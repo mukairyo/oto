@@ -45,7 +45,7 @@ function rig(conf = {}) {
   const sent = [];
   const vpn = createVpn({
     userFile: (n) => path.join(dir, n), readJSON: (n, d) => files[n] || d, writeJSON: (n, v) => { files[n] = v; }, send: (ch, v) => sent.push(v),
-    sessions: () => [{ part: S.main.part, ses: S.main }, { part: S.priv.part, ses: S.priv }], appDir: dir, resourcesPath: '', spawn,
+    sessions: () => [{ part: S.main.part, ses: S.main }, { part: S.priv.part, ses: S.priv }], appDir: dir, resourcesPath: '', spawn, systemTor: [], // never the test machine's own tor
   });
   const boot = (p, pct = 100) => p.stdout.emit('data', Buffer.from(`[notice] Bootstrapped ${pct}% (done): Done\n`));
   const tick = () => new Promise((r) => setTimeout(r, 10));
@@ -133,4 +133,15 @@ test('real Tor accepts the torrc Oto writes (skipped without tor installed)', { 
     assert.match(out, /Configuration was valid/);
   }
   fs.rmSync(d, { recursive: true, force: true });
+});
+
+test('on Linux it uses the system\'s tor package, from fixed places only', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oto-systor-'));
+  const bin = path.join(dir, 'bin', 'tor'); fs.mkdirSync(path.dirname(bin)); fs.writeFileSync(bin, '');
+  fs.mkdirSync(path.join(dir, 'share')); fs.writeFileSync(path.join(dir, 'share', 'geoip'), '');
+  const saved = process.env.OTO_TOR_FAKE; delete process.env.OTO_TOR_FAKE;
+  const vpn = createVpn({ userFile: (n) => path.join(dir, n), readJSON: (n, d) => d, writeJSON: () => {}, send: () => {}, sessions: () => [], appDir: dir, resourcesPath: '',
+    spawn: () => { throw new Error('not started here'); }, systemTor: [[path.join(dir, 'nope', 'tor'), dir], [bin, path.join(dir, 'share')]] });
+  assert.strictEqual(vpn.view().available, true);
+  if (saved) process.env.OTO_TOR_FAKE = saved;
 });

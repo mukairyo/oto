@@ -1,8 +1,9 @@
 {
   "name": "oto",
   "productName": "Oto",
-  "version": "1.9.300",
+  "version": "1.9.400",
   "description": "Oto — a calm, minimal browser for Windows.",
+  "homepage": "https://github.com/mukairyo/oto",
   "main": "main.js",
   "author": "Ryo",
   "license": "MIT",
@@ -53,15 +54,6 @@
       "package.json",
       "CHANGELOG.md"
     ],
-    "extraResources": [
-      {
-        "from": "vendor-tor",
-        "to": "tor",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
     "win": {
       "target": [
         {
@@ -77,7 +69,16 @@
           ]
         }
       ],
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "extraResources": [
+        {
+          "from": "vendor-tor",
+          "to": "tor",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -100,6 +101,69 @@
     "portable": {
       "artifactName": "Oto-Portable-${version}.exe"
     },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "pacman",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "executableName": "oto",
+      "artifactName": "Oto-${env.OTO_VERSION}.${ext}",
+      "category": "Network;WebBrowser",
+      "synopsis": "A calm, private browser built around your spaces",
+      "description": "Oto is a web browser with Spaces, a built-in blocker (Shield), Oto VPN over Tor and themes.",
+      "maintainer": "Ryo (mukairyo) <noreply@github.com>",
+      "vendor": "Oto",
+      "mimeTypes": [
+        "text/html",
+        "text/xml",
+        "application/xhtml+xml",
+        "x-scheme-handler/http",
+        "x-scheme-handler/https"
+      ],
+      "desktop": {
+        "entry": {
+          "Name": "Oto",
+          "GenericName": "Web Browser",
+          "Comment": "Browse the web with Oto",
+          "Categories": "Network;WebBrowser;",
+          "StartupWMClass": "Oto",
+          "Keywords": "browser;web;internet;"
+        }
+      }
+    },
+    "pacman": {
+      "packageName": "oto-browser",
+      "depends": [
+        "gtk3",
+        "nss",
+        "alsa-lib",
+        "libxss",
+        "libnotify",
+        "libxtst",
+        "xdg-utils",
+        "libsecret"
+      ],
+      "fpm": [
+        "--pacman-optional-depends",
+        "tor: Oto VPN",
+        "--pacman-optional-depends",
+        "gnome-keyring: keep saved passwords locked (or KWallet)"
+      ]
+    },
+    "appImage": {
+      "artifactName": "Oto-${env.OTO_VERSION}.AppImage"
+    },
     "publish": [
       {
         "provider": "github",
@@ -113,5 +177,5 @@
     },
     "afterSign": "build/vmp-sign.js"
   },
-  "otoVersion": "1.9.3"
+  "otoVersion": "1.9.4"
 }

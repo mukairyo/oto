@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { PW_CAPTURE, PW_CHOOSER } = require('./pw-page.js');
+const { strongLock } = require('./keyring.js');
 
 module.exports = function createPasswords(ctx) {
   const { readJSON, writeJSON } = ctx;
@@ -16,7 +17,8 @@ module.exports = function createPasswords(ctx) {
 
   const pwOk = (purpose) => (ctx.account ? ctx.account.pwAllowed(purpose) : true);
   let PW = null;
-  const pwCanEncrypt = () => { try { return safeStorage.isEncryptionAvailable(); } catch { return false; } };
+  // (1.9.4) not with Linux's no-keyring fallback, whose key is the same on every computer (main/keyring.js)
+  const pwCanEncrypt = () => strongLock(safeStorage, { packaged: app.isPackaged === true });
   let pwDamaged = '';
   let pwReadOnly = false; // damaged file that couldn't be set aside: Oto must not write over it
   function pwLoad() {

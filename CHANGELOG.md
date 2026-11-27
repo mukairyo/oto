@@ -3,6 +3,12 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.9.4 — Oto for Linux
+
+- **Oto runs on Arch Linux (and other Linux):** every release now has two Linux downloads next to the Windows installer. **Oto-x.y.z.pacman** is an Arch package: install it with `sudo pacman -U Oto-x.y.z.pacman`, and Oto shows up in your app menu as a web browser you can make the default, and as `oto` in a terminal. Updates download by themselves and install through pacman when you restart, after asking for your password. **Oto-x.y.z.AppImage** runs on any Linux without installing and updates itself (on Arch it needs `fuse2`). Both get the same checksums and signed build records as the Windows installer, and Oto's updater checks a download against them before it installs anything.
+- **Oto VPN on Linux** uses the system's Tor (`sudo pacman -S tor`). Oto looks for it only in the system folders, never anywhere you could drop a stand-in.
+- **Saved passwords on Linux** are locked with your keyring (GNOME Keyring or KWallet). Without one, Linux would fall back to a key that's the same on every computer, so Oto doesn't save passwords until a keyring is running.
+
 ## 1.9.3 — Frutiger Aero, and YouTube fixes
 
 - **New theme: Frutiger Aero.** Pick it in Settings › Appearance › Theme. Oto keeps its layout but gets the glossy late-2000s look: a bright sky that fades from deep to pale blue, with a sun glow, light ribbons and green hills at the bottom. Glossy bubbles drift up behind the start page, and they stay still if you've asked for less motion. The sidebar, Settings and the Library are frosted blue glass, and the text is white with a soft shadow. The active tab is a shiny glass pill, buttons and picked options are aqua gel, switches turn green when on, and the search bar is a glossy white pill with a blue glow. "Good evening" is in thin Segoe UI with a glass reflection underneath. Everything is drawn by the browser: no Windows wallpapers, logos or pictures. Switch back to Oto with the same picker.

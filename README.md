@@ -1,7 +1,7 @@
 <p align="center"><img src="docs/oto1-hero.png" width="900" alt="Oto — a calm browser for Windows"></p>
 
 <p align="center">
-  <a href="https://github.com/mukairyo/oto/releases/latest"><b>⬇&nbsp; Download Oto for Windows</b></a>
+  <a href="https://github.com/mukairyo/oto/releases/latest"><b>⬇&nbsp; Download Oto for Windows and Linux</b></a>
   &nbsp;·&nbsp; <a href="https://github.com/mukairyo/oto/releases/latest">Oto for Android</a>
   &nbsp;·&nbsp; <a href="CHANGELOG.md">What's new</a>
 </p>
@@ -44,6 +44,18 @@ Everything is dressed in one calm look: near-black, cream, thin lines, quiet typ
 3. A two-minute setup lets you bring your bookmarks from another browser and pick your layout, speed and privacy. Or sign in to your Oto account to get everything back.
 
 New versions download by themselves. You'll see a small card in the sidebar: **Restart now**.
+
+**Arch Linux**
+
+1. **[Download Oto-x.y.z.pacman](https://github.com/mukairyo/oto/releases/latest)** and install it: `sudo pacman -U Oto-x.y.z.pacman`. Oto appears in your app menu and as `oto` in a terminal.
+2. Optional: `sudo pacman -S tor` for Oto VPN, and a keyring (`gnome-keyring` or KWallet) so Oto can lock saved passwords. Without a keyring Oto doesn't save passwords.
+3. To check the file: `sha256sum -c SHA256SUMS-linux.txt` or `gh attestation verify Oto-x.y.z.pacman --repo mukairyo/oto`.
+
+Updates download by themselves and install through pacman: you'll be asked for your password when you restart.
+
+**Any Linux**
+
+**[Oto-x.y.z.AppImage](https://github.com/mukairyo/oto/releases/latest)** runs on its own (`chmod +x Oto-*.AppImage`, then open it) and updates itself. On Arch it needs `fuse2`.
 
 **Android**
 

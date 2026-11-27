@@ -60,7 +60,8 @@ function freePort() {
   return new Promise((ok, no) => { const s = net.createServer(); s.unref(); s.on('error', no); s.listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => ok(port)); }); });
 }
 
-function createVpn({ userFile, readJSON, writeJSON, send, sessions, appDir, resourcesPath, spawn = require('child_process').spawn, onRtc = () => {} }) {
+function createVpn({ userFile, readJSON, writeJSON, send, sessions, appDir, resourcesPath, spawn = require('child_process').spawn, onRtc = () => {},
+  systemTor = process.platform === 'linux' ? [['/usr/bin/tor', '/usr/share/tor'], ['/usr/local/bin/tor', '/usr/local/share/tor']] : [] }) {
   let conf = { ...DEFAULTS, ...sanitize(readJSON('vpn.json', {})) };
   const st = { phase: 'off', progress: 0, error: '', exitIp: '', exitCc: '', since: 0 };
   let proc = null, socksPort = 0, restartTimer = null, tries = 0, stopping = false, startToken = 0;
@@ -90,6 +91,11 @@ function createVpn({ userFile, readJSON, writeJSON, send, sessions, appDir, reso
       }
     }
     if (process.env.OTO_TOR_PATH && fs.existsSync(process.env.OTO_TOR_PATH)) return { bin: process.env.OTO_TOR_PATH, geoip: '', geoip6: '' };
+    // (1.9.4) Linux: Oto doesn't ship Tor there; it uses the system's own tor package (Arch: pacman -S tor). Only these
+    // fixed places, never a name looked up on PATH, so nothing in a writable folder can stand in for it.
+    for (const [bin, data] of systemTor) {
+      if (fs.existsSync(bin)) return { bin, geoip: fs.existsSync(path.join(data, 'geoip')) ? path.join(data, 'geoip') : '', geoip6: fs.existsSync(path.join(data, 'geoip6')) ? path.join(data, 'geoip6') : '' };
+    }
     return null;
   }
 
