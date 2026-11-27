@@ -44,9 +44,14 @@ module.exports = async (t) => {
   // label); shooting stars pass by between the stars and the page
   a = JSON.parse(await t.js(`V.get(activeTab().id).wv.executeJavaScript("JSON.stringify((() => { const c = getComputedStyle(document.getElementById('comments')), b = getComputedStyle(document.documentElement, '::before'), f = getComputedStyle(document.documentElement, '::after'); return { bg: c.backgroundColor, top: c.borderTopColor, label: getComputedStyle(document.getElementById('comments'), '::before').backgroundColor, meteors: [b.animationName, f.animationName, b.position, b.zIndex], page: getComputedStyle(document.body).backgroundColor }; })())")`));
   t.check('…the comments box is see-through (the ambient light shows through it), its label leaves a gap in the top line; shooting stars pass behind the page', a.bg === 'rgba(11, 11, 12, 0.3)' && a.top === 'rgba(0, 0, 0, 0)' && a.label === 'rgba(0, 0, 0, 0)' && a.meteors.join() === 'yts-meteor-a,yts-meteor-b,fixed,-1' && a.page === 'rgba(0, 0, 0, 0)', JSON.stringify(a));
+  // (1.9.7) the live chat column is see-through too, and the chat page in its frame gets the look's own small sheet
+  a = JSON.parse(await t.js(`V.get(activeTab().id).wv.executeJavaScript("JSON.stringify((() => { const f = document.getElementById('chatframe'), d = f.contentDocument; return { box: getComputedStyle(document.getElementById('chat')).backgroundColor, sheet: !!d.getElementById('oto-yts-chat'), body: getComputedStyle(d.body).backgroundColor, text: getComputedStyle(d.getElementById('m')).color }; })())")`));
+  t.check('…the live chat column lets the light through, and the chat inside it is see-through with Oto’s colours', a.box === 'rgba(11, 11, 12, 0.3)' && a.sheet && a.body === 'rgba(0, 0, 0, 0)', JSON.stringify(a));
   await t.js("(S.settings.ytSpace = false, ytsRefresh(), 1)"); await t.sleep(900);
   a = await t.js(`V.get(activeTab().id).wv.executeJavaScript("document.documentElement.hasAttribute('dark')")`);
   t.check('…and with the look off, the page goes back to the theme YouTube picked', a === false, String(a));
+  a = await t.js(`V.get(activeTab().id).wv.executeJavaScript("!!document.getElementById('chatframe').contentDocument.getElementById('oto-yts-chat')")`);
+  t.check('…and the chat’s sheet comes out too', a === false, String(a));
   await t.js("(S.settings.ytSpace = true, 1)");
   await t.js("(YTS_HOST.test = window.__ytsHost, 1)");
   a = await t.js(`(async () => { const calls = []; await ytAmbApply({ wv: { executeJavaScript: async (c) => { calls.push(c); } } }, 'https://www.youtube.com/watch?v=x'); return calls.length ? /"light":true/.test(calls[0]) : 'not run'; })()`);

@@ -169,7 +169,12 @@ ytd-comment-thread-renderer:last-of-type{border-bottom:0!important}
 :is(ytd-comment-thread-renderer,ytd-comment-view-model,ytd-watch-metadata #owner) :is(#author-thumbnail img,yt-img-shadow,yt-img-shadow img,#avatar img,.ytCoreImageHost){border-radius:2px!important}
 :is(ytd-comment-thread-renderer,ytd-comment-view-model) #content-text :is(span,a){font-size:13.5px!important;line-height:1.5!important}
 /* the chat replay box on the right (Open panel) */
-#chat-container :is(ytd-live-chat-frame,#show-hide-button),ytd-live-chat-frame#chat{border-radius:0!important;border:1px solid ${C.line2}!important;background:${C.bg}!important}
+/* (1.9.7) the live chat column (on the right in theatre mode): see-through like the boxes under the video, so the
+   ambient light and the stars run behind it instead of a solid black column. The chat itself lives in its own frame;
+   its look is put in by ytsChatCss() below. */
+#chat-container :is(ytd-live-chat-frame,#show-hide-button),ytd-live-chat-frame#chat{border-radius:0!important;border:1px solid ${C.line2}!important;background:rgba(11,11,12,.3)!important;box-shadow:none!important}
+:is(#panels-full-bleed-container,#chat-container,ytd-live-chat-frame#chat #chatframe){background:transparent!important}
+ytd-live-chat-frame #show-hide-button :is(.ytSpecButtonShapeNextHost,.yt-spec-button-shape-next,tp-yt-paper-button){border-radius:0!important;font-family:${YTS_MONO}!important;font-size:12px!important;letter-spacing:.04em!important}
 /* "Up next" beside a video */
 #secondary #related{position:relative!important;border:1px solid ${C.line2}!important;padding:16px 8px 6px!important;margin-top:14px!important;${seeBox(68)}}
 #secondary #related::before{content:"up next";position:absolute;top:-0.72em;left:10px;padding:0 6px;background:transparent;font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em;color:${C.fg2};z-index:2}
@@ -301,6 +306,26 @@ tp-yt-paper-tooltip #tooltip,.ytp-tooltip-text{background:${C.cream}!important;c
 // tab: no setting, cookie or account choice changes. Turning the look off puts it back as YouTube had it.
 const YTS_DARK_ON = "(()=>{const h=document.documentElement,w=window;if(!w.__otoYtsDark){const d={had:h.hasAttribute('dark'),on:true};d.o=new MutationObserver(()=>{if(d.on&&!h.hasAttribute('dark'))h.setAttribute('dark','')});d.o.observe(h,{attributes:true,attributeFilter:['dark']});w.__otoYtsDark=d}w.__otoYtsDark.on=true;if(!h.hasAttribute('dark'))h.setAttribute('dark','');return getComputedStyle(h).getPropertyValue('--oto-yts').trim()})()";
 const YTS_DARK_OFF = "(()=>{const d=window.__otoYtsDark;if(!d)return 0;d.on=false;if(!d.had)document.documentElement.removeAttribute('dark');return 1})()";
+// (1.9.7) The live chat is its own page in a frame (youtube.com/live_chat, same site as the video page), so the look's
+// sheet doesn't reach it. The video page puts this small sheet into the chat frame each time it loads (checked once a
+// second while the look is on): a see-through background, Oto's colours, mono names and times, square boxes.
+function ytsChatCss() {
+  const C = YTS;
+  return `${ytsFontCss || ''}
+html,body,yt-live-chat-app,yt-live-chat-renderer,#contents.yt-live-chat-renderer,yt-live-chat-item-list-renderer,#item-list,#item-scroller,#item-offset,#items{background:transparent!important}
+html,yt-live-chat-app,yt-live-chat-renderer{--yt-live-chat-background-color:transparent!important;--yt-live-chat-header-background-color:rgba(11,11,12,.6)!important;--yt-live-chat-action-panel-background-color:rgba(11,11,12,.6)!important;--yt-live-chat-primary-text-color:${C.fg}!important;--yt-live-chat-secondary-text-color:${C.fg2}!important;--yt-live-chat-tertiary-text-color:${C.fg3}!important;--yt-spec-base-background:transparent!important;--yt-spec-text-primary:${C.fg}!important;--yt-spec-text-secondary:${C.fg2}!important;--yt-spec-10-percent-layer:${C.line2}!important;color-scheme:dark}
+yt-live-chat-header-renderer{background:rgba(11,11,12,.6)!important;border-bottom:1px dashed ${C.line2}!important;box-shadow:none!important}
+yt-live-chat-header-renderer :is(#title,#primary-content,yt-sort-filter-sub-menu-renderer *){font-family:${YTS_MONO}!important;letter-spacing:.04em!important;color:${C.fg}!important}
+:is(yt-live-chat-message-input-renderer,yt-live-chat-viewer-engagement-message-renderer,#panel-pages){background:rgba(11,11,12,.6)!important;border-color:${C.line2}!important;border-radius:0!important;box-shadow:none!important}
+:is(yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer) #author-name{font:500 11.5px/1.4 ${YTS_MONO}!important;letter-spacing:.02em!important;color:${C.fg2}!important}
+yt-live-chat-text-message-renderer #message{color:${C.fg}!important}
+:is(yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer) #timestamp{font:400 10.5px ${YTS_MONO}!important;color:${C.fg3}!important}
+yt-live-chat-text-message-renderer:hover{background:rgba(255,255,255,.04)!important}
+:is(yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer,yt-live-chat-banner-renderer) :is(#card,#header,#content,#author-photo,img){border-radius:0!important}
+::-webkit-scrollbar{width:8px!important;background:transparent!important}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1)!important;border-radius:0!important}`;
+}
+const ytsChatOn = () => `(()=>{const d=window.__otoYtsDark;if(!d)return 0;d.chat=${JSON.stringify(ytsChatCss())};const put=()=>{if(!d.on)return;for(const f of document.querySelectorAll('iframe#chatframe,ytd-live-chat-frame iframe')){let doc=null;try{doc=f.contentDocument}catch(e){}if(!doc||!doc.head)continue;let st=doc.getElementById('oto-yts-chat');if(!st){st=doc.createElement('style');st.id='oto-yts-chat';doc.head.appendChild(st)}if(st.textContent!==d.chat)st.textContent=d.chat}};clearInterval(d.chatT);d.chatT=setInterval(put,1000);put();return 1})()`;
+const YTS_CHAT_OFF = "(()=>{const d=window.__otoYtsDark;if(!d)return 0;clearInterval(d.chatT);for(const f of document.querySelectorAll('iframe#chatframe,ytd-live-chat-frame iframe')){try{const s=f.contentDocument&&f.contentDocument.getElementById('oto-yts-chat');if(s)s.remove()}catch(e){}}return 1})()";
 // On the moment a page is ready, never waiting for the fonts (they're added when read). Every change to a tab's sheet
 // runs one at a time, in order (1.9.2): before, an older, slower run could take out the sheet a newer one had just put
 // in, and the page stayed as plain YouTube.
@@ -319,7 +344,10 @@ async function ytsApplyNow(v) {
     try { key = await ytsTimed(p, 4000); } catch (e) { v.ytsErr = String((e && e.message) || e); p.then((late) => { (v.ytsLate = v.ytsLate || []).push(late); }, () => {}); }
   }
   const old = [v.ytsKey, ...(v.ytsLate || [])].filter(Boolean); v.ytsKey = key; v.ytsLate = []; // the new sheet goes in first, then the old ones come out: no flash
-  if (YTS_HOST.test(url)) { v.ytsStage = 'dark'; try { await ytsTimed(v.wv.executeJavaScript(want ? YTS_DARK_ON : YTS_DARK_OFF), 2000); } catch (e) { v.ytsErr = String((e && e.message) || e); } }
+  if (YTS_HOST.test(url)) {
+    v.ytsStage = 'dark';
+    try { await ytsTimed(v.wv.executeJavaScript(want ? YTS_DARK_ON : YTS_DARK_OFF), 2000); await ytsTimed(v.wv.executeJavaScript(want ? ytsChatOn() : YTS_CHAT_OFF), 2000); } catch (e) { v.ytsErr = String((e && e.message) || e); }
+  }
   v.ytsStage = 'done';
   for (const o of old) { try { await ytsTimed(v.wv.removeInsertedCSS(o), 2000); } catch {} }
   if (want && ytsFontCss === null) ytsFonts().then((f) => { if (f) ytsApply(v); });
