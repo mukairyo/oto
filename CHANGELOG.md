@@ -3,6 +3,12 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.9.5 — YouTube on Linux, and System24 lists
+
+- **YouTube in Oto's look on Linux:** Linux tells websites "light" unless your desktop is set to dark, so YouTube used its light theme there. That left Oto's look half on: a white top bar and Mix panel, and invisible video titles and sidebar icons. The look now covers YouTube's light theme too, so it's the same dark Oto look on Linux and Windows.
+- **Ambient light on Linux:** the glow around videos only came on with YouTube's dark theme, so it never showed on Linux. With YouTube in Oto's look the page is always dark, so the glow now shows whatever theme YouTube is in.
+- **Lists in the System24 style:** YouTube's sidebar, the Mix/playlist panel and "Up next" beside a video are now square boxes with a thin border, and each box's label sits in the top border, like a terminal window ("01 // menu", "02 // you", "playlist", "up next"). The text is mono, rows are numbered, and the page or video you're on is shown inverted.
+
 ## 1.9.4 — Oto for Linux
 
 - **Oto runs on Arch Linux (and other Linux):** every release now has two Linux downloads next to the Windows installer. **Oto-x.y.z.pacman** is an Arch package: install it with `sudo pacman -U Oto-x.y.z.pacman`, and Oto shows up in your app menu as a web browser you can make the default, and as `oto` in a terminal. Updates download by themselves and install through pacman when you restart, after asking for your password. **Oto-x.y.z.AppImage** runs on any Linux without installing and updates itself (on Arch it needs `fuse2`). Both get the same checksums and signed build records as the Windows installer, and Oto's updater checks a download against them before it installs anything.

@@ -67,13 +67,21 @@ function ytsCss() {
   const label = `font:500 10px/1.2 ${YTS_MONO}!important;letter-spacing:.22em!important;text-transform:uppercase!important;color:${C.fg3}!important`;
   const hair = `linear-gradient(${C.line},${C.line}) no-repeat`;
   return `
-html,html[dark],html[light],[dark],[light],html[darker-dark-theme]{${vars}color-scheme:dark}
+html,html[dark],html[light],[dark],[light],html[darker-dark-theme],ytd-app,ytd-app *{${vars}color-scheme:dark}
 :root{--oto-yts:1}
 html,body,ytd-app{${YTS_STARS}}
 body{color:${C.fg}}
 ::selection{background:${C.cream};color:${C.ink}}
 ::-webkit-scrollbar{width:8px!important;height:8px!important;background:transparent!important}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1)!important;border-radius:0!important;border:0!important}
+/* (1.9.5) YouTube's light theme (Linux tells sites "light" unless the desktop is dark): its frosted layer behind the top bar
+   and chips, the guide's icons, video titles and the playlist panel had their own light colours */
+#frosted-glass,ytd-app #frosted-glass.ytd-app{background:rgba(11,11,12,.86)!important;backdrop-filter:blur(14px)!important}
+ytd-app :is(yt-icon,.yt-icon-shape,.ytIconWrapperHost,.yt-spec-icon-shape):not(.ytp-button *){color:${C.fg}!important}
+:is(.ytLockupMetadataViewModelTitle,.yt-lockup-metadata-view-model__title,#video-title,.shortsLockupViewModelHostMetadataTitle,.shortsLockupViewModelHostOutsideMetadataTitle,ytm-shorts-lockup-view-model h3) :is(span,a),:is(.ytLockupMetadataViewModelTitle,#video-title,.shortsLockupViewModelHostMetadataTitle,.shortsLockupViewModelHostOutsideMetadataTitle){color:${C.fg}!important}
+ytd-app{color:${C.fg}}
+/* …except on the cream filled buttons (Subscribe, Sign in) */
+ytd-app :is(.ytSpecButtonShapeNextFilled,.yt-spec-button-shape-next--filled) :is(yt-icon,.yt-icon-shape,.ytIconWrapperHost,#yts-never){color:${C.ink}!important}
 /* the top bar: frosted black with a hairline, like the sidebar's edge */
 #masthead-container #background,ytd-masthead #background{background:rgba(11,11,12,.82)!important;backdrop-filter:blur(14px)}
 #masthead-container{box-shadow:inset 0 -1px 0 ${C.line}!important}
@@ -85,24 +93,48 @@ ytd-masthead{background:transparent!important}
 :is(.ytSearchboxComponentSearchButton,#search-icon-legacy){background:rgba(255,255,255,.06)!important;border:1px solid ${C.line2}!important;border-radius:0 8px 8px 0!important}
 :is(.ytSearchboxComponentInputBoxHasFocus,ytd-searchbox[has-focus] #container){border-color:rgba(255,255,255,.32)!important}
 .ytSearchboxComponentSuggestionsContainer,.sbdd_b{background:${C.menu}!important;border:1px solid ${C.line2}!important;border-radius:8px!important}
-/* the guide (YouTube's own sidebar) as Oto's: panel, numbered mono headings with a hairline, serif entries, lit active row */
-#guide-content,tp-yt-app-drawer #contentContainer,ytd-mini-guide-renderer{background:rgba(11,11,12,.86)!important;backdrop-filter:blur(10px)}
+/* (1.9.5) The lists as System24 boxes: YouTube's sidebar, the playlist panel and "Up next" are square boxes with a thin
+   border and their label sitting in the top border (like a terminal window), mono text, numbered rows, and the item
+   you're on shown inverted. */
+#guide-content,tp-yt-app-drawer #contentContainer,ytd-mini-guide-renderer{background:${C.bg}!important}
 #guide-content{box-shadow:inset -1px 0 0 ${C.line}!important}
-ytd-guide-renderer #sections{counter-reset:yts-sec}
-ytd-guide-section-renderer{border-top:0!important}
-ytd-guide-section-renderer #guide-section-title{${label};display:block!important;padding:14px 12px 8px 14px!important;background:${hair} right 12px center/calc(100% - 140px) 1px!important}
-ytd-guide-section-renderer #guide-section-title::before{content:counter(yts-sec,decimal-leading-zero) "\\00a0\\00a0\\00a0";counter-increment:yts-sec}
+ytd-guide-renderer #sections{counter-reset:yts-sec;padding-top:6px!important}
+ytd-guide-section-renderer{display:block!important;position:relative!important;border:1px solid ${C.line2}!important;border-radius:0!important;margin:18px 10px 6px 8px!important;padding:12px 2px 6px!important;counter-increment:yts-sec}
+ytd-guide-section-renderer #guide-section-title,ytd-guide-section-renderer:not(:has(#guide-section-title:not(:empty)))::before{position:absolute!important;top:-0.72em!important;left:10px!important;margin:0!important;padding:0 6px!important;background:${C.bg}!important;font:500 10px/1.3 ${YTS_MONO}!important;letter-spacing:.16em!important;text-transform:lowercase!important;color:${C.fg2}!important;display:block!important;z-index:1}
+ytd-guide-section-renderer #guide-section-title::before{content:counter(yts-sec,decimal-leading-zero) "\\00a0//\\00a0";color:${C.fg3}}
+ytd-guide-section-renderer:not(:has(#guide-section-title:not(:empty)))::before{content:counter(yts-sec,decimal-leading-zero) "\\00a0//\\00a0menu"}
 ytd-guide-section-renderer #items{counter-reset:yts-it}
-ytd-guide-entry-renderer{counter-increment:yts-it}
-ytd-guide-entry-renderer tp-yt-paper-item{border-radius:4px!important;min-height:36px!important;padding:0 10px!important}
-ytd-guide-entry-renderer tp-yt-paper-item::before{content:counter(yts-it,decimal-leading-zero);font:500 9px ${YTS_MONO};color:${C.fg3};width:16px;flex:none;letter-spacing:.05em;margin-right:6px}
-ytd-guide-entry-renderer .title,ytd-guide-entry-renderer yt-formatted-string.title{font:400 17px/1.1 ${YTS_SERIF}!important;color:${C.fg}!important;letter-spacing:.005em}
-ytd-guide-entry-renderer yt-icon,ytd-guide-entry-renderer yt-img-shadow{opacity:.78}
-ytd-guide-entry-renderer:hover tp-yt-paper-item{background:rgba(255,255,255,.04)!important}
-ytd-guide-entry-renderer[active] tp-yt-paper-item{background:linear-gradient(90deg,rgba(255,255,255,.13),rgba(255,255,255,.03))!important;box-shadow:inset 1px 0 0 rgba(255,255,255,.7)}
-ytd-guide-entry-renderer[active] :is(.title,yt-icon){color:#fff!important;opacity:1}
-ytd-guide-entry-renderer[active] tp-yt-paper-item::before{color:rgba(255,255,255,.6)}
-ytd-guide-collapsible-section-entry-renderer #header-entry .title{font:400 17px/1.1 ${YTS_SERIF}!important}
+ytd-guide-entry-renderer,ytd-guide-collapsible-section-entry-renderer #header-entry{counter-increment:yts-it}
+ytd-guide-entry-renderer tp-yt-paper-item{border-radius:0!important;min-height:30px!important;height:30px!important;padding:0 8px!important}
+ytd-guide-entry-renderer tp-yt-paper-item::before{content:counter(yts-it,decimal-leading-zero);font:500 9.5px ${YTS_MONO};color:${C.fg3};width:18px;flex:none;letter-spacing:.04em;margin-right:4px}
+ytd-guide-entry-renderer :is(.title,yt-formatted-string.title),ytd-guide-collapsible-section-entry-renderer #header-entry .title{font:400 12.5px/1.2 ${YTS_MONO}!important;color:${C.fg}!important;letter-spacing:.01em!important;text-transform:lowercase}
+ytd-guide-entry-renderer :is(yt-icon,yt-img-shadow){opacity:.8;transform:scale(.86);margin-right:10px!important}
+ytd-guide-entry-renderer tp-yt-paper-item{gap:8px!important}
+ytd-guide-entry-renderer :is(.title,yt-formatted-string.title){white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+ytd-guide-entry-renderer:hover tp-yt-paper-item{background:rgba(255,255,255,.07)!important}
+ytd-guide-entry-renderer[active] tp-yt-paper-item{background:${C.fg}!important;box-shadow:none!important}
+ytd-guide-entry-renderer[active] :is(.title,yt-icon,yt-icon *,#yts-never),ytd-guide-entry-renderer[active] tp-yt-paper-item::before{color:${C.ink}!important;opacity:1}
+/* the playlist / Mix panel */
+ytd-playlist-panel-renderer#playlist{display:block!important;position:relative!important;overflow:visible!important;margin-top:14px!important;border:1px solid ${C.line2}!important;border-radius:0!important;background:${C.bg}!important}
+ytd-playlist-panel-renderer#playlist::before{content:"playlist";position:absolute;top:-0.72em;left:10px;padding:0 6px;background:${C.bg};font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em;color:${C.fg2};z-index:2}
+ytd-playlist-panel-renderer #container,ytd-playlist-panel-renderer .header,ytd-playlist-panel-renderer #header-contents{background:${C.bg}!important;border:0!important;border-radius:0!important;box-shadow:none!important}
+ytd-playlist-panel-renderer .header{border-bottom:1px dashed ${C.line2}!important}
+ytd-playlist-panel-renderer .header :is(.title,h3,yt-formatted-string,a){font:500 13px/1.3 ${YTS_MONO}!important;color:${C.fg}!important;letter-spacing:.01em!important}
+ytd-playlist-panel-renderer .header :is(#publisher-container,.byline,.publisher) :is(span,a,yt-formatted-string),ytd-playlist-panel-renderer .header .index-message{font:400 11px/1.4 ${YTS_MONO}!important;color:${C.fg3}!important}
+ytd-playlist-panel-video-renderer{border-radius:0!important;padding:4px 6px 4px 0!important}
+ytd-playlist-panel-video-renderer:hover{background:rgba(255,255,255,.06)!important}
+ytd-playlist-panel-video-renderer #video-title,ytd-playlist-panel-video-renderer #video-title *{font:400 12px/1.35 ${YTS_MONO}!important;color:${C.fg}!important}
+ytd-playlist-panel-video-renderer :is(#byline,#channel-name,ytd-channel-name) :is(a,span,yt-formatted-string){font:400 10.5px/1.3 ${YTS_MONO}!important;color:${C.fg3}!important}
+ytd-playlist-panel-video-renderer #index{font:500 10px ${YTS_MONO}!important;color:${C.fg3}!important}
+ytd-playlist-panel-video-renderer :is(ytd-thumbnail,#thumbnail,img){border-radius:0!important}
+ytd-playlist-panel-video-renderer[selected]{background:${C.fg}!important}
+ytd-playlist-panel-video-renderer[selected] :is(#video-title,#video-title *,#byline *,#channel-name *,#index,yt-icon){color:${C.ink}!important}
+/* "Up next" beside a video */
+#secondary #related{position:relative!important;border:1px solid ${C.line2}!important;padding:16px 8px 6px!important;margin-top:14px!important}
+#secondary #related::before{content:"up next";position:absolute;top:-0.72em;left:10px;padding:0 6px;background:${C.bg};font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em;color:${C.fg2};z-index:2}
+#secondary #related :is(.ytLockupMetadataViewModelTitle,#video-title) :is(span,yt-formatted-string),#secondary #related :is(.ytLockupMetadataViewModelTitle,#video-title){font:400 12.5px/1.35 ${YTS_MONO}!important;letter-spacing:.005em!important}
+#secondary #related :is(yt-lockup-view-model,ytd-compact-video-renderer){border-radius:0!important}
+#secondary #related :is(ytd-thumbnail,.ytThumbnailViewModelImage,img,.ytCoreImageHost){border-radius:0!important}
 ytd-guide-signin-promo-renderer,#footer.ytd-guide-renderer{${label};text-transform:none!important;letter-spacing:.02em!important;line-height:1.6!important}
 ytd-mini-guide-entry-renderer .title{font:500 8.5px/1.3 ${YTS_MONO}!important;letter-spacing:.12em!important;text-transform:uppercase!important;color:${C.fg2}!important}
 ytd-mini-guide-entry-renderer[active] .title{color:#fff!important}

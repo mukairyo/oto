@@ -66,6 +66,9 @@ async function ytApply(v) {
 async function ytAmbApply(v, url) {
   if (!isYT(url)) return;
   const amb = ytAmb();
+  // (1.9.5) With YouTube in Oto's look the page is dark whatever YouTube's own theme is, so the glow shows on YouTube's
+  // light theme too (on Linux, which tells sites "light" unless the desktop is dark, the glow never came on).
+  if (typeof ytsOn === 'function' && ytsOn() && typeof YTS_HOST !== 'undefined' && YTS_HOST.test(url)) amb.light = true;
   if (amb.on || amb.button || v.ytAmbient) { try { await v.wv.executeJavaScript(`(${otoYtAmbient})(${JSON.stringify(amb)})`); v.ytAmbient = true; } catch {} }
 }
 // Changes made in the small panel of the player button. The page can't reach Oto: Oto asks the YouTube tab you are

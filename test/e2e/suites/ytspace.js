@@ -28,7 +28,16 @@ module.exports = async (t) => {
   await t.sleep(2600);
   const back = await t.js(`V.get(activeTab().id).wv.executeJavaScript("getComputedStyle(document.documentElement).backgroundColor")`);
   t.check('…and if it goes missing from a page, it puts itself back within a second or two', gone !== 'rgb(11, 11, 12)' && back === 'rgb(11, 11, 12)', JSON.stringify({ gone, back }));
+  // (1.9.5) YouTube's light theme (Linux): the frosted top layer and text that set their own light colours come out dark;
+  // the lists are System24 boxes (border, label in the top border); ambient light shows on the light theme too
+  await t.js("(YTS_HOST.test = (u) => /^http:\\/\\/(tube|tubelight)\\.site\\//.test(u), 1)");
+  await t.open('http://tubelight.site/', 400);
+  for (let i = 0; i < 28 && !(await t.js(`(async () => { const v = V.get(activeTab().id); try { return /tubelight/.test(v.wv.getURL()) && await v.wv.executeJavaScript("getComputedStyle(document.documentElement).backgroundColor === 'rgb(11, 11, 12)'"); } catch { return false; } })()`)); i++) await t.sleep(200);
+  a = JSON.parse(await t.js(`(async () => { const v = V.get(activeTab().id); return await v.wv.executeJavaScript("JSON.stringify({ glass: getComputedStyle(document.getElementById('frosted-glass')).backgroundColor, text: getComputedStyle(document.querySelector('.title')).color, box: getComputedStyle(document.querySelector('ytd-guide-section-renderer')).borderTopStyle, label: getComputedStyle(document.getElementById('guide-section-title')).position })"); })()`));
+  t.check('…on YouTube’s light theme too (Linux): the top bar’s frosted layer and the text are dark/light as in the look; the sidebar is a System24 box with its label in the border', a.glass === 'rgba(11, 11, 12, 0.86)' && a.text === 'rgb(236, 232, 225)' && a.box === 'solid' && a.label === 'absolute', JSON.stringify(a));
   await t.js("(YTS_HOST.test = window.__ytsHost, 1)");
+  a = await t.js(`(async () => { const calls = []; await ytAmbApply({ wv: { executeJavaScript: async (c) => { calls.push(c); } } }, 'https://www.youtube.com/watch?v=x'); return calls.length ? /"light":true/.test(calls[0]) : 'not run'; })()`);
+  t.check('…and ambient light shows on YouTube’s light theme while the look is on', a === true, String(a));
   await t.js("(openSettings('appearance'), 1)"); await t.sleep(300);
   a = await J("const r = [...document.querySelectorAll('#settings .set-row')].find((x) => /YouTube in Oto/.test(x.textContent)); return { row: !!r, on: !!(r && r.querySelector('.switch.on')) };");
   t.check('Settings › Appearance › Websites has a switch for it (on)', a.row && a.on, JSON.stringify(a));
