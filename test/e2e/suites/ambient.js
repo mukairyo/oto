@@ -41,6 +41,12 @@ module.exports = async (t) => {
   a = await look();
   t.check('it follows the picture: the video turns green, so does the glow', near(a.px, [32, 192, 64]), String(a.px));
   t.check('the page gets no Oto API and no Node.js from it', a.noApi === true);
+  // (1.9.6) a bright, white picture turns the glow down so the text over it stays readable; a darker one brings it back
+  await t.page('window.__paint("#f2f2f2")'); await wait(1400);
+  const bright = await look();
+  await t.page('window.__paint("#e0204a")'); await wait(1400);
+  const back = await look();
+  t.check('a bright white scene turns the glow down (to 40 % of its strength), and it comes back with a darker one', Math.abs(Number(bright.opacity) - 0.85 * 0.4) < 0.02 && Math.abs(Number(back.opacity) - 0.85) < 0.02, `bright ${bright.opacity}, back ${back.opacity}`);
 
   await run({ strength: 40, blur: 0, spread: 0, fade: 0 }); await wait(200);
   a = await look();
