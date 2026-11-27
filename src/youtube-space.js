@@ -115,8 +115,14 @@ ytd-guide-entry-renderer:hover tp-yt-paper-item{background:rgba(255,255,255,.07)
 ytd-guide-entry-renderer[active] tp-yt-paper-item{background:${C.fg}!important;box-shadow:none!important}
 ytd-guide-entry-renderer[active] :is(.title,yt-icon,yt-icon *,#yts-never),ytd-guide-entry-renderer[active] tp-yt-paper-item::before{color:${C.ink}!important;opacity:1}
 /* the playlist / Mix panel */
-ytd-playlist-panel-renderer#playlist{display:block!important;position:relative!important;overflow:visible!important;margin-top:14px!important;border:1px solid ${C.line2}!important;border-radius:0!important;background:${C.bg}!important}
-ytd-playlist-panel-renderer#playlist::before{content:"playlist";position:absolute;top:-0.72em;left:10px;padding:0 6px;background:${C.bg};font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em;color:${C.fg2};z-index:2}
+/* (1.9.6) YouTube hides the panel when there's no playlist and scrolls its list inside it: neither is overridden any
+   more (1.9.5 forced it shown, an empty "NaN / NaN" box, and let the list spill out over "Up next"). Its label sits
+   on the header's first line instead of in the top border, so nothing has to stick out of the box. */
+ytd-playlist-panel-renderer#playlist:not([hidden]){margin-top:14px!important;border:1px solid ${C.line2}!important;border-radius:0!important;background:${C.bg}!important}
+ytd-playlist-panel-renderer#playlist[hidden]{display:none!important}
+ytd-playlist-panel-renderer .header::before{content:"playlist";display:inline-block;margin:0 0 6px;padding:1px 6px;background:${C.fg2};color:${C.ink};font:500 10px/1.3 ${YTS_MONO};letter-spacing:.16em}
+ytd-playlist-panel-renderer :is(#items,.playlist-items,#playlist-items){background:${C.bg}!important}
+ytd-playlist-panel-video-renderer:not([selected]):not(:hover){background:transparent!important}
 ytd-playlist-panel-renderer #container,ytd-playlist-panel-renderer .header,ytd-playlist-panel-renderer #header-contents{background:${C.bg}!important;border:0!important;border-radius:0!important;box-shadow:none!important}
 ytd-playlist-panel-renderer .header{border-bottom:1px dashed ${C.line2}!important}
 ytd-playlist-panel-renderer .header :is(.title,h3,yt-formatted-string,a){font:500 13px/1.3 ${YTS_MONO}!important;color:${C.fg}!important;letter-spacing:.01em!important}
@@ -128,7 +134,7 @@ ytd-playlist-panel-video-renderer :is(#byline,#channel-name,ytd-channel-name) :i
 ytd-playlist-panel-video-renderer #index{font:500 10px ${YTS_MONO}!important;color:${C.fg3}!important}
 ytd-playlist-panel-video-renderer :is(ytd-thumbnail,#thumbnail,img){border-radius:0!important}
 ytd-playlist-panel-video-renderer[selected]{background:${C.fg}!important}
-ytd-playlist-panel-video-renderer[selected] :is(#video-title,#video-title *,#byline *,#channel-name *,#index,yt-icon){color:${C.ink}!important}
+ytd-playlist-panel-video-renderer[selected] :is(#video-title,#video-title *,#byline *,#channel-name *,#index,yt-icon,#yts-never),ytd-playlist-panel-video-renderer[selected] :is(*,#yts-never#yts-n2):not(ytd-thumbnail *):not(ytd-thumbnail){color:${C.ink}!important}
 /* (1.9.5) under the video, the same way: the channel row's buttons square, the description and the comments as boxes with
    their label in the top border, mono names and times, dashed lines between comments, straight reply lines */
 ytd-watch-metadata :is(.ytSpecButtonShapeNextHost,.yt-spec-button-shape-next,.ytSegmentedLikeDislikeButtonViewModelSegmentedButtonsWrapper,segmented-like-dislike-button-view-model *,#subscribe-button *,yt-touch-feedback-shape,.ytSpecTouchFeedbackShapeStroke,.ytSpecTouchFeedbackShapeFill){border-radius:0!important}
@@ -160,8 +166,22 @@ ytd-guide-signin-promo-renderer,#footer.ytd-guide-renderer{${label};text-transfo
 ytd-mini-guide-entry-renderer .title{font:500 8.5px/1.3 ${YTS_MONO}!important;letter-spacing:.12em!important;text-transform:uppercase!important;color:${C.fg2}!important}
 ytd-mini-guide-entry-renderer[active] .title{color:#fff!important}
 ytd-mini-guide-entry-renderer[active]{background:linear-gradient(rgba(255,255,255,.1),rgba(255,255,255,.02))!important;border-radius:6px!important}
+/* (1.9.6) text that stayed dark on YouTube's light theme: the description, the channel name and the buttons beside it,
+   the details under videos in "Up next", and the channel page's tabs bar (white) */
+ytd-watch-metadata #description :is(span,yt-formatted-string,h2,h3,div,#title):not(a):not(a *):not(span[style*="border-radius"] *){color:${C.fg}!important}
+ytd-watch-metadata :is(#owner,#actions) :is(.ytSpecButtonShapeNextTonal,.yt-spec-button-shape-next--tonal,.ytSpecButtonShapeNextText,.yt-spec-button-shape-next--text){color:${C.fg}!important}
+ytd-watch-metadata #owner ytd-channel-name :is(a,yt-formatted-string){color:${C.fg}!important}
+:is(.ytContentMetadataViewModelMetadataText,.yt-content-metadata-view-model__metadata-text){color:${C.fg3}!important}
+:is(.ytContentMetadataViewModelMetadataRow,.yt-content-metadata-view-model__metadata-row):first-child :is(.ytContentMetadataViewModelMetadataText,.yt-content-metadata-view-model__metadata-text){color:${C.fg2}!important}
+:is(#tabs-inner-container,#tabs-container,tp-yt-app-toolbar,yt-tab-group-shape,.ytTabGroupShapeHost,.yt-tab-group-shape-wiz){background:rgba(11,11,12,.86)!important}
+:is(yt-tab-shape,.ytTabShapeHost,.yt-tab-shape-wiz) :is(.ytTabShapeTab,.yt-tab-shape-wiz__tab),yt-tab-shape{font:500 11px/1 ${YTS_MONO}!important;letter-spacing:.14em!important;text-transform:uppercase!important;color:${C.fg2}!important}
+:is(.ytTabShapeTabSelected,.yt-tab-shape-wiz__tab--tab-selected),yt-tab-shape[aria-selected="true"] :is(.ytTabShapeTab,.yt-tab-shape-wiz__tab){color:${C.fg}!important}
+:is(.ytTabGroupShapeSliderHighlight,.yt-tab-group-shape-wiz__slider){background:${C.fg}!important}
 /* the topic chips: hairline boxes with mono caps; the picked one in cream, like the active tab */
-#chips-wrapper,ytd-feed-filter-chip-bar-renderer #chips-wrapper,#header.ytd-rich-grid-renderer{background:rgba(11,11,12,.86)!important;backdrop-filter:blur(10px)}
+/* (1.9.6) the blur is on the chip row itself: on the grid's header around it, it made the row move with the page and
+   the first videos covered it */
+#chips-wrapper,ytd-feed-filter-chip-bar-renderer #chips-wrapper{background:rgba(11,11,12,.86)!important;backdrop-filter:blur(10px)}
+#header.ytd-rich-grid-renderer{background:transparent!important;backdrop-filter:none!important}
 :is(yt-chip-cloud-chip-renderer,.ytChipShapeChip){background:transparent!important;box-shadow:inset 0 0 0 1px ${C.line2}!important;border-radius:4px!important}
 :is(yt-chip-cloud-chip-renderer,.ytChipShapeChip) :is(#text,yt-formatted-string,.ytChipShapeChipText),.ytChipShapeChip{font:500 10.5px/1 ${YTS_MONO}!important;letter-spacing:.14em!important;text-transform:uppercase!important;color:${C.fg2}!important}
 :is(yt-chip-cloud-chip-renderer:hover,.ytChipShapeChip:hover){background:rgba(255,255,255,.05)!important}
@@ -261,6 +281,13 @@ tp-yt-paper-tooltip #tooltip,.ytp-tooltip-text{background:${C.cream}!important;c
 `;
 }
 
+// (1.9.6) The look is built on YouTube's dark theme. On Linux, sites are often told the desktop is light, so YouTube
+// draws its light theme, and parts of it (the description, buttons, tabs, the playlist's rows) kept dark text or white
+// backgrounds the sheet couldn't reach. While the look is on, the page is switched to YouTube's own dark theme the way
+// YouTube does it itself: the "dark" attribute on <html>, kept there if YouTube takes it off. Only this page, in this
+// tab: no setting, cookie or account choice changes. Turning the look off puts it back as YouTube had it.
+const YTS_DARK_ON = "(()=>{const h=document.documentElement,w=window;if(!w.__otoYtsDark){const d={had:h.hasAttribute('dark'),on:true};d.o=new MutationObserver(()=>{if(d.on&&!h.hasAttribute('dark'))h.setAttribute('dark','')});d.o.observe(h,{attributes:true,attributeFilter:['dark']});w.__otoYtsDark=d}w.__otoYtsDark.on=true;if(!h.hasAttribute('dark'))h.setAttribute('dark','');return getComputedStyle(h).getPropertyValue('--oto-yts').trim()})()";
+const YTS_DARK_OFF = "(()=>{const d=window.__otoYtsDark;if(!d)return 0;d.on=false;if(!d.had)document.documentElement.removeAttribute('dark');return 1})()";
 // On the moment a page is ready, never waiting for the fonts (they're added when read). Every change to a tab's sheet
 // runs one at a time, in order (1.9.2): before, an older, slower run could take out the sheet a newer one had just put
 // in, and the page stayed as plain YouTube.
@@ -279,6 +306,7 @@ async function ytsApplyNow(v) {
     try { key = await ytsTimed(p, 4000); } catch (e) { v.ytsErr = String((e && e.message) || e); p.then((late) => { (v.ytsLate = v.ytsLate || []).push(late); }, () => {}); }
   }
   const old = [v.ytsKey, ...(v.ytsLate || [])].filter(Boolean); v.ytsKey = key; v.ytsLate = []; // the new sheet goes in first, then the old ones come out: no flash
+  if (YTS_HOST.test(url)) { v.ytsStage = 'dark'; try { await ytsTimed(v.wv.executeJavaScript(want ? YTS_DARK_ON : YTS_DARK_OFF), 2000); } catch (e) { v.ytsErr = String((e && e.message) || e); } }
   v.ytsStage = 'done';
   for (const o of old) { try { await ytsTimed(v.wv.removeInsertedCSS(o), 2000); } catch {} }
   if (want && ytsFontCss === null) ytsFonts().then((f) => { if (f) ytsApply(v); });
@@ -291,7 +319,7 @@ function ytsCheck(v) {
     try { url = v.wv.getURL(); } catch { return; }
     if (!YTS_HOST.test(url)) return;
     let mark = '';
-    v.ytsStage = 'check'; try { mark = await ytsTimed(v.wv.executeJavaScript("getComputedStyle(document.documentElement).getPropertyValue('--oto-yts').trim()"), 2000); } catch (e) { v.ytsErr = String((e && e.message) || e); }
+    v.ytsStage = 'check'; try { mark = await ytsTimed(v.wv.executeJavaScript(YTS_DARK_ON), 2000); } catch (e) { v.ytsErr = String((e && e.message) || e); }
     if (String(mark) !== '1') { v.ytsKey = null; await ytsApplyNow(v); }
   });
 }

@@ -35,6 +35,15 @@ module.exports = async (t) => {
   for (let i = 0; i < 28 && !(await t.js(`(async () => { const v = V.get(activeTab().id); try { return /tubelight/.test(v.wv.getURL()) && await v.wv.executeJavaScript("getComputedStyle(document.documentElement).backgroundColor === 'rgb(11, 11, 12)'"); } catch { return false; } })()`)); i++) await t.sleep(200);
   a = JSON.parse(await t.js(`(async () => { const v = V.get(activeTab().id); return await v.wv.executeJavaScript("JSON.stringify({ glass: getComputedStyle(document.getElementById('frosted-glass')).backgroundColor, text: getComputedStyle(document.querySelector('.title')).color, box: getComputedStyle(document.querySelector('ytd-guide-section-renderer')).borderTopStyle, label: getComputedStyle(document.getElementById('guide-section-title')).position })"); })()`));
   t.check('…on YouTube’s light theme too (Linux): the top bar’s frosted layer and the text are dark/light as in the look; the sidebar is a System24 box with its label in the border', a.glass === 'rgba(11, 11, 12, 0.86)' && a.text === 'rgb(236, 232, 225)' && a.box === 'solid' && a.label === 'absolute', JSON.stringify(a));
+  // (1.9.6) the page is switched to YouTube's own dark theme (text it colours by theme comes out light), and stays so when
+  // YouTube takes the attribute off (the stand-in does after 1.5 s); no empty playlist box; the chips' header has no blur
+  await t.sleep(2200);
+  a = JSON.parse(await t.js(`V.get(activeTab().id).wv.executeJavaScript("JSON.stringify({ dark: document.documentElement.hasAttribute('dark'), text: getComputedStyle(document.getElementById('lt')).color, playlist: getComputedStyle(document.getElementById('playlist')).display, blur: getComputedStyle(document.getElementById('header')).backdropFilter })")`));
+  t.check('…YouTube draws its own dark theme under the look (and keeps it when YouTube takes it away); an empty playlist panel stays hidden; the chip row isn’t under a blurred header', a.dark === true && a.text === 'rgb(241, 241, 241)' && a.playlist === 'none' && a.blur === 'none', JSON.stringify(a));
+  await t.js("(S.settings.ytSpace = false, ytsRefresh(), 1)"); await t.sleep(900);
+  a = await t.js(`V.get(activeTab().id).wv.executeJavaScript("document.documentElement.hasAttribute('dark')")`);
+  t.check('…and with the look off, the page goes back to the theme YouTube picked', a === false, String(a));
+  await t.js("(S.settings.ytSpace = true, 1)");
   await t.js("(YTS_HOST.test = window.__ytsHost, 1)");
   a = await t.js(`(async () => { const calls = []; await ytAmbApply({ wv: { executeJavaScript: async (c) => { calls.push(c); } } }, 'https://www.youtube.com/watch?v=x'); return calls.length ? /"light":true/.test(calls[0]) : 'not run'; })()`);
   t.check('…and ambient light shows on YouTube’s light theme while the look is on', a === true, String(a));

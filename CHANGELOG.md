@@ -3,6 +3,13 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.9.6 — YouTube's light theme, fixed properly
+
+- **Dark text and white parts on YouTube (Linux):** with YouTube in its light theme, parts of the page stayed half light. The description, "How this was made" and "Games" were dark text on black. The channel name, the buttons beside it and the details in "Up next" were too dark to read. The channel page's tabs bar (Home, Videos, Shorts…) and the playlist rows were white. While the look is on, Oto now switches the YouTube page to YouTube's own dark theme, the same way YouTube does it itself, so everything starts dark and the look sits on top as on Windows. It only changes that page: no YouTube setting or account choice is touched, and turning the look off gives YouTube back its own theme.
+- **Empty "NaN / NaN" playlist box:** a watch page with no playlist showed an empty playlist box. It's hidden again when there's no playlist.
+- **Mix list spilling over "Up next":** the playlist's rows ran out of their box, over "Up next", instead of scrolling inside it. They scroll inside it again. Its "playlist" label now sits at the top of the box.
+- **Chips over the videos on Home:** the first row of videos covered the topic chips (All, Gaming, Music…). The chips stay above the videos again.
+
 ## 1.9.5 — YouTube on Linux, and System24 lists
 
 - **Hidden sidebar on Linux:** with the sidebar hidden, moving the mouse to the edge made it glitch, opening and closing over and over. On Wayland (Hyprland, GNOME or KDE on Wayland), Linux doesn't tell apps where the mouse is outside their own window, so the position Oto asked for was out of date. On Wayland, Oto now goes only by the mouse moving over its own edge strip and sidebar, so it opens when you reach the edge and closes when you leave.
