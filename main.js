@@ -15,6 +15,8 @@ const TOPBAR_H = 44;
 
 app.setName('Oto');
 if (process.platform === 'win32') app.setAppUserModelId('com.ryo.oto');
+// (1.9.8) the keyring on Hyprland and other window managers (main/platform.js); must be set before Chromium starts
+{ const P = require('./main/platform.js'), ps = P.passwordStore(); if (ps && P.secretServiceThere()) app.commandLine.appendSwitch('password-store', ps); }
 
 // Performance options that need a restart are read before Chromium starts.
 try {
@@ -816,6 +818,14 @@ function setupSession(part = PARTITION) {
       const origin = originOf(request.securityOrigin || (request.frame && request.frame.url) || '');
       if (!win || permDecide(origin, 'display-capture') === false) return callback(null);
       let sources = [];
+      // (1.9.8) Wayland: the desktop's own picker has already asked what to share; one request, and its answer is used
+      if (require('./main/platform.js').onWayland()) {
+        let picked = [];
+        try { picked = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 0, height: 0 } }); } catch {}
+        const src = picked[0];
+        const alive = (() => { try { return !request.frame || (!request.frame.detached && originOf(request.frame.url) === origin); } catch { return false; } })();
+        return callback(src && alive ? { video: src } : null);
+      }
       const get = (types) => desktopCapturer.getSources({ types, thumbnailSize: { width: 320, height: 180 }, fetchWindowIcons: types[0] === 'window' }).catch(() => []);
       // screens and windows separately: if listing windows fails or times out, screens still show
       sources = (await Promise.all([get(['screen']), get(['window'])])).flat();
@@ -901,7 +911,8 @@ function setupSession(part = PARTITION) {
     let last = 0;
     // Where the mouse was when the download began — the UI's download animation starts there.
     let cursor = null;
-    try { const p = screen.getCursorScreenPoint(); const b = win.getContentBounds(); const z = win.webContents.getZoomFactor() || 1; cursor = { x: (p.x - b.x) / z, y: (p.y - b.y) / z }; } catch {}
+    // (1.9.8) not on Wayland, where it's stale: the orb then starts from the middle of the window
+    if (require('./main/platform.js').cursorTrusted()) try { const p = screen.getCursorScreenPoint(); const b = win.getContentBounds(); const z = win.webContents.getZoomFactor() || 1; cursor = { x: (p.x - b.x) / z, y: (p.y - b.y) / z }; } catch {}
     const announce = () => { if (!announced && item.getSavePath()) { announced = true; send('download', { ...base(), state: 'started', cursor }); closeBlank(); } };
     setImmediate(announce);
     item.on('updated', (_ev, st) => {
