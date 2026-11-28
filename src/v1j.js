@@ -74,7 +74,7 @@ async function ytAmbApply(v, url) {
 // Changes made in the small panel of the player button. The page can't reach Oto: Oto asks the YouTube tab you are
 // looking at for them, keeps only known settings with sensible values, saves them and passes them to other tabs.
 const YT_AMB_RANGES = { strength: [10, 100], blur: [0, 100], spread: [0, 400], step: [1, 60], fadeStart: [-50, 100], fadeCurve: [1, 100], brightness: [50, 150], colors: [0, 200], fade: [0, 5000], fps: [5, 60], edge: [0, 100], barsFill: [0, 100], text: [0, 100], boxes: [0, 200], thumbs: [20, 100] };
-const YT_AMB_CHOICES = { layouts: ['all', 'normal', 'theater'], res: ['low', 'normal', 'high'] };
+const YT_AMB_CHOICES = { layouts: ['all', 'normal', 'theater', 'fullscreen'], res: ['low', 'normal', 'high'] };
 function ytAmbClean(c) {
   const out = {};
   if (!c || typeof c !== 'object') return out;
@@ -446,6 +446,16 @@ function shpAmbient() {
   };
   const pct = (v) => `${v}%`;
   // (1.9.9) a slider with stops: ticks along the track and names under it; the name (or %) of where it sits on the right
+  // …and one whose stops are choices (Player sizes)
+  const stepsOf = (k, label, desc, choices) => {
+    const last = choices.length - 1, idx = Math.max(0, choices.findIndex(([id]) => id === a[k]));
+    const out = h('span', { class: 'val' }, choices[idx][1]);
+    const r = h('input', { type: 'range', min: 0, max: last, step: 1, value: idx, 'aria-label': label, 'aria-valuetext': choices[idx][1] });
+    r.addEventListener('input', () => { const [id, nm] = choices[+r.value]; out.textContent = nm; r.setAttribute('aria-valuetext', nm); set(k, id); });
+    const ticks = h('div', { class: 'sh-ticks', 'aria-hidden': 'true' }, ...choices.map((_, i) => h('i', { style: `left:${(i / last) * 100}%` })));
+    const labels = h('div', { class: 'sh-stopnames', 'aria-hidden': 'true' }, ...choices.map(([, nm], i) => h('span', { style: `left:${(i / last) * 100}%`, onclick: () => { r.value = String(i); r.dispatchEvent(new Event('input')); } }, nm)));
+    return h('div', { class: 'sh-row sh-steps' }, h('span', { class: 'tt' }, h('b', {}, label), desc ? h('small', {}, desc) : null), out, h('div', { class: 'sh-track' }, ticks, r, labels));
+  };
   const steps = (k, label, desc, step, names) => {
     const cur = Number(a[k]) || 0, name = (v) => { const m = names.find(([at]) => at === v); return m ? m[1] : `${v}%`; };
     const out = h('span', { class: 'val' }, name(cur));
@@ -487,7 +497,7 @@ function shpAmbient() {
       // (1.9.9)
       steps('barsFill', 'Black bars', 'Films with black bars in the picture: how much the glow fills them, from none (they stay black) to completely', 10, [[0, 'Off'], [50, 'Middle'], [100, 'Fill']]),
       row('Fade in', 'How gently the glow appears and goes', seg('fade', [['0', 'Off'], ['300', 'Quick'], ['600', 'Soft'], ['1500', 'Slow']], a.fade)),
-      row('Player sizes', 'Normal player, theatre mode, or both. Never in fullscreen: the video fills the screen', seg('layouts', [['all', 'Both'], ['normal', 'Normal'], ['theater', 'Theatre']], a.layouts)),
+      stepsOf('layouts', 'Player sizes', 'Where the glow shows: everywhere, or only the normal player, theatre mode or fullscreen (where it fills the screen around a video that doesn’t: a wide film, an old 4:3 video)', [['all', 'All'], ['normal', 'Normal'], ['theater', 'Theatre'], ['fullscreen', 'Fullscreen']]),
       row('YouTube theme', 'A glow reads best on YouTube’s dark theme', shpSeg([['dark', 'Dark only'], ['both', 'Dark & light']], a.light ? 'both' : 'dark', (id) => set('light', id === 'both'))),
       row('Button in the player', 'Next to captions and settings: the glow’s main settings right on the video', sw('button')),
       row('Glow around Oto', 'Oto’s sidebar, top bar and the edges around the page take the video’s colours too', sw('frame')),

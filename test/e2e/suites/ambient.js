@@ -83,6 +83,16 @@ module.exports = async (t) => {
   t.check('…and back in the normal player it returns', (await look()).on);
   await run({ fade: 0, layouts: 'theater' }); await wait(900);
   t.check('"Theatre" only: no glow in the normal player', !(await look()).on);
+  // (1.9.9) fullscreen (simulated: the theatre player, wider than the video, standing in for the screen): the glow
+  // fills the space around the video inside the player; not with "Normal" only
+  const fsLook = async () => JSON.parse(await t.page(`JSON.stringify((() => { const b = document.querySelector('.oto-amb-bars'), p = document.getElementById('movie_player').getBoundingClientRect(); if (!b) return null; const r = b.getBoundingClientRect(), c = b.querySelector('canvas').getContext('2d'); return { op: +getComputedStyle(b).opacity, cover: Math.abs(r.width - p.width) < 2 && Math.abs(r.left - p.left) < 2, side: c.getImageData(3, 54, 1, 1).data[3], mid: c.getImageData(96, 54, 1, 1).data[3] }; })())`));
+  await run({ fade: 0, layouts: 'fullscreen' });
+  await t.page('document.querySelector("ytd-watch-flexy").setAttribute("theater", ""); Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => document.getElementById("movie_player") }); document.dispatchEvent(new Event("fullscreenchange"))'); await wait(1200);
+  const fsOn = await fsLook();
+  await run({ fade: 0, layouts: 'normal' }); await wait(900);
+  const fsOff = await fsLook();
+  await t.page('delete document.fullscreenElement; document.querySelector("ytd-watch-flexy").removeAttribute("theater"); document.dispatchEvent(new Event("fullscreenchange"))'); await wait(600);
+  t.check('Player sizes "Fullscreen": the glow fills the screen around the video (never over the picture); with "Normal" only, none in fullscreen', fsOn && Math.abs(fsOn.op - 0.85) < 0.02 && fsOn.cover && fsOn.side === 255 && fsOn.mid === 0 && fsOff && fsOff.op === 0, JSON.stringify({ fsOn, fsOff }));
 
   await run({ fade: 0 });
   await t.page('document.documentElement.removeAttribute("dark")'); await wait(900);
@@ -119,7 +129,7 @@ module.exports = async (t) => {
   const bm = await barsLook();
   await run({ fade: 0, barsFill: 0 }); await wait(400);
   const bo = await barsLook();
-  t.check('Black bars at Fill covers the bars with the glow in the picture’s colour (not the picture itself); Middle at half strength; Off leaves them black', bf && bf.inBox && Math.abs(bf.op - 0.85) < 0.02 && bf.h === 360 && near(bf.bar.slice(0, 3), [224, 32, 74]) && bf.bar[3] === 255 && bf.pic === 0 && Math.abs(bm.op - 0.425) < 0.02 && bo.op === 0, JSON.stringify({ bf, bm, bo }));
+  t.check('Black bars at Fill covers the bars with the glow in the picture’s colour (not the picture itself); Middle at half strength; Off leaves them black', bf && bf.inBox && Math.abs(bf.op - 0.85) < 0.02 && bf.h === 360 && near(bf.bar.slice(0, 3), [224, 32, 74]) && bf.bar[3] === 255 && bf.pic === 0 && Math.abs(bm.bar[3] - 128) <= 3 && bo.op === 0, JSON.stringify({ bf, bm, bo }));
   await t.page('window.__bars(false)');
   await run({ fade: 0, edge: 60, text: 50, boxes: 0, thumbs: 50, res: 'high', brightness: 120, colors: 50 }); await wait(400);
   const pageLook = JSON.parse(await t.page(`JSON.stringify({ edge: getComputedStyle(document.getElementById('oto-ambient'), '::after').boxShadow, text: getComputedStyle(document.querySelector('ytd-watch-flexy')).textShadow, chip: getComputedStyle(document.documentElement).getPropertyValue('--yt-spec-badge-chip-background').trim(), detail: document.querySelector('#oto-ambient canvas').width, filter: getComputedStyle(document.querySelector('#oto-ambient .oa-mid')).filter })`));
@@ -153,11 +163,18 @@ module.exports = async (t) => {
     await new Promise((x) => setTimeout(x, 200));
     return JSON.stringify({ open, sliders: [...pop.querySelectorAll('input[type=range]')].map((x) => x.getAttribute('aria-label')).join(','), opacity: getComputedStyle(document.getElementById('oto-ambient')).opacity, clicks: window.__playerClicks });
   })()`));
-  t.check('the button opens a small panel (switch, Strength, Blur, Spread, Brightness) that changes the glow at once', popRes.open && popRes.sliders === 'Strength,Blur,Spread,Brightness' && popRes.opacity === '0.4', JSON.stringify(popRes));
+  t.check('the button opens a small panel (switch, Strength, Blur, Spread, Brightness, Player sizes) that changes the glow at once', popRes.open && popRes.sliders === 'Strength,Blur,Spread,Brightness,Player sizes' && popRes.opacity === '0.4', JSON.stringify(popRes));
   t.check('…and clicks in the panel don\'t reach the video (no pause)', popRes.clicks === 0, `player clicks: ${popRes.clicks}`);
   await t.js('(() => { const v = V.get(activeTab().id); v.ytAmbient = true; })()');
   await t.js('ytAmbTakeFrom(V.get(activeTab().id))');
   t.check('Oto picks up the change from the panel and saves it', (await t.js('ytAmb().strength')) === 40);
+  // (1.9.9) the panel's Player sizes slider (four stops) is saved too
+  await t.page(`(() => { const r = document.querySelector('.oto-amb-pop input[aria-label="Player sizes"]'); r.value = '3'; r.dispatchEvent(new Event('input')); })()`); await wait(200);
+  await t.js('ytAmbTakeFrom(V.get(activeTab().id))');
+  const lay = await t.js('ytAmb().layouts');
+  await t.page(`(() => { const r = document.querySelector('.oto-amb-pop input[aria-label="Player sizes"]'); r.value = '0'; r.dispatchEvent(new Event('input')); })()`); await wait(200);
+  await t.js('ytAmbTakeFrom(V.get(activeTab().id))');
+  t.check('…and its Player sizes slider (All · Normal · Theatre · Fullscreen) too', lay === 'fullscreen' && (await t.js('ytAmb().layouts')) === 'all', String(lay));
   t.check('…keeping only known settings with sensible values (junk from a page is dropped)', (await t.js(`JSON.stringify(ytAmbClean({ strength: 9999, blur: 'x', evil: 1, layouts: 'bad', on: 'yes', __proto__: { on: false } }))`)) === '{"strength":100}');
   await t.page(`(() => { const pop = document.querySelector('.oto-amb-pop'); pop.querySelector('.sw').click(); })()`); await wait(400);
   const offNow = JSON.parse(await t.page(`JSON.stringify({ glow: document.getElementById('oto-ambient').classList.contains('on'), btn: !!document.querySelector('.oto-amb-btn'), pressed: document.querySelector('.oto-amb-btn').getAttribute('aria-pressed') })`));
@@ -210,5 +227,5 @@ module.exports = async (t) => {
     if (typeof shpClose === 'function') shpClose();
     return JSON.stringify(out);
   })()`);
-  t.check('Oto\'s YouTube page: ambient light switch, Strength/Blur/Spread sliders, black bars/fade/player-size/theme choices, changes saved', /"ranges":"Strength,Blur,Spread,Black bars","segs":3,"strength":55/.test(panel), panel);
+  t.check('Oto\'s YouTube page: ambient light switch, Strength/Blur/Spread sliders, black bars/fade/player-size/theme choices, changes saved', /"ranges":"Strength,Blur,Spread,Black bars,Player sizes","segs":2,"strength":55/.test(panel), panel);
 };

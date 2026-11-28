@@ -25,7 +25,8 @@
  *   brightness  50–150  glow brightness (100 = the video's own)
  *   colors      0–200   glow colour strength (100 = the video's own)
  *   fade        ms      how long the glow takes to appear and go
- *   layouts     'all' | 'normal' | 'theater'
+ *   layouts     'all' | 'normal' | 'theater' | 'fullscreen' (1.9.9: in fullscreen the glow fills the screen around the
+ *               video, a wide film's or an old 4:3 video's empty sides)
  *   light       also on YouTube's light theme (normally only the dark theme, where a glow reads best)
  *   res         'low' | 'normal' | 'high'   detail of the glow (128, 256 or 512 points across)
  *   fps         15 | 30 | 60               most glow updates per second
@@ -116,6 +117,13 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
 .oto-amb-pop .r{display:grid;grid-template-columns:76px 1fr 40px;align-items:center;gap:8px;padding:5px 16px}
 .oto-amb-pop .r span:last-child{text-align:right;font-size:12px;color:#bbb}
 .oto-amb-pop input[type=range]{width:100%;accent-color:#e7dfd1;margin:0}
+.oto-amb-pop .r.ls{grid-template-columns:1fr auto;row-gap:2px;padding-top:7px}
+.oto-amb-pop .r.ls>span:nth-child(2){text-align:right;font-size:12px;color:#e7dfd1}
+.oto-amb-pop .lt{grid-column:1/-1;position:relative;padding:0 7px 16px;background:repeating-linear-gradient(90deg,transparent 0 calc(33.33% - 1px),rgba(255,255,255,.4) calc(33.33% - 1px) 33.33%) 7px 3px/calc(100% - 14px + 1px) 11px no-repeat}
+.oto-amb-pop .ln{position:absolute;left:7px;right:7px;bottom:0;height:14px}
+.oto-amb-pop .ln button{position:absolute;transform:translateX(-50%);border:0;background:transparent;color:#999;font:500 10.5px Roboto,Arial,sans-serif;padding:0;cursor:pointer;white-space:nowrap}
+.oto-amb-pop .ln button:first-child{transform:none}.oto-amb-pop .ln button:last-child{transform:translateX(-100%)}
+.oto-amb-pop .ln button:hover{color:#eee}
 .oto-amb-pop .f{display:flex;justify-content:space-between;align-items:center;padding:8px 16px 2px;border-top:1px solid rgba(255,255,255,.1);margin-top:6px;font-size:11px;color:#999}
 .oto-amb-pop .f button{border:0;background:transparent;color:#e7dfd1;font:600 12px Roboto,Arial,sans-serif;cursor:pointer;padding:4px 0}
 .oto-amb-pop.off .r{opacity:.45;pointer-events:none}`;
@@ -128,12 +136,14 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
   const player = () => doc.querySelector('ytd-watch-flexy:not([hidden]) #movie_player');
   const theaterNow = () => !!doc.querySelector('ytd-watch-flexy[theater]:not([hidden]), ytd-watch-flexy[full-bleed-player]:not([hidden])');
   const usable = () => {
-    if (!enabled || userOff || doc.hidden || doc.fullscreenElement) return false;
+    if (!enabled || userOff || doc.hidden) return false;
+    // (1.9.9) fullscreen too, when Player sizes is All or Fullscreen: there the glow fills the screen around the video
+    if (doc.fullscreenElement && !(o.layouts === 'all' || o.layouts === 'fullscreen')) return false;
     if (!/^\/watch/.test(location.pathname) || (!o.light && !root.hasAttribute('dark'))) return false;
     const p = player();
     if (!p || p.classList.contains('ytp-player-minimized')) return false;
-    const theater = theaterNow();
-    if ((o.layouts === 'normal' && theater) || (o.layouts === 'theater' && !theater)) return false;
+    const mode = doc.fullscreenElement ? 'fullscreen' : theaterNow() ? 'theater' : 'normal';
+    if (o.layouts !== 'all' && o.layouts !== mode) return false;
     const v = p.querySelector('video.html5-main-video');
     return v && v.videoWidth > 0 ? v : false;
   };
@@ -160,20 +170,35 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
   const fillAmt = () => n(o.barsFill, 0, 100, 0) / 100;
   const useCrop = () => !!o.bars || fillAmt() > 0;
   const hasBars = () => crop.w < 0.995 || crop.h < 0.995;
-  const placeBars = (full) => {
-    const box = video && video.parentElement;
-    if (!shown || !fillAmt() || !hasBars() || !box) { bars.style.opacity = '0'; return; }
+  // In fullscreen the same layer covers the whole screen: the empty space around the video gets the full glow, the
+  // bars inside the picture as much as Black bars says. bgeo: the video and the picture inside the layer, as fractions.
+  let bgeo = null;
+  const placeBars = (full, pr) => {
+    const box = video && video.parentElement, fs = !!doc.fullscreenElement;
+    const area = fs ? pr : full;
+    const sides = fs && (full.width < pr.width - 4 || full.height < pr.height - 4);
+    if (!shown || !box || !(sides || (fillAmt() && hasBars()))) { bars.style.opacity = '0'; bgeo = null; return; }
     if (bars.parentElement !== box) box.appendChild(bars);
     const br = box.getBoundingClientRect(), s = bars.style;
-    s.left = `${full.left - br.left}px`; s.top = `${full.top - br.top}px`; s.width = `${full.width}px`; s.height = `${full.height}px`;
-    s.setProperty('--oab-blur', `${Math.max(8, Math.round(Math.min(full.width, full.height) * 0.035))}px`);
-    s.opacity = String(n(o.strength, 0, 100, 85) / 100 * fillAmt());
+    s.left = `${area.left - br.left}px`; s.top = `${area.top - br.top}px`; s.width = `${area.width}px`; s.height = `${area.height}px`;
+    s.setProperty('--oab-blur', `${Math.max(8, Math.round(Math.min(area.width, area.height) * 0.035))}px`);
+    s.opacity = String(n(o.strength, 0, 100, 85) / 100);
+    const fx = (v, a, len) => (v - a) / len;
+    const vid = { x: fx(full.left, area.left, area.width), y: fx(full.top, area.top, area.height), w: full.width / area.width, h: full.height / area.height };
+    bgeo = { vid, pic: { x: vid.x + vid.w * crop.x, y: vid.y + vid.h * crop.y, w: vid.w * crop.w, h: vid.h * crop.h } };
     drawBars();
   };
   const drawBars = () => {
-    if (!fillAmt() || !hasBars()) return;
-    const BW = bcv.width, BH = bcv.height;
-    try { bctx.drawImage(cv, 0, 0, W, H, 0, 0, BW, BH); bctx.clearRect(BW * crop.x, BH * crop.y, BW * crop.w, BH * crop.h); } catch (e) {}
+    if (!bgeo) return;
+    const BW = bcv.width, BH = bcv.height, { vid, pic } = bgeo, amt = hasBars() ? fillAmt() : 0;
+    try {
+      bctx.globalCompositeOperation = 'source-over'; bctx.clearRect(0, 0, BW, BH);
+      bctx.drawImage(cv, 0, 0, W, H, 0, 0, BW, BH); // the picture stretched over everything, blurred by CSS
+      bctx.globalCompositeOperation = 'destination-out';
+      if (amt < 1) { bctx.fillStyle = `rgba(0,0,0,${(1 - amt).toFixed(3)})`; bctx.fillRect(BW * vid.x, BH * vid.y, BW * vid.w, BH * vid.h); } // the bars in the picture: as much as Black bars says
+      bctx.fillStyle = '#000'; bctx.fillRect(BW * pic.x, BH * pic.y, BW * pic.w, BH * pic.h); // never over the picture
+      bctx.globalCompositeOperation = 'source-over';
+    } catch (e) {}
   };
   const drawLevels = () => { for (const l of levels) { try { l.ctx.drawImage(cv, 0, 0); } catch (e) {} } };
   // the glow follows the picture itself: in theatre mode the player is wider than the video (the bars at the sides
@@ -188,7 +213,7 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
       r = { left: pr.left + (pr.width - w) / 2, top: pr.top + (pr.height - h) / 2, width: w, height: h };
     }
     const full = r;
-    placeBars(full);
+    placeBars(full, pr);
     r = { left: r.left + r.width * crop.x, top: r.top + r.height * crop.y, width: r.width * crop.w, height: r.height * crop.h };
     const s = layer.style;
     s.left = `${r.left + scrollX}px`; s.top = `${r.top + scrollY}px`; s.width = `${r.width}px`; s.height = `${r.height}px`;
@@ -264,7 +289,7 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
       const vw = video.videoWidth, vh = video.videoHeight;
       ctx.drawImage(video, vw * crop.x, vh * crop.y, vw * crop.w, vh * crop.h, 0, 0, W, H);
     } catch (e) {}
-    drawLevels();
+    if (!doc.fullscreenElement) drawLevels();
     drawBars();
     lastDraw = now;
   };
@@ -371,6 +396,16 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     ranges[k] = [r, out];
     pop.appendChild(row);
   }
+  // (1.9.9) Player sizes, a slider with four stops (also in Oto's settings)
+  const LAYOUTS = [['all', 'All'], ['normal', 'Normal'], ['theater', 'Theatre'], ['fullscreen', 'Fullscreen']];
+  const lay = el('div', 'r ls'), layR = el('input'), layOut = el('span'), layNames = el('div', 'ln');
+  layR.type = 'range'; layR.min = '0'; layR.max = '3'; layR.step = '1'; layR.setAttribute('aria-label', 'Player sizes');
+  const layIdx = () => Math.max(0, LAYOUTS.findIndex(([k]) => k === o.layouts));
+  layR.addEventListener('input', () => { const [k, nm] = LAYOUTS[+layR.value]; layOut.textContent = nm; layR.setAttribute('aria-valuetext', nm); change('layouts', k); });
+  for (const [i, [, nm]] of LAYOUTS.entries()) { const b = el('button', '', nm); b.type = 'button'; b.style.left = `${(i / 3) * 100}%`; b.addEventListener('click', () => { layR.value = String(i); layR.dispatchEvent(new Event('input')); }); layNames.appendChild(b); }
+  const layTrack = el('div', 'lt'); layTrack.append(layR, layNames);
+  lay.append(el('span', '', 'Player sizes'), layOut, layTrack);
+  pop.appendChild(lay);
   const foot = el('div', 'f'), all = el('button', '', 'All settings');
   foot.append(el('span', '', 'Saved in Oto'), all);
   pop.appendChild(foot);
@@ -379,6 +414,8 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     btn.setAttribute('aria-pressed', String(!!o.on && !userOff));
     pop.classList.toggle('off', !o.on);
     for (const k in ranges) { const [r, out] = ranges[k]; if (doc.activeElement !== r) r.value = String(o[k]); out.textContent = `${o[k]}%`; }
+    if (doc.activeElement !== layR) layR.value = String(layIdx());
+    layOut.textContent = LAYOUTS[layIdx()][1]; layR.setAttribute('aria-valuetext', LAYOUTS[layIdx()][1]);
   };
   swB.addEventListener('click', () => change('on', !o.on));
   all.addEventListener('click', () => { wantOpen = true; pop.hidden = true; });
