@@ -119,10 +119,11 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
 .oto-amb-pop input[type=range]{width:100%;accent-color:#e7dfd1;margin:0}
 .oto-amb-pop .r.ls{grid-template-columns:1fr auto;row-gap:2px;padding-top:7px}
 .oto-amb-pop .r.ls>span:nth-child(2){text-align:right;font-size:12px;color:#e7dfd1}
-.oto-amb-pop .lt{grid-column:1/-1;position:relative;padding:0 7px 16px;background:repeating-linear-gradient(90deg,transparent 0 calc(33.33% - 1px),rgba(255,255,255,.4) calc(33.33% - 1px) 33.33%) 7px 3px/calc(100% - 14px + 1px) 11px no-repeat}
-.oto-amb-pop .ln{position:absolute;left:7px;right:7px;bottom:0;height:14px}
+.oto-amb-pop .lt{grid-column:1/-1;position:relative;padding:0 7px 20px}
+.oto-amb-pop .tk{position:absolute;left:15px;right:15px;top:19px;height:4px;pointer-events:none}
+.oto-amb-pop .tk i{position:absolute;top:0;width:1px;height:4px;background:rgba(255,255,255,.45);transform:translateX(-.5px)}
+.oto-amb-pop .ln{position:absolute;left:15px;right:15px;bottom:0;height:14px}
 .oto-amb-pop .ln button{position:absolute;transform:translateX(-50%);border:0;background:transparent;color:#999;font:500 10.5px Roboto,Arial,sans-serif;padding:0;cursor:pointer;white-space:nowrap}
-.oto-amb-pop .ln button:first-child{transform:none}.oto-amb-pop .ln button:last-child{transform:translateX(-100%)}
 .oto-amb-pop .ln button:hover{color:#eee}
 .oto-amb-pop .f{display:flex;justify-content:space-between;align-items:center;padding:8px 16px 2px;border-top:1px solid rgba(255,255,255,.1);margin-top:6px;font-size:11px;color:#999}
 .oto-amb-pop .f button{border:0;background:transparent;color:#e7dfd1;font:600 12px Roboto,Arial,sans-serif;cursor:pointer;padding:4px 0}
@@ -403,7 +404,9 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
   const layIdx = () => Math.max(0, LAYOUTS.findIndex(([k]) => k === o.layouts));
   layR.addEventListener('input', () => { const [k, nm] = LAYOUTS[+layR.value]; layOut.textContent = nm; layR.setAttribute('aria-valuetext', nm); change('layouts', k); });
   for (const [i, [, nm]] of LAYOUTS.entries()) { const b = el('button', '', nm); b.type = 'button'; b.style.left = `${(i / 3) * 100}%`; b.addEventListener('click', () => { layR.value = String(i); layR.dispatchEvent(new Event('input')); }); layNames.appendChild(b); }
-  const layTrack = el('div', 'lt'); layTrack.append(layR, layNames);
+  // stop marks under the track, each right under where the knob stops (the knob's centre runs 8px in from each end)
+  const layTicks = el('div', 'tk'); for (let i = 0; i < 4; i++) { const t = el('i'); t.style.left = `${(i / 3) * 100}%`; layTicks.appendChild(t); }
+  const layTrack = el('div', 'lt'); layTrack.append(layR, layTicks, layNames);
   lay.append(el('span', '', 'Player sizes'), layOut, layTrack);
   pop.appendChild(lay);
   const foot = el('div', 'f'), all = el('button', '', 'All settings');
