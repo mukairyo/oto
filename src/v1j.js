@@ -73,8 +73,8 @@ async function ytAmbApply(v, url) {
 }
 // Changes made in the small panel of the player button. The page can't reach Oto: Oto asks the YouTube tab you are
 // looking at for them, keeps only known settings with sensible values, saves them and passes them to other tabs.
-const YT_AMB_RANGES = { strength: [10, 100], blur: [0, 100], spread: [0, 400], step: [1, 60], fadeStart: [-50, 100], fadeCurve: [1, 100], brightness: [50, 150], colors: [0, 200], fade: [0, 5000], fps: [5, 60], edge: [0, 100], text: [0, 100], boxes: [0, 200], thumbs: [20, 100] };
-const YT_AMB_CHOICES = { layouts: ['all', 'normal', 'theater'], res: ['low', 'normal', 'high'], barsFill: ['off', 'middle', 'fill'] };
+const YT_AMB_RANGES = { strength: [10, 100], blur: [0, 100], spread: [0, 400], step: [1, 60], fadeStart: [-50, 100], fadeCurve: [1, 100], brightness: [50, 150], colors: [0, 200], fade: [0, 5000], fps: [5, 60], edge: [0, 100], barsFill: [0, 100], text: [0, 100], boxes: [0, 200], thumbs: [20, 100] };
+const YT_AMB_CHOICES = { layouts: ['all', 'normal', 'theater'], res: ['low', 'normal', 'high'] };
 function ytAmbClean(c) {
   const out = {};
   if (!c || typeof c !== 'object') return out;
@@ -445,6 +445,16 @@ function shpAmbient() {
     return h('div', { class: 'sh-row sh-range' }, h('span', { class: 'tt' }, h('b', {}, label), desc ? h('small', {}, desc) : null), r, out);
   };
   const pct = (v) => `${v}%`;
+  // (1.9.9) a slider with stops: ticks along the track and names under it; the name (or %) of where it sits on the right
+  const steps = (k, label, desc, step, names) => {
+    const cur = Number(a[k]) || 0, name = (v) => { const m = names.find(([at]) => at === v); return m ? m[1] : `${v}%`; };
+    const out = h('span', { class: 'val' }, name(cur));
+    const r = h('input', { type: 'range', min: 0, max: 100, step, value: cur, 'aria-label': label, 'aria-valuetext': name(cur) });
+    r.addEventListener('input', () => { const v = +r.value; out.textContent = name(v); r.setAttribute('aria-valuetext', name(v)); set(k, v); });
+    const ticks = h('div', { class: 'sh-ticks', 'aria-hidden': 'true' }, ...Array.from({ length: 100 / step + 1 }, (_, i) => h('i', { style: `left:${i * step}%` })));
+    const labels = h('div', { class: 'sh-stopnames', 'aria-hidden': 'true' }, ...names.map(([at, nm]) => h('span', { style: `left:${at}%`, onclick: () => { r.value = String(at); r.dispatchEvent(new Event('input')); } }, nm)));
+    return h('div', { class: 'sh-row sh-steps' }, h('span', { class: 'tt' }, h('b', {}, label), desc ? h('small', {}, desc) : null), out, h('div', { class: 'sh-track' }, ticks, r, labels));
+  };
   const off0 = (v) => (v ? `${v}%` : 'OFF');
   const seg = (k, opts, cur) => shpSeg(opts, String(cur), (id) => set(k, typeof a[k] === 'number' ? +id : id));
   const sw = (k) => shpSwitch(!!a[k], (v) => set(k, v));
@@ -475,7 +485,7 @@ function shpAmbient() {
       slider('blur', 'Blur', 0, 100, pct),
       slider('spread', 'Spread', 0, 400, pct),
       // (1.9.9)
-      row('Black bars', 'Films with black bars in the picture. Off: the bars stay black. Middle: the glow fills them at half strength. Fill: the glow fills them completely', seg('barsFill', [['off', 'Off'], ['middle', 'Middle'], ['fill', 'Fill']], a.barsFill || 'off')),
+      steps('barsFill', 'Black bars', 'Films with black bars in the picture: how much the glow fills them, from none (they stay black) to completely', 10, [[0, 'Off'], [50, 'Middle'], [100, 'Fill']]),
       row('Fade in', 'How gently the glow appears and goes', seg('fade', [['0', 'Off'], ['300', 'Quick'], ['600', 'Soft'], ['1500', 'Slow']], a.fade)),
       row('Player sizes', 'Normal player, theatre mode, or both. Never in fullscreen: the video fills the screen', seg('layouts', [['all', 'Both'], ['normal', 'Normal'], ['theater', 'Theatre']], a.layouts)),
       row('YouTube theme', 'A glow reads best on YouTube’s dark theme', shpSeg([['dark', 'Dark only'], ['both', 'Dark & light']], a.light ? 'both' : 'dark', (id) => set('light', id === 'both'))),

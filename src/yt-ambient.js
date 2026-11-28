@@ -34,8 +34,8 @@
  *   text        0–100   shadow behind the page's text, for reading over the glow
  *   boxes       0–200   how solid YouTube's buttons and boxes are (100 = as YouTube draws them)
  *   thumbs      20–100  thumbnail brightness
- *   barsFill    off | middle | fill: films with black bars in the picture — the bars stay black, the glow fills them
- *               at half strength, or fills them fully (1.9.9)
+ *   barsFill    0–100   films with black bars in the picture: how strongly the glow fills the bars (0 = they stay
+ *                       black, 50 = half, 100 = fully) (1.9.9)
  *   header      YouTube's top bar lets the light through: its frosted-glass and background layers (which blur
  *               the colourful light into flat grey) are switched off, with a soft dark shade so its buttons stay readable
  *   immersive   theatre mode: the top bar and the page below fade away until you scroll or point at them
@@ -48,10 +48,10 @@
  * protection (they draw black) and while the tab is in the background. YouTube's own, much smaller "ambient mode"
  * glow is hidden while Oto's is on.
  */
-const OTO_AMBIENT_DEFAULTS = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true, header: true, barsFill: 'off' };
+const OTO_AMBIENT_DEFAULTS = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true, header: true, barsFill: 0 };
 function otoYtAmbient(opts) {
   // = OTO_AMBIENT_DEFAULTS (this function runs inside the page on its own)
-  const D = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true, header: true, barsFill: 'off' };
+  const D = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true, header: true, barsFill: 0 };
   const A = window.__otoAmbient;
   if (A) { A.set(opts); return 'updated'; }
   const o0 = { ...D, ...(opts || {}) };
@@ -157,21 +157,21 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
   // where the picture is, laid over the bars (above the video, under YouTube's controls and captions).
   const bars = doc.createElement('div'), bcv = doc.createElement('canvas'), bctx = bcv.getContext('2d');
   bars.className = 'oto-amb-bars'; bcv.width = 192; bcv.height = 108; bars.appendChild(bcv);
-  const fillMode = () => (o.barsFill === 'fill' || o.barsFill === 'middle' ? o.barsFill : 'off');
-  const useCrop = () => !!o.bars || fillMode() !== 'off';
+  const fillAmt = () => n(o.barsFill, 0, 100, 0) / 100;
+  const useCrop = () => !!o.bars || fillAmt() > 0;
   const hasBars = () => crop.w < 0.995 || crop.h < 0.995;
   const placeBars = (full) => {
     const box = video && video.parentElement;
-    if (!shown || fillMode() === 'off' || !hasBars() || !box) { bars.style.opacity = '0'; return; }
+    if (!shown || !fillAmt() || !hasBars() || !box) { bars.style.opacity = '0'; return; }
     if (bars.parentElement !== box) box.appendChild(bars);
     const br = box.getBoundingClientRect(), s = bars.style;
     s.left = `${full.left - br.left}px`; s.top = `${full.top - br.top}px`; s.width = `${full.width}px`; s.height = `${full.height}px`;
     s.setProperty('--oab-blur', `${Math.max(8, Math.round(Math.min(full.width, full.height) * 0.035))}px`);
-    s.opacity = String(n(o.strength, 0, 100, 85) / 100 * (fillMode() === 'middle' ? 0.5 : 1));
+    s.opacity = String(n(o.strength, 0, 100, 85) / 100 * fillAmt());
     drawBars();
   };
   const drawBars = () => {
-    if (fillMode() === 'off' || !hasBars()) return;
+    if (!fillAmt() || !hasBars()) return;
     const BW = bcv.width, BH = bcv.height;
     try { bctx.drawImage(cv, 0, 0, W, H, 0, 0, BW, BH); bctx.clearRect(BW * crop.x, BH * crop.y, BW * crop.w, BH * crop.h); } catch (e) {}
   };

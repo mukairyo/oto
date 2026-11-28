@@ -113,13 +113,13 @@ module.exports = async (t) => {
   // (1.9.9) Black bars: Fill covers them with the glow (above the video, in the picture's colours), Middle at half
   // strength, Off leaves them black; it works even with "Ignore black bars" off
   const barsLook = async () => JSON.parse(await t.page(`JSON.stringify((() => { const b = document.querySelector('.oto-amb-bars'); if (!b) return null; const c = b.querySelector('canvas'), d = c.getContext('2d').getImageData(96, 4, 1, 1).data, m = c.getContext('2d').getImageData(96, 54, 1, 1).data; return { op: +getComputedStyle(b).opacity, h: Math.round(b.getBoundingClientRect().height), inBox: b.parentElement === document.querySelector('video.html5-main-video').parentElement, bar: [d[0], d[1], d[2], d[3]], pic: m[3] }; })())`));
-  await run({ fade: 0, barsFill: 'fill' }); await wait(3200);
+  await run({ fade: 0, barsFill: 100 }); await wait(3200);
   const bf = await barsLook();
-  await run({ fade: 0, barsFill: 'middle' }); await wait(400);
+  await run({ fade: 0, barsFill: 50 }); await wait(400);
   const bm = await barsLook();
-  await run({ fade: 0, barsFill: 'off' }); await wait(400);
+  await run({ fade: 0, barsFill: 0 }); await wait(400);
   const bo = await barsLook();
-  t.check('Black bars “Fill” covers the bars with the glow in the picture’s colour (not the picture itself); “Middle” at half strength; “Off” leaves them black', bf && bf.inBox && Math.abs(bf.op - 0.85) < 0.02 && bf.h === 360 && near(bf.bar.slice(0, 3), [224, 32, 74]) && bf.bar[3] === 255 && bf.pic === 0 && Math.abs(bm.op - 0.425) < 0.02 && bo.op === 0, JSON.stringify({ bf, bm, bo }));
+  t.check('Black bars at Fill covers the bars with the glow in the picture’s colour (not the picture itself); Middle at half strength; Off leaves them black', bf && bf.inBox && Math.abs(bf.op - 0.85) < 0.02 && bf.h === 360 && near(bf.bar.slice(0, 3), [224, 32, 74]) && bf.bar[3] === 255 && bf.pic === 0 && Math.abs(bm.op - 0.425) < 0.02 && bo.op === 0, JSON.stringify({ bf, bm, bo }));
   await t.page('window.__bars(false)');
   await run({ fade: 0, edge: 60, text: 50, boxes: 0, thumbs: 50, res: 'high', brightness: 120, colors: 50 }); await wait(400);
   const pageLook = JSON.parse(await t.page(`JSON.stringify({ edge: getComputedStyle(document.getElementById('oto-ambient'), '::after').boxShadow, text: getComputedStyle(document.querySelector('ytd-watch-flexy')).textShadow, chip: getComputedStyle(document.documentElement).getPropertyValue('--yt-spec-badge-chip-background').trim(), detail: document.querySelector('#oto-ambient canvas').width, filter: getComputedStyle(document.querySelector('#oto-ambient .oa-mid')).filter })`));
@@ -210,5 +210,5 @@ module.exports = async (t) => {
     if (typeof shpClose === 'function') shpClose();
     return JSON.stringify(out);
   })()`);
-  t.check('Oto\'s YouTube page: ambient light switch, Strength/Blur/Spread sliders, black bars/fade/player-size/theme choices, changes saved', /"ranges":"Strength,Blur,Spread","segs":4,"strength":55/.test(panel), panel);
+  t.check('Oto\'s YouTube page: ambient light switch, Strength/Blur/Spread sliders, black bars/fade/player-size/theme choices, changes saved', /"ranges":"Strength,Blur,Spread,Black bars","segs":3,"strength":55/.test(panel), panel);
 };
