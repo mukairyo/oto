@@ -41,12 +41,10 @@ module.exports = async (t) => {
   a = await look();
   t.check('it follows the picture: the video turns green, so does the glow', near(a.px, [32, 192, 64]), String(a.px));
   t.check('the page gets no Oto API and no Node.js from it', a.noApi === true);
-  // (1.9.6) a bright, white picture turns the glow down so the text over it stays readable; a darker one brings it back
-  await t.page('window.__paint("#f2f2f2")'); await wait(1400);
-  const bright = await look();
-  await t.page('window.__paint("#e0204a")'); await wait(1400);
-  const back = await look();
-  t.check('a bright white scene turns the glow down (to 40 % of its strength), and it comes back with a darker one', Math.abs(Number(bright.opacity) - 0.85 * 0.4) < 0.02 && Math.abs(Number(back.opacity) - 0.85) < 0.02, `bright ${bright.opacity}, back ${back.opacity}`);
+  // (1.9.9) with a narrow window YouTube puts the related videos under the player, in boxes with their own dark
+  // background: the light (even at a big spread) stopped there. While the glow is on they let it through.
+  a = await t.page("getComputedStyle(document.getElementById('rel')).backgroundColor");
+  t.check('the related videos under the player let the light through (narrow windows)', a === 'rgba(0, 0, 0, 0)', a);
 
   await run({ strength: 40, blur: 0, spread: 0, fade: 0 }); await wait(200);
   a = await look();
@@ -109,6 +107,19 @@ module.exports = async (t) => {
   await run({ fade: 0, bars: false }); await wait(400);
   a = await look();
   t.check('…and with "Ignore black bars" off it covers the whole frame again', a.layer[3] === 360 && a.layer[1] === a.video[1], `layer ${a.layer} video ${a.video}`);
+  // (1.9.9) the button's rays shine while the glow is on (still with reduced motion, as on the Windows test machine)
+  a = JSON.parse(await t.page(`JSON.stringify((() => { const b = document.querySelector('.oto-amb-btn'), r = b && b.querySelector('.ray'); return { pressed: b && b.getAttribute('aria-pressed'), anim: r && getComputedStyle(r).animationName, still: matchMedia('(prefers-reduced-motion: reduce)').matches }; })())`));
+  t.check('the ambient light button’s rays shine while the glow is on', a.pressed === 'true' && (a.still ? a.anim === 'none' : a.anim === 'oab-shine'), JSON.stringify(a));
+  // (1.9.9) Black bars: Fill covers them with the glow (above the video, in the picture's colours), Middle at half
+  // strength, Off leaves them black; it works even with "Ignore black bars" off
+  const barsLook = async () => JSON.parse(await t.page(`JSON.stringify((() => { const b = document.querySelector('.oto-amb-bars'); if (!b) return null; const c = b.querySelector('canvas'), d = c.getContext('2d').getImageData(96, 4, 1, 1).data, m = c.getContext('2d').getImageData(96, 54, 1, 1).data; return { op: +getComputedStyle(b).opacity, h: Math.round(b.getBoundingClientRect().height), inBox: b.parentElement === document.querySelector('video.html5-main-video').parentElement, bar: [d[0], d[1], d[2], d[3]], pic: m[3] }; })())`));
+  await run({ fade: 0, barsFill: 'fill' }); await wait(3200);
+  const bf = await barsLook();
+  await run({ fade: 0, barsFill: 'middle' }); await wait(400);
+  const bm = await barsLook();
+  await run({ fade: 0, barsFill: 'off' }); await wait(400);
+  const bo = await barsLook();
+  t.check('Black bars “Fill” covers the bars with the glow in the picture’s colour (not the picture itself); “Middle” at half strength; “Off” leaves them black', bf && bf.inBox && Math.abs(bf.op - 0.85) < 0.02 && bf.h === 360 && near(bf.bar.slice(0, 3), [224, 32, 74]) && bf.bar[3] === 255 && bf.pic === 0 && Math.abs(bm.op - 0.425) < 0.02 && bo.op === 0, JSON.stringify({ bf, bm, bo }));
   await t.page('window.__bars(false)');
   await run({ fade: 0, edge: 60, text: 50, boxes: 0, thumbs: 50, res: 'high', brightness: 120, colors: 50 }); await wait(400);
   const pageLook = JSON.parse(await t.page(`JSON.stringify({ edge: getComputedStyle(document.getElementById('oto-ambient'), '::after').boxShadow, text: getComputedStyle(document.querySelector('ytd-watch-flexy')).textShadow, chip: getComputedStyle(document.documentElement).getPropertyValue('--yt-spec-badge-chip-background').trim(), detail: document.querySelector('#oto-ambient canvas').width, filter: getComputedStyle(document.querySelector('#oto-ambient .oa-mid')).filter })`));
@@ -199,5 +210,5 @@ module.exports = async (t) => {
     if (typeof shpClose === 'function') shpClose();
     return JSON.stringify(out);
   })()`);
-  t.check('Oto\'s YouTube page: ambient light switch, Strength/Blur/Spread sliders, fade/player-size/theme choices, changes saved', /"ranges":"Strength,Blur,Spread","segs":3,"strength":55/.test(panel), panel);
+  t.check('Oto\'s YouTube page: ambient light switch, Strength/Blur/Spread sliders, black bars/fade/player-size/theme choices, changes saved', /"ranges":"Strength,Blur,Spread","segs":4,"strength":55/.test(panel), panel);
 };

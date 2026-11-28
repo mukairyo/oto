@@ -289,7 +289,12 @@ ytd-search grid-shelf-view-model{display:block;margin-top:16px}
 /* menus and pop-ups */
 tp-yt-paper-listbox,ytd-menu-popup-renderer,ytd-multi-page-menu-renderer,yt-sheet-view-model,.ytSheetViewModelContextual{background:${C.menu}!important;border:1px solid ${C.line2}!important;border-radius:8px!important;box-shadow:0 30px 80px -10px rgba(0,0,0,.75)!important}
 tp-yt-paper-dialog,ytd-popup-container tp-yt-paper-dialog{background:${C.panel}!important;border:1px solid ${C.line2}!important}
-tp-yt-paper-tooltip #tooltip,.ytp-tooltip-text{background:${C.cream}!important;color:${C.ink}!important;font-family:${YTS_MONO}!important;letter-spacing:.04em;border-radius:3px!important}
+tp-yt-paper-tooltip #tooltip{background:${C.cream}!important;color:${C.ink}!important;font-family:${YTS_MONO}!important;letter-spacing:.04em;border-radius:3px!important}
+/* (1.9.9) the player's tooltips ("Settings", "Subtitles"…): the text showed grey with a dark outline on a dark box,
+   half the look and half YouTube's. One Oto label now: a dark square box, a thin line, mono cream text, no shadow. */
+.ytp-tooltip:not(.ytp-preview) :is(.ytp-tooltip-text-wrapper,.ytp-tooltip-bottom-text){background:rgba(11,11,12,.92)!important;border:1px solid ${C.line2}!important;border-radius:0!important;padding:4px 9px!important;box-shadow:none!important}
+.ytp-tooltip:not(.ytp-preview) :is(.ytp-tooltip-text,.ytp-tooltip-title,.ytp-tooltip-text-wrapper *){background:transparent!important;color:${C.fg}!important;text-shadow:none!important;-webkit-text-stroke:0!important;font:500 11px/1.4 ${YTS_MONO}!important;letter-spacing:.06em!important;text-transform:uppercase!important}
+.ytp-tooltip.ytp-preview .ytp-tooltip-text{background:rgba(11,11,12,.85)!important;color:${C.fg}!important;text-shadow:none!important;font-family:${YTS_MONO}!important;border-radius:0!important}
 /* the player: a white played bar and knob instead of red, like Oto's own media bar */
 .ytp-play-progress,.ytp-swatch-background-color,.ytp-load-progress+.ytp-play-progress{background:linear-gradient(90deg,${C.cream},#fff)!important}
 .ytp-scrubber-button,.ytp-swatch-background-color.ytp-scrubber-button{background:#fff!important;box-shadow:0 0 10px rgba(255,255,255,.6)!important}

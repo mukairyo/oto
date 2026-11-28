@@ -3,6 +3,14 @@
 What's new and what got fixed in each version of Oto. Oto updates itself — you'll see
 "Oto x.y.z is ready — Restart" a few seconds after opening it when a new version is out.
 
+## 1.9.9 — Ambient light like on Windows, black bars, and spread all the way
+
+- **Ambient light is back to how it was:** 1.9.6 made the glow turn itself down on bright scenes. It didn't feel like the glow on Windows, so that's gone: the glow follows the video at the strength you set, as before.
+- **Black bars setting:** a new choice under Shield › YouTube › Ambient light, for films with black bars in the picture. **Off** (as before) keeps the bars black, **Middle** fills them with the glow at half strength, and **Fill** covers them with the glow completely, so a wide film blends into the light. It works whatever the size of the bars, and the glow still starts where the picture starts.
+- **The ambient light button shines:** while the glow is on, the rays of the button in the player pulse outward one after another, like light leaving the little screen. They start with a burst when you switch it on and move faster when you point at it. They stay still if your system asks for reduced motion.
+- **Player tooltips:** the labels over the player's buttons ("Settings", "Subtitles"…) showed grey text with a dark outline on a dark box. They're one clean Oto label now: a dark square box with a thin line and cream mono text.
+- **Spread above 100 % in a narrow window:** with Oto's window narrow (half a screen on Hyprland, say), YouTube puts the related videos under the video, and their boxes have a dark background of their own. The light stopped at them, so a bigger spread looked the same as 100 %. While the glow is on, those boxes (and the other parts of the watch page around them) now let it through, so a bigger spread carries the light further down the page.
+
 ## 1.9.8 — Open Sky, split view and clicks fixed
 
 - **"Open Sky" in the Space menu:** click your Space's name at the top of the sidebar (HOME) and the first item is now "Open Sky", with its shortcut shown next to it. On Linux, Ctrl+Shift+Space can be taken by the desktop (Hyprland, or an input-method switcher) before Oto ever sees it, so the shortcut alone could leave no way into Sky. Double-clicking the Space's name also only opened its menu.

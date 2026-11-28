@@ -34,7 +34,8 @@
  *   text        0–100   shadow behind the page's text, for reading over the glow
  *   boxes       0–200   how solid YouTube's buttons and boxes are (100 = as YouTube draws them)
  *   thumbs      20–100  thumbnail brightness
- *   (bright scenes turn the glow down by themselves, so it never washes out the text over it)
+ *   barsFill    off | middle | fill: films with black bars in the picture — the bars stay black, the glow fills them
+ *               at half strength, or fills them fully (1.9.9)
  *   header      YouTube's top bar lets the light through: its frosted-glass and background layers (which blur
  *               the colourful light into flat grey) are switched off, with a soft dark shade so its buttons stay readable
  *   immersive   theatre mode: the top bar and the page below fade away until you scroll or point at them
@@ -47,10 +48,10 @@
  * protection (they draw black) and while the tab is in the background. YouTube's own, much smaller "ambient mode"
  * glow is hidden while Oto's is on.
  */
-const OTO_AMBIENT_DEFAULTS = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true, header: true };
+const OTO_AMBIENT_DEFAULTS = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true, header: true, barsFill: 'off' };
 function otoYtAmbient(opts) {
   // = OTO_AMBIENT_DEFAULTS (this function runs inside the page on its own)
-  const D = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true, header: true };
+  const D = { on: true, strength: 85, blur: 30, spread: 100, step: 12, fadeStart: 15, fadeCurve: 35, brightness: 100, colors: 135, fade: 600, layouts: 'all', light: false, res: 'normal', fps: 30, bars: true, edge: 0, text: 0, boxes: 100, thumbs: 100, immersive: false, key: true, button: true, frame: true, header: true, barsFill: 'off' };
   const A = window.__otoAmbient;
   if (A) { A.set(opts); return 'updated'; }
   const o0 = { ...D, ...(opts || {}) };
@@ -79,20 +80,32 @@ function otoYtAmbient(opts) {
 html[oto-ambient] body,html[oto-ambient] ytd-app{background:transparent!important}
 html[oto-ambient] #cinematics,html[oto-ambient] #cinematics-container{display:none!important}
 #oto-ambient{position:absolute;left:0;top:0;width:0;height:0;z-index:-1;pointer-events:none;opacity:0;transition:opacity var(--oa-fade,600ms) ease;contain:layout style size}
-#oto-ambient.on{opacity:calc(var(--oa-strength,.85) * var(--oa-tone,1))}
+#oto-ambient.on{opacity:var(--oa-strength,.85)}
 #oto-ambient .oa-wrap{position:absolute}
 #oto-ambient .oa-mid{position:absolute;inset:0;filter:blur(var(--oa-blur,54px)) saturate(var(--oa-colors,1.35)) brightness(var(--oa-bright,1))}
 #oto-ambient canvas{position:absolute;transform-origin:50% 50%}
+.oto-amb-bars{position:absolute;pointer-events:none;overflow:hidden;opacity:0;transition:opacity var(--oa-fade,600ms) ease}
+.oto-amb-bars canvas{position:absolute;inset:calc(-1 * var(--oab-blur,24px));width:calc(100% + 2 * var(--oab-blur,24px));height:calc(100% + 2 * var(--oab-blur,24px));filter:blur(var(--oab-blur,24px)) saturate(var(--oa-colors,1.35)) brightness(var(--oa-bright,1))}
 #oto-ambient::after{content:'';position:absolute;inset:0;box-shadow:0 0 var(--oa-edge,0px) calc(var(--oa-edge,0px)/5) rgba(0,0,0,.85)}
 html[oto-ambient] #movie_player,html[oto-ambient] .html5-video-player,html[oto-ambient] #full-bleed-container,html[oto-ambient] #player-full-bleed-container,html[oto-ambient] #player-container-outer,html[oto-ambient] #player-container-inner,html[oto-ambient] #ytd-player,html[oto-ambient] #container.ytd-player{background:transparent!important}
+html[oto-ambient] ytd-watch-flexy :is(#columns,#primary,#primary-inner,#secondary,#secondary-inner,#below,#related,ytd-watch-next-secondary-results-renderer,ytd-watch-next-secondary-results-renderer #items,ytd-item-section-renderer,ytd-item-section-renderer #contents,ytd-rich-grid-renderer,ytd-rich-grid-renderer #contents,ytd-rich-item-renderer,yt-related-chip-cloud-renderer,yt-chip-cloud-renderer,#chips-wrapper,#header,ytd-comments #sections,ytd-merch-shelf-renderer,ytd-watch-metadata,#above-the-fold,#top-row,#bottom-row,ytd-compact-video-renderer,yt-lockup-view-model,ytd-continuation-item-renderer){background:transparent!important;background-color:transparent!important;backdrop-filter:none!important}
 html[oto-ambient][oto-header] #masthead-container #frosted-glass,html[oto-ambient][oto-header] ytd-masthead #background{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;opacity:0!important}
 html[oto-ambient][oto-header][dark] #masthead-container{background:linear-gradient(rgba(0,0,0,.42),rgba(0,0,0,.18) 70%,rgba(0,0,0,0))!important}
 html[oto-ambient][oto-immersive] #masthead-container,html[oto-ambient][oto-immersive] ytd-watch-flexy #columns{transition:opacity .45s ease}
 ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:not(:hover){opacity:0}
 .oto-amb-btn{display:inline-flex!important;align-items:center;justify-content:center}
 .oto-amb-btn svg{width:100%;height:100%;pointer-events:none}
-.oto-amb-btn .ray{transition:opacity .2s}
+.oto-amb-btn .ray{transition:opacity .2s;transform-box:view-box;transform-origin:18px 18px}
 .oto-amb-btn[aria-pressed=false] .ray{opacity:.25}
+/* (1.9.9) the rays shine: while the glow is on they pulse outward one after another, going round the little screen like
+   light leaving it; switched on they start with a burst; on hover they reach out further. Still for "reduce motion". */
+.oto-amb-btn[aria-pressed=true] .ray{animation:oab-shine 2.4s ease-in-out infinite}
+.oto-amb-btn .ray:nth-of-type(1){animation-delay:0.00s}.oto-amb-btn .ray:nth-of-type(2){animation-delay:0.18s}.oto-amb-btn .ray:nth-of-type(3){animation-delay:0.36s}.oto-amb-btn .ray:nth-of-type(4){animation-delay:0.54s}.oto-amb-btn .ray:nth-of-type(5){animation-delay:0.72s}.oto-amb-btn .ray:nth-of-type(6){animation-delay:0.90s}.oto-amb-btn .ray:nth-of-type(7){animation-delay:1.08s}.oto-amb-btn .ray:nth-of-type(8){animation-delay:1.26s}
+.oto-amb-btn[aria-pressed=true]:hover .ray{animation-duration:1.2s}
+.oto-amb-btn rect{transition:fill .3s}
+.oto-amb-btn[aria-pressed=true] rect{fill:rgba(255,255,255,.18)}
+@keyframes oab-shine{0%,100%{transform:scale(1);opacity:1}45%{transform:scale(1.18);opacity:.45}}
+@media (prefers-reduced-motion:reduce){.oto-amb-btn .ray{animation:none!important}}
 .oto-amb-pop{position:absolute;right:12px;bottom:60px;z-index:72;width:280px;padding:10px 0 8px;border-radius:12px;background:rgba(28,28,28,.92);color:#eee;font:500 13px/1.3 Roboto,Arial,sans-serif;text-shadow:none;box-shadow:0 6px 24px rgba(0,0,0,.45);backdrop-filter:blur(8px)}
 .oto-amb-pop[hidden]{display:none}
 .oto-amb-pop .h{display:flex;align-items:center;justify-content:space-between;padding:2px 16px 8px;font-weight:600;font-size:14px}
@@ -106,7 +119,7 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
 .oto-amb-pop .f{display:flex;justify-content:space-between;align-items:center;padding:8px 16px 2px;border-top:1px solid rgba(255,255,255,.1);margin-top:6px;font-size:11px;color:#999}
 .oto-amb-pop .f button{border:0;background:transparent;color:#e7dfd1;font:600 12px Roboto,Arial,sans-serif;cursor:pointer;padding:4px 0}
 .oto-amb-pop.off .r{opacity:.45;pointer-events:none}`;
-  let o = o0, enabled = false, userOff = false, timer = 0, lastDraw = 0, lastProbe = 0, lastTone = 0, tone = 1, video = null, rvfc = 0, shown = false, gone = 0;
+  let o = o0, enabled = false, userOff = false, timer = 0, lastDraw = 0, lastProbe = 0, video = null, rvfc = 0, shown = false, gone = 0;
   // 256 points across (enough that stretched copies don't look blocky, and small enough to draw several of them)
   let W = 256, H = 144, crop = { x: 0, y: 0, w: 1, h: 1 }, cropSeen = '', cropCount = 0, geo = null, shape = '';
   cv.width = W; cv.height = H;
@@ -140,6 +153,28 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     const after = pts.map(([d, al]) => `rgba(0,0,0,${al.toFixed(3)}) ${(a + len + d).toFixed(1)}px`);
     return `linear-gradient(${dir},${before.join(',')},rgba(0,0,0,${first.toFixed(3)}) ${a.toFixed(1)}px,rgba(0,0,0,${first.toFixed(3)}) ${(a + len).toFixed(1)}px,${after.join(',')})`;
   };
+  // (1.9.9) Black bars filled with the glow: a blurred copy of the picture, stretched over the whole video and cut out
+  // where the picture is, laid over the bars (above the video, under YouTube's controls and captions).
+  const bars = doc.createElement('div'), bcv = doc.createElement('canvas'), bctx = bcv.getContext('2d');
+  bars.className = 'oto-amb-bars'; bcv.width = 192; bcv.height = 108; bars.appendChild(bcv);
+  const fillMode = () => (o.barsFill === 'fill' || o.barsFill === 'middle' ? o.barsFill : 'off');
+  const useCrop = () => !!o.bars || fillMode() !== 'off';
+  const hasBars = () => crop.w < 0.995 || crop.h < 0.995;
+  const placeBars = (full) => {
+    const box = video && video.parentElement;
+    if (!shown || fillMode() === 'off' || !hasBars() || !box) { bars.style.opacity = '0'; return; }
+    if (bars.parentElement !== box) box.appendChild(bars);
+    const br = box.getBoundingClientRect(), s = bars.style;
+    s.left = `${full.left - br.left}px`; s.top = `${full.top - br.top}px`; s.width = `${full.width}px`; s.height = `${full.height}px`;
+    s.setProperty('--oab-blur', `${Math.max(8, Math.round(Math.min(full.width, full.height) * 0.035))}px`);
+    s.opacity = String(n(o.strength, 0, 100, 85) / 100 * (fillMode() === 'middle' ? 0.5 : 1));
+    drawBars();
+  };
+  const drawBars = () => {
+    if (fillMode() === 'off' || !hasBars()) return;
+    const BW = bcv.width, BH = bcv.height;
+    try { bctx.drawImage(cv, 0, 0, W, H, 0, 0, BW, BH); bctx.clearRect(BW * crop.x, BH * crop.y, BW * crop.w, BH * crop.h); } catch (e) {}
+  };
   const drawLevels = () => { for (const l of levels) { try { l.ctx.drawImage(cv, 0, 0); } catch (e) {} } };
   // the glow follows the picture itself: in theatre mode the player is wider than the video (the bars at the sides
   // are made see-through above, so the glow fills them), and black bars inside the picture are left out
@@ -152,6 +187,8 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
       const k = Math.min(pr.width / video.videoWidth, pr.height / video.videoHeight), w = video.videoWidth * k, h = video.videoHeight * k;
       r = { left: pr.left + (pr.width - w) / 2, top: pr.top + (pr.height - h) / 2, width: w, height: h };
     }
+    const full = r;
+    placeBars(full);
     r = { left: r.left + r.width * crop.x, top: r.top + r.height * crop.y, width: r.width * crop.w, height: r.height * crop.h };
     const s = layer.style;
     s.left = `${r.left + scrollX}px`; s.top = `${r.top + scrollY}px`; s.width = `${r.width}px`; s.height = `${r.height}px`;
@@ -219,28 +256,16 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     const next = { x: lx / 96, y: ty / 54, w: 1 - (2 * lx) / 96, h: 1 - (2 * ty) / 54 };
     if (next.x !== crop.x || next.y !== crop.y) { crop = next; place(); }
   };
-  // (1.9.6) Bright scenes: a white or grey picture (sky, snow, a bright room) made a white glow strong enough to wash
-  // out the title and the top bar over it. Twice a second the frame's average brightness is read from a tiny copy; a
-  // bright picture turns the glow down (to 40 % at its brightest), and it comes back up as the scene gets darker. The
-  // layer's own fade smooths the change.
-  const findTone = () => {
-    let d;
-    try { pctx.drawImage(video, 0, 0, 96, 54); d = pctx.getImageData(0, 0, 96, 54).data; } catch (e) { return; }
-    let sum = 0, k = 0;
-    for (let i = 0; i < d.length; i += 16) { sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]; k++; }
-    const L = k ? sum / k / 255 : 0, next = Math.round(Math.max(0.4, Math.min(1, 1 - (L - 0.5) * 2)) * 100) / 100;
-    if (next !== tone) { tone = next; layer.style.setProperty('--oa-tone', String(tone)); }
-  };
   const draw = () => {
     if (!video) return;
     const now = performance.now();
-    if (o.bars && now - lastProbe > 1000) { lastProbe = now; findBars(); }
-    if (now - lastTone > 500) { lastTone = now; findTone(); }
+    if (useCrop() && now - lastProbe > 1000) { lastProbe = now; findBars(); }
     try {
       const vw = video.videoWidth, vh = video.videoHeight;
       ctx.drawImage(video, vw * crop.x, vh * crop.y, vw * crop.w, vh * crop.h, 0, 0, W, H);
     } catch (e) {}
     drawLevels();
+    drawBars();
     lastDraw = now;
   };
   const onFrame = () => {
@@ -258,9 +283,10 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     s.setProperty('--oa-bright', String(n(o.brightness, 50, 150, 100) / 100));
     s.setProperty('--oa-colors', String(n(o.colors, 0, 200, 135) / 100));
     s.setProperty('--oa-edge', `${Math.round(n(o.edge, 0, 100, 0) * 0.9)}px`);
+    for (const k of ['--oa-fade', '--oa-bright', '--oa-colors']) bars.style.setProperty(k, s.getPropertyValue(k)); // (the bar fill isn't inside the layer)
     const res = { low: [128, 72], high: [512, 288] }[o.res] || [256, 144];
     if (res[0] !== W) { W = res[0]; H = res[1]; cv.width = W; cv.height = H; shape = ''; if (shown) { place(); draw(); } }
-    if (!o.bars && (crop.w !== 1 || crop.h !== 1)) { crop = { x: 0, y: 0, w: 1, h: 1 }; cropSeen = ''; if (shown) { place(); draw(); } }
+    if (!useCrop() && (crop.w !== 1 || crop.h !== 1)) { crop = { x: 0, y: 0, w: 1, h: 1 }; cropSeen = ''; if (shown) { place(); draw(); } }
     // page look: text shadows, buttons and boxes, thumbnails (only what differs from YouTube's own)
     const text = n(o.text, 0, 100, 0), boxes = n(o.boxes, 0, 200, 100) / 100, thumbs = n(o.thumbs, 20, 100, 100) / 100;
     let css = '';
@@ -295,6 +321,7 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     if (!shown) return;
     shown = false;
     layer.classList.remove('on');
+    bars.style.opacity = '0';
     if (video && rvfc) { video.cancelVideoFrameCallback(rvfc); rvfc = 0; }
     clearTimeout(gone);
     gone = setTimeout(() => { if (!shown) { root.removeAttribute('oto-ambient'); root.removeAttribute('oto-theater'); } }, n(o.fade, 0, 5000, 600));
@@ -403,7 +430,7 @@ ${IMM} #masthead-container:not(:hover),${IMM} ytd-watch-flexy[theater] #columns:
     for (let i = 0; i < d.length; i += 4) bin += String.fromCharCode(d[i], d[i + 1], d[i + 2]);
     return { w: 128, h: 72, rgb: btoa(bin), pic: geo.pic.map((v) => Math.round(v)), ex: Math.round(geo.ex), step: geo.step, outer: geo.outer, inner: geo.inner,
       blur: Math.max(Math.round(geo.pic[3] * 0.0025 * n(o.blur, 0, 100, 30)), geo.outer ? Math.round((geo.pic[2] * geo.step) / 2 * 0.34) : 0), fadeStart: n(o.fadeStart, -50, 100, 15), fadeCurve: n(o.fadeCurve, 1, 100, 35),
-      strength: (n(o.strength, 0, 100, 85) / 100) * tone, bright: n(o.brightness, 50, 150, 100) / 100, colors: n(o.colors, 0, 200, 135) / 100 };
+      strength: n(o.strength, 0, 100, 85) / 100, bright: n(o.brightness, 50, 150, 100) / 100, colors: n(o.colors, 0, 200, 135) / 100 };
   };
   window.__otoAmbient = { set, take, frame };
   set(o0);
